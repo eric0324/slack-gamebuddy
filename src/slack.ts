@@ -5,7 +5,7 @@ import { formatStats, type StatsStore } from './stats.js';
 import { applyAvalon, type AAction, type AState } from './avalon.js';
 import { applyCodenames, type CAction, type CState } from './codenames.js';
 import { applyCoup, type KAction, type KState } from './coup.js';
-import { applyHanabi, type Color, type HAction, type HState } from './hanabi.js';
+import { applyHanabi, COLOR_NAME, type Color, type HAction, type HState } from './hanabi.js';
 import { applyJustOne, type JAction, type JState } from './justone.js';
 import { applyLiarsDice, type LAction, type LState } from './liarsdice.js';
 import { applySpyfall, type SAction, type SState } from './spyfall.js';
@@ -159,7 +159,7 @@ const HANABI_HELP = [
   '*花火指令*',
   '• `/game hanabi new`：開房（任何人）',
   '• `/game hanabi start`：開始遊戲，需要 2～5 位真人（房主）',
-  '• `/game hanabi hint @某人 <紅|黃|綠|藍|白|1～5>`：給提示（輪到你時，花 1 個提示標記）',
+  '• 給提示：輪到你時按「💡 給提示」選人和顏色或數字（花 1 個提示標記）；也可以打 `/game hanabi hint @某人 紅` 或 `/game hanabi hint @某人 3`',
   '• `/game hanabi cancel`：取消遊戲（房主）',
   '看牌、出牌、棄牌都用頻道按鈕',
   `📖 完整說明：<${WIKI}|wiki>`,
@@ -362,8 +362,12 @@ function hanabiButton(kind: string, value: string, user: string, channel: string
   if (kind === 'rematch') return { type: 'rematch', user, channel };
   if (kind !== 'hanabiTurn') return null;
   if (value === 'peek') return { type: 'peek', user };
-  const [act, index] = value.split(':');
-  return act === 'play' || act === 'discard' ? { type: act, user, index: Number(index) } : null;
+  if (value === 'hint') return { type: 'hintMenu', user };
+  const [act, arg, hint] = value.split(':');
+  if (act === 'hintTarget') return { type: 'hintTarget', user, target: arg };
+  if (act === 'hint' && /^[1-5]$/.test(hint)) return { type: 'hint', user, target: arg, number: Number(hint) };
+  if (act === 'hint' && hint in COLOR_NAME) return { type: 'hint', user, target: arg, color: hint as Color };
+  return act === 'play' || act === 'discard' ? { type: act, user, index: Number(arg) } : null;
 }
 
 function codenamesButton(kind: string, value: string, user: string, channel: string): CAction | null {
@@ -723,15 +727,20 @@ export class GameHost {
         return;
       }
       case 'prompt': {
-        if (e.audience === 'user' && isBot(e.user!)) return;
-        const target =
-          e.audience === 'channel' ? channel : e.audience === 'wolves' ? this.wolfChats.get(channel)?.id : await this.dm(e.user!);
-        if (!target) return;
+        if ((e.audience === 'user' || e.audience === 'ephemeral') && isBot(e.user!)) return;
         const elements = e.options.map((o, i) => button(e.kind, i, this.label(o.label), channel, o.value));
         const blocks = [
           { type: 'section', text: { type: 'mrkdwn', text: e.text } },
           { type: 'actions', elements },
         ];
+        // 只讓某人看到的按鈕選單（例如花火的給提示）
+        if (e.audience === 'ephemeral') {
+          await chat.postEphemeral({ channel, user: e.user!, text: e.text, blocks });
+          return;
+        }
+        const target =
+          e.audience === 'channel' ? channel : e.audience === 'wolves' ? this.wolfChats.get(channel)?.id : await this.dm(e.user!);
+        if (!target) return;
         await chat.postMessage({ channel: target, text: e.text, blocks });
         return;
       }

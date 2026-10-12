@@ -134,7 +134,7 @@ export type GameEvent =
   | { type: 'dm'; to: string; text: string }
   | { type: 'wolfChat'; wolves: string[]; text: string }
   | { type: 'lobby'; host: string; players: string[]; open: boolean; title?: string } // title 沒寫就是狼人殺
-  | { type: 'prompt'; kind: string; audience: 'channel' | 'wolves' | 'user'; user?: string; text: string; options: Option[] }
+  | { type: 'prompt'; kind: string; audience: 'channel' | 'wolves' | 'user' | 'ephemeral'; user?: string; text: string; options: Option[] }
   | { type: 'startTimer'; id: number; ms: number }
   | { type: 'gameRecord'; winner: 'good' | 'wolves'; players: { id: string; role: Role }[] };
 
