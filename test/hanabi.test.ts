@@ -96,8 +96,9 @@ describe('hanabi/setup: 看牌', () => {
     expect(text).toContain('提示 8');
     expect(text).toContain('失誤 0／3');
     expect(text).toContain('牌堆 40');
+    expect(text).not.toContain('/game hanabi hint');
     const p = prompts(events, 'hanabiTurn').at(-1)!;
-    expect(values(p)).toEqual(['peek', 'play:0', 'play:1', 'play:2', 'play:3', 'play:4', 'discard:0', 'discard:1', 'discard:2', 'discard:3', 'discard:4']);
+    expect(values(p)).toEqual(['peek', 'hint', 'play:0', 'play:1', 'play:2', 'play:3', 'play:4', 'discard:0', 'discard:1', 'discard:2', 'discard:3', 'discard:4']);
   });
 
   it('看牌：只有自己看到別人的手牌和自己已知的提示，看不到自己的牌', () => {
@@ -184,6 +185,53 @@ describe('hanabi/turns: 提示', () => {
     ] as [string, string, { color?: string; number?: number }, HState, string][]) {
       const res = hint(user, target, value, s2);
       expect(res.state.turn).toBe(1);
+      expect(ephemeralTo(res.events, user)).toMatchObject({ text: expect.stringContaining(text) });
+    }
+  });
+});
+
+// 3 人局：p3 先，p1 手牌 紅1 紅1 紅1 紅2 紅2；p2 手牌 紅3 紅3 紅4 紅4 紅5
+const ephPrompt = (events: GameEvent[], user: string) =>
+  events.find((e) => e.type === 'prompt' && e.audience === 'ephemeral' && e.user === user) as
+    | Extract<GameEvent, { type: 'prompt' }>
+    | undefined;
+describe('hanabi/turns: 用按鈕給提示', () => {
+  it('按給提示：只有自己看到其他玩家的按鈕', () => {
+    const { state, events } = run([{ type: 'hintMenu', user: 'p3' }], started(3).state);
+    const p = ephPrompt(events, 'p3')!;
+    expect(values(p)).toEqual(['hintTarget:p1', 'hintTarget:p2']);
+    expect(p.options.map((o) => o.label)).toEqual(['<@p1>', '<@p2>']);
+    expect(announces(events)).toEqual([]);
+    expect(state.turn).toBe(2);
+  });
+
+  it('選人後：只列出對方手上實際有的顏色和數字，顏色在前、數字由小到大', () => {
+    const s = started(3).state;
+    s.players[0].hand = [
+      { color: 'white', n: 4 },
+      { color: 'red', n: 3 },
+      { color: 'blue', n: 1 },
+      { color: 'red', n: 1 },
+      { color: 'white', n: 4 },
+    ];
+    const { events } = run([{ type: 'hintTarget', user: 'p3', target: 'p1' }], s);
+    const p = ephPrompt(events, 'p3')!;
+    expect(p.text).toContain('⬜4 🟥3 🟦1 🟥1 ⬜4');
+    expect(values(p)).toEqual(['hint:p1:red', 'hint:p1:blue', 'hint:p1:white', 'hint:p1:1', 'hint:p1:3', 'hint:p1:4']);
+    expect(p.options.map((o) => o.label)).toEqual(['紅', '藍', '白', '1', '3', '4']);
+  });
+
+  it('沒有標記、不是自己的回合、選自己或不在遊戲裡的人時拒絕', () => {
+    const s = started(3).state;
+    for (const [action, user, text] of [
+      [{ type: 'hintMenu', user: 'p3' }, 'p3', '沒有提示標記'],
+      [{ type: 'hintMenu', user: 'p1' }, 'p1', '還沒輪到你'],
+      [{ type: 'hintTarget', user: 'p1', target: 'p2' }, 'p1', '還沒輪到你'],
+      [{ type: 'hintTarget', user: 'p3', target: 'p3' }, 'p3', '不能提示自己'],
+      [{ type: 'hintTarget', user: 'p3', target: 'x' }, 'p3', '不在這局'],
+    ] as [HAction, string, string][]) {
+      const res = run([action], action.type === 'hintMenu' && user === 'p3' ? { ...s, hints: 0 } : s);
+      expect(ephPrompt(res.events, user)).toBeUndefined();
       expect(ephemeralTo(res.events, user)).toMatchObject({ text: expect.stringContaining(text) });
     }
   });

@@ -928,6 +928,32 @@ describe('game-commands: 花火', () => {
     for (const s of ['花火', 'hanabi', '2～5 人', '/game hanabi new']) expect(lastEph(calls).text).toContain(s);
     await host.game('C1', 'U1', 'alice', 'hanabi help');
     for (const s of ['new', 'start', 'hint', 'cancel']) expect(lastEph(calls).text).toContain(`/game hanabi ${s}`);
+    expect(lastEph(calls).text).toContain('/game hanabi hint @某人 紅');
+    expect(lastEph(calls).text).toContain('給提示');
+    expect(lastEph(calls).text).not.toContain('<紅|');
+  });
+
+  it('給提示按鈕：選單只讓自己看到並帶按鈕，選人、選顏色後完成提示', async () => {
+    const { client, calls } = fakeClient();
+    const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, gifs: {} });
+    await host.game('C1', 'U1', 'alice', 'hanabi new');
+    await host.button('ww:join:0', 'C1|join', 'U2', 'bob');
+    await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
+    await host.button('ww:hanabiTurn:1', 'C1|hint', 'U2', 'bob');
+    const menu = lastEph(calls);
+    expect(menu).toMatchObject({ channel: 'C1', user: 'U2' });
+    const values = (args: typeof menu) =>
+      (args.blocks as { type: string; elements?: { value: string; text: { text: string } }[] }[])
+        .find((b) => b.type === 'actions')!
+        .elements!.map((e) => e.value);
+    expect(values(menu)).toEqual(['C1|hintTarget:U1']);
+    await host.button('ww:hanabiTurn:0', 'C1|hintTarget:U1', 'U2', 'bob');
+    expect(values(lastEph(calls))).toEqual(['C1|hint:U1:red', 'C1|hint:U1:1', 'C1|hint:U1:2']);
+    await host.button('ww:hanabiTurn:0', 'C1|hint:U1:red', 'U2', 'bob');
+    expect(host.hanabiGames.get('C1')).toMatchObject({ hints: 7, turn: 0 });
+    await host.button('ww:hanabiTurn:0', 'C1|hint:U1:2', 'U2', 'bob');
+    expect(lastEph(calls)).toMatchObject({ user: 'U2', text: expect.stringContaining('還沒輪到你') });
+    expect(host.hanabiGames.get('C1')!.hints).toBe(7);
   });
 
   it('看牌、出牌、棄牌按鈕和提示指令、計時都交給花火', async () => {

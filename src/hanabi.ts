@@ -58,6 +58,8 @@ export type HAction =
   | { type: 'play'; user: string; index: number }
   | { type: 'discard'; user: string; index: number }
   | { type: 'hint'; user: string; target: string; color?: Color; number?: number }
+  | { type: 'hintMenu'; user: string }
+  | { type: 'hintTarget'; user: string; target: string }
   | { type: 'timeout'; id: number }
   | { type: 'rematch'; user: string; channel: string };
 
@@ -126,7 +128,7 @@ function startTurn(c: Ctx) {
   c.events.push(
     {
       type: 'announce',
-      text: `🎇 輪到 ${mention(p.id)}（${TURN_MS / 60_000} 分鐘）\n煙火：${fireworksLine(s)}｜提示 ${s.hints}｜失誤 ${s.fuses}／${MAX_FUSES}｜牌堆 ${s.deck.length}\n給提示：\`/game hanabi hint @某人 <紅|黃|綠|藍|白|1～5>\``,
+      text: `🎇 輪到 ${mention(p.id)}（${TURN_MS / 60_000} 分鐘）\n煙火：${fireworksLine(s)}｜提示 ${s.hints}｜失誤 ${s.fuses}／${MAX_FUSES}｜牌堆 ${s.deck.length}`,
     },
     {
       type: 'prompt',
@@ -135,6 +137,7 @@ function startTurn(c: Ctx) {
       text: `${mention(p.id)} 請出牌、棄牌或給提示；大家都可以按「看牌」`,
       options: [
         { value: 'peek', label: '👀 看牌' },
+        { value: 'hint', label: '💡 給提示' },
         ...slots.map((i) => ({ value: `play:${i}`, label: `出第 ${i + 1} 張` })),
         ...slots.map((i) => ({ value: `discard:${i}`, label: `棄第 ${i + 1} 張` })),
       ],
@@ -233,6 +236,34 @@ function giveHint(c: Ctx, user: string, targetId: string, color?: Color, number?
   return true;
 }
 
+// 給提示的按鈕選單：只讓輪到的人看到，不改 state；最後的按鈕直接變成 hint action
+const ephemeralPrompt = (c: Ctx, user: string, text: string, options: { value: string; label: string }[]) => {
+  c.events.push({ type: 'prompt', kind: 'hanabiTurn', audience: 'ephemeral', user, text, options });
+  return false;
+};
+
+function hintMenu(c: Ctx, user: string): boolean {
+  const s = c.s;
+  if (s.phase !== 'turn' || user !== currentId(s)) return reply(c, user, '還沒輪到你。');
+  if (s.hints <= 0) return reply(c, user, '沒有提示標記了，只能出牌或棄牌。');
+  const others = s.players.filter((p) => p.id !== user);
+  return ephemeralPrompt(c, user, '💡 要提示誰？', others.map((p) => ({ value: `hintTarget:${p.id}`, label: mention(p.id) })));
+}
+
+function hintTarget(c: Ctx, user: string, targetId: string): boolean {
+  const s = c.s;
+  if (s.phase !== 'turn' || user !== currentId(s)) return reply(c, user, '還沒輪到你。');
+  if (targetId === user) return reply(c, user, '不能提示自己。');
+  const t = s.players.find((p) => p.id === targetId);
+  if (!t) return reply(c, user, '這個人不在這局遊戲裡。');
+  const colors = COLORS.filter((col) => t.hand.some((x) => x.color === col));
+  const numbers = [1, 2, 3, 4, 5].filter((n) => t.hand.some((x) => x.n === n));
+  return ephemeralPrompt(c, user, `💡 ${mention(t.id)} 的手牌：${t.hand.map(show).join(' ')}\n要提示哪個顏色或數字？`, [
+    ...colors.map((col) => ({ value: `hint:${t.id}:${col}`, label: COLOR_NAME[col] })),
+    ...numbers.map((n) => ({ value: `hint:${t.id}:${n}`, label: String(n) })),
+  ]);
+}
+
 function endTurn(c: Ctx) {
   const s = c.s;
   if (s.remaining !== undefined && --s.remaining <= 0) {
@@ -323,6 +354,10 @@ function handle(c: Ctx, action: GameAction): boolean {
       return discardCard(c, action.user, action.index);
     case 'hint':
       return giveHint(c, action.user, action.target, action.color, action.number);
+    case 'hintMenu':
+      return hintMenu(c, action.user);
+    case 'hintTarget':
+      return hintTarget(c, action.user, action.target);
     case 'timeout': {
       if (action.id !== s.timers.phase || s.phase !== 'turn') return false;
       const me = currentId(s);
