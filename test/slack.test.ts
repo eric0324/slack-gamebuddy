@@ -947,6 +947,7 @@ describe('game-commands: 花火', () => {
         .find((b) => b.type === 'actions')!
         .elements!.map((e) => e.value);
     expect(values(menu)).toEqual(['C1|hintTarget:U1']);
+    expect(JSON.stringify(menu.blocks)).toContain('"text":"alice"');
     await host.button('ww:hanabiTurn:0', 'C1|hintTarget:U1', 'U2', 'bob');
     expect(values(lastEph(calls))).toEqual(['C1|hint:U1:red', 'C1|hint:U1:1', 'C1|hint:U1:2']);
     await host.button('ww:hanabiTurn:0', 'C1|hint:U1:red', 'U2', 'bob');

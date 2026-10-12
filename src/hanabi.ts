@@ -247,7 +247,7 @@ function hintMenu(c: Ctx, user: string): boolean {
   if (s.phase !== 'turn' || user !== currentId(s)) return reply(c, user, '還沒輪到你。');
   if (s.hints <= 0) return reply(c, user, '沒有提示標記了，只能出牌或棄牌。');
   const others = s.players.filter((p) => p.id !== user);
-  return ephemeralPrompt(c, user, '💡 要提示誰？', others.map((p) => ({ value: `hintTarget:${p.id}`, label: mention(p.id) })));
+  return ephemeralPrompt(c, user, '💡 要提示誰？', others.map((p) => ({ value: `hintTarget:${p.id}`, label: p.id })));
 }
 
 function hintTarget(c: Ctx, user: string, targetId: string): boolean {

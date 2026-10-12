@@ -200,7 +200,7 @@ describe('hanabi/turns: 用按鈕給提示', () => {
     const { state, events } = run([{ type: 'hintMenu', user: 'p3' }], started(3).state);
     const p = ephPrompt(events, 'p3')!;
     expect(values(p)).toEqual(['hintTarget:p1', 'hintTarget:p2']);
-    expect(p.options.map((o) => o.label)).toEqual(['<@p1>', '<@p2>']);
+    expect(p.options.map((o) => o.label)).toEqual(['p1', 'p2']);
     expect(announces(events)).toEqual([]);
     expect(state.turn).toBe(2);
   });
