@@ -28,7 +28,14 @@ app.command('/game', async ({ command, ack }) => {
 
 app.action<BlockAction<ButtonAction>>(/^ww:/, async ({ action, body, ack }) => {
   await ack();
-  await host.button(action.action_id, action.value ?? '', body.user.id, body.user.username);
+  await host.button(action.action_id, action.value ?? '', body.user.id, body.user.username, body.trigger_id);
+});
+
+// 按鈕開的 Slack 視窗送出時（例如心電感應的寫提示）
+app.view(/^ww:/, async ({ view, body, ack }) => {
+  await ack();
+  const text = view.state.values.text?.text?.value ?? '';
+  await host.modal(view.callback_id, view.private_metadata, body.user.id, body.user.name, text);
 });
 
 // 頻道裡真人打的字（忽略 bot 的訊息、編輯和其他子類型）
