@@ -174,6 +174,7 @@ const HANABI_HELP = [
   '*花火指令*',
   '• `/game hanabi new`：開房（任何人）',
   '• `/game hanabi start`：開始遊戲，需要 2～5 位真人（房主）',
+  '• 棄牌堆：隨時按「🗑️ 棄牌堆」查看已經棄掉和失誤的牌（只有你看得到）',
   '• 給提示：輪到你時按「💡 給提示」選人和顏色或數字（花 1 個提示標記）；也可以打 `/game hanabi hint @某人 紅` 或 `/game hanabi hint @某人 3`',
   '• `/game hanabi cancel`：取消遊戲（房主）',
   '看牌、出牌、棄牌都用頻道按鈕',
@@ -378,6 +379,7 @@ function hanabiButton(kind: string, value: string, user: string, channel: string
   if (kind === 'rematch') return { type: 'rematch', user, channel };
   if (kind !== 'hanabiTurn') return null;
   if (value === 'peek') return { type: 'peek', user };
+  if (value === 'discards') return { type: 'discards', user };
   if (value === 'hint') return { type: 'hintMenu', user };
   const [act, arg, hint] = value.split(':');
   if (act === 'hintTarget') return { type: 'hintTarget', user, target: arg };

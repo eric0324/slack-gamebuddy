@@ -98,7 +98,7 @@ describe('hanabi/setup: 看牌', () => {
     expect(text).toContain('牌堆 40');
     expect(text).not.toContain('/game hanabi hint');
     const p = prompts(events, 'hanabiTurn').at(-1)!;
-    expect(values(p)).toEqual(['peek', 'hint', 'play:0', 'play:1', 'play:2', 'play:3', 'play:4', 'discard:0', 'discard:1', 'discard:2', 'discard:3', 'discard:4']);
+    expect(values(p)).toEqual(['peek', 'discards', 'hint', 'play:0', 'play:1', 'play:2', 'play:3', 'play:4', 'discard:0', 'discard:1', 'discard:2', 'discard:3', 'discard:4']);
   });
 
   it('看牌：只有自己看到別人的手牌和自己已知的提示，看不到自己的牌', () => {
@@ -109,6 +109,35 @@ describe('hanabi/setup: 看牌', () => {
     expect(eph.text).not.toContain('🟥1');
     expect(events.filter((e) => e.type === 'announce')).toEqual([]);
     expect(state.players[0].hand).toHaveLength(5);
+  });
+});
+
+describe('hanabi/turns: 查看棄牌堆', () => {
+  it('依顏色分行、數字由小到大，只讓按的人看到，不改變狀態', () => {
+    const s = started(2).state;
+    const withPile: HState = { ...s, discard: [{ color: 'red', n: 3 }, { color: 'blue', n: 1 }, { color: 'red', n: 1 }] };
+    const { state, events } = run([{ type: 'discards', user: 'p1' }], withPile);
+    const eph = ephemeralTo(events, 'p1') as { text: string };
+    expect(eph.text).toContain('🟥 1 3');
+    expect(eph.text).toContain('🟦 1');
+    expect(eph.text).not.toContain('🟨');
+    expect(eph.text.indexOf('🟥')).toBeLessThan(eph.text.indexOf('🟦'));
+    expect(events).toHaveLength(1);
+    expect(state).toBe(withPile);
+  });
+
+  it('棄牌堆是空的', () => {
+    const { events } = run([{ type: 'discards', user: 'p1' }], started(2).state);
+    expect((ephemeralTo(events, 'p1') as { text: string }).text).toContain('棄牌堆是空的');
+  });
+
+  it('不是輪到的人或觀眾也能看', () => {
+    const s = started(2).state;
+    for (const user of ['p1', 'x9']) {
+      const { state, events } = run([{ type: 'discards', user }], s);
+      expect((ephemeralTo(events, user) as { text: string }).text).toContain('棄牌堆是空的');
+      expect(state.turn).toBe(s.turn);
+    }
   });
 });
 

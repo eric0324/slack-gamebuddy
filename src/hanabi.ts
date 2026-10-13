@@ -55,6 +55,7 @@ export type HAction =
   | { type: 'addBot'; user: string; count: number }
   | { type: 'removeBot'; user: string; count: number }
   | { type: 'peek'; user: string }
+  | { type: 'discards'; user: string }
   | { type: 'play'; user: string; index: number }
   | { type: 'discard'; user: string; index: number }
   | { type: 'hint'; user: string; target: string; color?: Color; number?: number }
@@ -137,6 +138,7 @@ function startTurn(c: Ctx) {
       text: `${mention(p.id)} 請出牌、棄牌或給提示；大家都可以按「看牌」`,
       options: [
         { value: 'peek', label: '👀 看牌' },
+        { value: 'discards', label: '🗑️ 棄牌堆' },
         { value: 'hint', label: '💡 給提示' },
         ...slots.map((i) => ({ value: `play:${i}`, label: `出第 ${i + 1} 張` })),
         ...slots.map((i) => ({ value: `discard:${i}`, label: `棄第 ${i + 1} 張` })),
@@ -154,6 +156,14 @@ function peek(c: Ctx, user: string) {
   const others = s.players.filter((p) => p.id !== user).map((p) => `${mention(p.id)}：${p.hand.map(show).join(' ')}`);
   const mine = me.hand.map((x, i) => `第 ${i + 1} 張：${known(x)}`).join('\n');
   return reply(c, user, `👀 別人的手牌：\n${others.join('\n')}\n\n你的手牌（已知的提示）：\n${mine}`);
+}
+
+// 棄牌堆：公開資訊，誰都能看；依顏色分行、數字由小到大
+function discards(c: Ctx, user: string) {
+  const lines = COLORS.map((col) => [col, c.s.discard.filter((x) => x.color === col).map((x) => x.n).sort((a, b) => a - b)] as const)
+    .filter(([, ns]) => ns.length)
+    .map(([col, ns]) => `${COLOR_EMOJI[col]} ${ns.join(' ')}`);
+  return reply(c, user, lines.length ? `🗑️ 棄牌堆：\n${lines.join('\n')}` : '🗑️ 棄牌堆是空的。');
 }
 
 const currentId = (s: HState) => s.players[s.turn].id;
@@ -348,6 +358,9 @@ function handle(c: Ctx, action: GameAction): boolean {
     case 'peek':
       if (s.phase === 'lobby') return false;
       return peek(c, action.user);
+    case 'discards':
+      if (s.phase === 'lobby') return false;
+      return discards(c, action.user);
     case 'play':
       return playCard(c, action.user, action.index);
     case 'discard':
