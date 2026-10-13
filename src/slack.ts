@@ -45,7 +45,13 @@ export interface HostOptions {
   gifs?: Partial<Record<GifKey, string[]>>;
   stats?: StatsStore;
   setTimer?: (fn: () => void, ms: number) => void;
+  respond?: (url: string, payload: object) => Promise<void>; // 用按鈕的 response_url 換掉 ephemeral 訊息
 }
+
+const postJson = async (url: string, payload: object) => {
+  const res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
+  if (!res.ok) throw new Error(`response_url ${res.status}`);
+};
 
 const HELP = [
   '*狼人殺指令*',
@@ -204,24 +210,36 @@ export function slackText(text: string): string {
 }
 
 // 遊戲大廳：每款遊戲一列，附「開房」按鈕
-const CATALOG: { kind: Kind; emoji: string; name: string; players: string; desc: string }[] = [
-  { kind: 'werewolf', emoji: '🐺', name: '狼人殺', players: '6～12 人', desc: '陣營推理，夜晚私訊行動、白天輪流發言投票' },
-  { kind: 'undercover', emoji: '🕵️', name: '誰是臥底', players: '4～12 人', desc: '每人一個詞，輪流描述、投票找出拿到不同詞的臥底' },
-  { kind: 'spyfall', emoji: '📍', name: '間諜危機', players: '4～10 人', desc: '只有間諜不知道地點，接力提問、投票抓間諜' },
-  { kind: 'avalon', emoji: '🏰', name: '阿瓦隆', players: '5～10 人', desc: '好人對壞人，隊長組隊出任務，沒有人會出局' },
-  { kind: 'codenames', emoji: '🟥', name: '機密代號', players: '4～12 人', desc: '紅藍兩隊比賽，隊長用一個詞當提示翻字卡' },
-  { kind: 'liarsdice', emoji: '🎲', name: '吹牛骰', players: '2～8 人', desc: '偷偷擲骰子，輪流喊數或開，輸的人少一顆骰子' },
-  { kind: 'justone', emoji: '💡', name: '一字千金', players: '3～7 人', desc: '合作猜詞，大家各給一個提示，重複的會被刪掉' },
-  { kind: 'coup', emoji: '👑', name: '政變', players: '3～6 人', desc: '虛張聲勢，宣稱任何角色的能力，質疑或阻擋' },
-  { kind: 'hanabi', emoji: '🎆', name: '花火', players: '2～5 人', desc: '合作遊戲，看得到別人的牌、看不到自己的' },
-  { kind: 'wavelength', emoji: '📡', name: '心電感應', players: '4～12 人', desc: '兩隊對抗，出題者用一個詞讓隊友猜光譜上的位置' },
-  { kind: 'decrypto', emoji: '🔐', name: '截碼戰', players: '4～12 人', desc: '兩隊對抗，用提示傳 3 碼密碼給隊友，也試著攔截對方' },
+const CATALOG: { kind: Kind; category: string; emoji: string; name: string; players: string; desc: string }[] = [
+  { kind: 'werewolf', category: 'deduction', emoji: '🐺', name: '狼人殺', players: '6～12 人', desc: '陣營推理，夜晚私訊行動、白天輪流發言投票' },
+  { kind: 'undercover', category: 'deduction', emoji: '🕵️', name: '誰是臥底', players: '4～12 人', desc: '每人一個詞，輪流描述、投票找出拿到不同詞的臥底' },
+  { kind: 'spyfall', category: 'deduction', emoji: '📍', name: '間諜危機', players: '4～10 人', desc: '只有間諜不知道地點，接力提問、投票抓間諜' },
+  { kind: 'avalon', category: 'deduction', emoji: '🏰', name: '阿瓦隆', players: '5～10 人', desc: '好人對壞人，隊長組隊出任務，沒有人會出局' },
+  { kind: 'codenames', category: 'team', emoji: '🟥', name: '機密代號', players: '4～12 人', desc: '紅藍兩隊比賽，隊長用一個詞當提示翻字卡' },
+  { kind: 'liarsdice', category: 'bluff', emoji: '🎲', name: '吹牛骰', players: '2～8 人', desc: '偷偷擲骰子，輪流喊數或開，輸的人少一顆骰子' },
+  { kind: 'justone', category: 'coop', emoji: '💡', name: '一字千金', players: '3～7 人', desc: '合作猜詞，大家各給一個提示，重複的會被刪掉' },
+  { kind: 'coup', category: 'bluff', emoji: '👑', name: '政變', players: '3～6 人', desc: '虛張聲勢，宣稱任何角色的能力，質疑或阻擋' },
+  { kind: 'hanabi', category: 'coop', emoji: '🎆', name: '花火', players: '2～5 人', desc: '合作遊戲，看得到別人的牌、看不到自己的' },
+  { kind: 'wavelength', category: 'team', emoji: '📡', name: '心電感應', players: '4～12 人', desc: '兩隊對抗，出題者用一個詞讓隊友猜光譜上的位置' },
+  { kind: 'decrypto', category: 'team', emoji: '🔐', name: '截碼戰', players: '4～12 人', desc: '兩隊對抗，用提示傳 3 碼密碼給隊友，也試著攔截對方' },
 ];
 
-function lobbyBlocks(channel: string) {
+// 大廳的分類：一次只顯示一類，按上面的分類按鈕切換
+const CATEGORIES = [
+  { key: 'deduction', label: '🔍 推理' },
+  { key: 'team', label: '⚔️ 團隊對抗' },
+  { key: 'coop', label: '🤝 合作' },
+  { key: 'bluff', label: '🎲 心理戰' },
+];
+
+function lobbyBlocks(channel: string, category = CATEGORIES[0].key) {
   return [
-    { type: 'section', text: { type: 'mrkdwn', text: slackText('*🎮 遊戲大廳*：點「開房」就能開一局，你會是房主') } },
-    ...CATALOG.map((g, i) => ({
+    { type: 'section', text: { type: 'mrkdwn', text: slackText('*🎮 遊戲大廳*：選分類，點「開房」就能開一局，你會是房主') } },
+    {
+      type: 'actions',
+      elements: CATEGORIES.map((c, i) => ({ ...button('lobbyTab', i, c.label, channel, c.key), ...(c.key === category ? { style: 'primary' } : {}) })),
+    },
+    ...CATALOG.map((g, i) => ({ g, i })).filter(({ g }) => g.category === category).map(({ g, i }) => ({
       type: 'section',
       text: { type: 'mrkdwn', text: slackText(`${g.emoji} *${g.name}*（\`${g.kind}\`）${g.players}\n${g.desc}`) },
       accessory: button('lobbyOpen', i, '開房', channel, g.kind),
@@ -585,6 +603,7 @@ export class GameHost {
   private gifs: Partial<Record<GifKey, string[]>>;
   private stats?: StatsStore;
   private setTimer: (fn: () => void, ms: number) => void;
+  private respond: (url: string, payload: object) => Promise<void>;
   private defs: Record<OtherKind, GameDef>;
 
   constructor(
@@ -595,6 +614,7 @@ export class GameHost {
     this.gifs = opts.gifs ?? GIFS;
     this.stats = opts.stats;
     this.setTimer = opts.setTimer ?? ((fn, ms) => void setTimeout(fn, ms));
+    this.respond = opts.respond ?? postJson;
     this.defs = {
       undercover: { states: this.undercoverGames, apply: applyUndercover, parse: parseUndercoverCommand, button: undercoverButton, help: UNDERCOVER_HELP },
       spyfall: { states: this.spyfallGames, apply: applySpyfall, parse: parseSpyfallCommand, button: spyfallButton, help: SPYFALL_HELP },
@@ -666,9 +686,9 @@ export class GameHost {
 
 
   // `/game`：只讓輸入的人看到遊戲大廳
-  private showLobby(channel: string, user: string): Promise<void> {
+  private showLobby(channel: string, user: string, category?: string): Promise<void> {
     this.queue = this.queue
-      .then(() => this.client.chat.postEphemeral({ channel, user, text: slackText(GAME_LIST), blocks: lobbyBlocks(channel) }))
+      .then(() => this.client.chat.postEphemeral({ channel, user, text: slackText(GAME_LIST), blocks: lobbyBlocks(channel, category) }))
       .catch((err) => console.error('[werewolf] Slack API error', err));
     return this.queue;
   }
@@ -693,12 +713,23 @@ export class GameHost {
     return this.deliver(channel, events, kind, triggerId);
   }
 
-  // triggerId：這次按鈕點擊的 trigger_id，engine 要開視窗時用（3 秒內有效）
-  button(actionId: string, value: string, user: string, userName: string, triggerId?: string): Promise<void> {
+  // 切換大廳分類：用 response_url 換掉原本那則大廳；失敗或沒有時改發一則新的
+  private switchLobby(channel: string, user: string, category: string, responseUrl?: string): Promise<void> {
+    if (!CATEGORIES.some((c) => c.key === category)) return Promise.resolve();
+    const payload = { replace_original: true, text: slackText(GAME_LIST), blocks: lobbyBlocks(channel, category) };
+    const replaced = responseUrl ? this.respond(responseUrl, payload).then(() => true) : Promise.resolve(false);
+    return replaced
+      .catch((err) => (console.error('[werewolf] response_url failed', err), false))
+      .then((ok) => (ok ? undefined : this.showLobby(channel, user, category)));
+  }
+
+  // triggerId：這次按鈕點擊的 trigger_id，engine 要開視窗時用（3 秒內有效）；responseUrl：換掉 ephemeral 訊息用
+  button(actionId: string, value: string, user: string, userName: string, triggerId?: string, responseUrl?: string): Promise<void> {
     this.names.set(user, userName);
     const kind = actionId.split(':')[1];
     const sep = value.indexOf('|');
     const channel = value.slice(0, sep);
+    if (kind === 'lobbyTab') return this.switchLobby(channel, user, value.slice(sep + 1), responseUrl);
     if (kind === 'lobbyOpen') {
       const game = value.slice(sep + 1);
       if (game === 'werewolf') return this.command(channel, user, userName, 'new');
