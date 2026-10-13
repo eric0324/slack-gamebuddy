@@ -3,6 +3,7 @@ import { GIFS } from '../src/gifs.js';
 import { StatsStore } from '../src/stats.js';
 import { mention } from '../src/engine.js';
 import { buttonAction, GameHost, slackText, parseAvalonCommand, parseCodenamesCommand, parseCommand, parseDecryptoCommand, parseHanabiCommand, parseJustOneCommand, parseLiarsDiceCommand, parseSpyfallCommand, parseUndercoverCommand, parseWavelengthCommand, parseWavecoopCommand, type SlackClient } from '../src/slack.js';
+import { parseInsiderCommand } from '../src/slack.js';
 
 type Call = { method: string; args: Record<string, any> };
 
@@ -999,7 +1000,7 @@ describe('game-commands: 花火', () => {
 
 describe('game-commands: 遊戲大廳', () => {
   const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
-  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop'];
+  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider'];
 
   const TABS = ['deduction', 'team', 'coop', 'bluff'];
   const openButtons = (blocks: any[]) => blocks.filter((b) => b.accessory).map((b) => b.accessory);
@@ -1017,7 +1018,7 @@ describe('game-commands: 遊戲大廳', () => {
       expect(tabs.map((b: any) => b.style)).toEqual(['primary', undefined, undefined, undefined]);
       expect(tabs.every((b: any) => b.action_id.startsWith('ww:lobbyTab:'))).toBe(true);
       const buttons = openButtons(eph.blocks);
-      expect(buttons.map((b) => b.value)).toEqual(['C1|werewolf', 'C1|undercover', 'C1|spyfall', 'C1|avalon']);
+      expect(buttons.map((b) => b.value)).toEqual(['C1|werewolf', 'C1|undercover', 'C1|spyfall', 'C1|avalon', 'C1|insider']);
       expect(buttons.every((b: any) => b.action_id.startsWith('ww:lobbyOpen:') && b.text.text === '開房')).toBe(true);
       const all = JSON.stringify(eph.blocks);
       for (const s of ['狼人殺', '6～12 人', 'wiki', '/game <代號> help']) expect(all).toContain(s);
@@ -1344,5 +1345,85 @@ describe('game-commands: 截碼戰', () => {
     expect(host.decryptoGames.get('C1')!.decodeVotes).toEqual({ U3: '123' });
     await host.button('ww:decrypto:1', 'C1|history', 'U9', 'zed');
     expect(lastEph(calls)).toMatchObject({ user: 'U9', text: expect.stringContaining('提示紀錄') });
+  });
+});
+
+describe('game-commands: 圈內人', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+  const lastPost = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postMessage').at(-1)!.args;
+  // rng 固定：主持人是 U1（房主），圈內人是 U2
+  async function startGame() {
+    const { client, calls } = fakeClient();
+    const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, gifs: {} });
+    await host.game('C1', 'U1', 'alice', 'insider new');
+    for (const u of ['U2', 'U3', 'U4', 'U5']) await host.button('ww:join:0', 'C1|join', u, u);
+    await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
+    return { host, calls };
+  }
+
+  it('/game 清單和大廳推理類有圈內人；/game insider help 列出指令', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', '');
+    for (const s of ['圈內人', 'insider', '4～8 人', '/game insider new']) expect(lastEph(calls).text).toContain(s);
+    expect(JSON.stringify(lastEph(calls).blocks)).toContain('C1|insider');
+    await host.game('C1', 'U1', 'alice', 'insider help');
+    for (const s of ['new', 'start', 'ask', 'vote', 'cancel']) expect(lastEph(calls).text).toContain(`/game insider ${s}`);
+    await host.game('C1', 'U1', 'alice', 'insider dance');
+    expect(lastEph(calls).text).toContain('圈內人指令');
+  });
+
+  it('指令解析：new、start、cancel、addbot、ask、vote', () => {
+    expect(parseInsiderCommand('new', 'U1', 'C1')).toEqual({ type: 'new', user: 'U1', channel: 'C1' });
+    expect(parseInsiderCommand('start', 'U1', 'C1')).toEqual({ type: 'start', user: 'U1' });
+    expect(parseInsiderCommand('cancel', 'U1', 'C1')).toEqual({ type: 'cancel', user: 'U1' });
+    expect(parseInsiderCommand('addbot', 'U1', 'C1')).toEqual({ type: 'addBot', user: 'U1', count: 1 });
+    expect(parseInsiderCommand('ask 比 人 大嗎', 'U1', 'C1')).toEqual({ type: 'ask', user: 'U1', text: '比 人 大嗎' });
+    expect(parseInsiderCommand('ask', 'U1', 'C1')).toBeNull();
+    expect(parseInsiderCommand('vote', 'U1', 'C1')).toEqual({ type: 'skip', user: 'U1' });
+    expect(parseInsiderCommand('dance', 'U1', 'C1')).toBeNull();
+  });
+
+  it('頻道訊息交給圈內人：主持人看到回答按鈕，按了頻道公告', async () => {
+    const { host, calls } = await startGame();
+    await host.chat('C1', 'U3', '是動物嗎？');
+    const eph = lastEph(calls);
+    expect(eph.user).toBe('U1');
+    expect(eph.text).toContain('是動物嗎？');
+    expect(buttonsOf({ method: '', args: eph }).map((b: any) => b.value)).toEqual([
+      'C1|answer:1:yes',
+      'C1|answer:1:no',
+      'C1|answer:1:unknown',
+      'C1|answer:1:correct',
+    ]);
+    await host.button('ww:insider:0', 'C1|answer:1:yes', 'U1', 'alice');
+    expect(lastPost(calls).text).toContain('是動物嗎？');
+    expect(lastPost(calls).text).toContain('✅ 是');
+  });
+
+  it('猜中、提早投票、投票的按鈕交給圈內人', async () => {
+    const { host } = await startGame();
+    await host.game('C1', 'U4', 'dave', 'insider ask 是貓嗎');
+    await host.button('ww:insider:3', 'C1|answer:1:correct', 'U1', 'alice');
+    expect(host.insiderGames.get('C1')).toMatchObject({ phase: 'discuss', guesser: 'U4' });
+    await host.game('C1', 'U1', 'alice', 'insider vote');
+    expect(host.insiderGames.get('C1')!.phase).toBe('vote');
+    await host.button('ww:insider:0', 'C1|vote:U2', 'U3', 'carol');
+    expect(host.insiderGames.get('C1')!.votes).toEqual({ U3: 'U2' });
+  });
+
+  it('房主按開始投票按鈕', async () => {
+    const { host } = await startGame();
+    await host.chat('C1', 'U4', '是貓嗎');
+    await host.button('ww:insider:3', 'C1|answer:1:correct', 'U1', 'alice');
+    await host.button('ww:insider:0', 'C1|skip', 'U1', 'alice');
+    expect(host.insiderGames.get('C1')!.phase).toBe('vote');
+  });
+
+  it('其他遊戲（非狼人殺）進行中，頻道訊息不處理', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', 'decrypto new');
+    const before = calls.length;
+    await host.chat('C1', 'U1', '是動物嗎？');
+    expect(calls.length).toBe(before);
   });
 });

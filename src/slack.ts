@@ -13,8 +13,9 @@ import { applyUndercover, type UAction, type UState } from './undercover.js';
 import { applyWavelength, type WAction, type WState } from './wavelength.js';
 import { applyDecrypto, type DAction, type DState } from './decrypto.js';
 import { applyWavecoop, type WCAction, type WCState } from './wavecoop.js';
+import { applyInsider, type IAction, type IState } from './insider.js';
 
-type Kind = 'werewolf' | 'undercover' | 'spyfall' | 'avalon' | 'codenames' | 'liarsdice' | 'justone' | 'coup' | 'hanabi' | 'wavelength' | 'decrypto' | 'wavecoop';
+type Kind = 'werewolf' | 'undercover' | 'spyfall' | 'avalon' | 'codenames' | 'liarsdice' | 'justone' | 'coup' | 'hanabi' | 'wavelength' | 'decrypto' | 'wavecoop' | 'insider';
 type OtherKind = Exclude<Kind, 'werewolf'>;
 
 // 狼人殺以外的遊戲都用同一套方式接上 adapter：engine、指令解析、按鈕對應、說明
@@ -83,6 +84,7 @@ const GAME_LIST = [
   '• 📡 *心電感應*（`wavelength`）：4～12 人（不支援 bot），開房 `/game wavelength new`',
   '• 🔐 *截碼戰*（`decrypto`）：4～12 人（不支援 bot），開房 `/game decrypto new`',
   '• 🧠 *心電感應（合作）*（`wavecoop`）：2～12 人（不支援 bot），開房 `/game wavecoop new`',
+  '• 🕴️ *圈內人*（`insider`）：4～8 人（不支援 bot），開房 `/game insider new`',
   '各遊戲的指令：`/game <遊戲代號> help`，例如 `/game liarsdice help`',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
@@ -94,6 +96,18 @@ const DECRYPTO_HELP = [
   '• 加密：輪到你時按「✍️ 寫提示」依序寫 3 個提示；也可以打 `/game decrypto clue 海 / 火 / 鐘`（用 / 分開）',
   '• `/game decrypto cancel`：取消遊戲（房主）',
   '解碼、攔截、提示紀錄都用頻道按鈕',
+  `📖 完整說明：<${WIKI}|wiki>`,
+].join('\n');
+
+const INSIDER_HELP = [
+  '*圈內人指令*',
+  '• `/game insider new`：開房（任何人）',
+  '• `/game insider start`：開始遊戲，需要 4～8 位真人（房主）',
+  '• 發問：問答期間直接在頻道打字；也可以打 `/game insider ask <問題>`',
+  '• 主持人用自己看得到的按鈕回答是／否／不知道，有人說出答案時按「🎯 猜中了」',
+  '• `/game insider vote`：討論中提早開始投票（房主）',
+  '• `/game insider cancel`：取消遊戲（房主）',
+  '投票找圈內人用頻道按鈕',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
@@ -235,6 +249,7 @@ const CATALOG: { kind: Kind; category: string; emoji: string; name: string; play
   { kind: 'wavelength', category: 'team', emoji: '📡', name: '心電感應', players: '4～12 人', desc: '兩隊對抗，出題者用一個詞讓隊友猜光譜上的位置' },
   { kind: 'decrypto', category: 'team', emoji: '🔐', name: '截碼戰', players: '4～12 人', desc: '兩隊對抗，用提示傳 3 碼密碼給隊友，也試著攔截對方' },
   { kind: 'wavecoop', category: 'coop', emoji: '🧠', name: '心電感應（合作）', players: '2～12 人', desc: '全員合作，輪流出題、大家一起猜光譜上的位置拚總分' },
+  { kind: 'insider', category: 'deduction', emoji: '🕴️', name: '圈內人', players: '4～8 人', desc: '是非題合力猜出答案，再找出知道答案卻裝不知道的圈內人' },
 ];
 
 // 大廳的分類：一次只顯示一類，按上面的分類按鈕切換
@@ -490,6 +505,27 @@ function decryptoButton(kind: string, value: string, user: string, channel: stri
   return null;
 }
 
+// 圈內人的子指令：ask <問題>（問題可以有空白）、vote（房主提早投票）
+export function parseInsiderCommand(text: string, user: string, channel: string): IAction | null {
+  const [sub, ...rest] = text.trim().split(/\s+/);
+  if (sub === 'ask') return rest.length ? { type: 'ask', user, text: rest.join(' ') } : null;
+  if (sub === 'vote') return { type: 'skip', user };
+  const action = parseUndercoverCommand(text, user, channel);
+  if (!action || !['new', 'start', 'cancel', 'addBot', 'removeBot'].includes(action.type)) return null;
+  return action as IAction;
+}
+
+function insiderButton(kind: string, value: string, user: string, channel: string): IAction | null {
+  if (kind === 'join' || kind === 'leave' || kind === 'start') return { type: kind, user };
+  if (kind === 'rematch') return { type: 'rematch', user, channel };
+  if (kind !== 'insider') return null;
+  if (value === 'skip') return { type: 'skip', user };
+  const [act, arg, ans] = value.split(':');
+  if (act === 'vote' && arg) return { type: 'vote', user, target: arg };
+  if (act === 'answer' && (ans === 'yes' || ans === 'no' || ans === 'unknown' || ans === 'correct')) return { type: 'answer', user, question: Number(arg), answer: ans };
+  return null;
+}
+
 function codenamesButton(kind: string, value: string, user: string, channel: string): CAction | null {
   switch (kind) {
     case 'join':
@@ -620,6 +656,7 @@ export class GameHost {
   wavelengthGames = new Map<string, WState>();
   decryptoGames = new Map<string, DState>();
   wavecoopGames = new Map<string, WCState>();
+  insiderGames = new Map<string, IState>();
   private lastKind = new Map<string, Kind>(); // 每個頻道最近一局是哪款遊戲
   private lobbyTs = new Map<string, string>();
   private boardTs = new Map<string, string>(); // 機密代號的牌桌訊息
@@ -655,6 +692,7 @@ export class GameHost {
       wavelength: { states: this.wavelengthGames, apply: applyWavelength, parse: parseWavelengthCommand, button: wavelengthButton, help: WAVELENGTH_HELP },
       decrypto: { states: this.decryptoGames, apply: applyDecrypto, parse: parseDecryptoCommand, button: decryptoButton, help: DECRYPTO_HELP },
       wavecoop: { states: this.wavecoopGames, apply: applyWavecoop, parse: parseWavecoopCommand, button: wavecoopButton, help: WAVECOOP_HELP },
+      insider: { states: this.insiderGames, apply: applyInsider, parse: parseInsiderCommand, button: insiderButton, help: INSIDER_HELP },
     };
   }
 
@@ -791,9 +829,11 @@ export class GameHost {
     return this.deliver(channel, [{ type: 'ephemeral', to: user, text }]);
   }
 
-  // 頻道裡的一般訊息：只在有遊戲進行時交給 engine，engine 只讀不回應
+  // 頻道裡的一般訊息：狼人殺只讀不回應；圈內人當成問主持人的問題；其他遊戲忽略
   chat(channel: string, user: string, text: string): Promise<void> {
-    if (this.active(channel) !== 'werewolf') return Promise.resolve();
+    const active = this.active(channel);
+    if (active === 'insider') return this.dispatchGame('insider', channel, { type: 'chat', user, text } as IAction);
+    if (active !== 'werewolf') return Promise.resolve();
     return this.dispatch(channel, { type: 'chat', user, text });
   }
 
