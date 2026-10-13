@@ -3,7 +3,7 @@ import { GIFS } from '../src/gifs.js';
 import { StatsStore } from '../src/stats.js';
 import { mention } from '../src/engine.js';
 import { buttonAction, GameHost, slackText, parseAvalonCommand, parseCodenamesCommand, parseCommand, parseDecryptoCommand, parseHanabiCommand, parseJustOneCommand, parseLiarsDiceCommand, parseSpyfallCommand, parseUndercoverCommand, parseWavelengthCommand, parseWavecoopCommand, type SlackClient } from '../src/slack.js';
-import { parseInsiderCommand, parseNimmtCommand, parseSkullCommand } from '../src/slack.js';
+import { parseInsiderCommand, parseLoveLetterCommand, parseNimmtCommand, parseSkullCommand } from '../src/slack.js';
 
 type Call = { method: string; args: Record<string, any> };
 
@@ -1000,7 +1000,7 @@ describe('game-commands: 花火', () => {
 
 describe('game-commands: 遊戲大廳', () => {
   const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
-  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt'];
+  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter'];
 
   const TABS = ['deduction', 'team', 'coop', 'bluff'];
   const openButtons = (blocks: any[]) => blocks.filter((b) => b.accessory).map((b) => b.accessory);
@@ -1018,7 +1018,7 @@ describe('game-commands: 遊戲大廳', () => {
       expect(tabs.map((b: any) => b.style)).toEqual(['primary', undefined, undefined, undefined]);
       expect(tabs.every((b: any) => b.action_id.startsWith('ww:lobbyTab:'))).toBe(true);
       const buttons = openButtons(eph.blocks);
-      expect(buttons.map((b) => b.value)).toEqual(['C1|werewolf', 'C1|undercover', 'C1|spyfall', 'C1|avalon', 'C1|insider']);
+      expect(buttons.map((b) => b.value)).toEqual(['C1|werewolf', 'C1|undercover', 'C1|spyfall', 'C1|avalon', 'C1|insider', 'C1|loveletter']);
       expect(buttons.every((b: any) => b.action_id.startsWith('ww:lobbyOpen:') && b.text.text === '開房')).toBe(true);
       const all = JSON.stringify(eph.blocks);
       for (const s of ['狼人殺', '6～12 人', 'wiki', '/game <代號> help']) expect(all).toContain(s);
@@ -1558,5 +1558,59 @@ describe('game-commands: 誰是牛頭王', () => {
     expect(buttonsOf(revealed)).toHaveLength(0);
     await host.button('ww:nimmt:2', 'C1|row:1:0', 'U1', 'alice');
     expect(posts(calls).filter((c) => String(c.args.text).includes('已選 0/2'))).toHaveLength(2);
+  });
+});
+
+describe('game-commands: 情書', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+  const ephButtons = (calls: Call[]) => lastEph(calls).blocks.filter((b: any) => b.type === 'actions').flatMap((b: any) => b.elements);
+
+  it('/game 清單有情書；/game loveletter help 和不認識的子指令列出指令', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', '');
+    for (const s of ['情書', 'loveletter', '2～6 人', '/game loveletter new']) expect(lastEph(calls).text).toContain(s);
+    for (const text of ['loveletter help', 'loveletter xyz']) {
+      await host.game('C1', 'U1', 'alice', text);
+      for (const s of ['new', 'start', 'addbot', 'removebot', 'cancel']) expect(lastEph(calls).text).toContain(`/game loveletter ${s}`);
+    }
+  });
+
+  it('指令解析：只有房間指令', () => {
+    expect(parseLoveLetterCommand('new', 'U1', 'C1')).toEqual({ type: 'new', user: 'U1', channel: 'C1' });
+    expect(parseLoveLetterCommand('addbot 2', 'U1', 'C1')).toEqual({ type: 'addBot', user: 'U1', count: 2 });
+    expect(parseLoveLetterCommand('removebot', 'U1', 'C1')).toEqual({ type: 'removeBot', user: 'U1', count: 1 });
+    expect(parseLoveLetterCommand('play 1', 'U1', 'C1')).toBeNull();
+  });
+
+  it('從大廳開情書：按的人是房主', async () => {
+    const { host, calls } = setup();
+    await host.button('ww:lobbyOpen:11', 'C1|loveletter', 'U2', 'bob');
+    expect(host.loveLetterGames.get('C1')).toMatchObject({ phase: 'lobby', host: 'U2' });
+    expect(calls.at(-1)!.args.text).toContain('情書房間');
+  });
+
+  it('出牌、選目標（顯示名字、bot 也可以選）、猜角色、看手牌、棄牌紀錄都交給情書', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', 'loveletter new');
+    await host.game('C1', 'U1', 'alice', 'loveletter addbot');
+    await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
+    // rng 固定：bot 先出衛兵，接著輪到 U1
+    const s = host.loveLetterGames.get('C1')!;
+    expect(s.players[s.turn].id).toBe('U1');
+    await host.button('ww:loveletter:0', 'C1|menu', 'U1', 'alice');
+    expect(lastEph(calls).user).toBe('U1');
+    await host.button('ww:loveletter:0', ephButtons(calls)[0].value, 'U1', 'alice');
+    const target = ephButtons(calls)[0];
+    expect(target.value).toMatch(/^C1\|tgt:\d+:0:bot:1:/);
+    expect(target.text.text).toContain('🤖');
+    await host.button('ww:loveletter:0', target.value, 'U1', 'alice');
+    const guesses = ephButtons(calls);
+    expect(guesses).toHaveLength(9);
+    await host.button('ww:loveletter:0', guesses[0].value, 'U1', 'alice');
+    expect(host.loveLetterGames.get('C1')!.players.find((p) => p.id === 'U1')!.discards).toEqual(['guard']);
+    await host.button('ww:loveletter:1', 'C1|hand', 'U1', 'alice');
+    expect(lastEph(calls)).toMatchObject({ user: 'U1', text: expect.stringContaining('你的手牌') });
+    await host.button('ww:loveletter:2', 'C1|log', 'U9', 'zed');
+    expect(lastEph(calls)).toMatchObject({ user: 'U9', text: expect.stringContaining('棄牌紀錄') });
   });
 });
