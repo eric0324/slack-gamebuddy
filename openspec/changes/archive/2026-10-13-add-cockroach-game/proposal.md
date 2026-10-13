@@ -29,3 +29,5 @@
 - Code：新增 `src/cockroach.ts`；`src/slack.ts`（Kind、GameHost.defs 註冊、`parseCockroachCommand`、`cockroachButton`、`COCKROACH_HELP`、`GAME_LIST`、`CATALOG` 加 `category: 'bluff'`）
 - Tests：新增 `test/cockroach.test.ts`；`test/slack.test.ts`（KINDS、大廳心理戰分類、指令和按鈕路由）
 - Docs：README（遊戲列表、wiki 連結、manifest description／usage_hint）、wiki 新增「蟑螂撲克」「蟑螂撲克-遊戲規則」「蟑螂撲克-指令」三頁
+
+> 註：變色龍和蟑螂撲克一起合併，`game-commands` 的大廳分類修改（兩款都加入）統一寫在 `add-cockroach-game` 的 delta。

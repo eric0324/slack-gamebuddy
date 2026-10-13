@@ -30,3 +30,5 @@
 - Slack 設定不用改：不需要讀頻道訊息（討論是自由聊天，系統不讀）
 - Tests：新增 `test/chameleon.test.ts`、`test/chameleonCards.test.ts`；`test/slack.test.ts`
 - Docs：README（遊戲列表、wiki 連結、manifest description／usage_hint）、wiki 新增變色龍三頁
+
+> 註：變色龍和蟑螂撲克一起合併，`game-commands` 的大廳分類修改（兩款都加入）統一寫在 `add-cockroach-game` 的 delta。
