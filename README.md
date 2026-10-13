@@ -15,6 +15,7 @@
 - **花火**（`/game hanabi`）：2～5 位真人的合作遊戲，看得到別人的牌、看不到自己的，靠提示合力依序打出五種顏色的煙火
 - **心電感應**（`/game wavelength`）：4～12 位真人分兩隊，出題者用一個詞讓隊友猜光譜上的位置，有空就按、不用輪流
 - **截碼戰**（`/game decrypto`）：4～12 位真人分黑白兩隊，加密者用 3 個提示把密碼傳給隊友，同時試著攔截對方的密碼
+- **骷髏與玫瑰**（`/game skull`）：3～6 人的虛張聲勢遊戲，每人 3 朵玫瑰 1 個骷髏，蓋牌後喊「能翻開幾朵玫瑰」，挑戰成功 2 次或最後還有牌的人贏；可以加 bot
 
 輸入 `/game` 會打開遊戲大廳（只有你看得到），用上面的分類按鈕切換（推理、團隊對抗、合作、心理戰），點遊戲旁邊的「開房」就能開一局，不用記指令；房間公告也會附上該遊戲的規則連結。
 
@@ -33,8 +34,8 @@
        always_online: true
      slash_commands:
        - command: /game
-         description: 桌遊（狼人殺、誰是臥底、間諜危機、阿瓦隆、機密代號、吹牛骰、一字千金、政變、花火、心電感應、截碼戰）
-         usage_hint: werewolf new | undercover new | spyfall new | avalon new | codenames new | liarsdice new | justone new | coup new | hanabi new | wavelength new | decrypto new | help
+         description: 桌遊（狼人殺、誰是臥底、間諜危機、阿瓦隆、機密代號、吹牛骰、一字千金、政變、花火、心電感應、截碼戰、骷髏與玫瑰）
+         usage_hint: werewolf new | undercover new | spyfall new | avalon new | codenames new | liarsdice new | justone new | coup new | hanabi new | wavelength new | decrypto new | skull new | help
          should_escape: true
        - command: /werewolf
          description: 狼人殺
