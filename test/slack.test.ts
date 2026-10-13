@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { GIFS } from '../src/gifs.js';
 import { StatsStore } from '../src/stats.js';
 import { mention } from '../src/engine.js';
-import { buttonAction, GameHost, slackText, parseAvalonCommand, parseCodenamesCommand, parseCommand, parseDecryptoCommand, parseHanabiCommand, parseJustOneCommand, parseLiarsDiceCommand, parseSpyfallCommand, parseUndercoverCommand, parseWavelengthCommand, type SlackClient } from '../src/slack.js';
+import { buttonAction, GameHost, slackText, parseAvalonCommand, parseCodenamesCommand, parseCommand, parseDecryptoCommand, parseHanabiCommand, parseJustOneCommand, parseLiarsDiceCommand, parseSpyfallCommand, parseUndercoverCommand, parseWavelengthCommand, parseWavecoopCommand, type SlackClient } from '../src/slack.js';
+import { parseInsiderCommand, parseLoveLetterCommand, parseNimmtCommand, parseSkullCommand } from '../src/slack.js';
 
 type Call = { method: string; args: Record<string, any> };
 
@@ -999,7 +1000,7 @@ describe('game-commands: 花火', () => {
 
 describe('game-commands: 遊戲大廳', () => {
   const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
-  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto'];
+  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter'];
 
   const TABS = ['deduction', 'team', 'coop', 'bluff'];
   const openButtons = (blocks: any[]) => blocks.filter((b) => b.accessory).map((b) => b.accessory);
@@ -1017,7 +1018,7 @@ describe('game-commands: 遊戲大廳', () => {
       expect(tabs.map((b: any) => b.style)).toEqual(['primary', undefined, undefined, undefined]);
       expect(tabs.every((b: any) => b.action_id.startsWith('ww:lobbyTab:'))).toBe(true);
       const buttons = openButtons(eph.blocks);
-      expect(buttons.map((b) => b.value)).toEqual(['C1|werewolf', 'C1|undercover', 'C1|spyfall', 'C1|avalon']);
+      expect(buttons.map((b) => b.value)).toEqual(['C1|werewolf', 'C1|undercover', 'C1|spyfall', 'C1|avalon', 'C1|insider', 'C1|loveletter']);
       expect(buttons.every((b: any) => b.action_id.startsWith('ww:lobbyOpen:') && b.text.text === '開房')).toBe(true);
       const all = JSON.stringify(eph.blocks);
       for (const s of ['狼人殺', '6～12 人', 'wiki', '/game <代號> help']) expect(all).toContain(s);
@@ -1047,7 +1048,7 @@ describe('game-commands: 遊戲大廳', () => {
     const { url, payload } = responds[0];
     expect(url).toBe('https://hooks/x');
     expect(payload.replace_original).toBe(true);
-    expect(openButtons(payload.blocks).map((b: any) => b.value)).toEqual(['C1|justone', 'C1|hanabi']);
+    expect(openButtons(payload.blocks).map((b: any) => b.value)).toEqual(['C1|justone', 'C1|hanabi', 'C1|wavecoop']);
     expect(tabButtons(payload.blocks).map((b: any) => b.style)).toEqual([undefined, undefined, 'primary', undefined]);
   });
 
@@ -1055,7 +1056,7 @@ describe('game-commands: 遊戲大廳', () => {
     const { client, calls } = fakeClient();
     const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, respond: async () => { throw new Error('expired'); } });
     await host.button('ww:lobbyTab:3', 'C1|bluff', 'U1', 'alice', undefined, 'https://hooks/x');
-    expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|liarsdice', 'C1|coup']);
+    expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|liarsdice', 'C1|coup', 'C1|skull', 'C1|nimmt']);
     await host.button('ww:lobbyTab:1', 'C1|team', 'U1', 'alice');
     expect(lastEph(calls)).toMatchObject({ user: 'U1' });
     expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|codenames', 'C1|wavelength', 'C1|decrypto']);
@@ -1222,6 +1223,70 @@ describe('game-commands: 心電感應', () => {
   });
 });
 
+describe('game-commands: 心電感應（合作）', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+  // rng 固定：出題順序 U1、U2、U3，第 1 題 U1 出題，U2、U3 猜，目標 10
+  async function startGame(opts: { viewsFail?: boolean } = {}) {
+    const { client, calls } = fakeClient(opts);
+    const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, gifs: {} });
+    await host.button('ww:lobbyOpen:0', 'C1|wavecoop', 'U1', 'alice');
+    for (const u of ['U2', 'U3']) await host.button('ww:join:0', 'C1|join', u, u);
+    await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
+    return { host, calls };
+  }
+
+  it('/game 清單有心電感應（合作）；/game wavecoop help 和不認識的子指令列出指令', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', '');
+    for (const s of ['心電感應（合作）', 'wavecoop', '2～12 人', '/game wavecoop new']) expect(lastEph(calls).text).toContain(s);
+    for (const text of ['wavecoop help', 'wavecoop dance']) {
+      await host.game('C1', 'U1', 'alice', text);
+      for (const s of ['new', 'start', 'clue', 'cancel']) expect(lastEph(calls).text).toContain(`/game wavecoop ${s}`);
+    }
+  });
+
+  it('指令解析：new、start、cancel、clue、addbot', () => {
+    expect(parseWavecoopCommand('new', 'U1', 'C1')).toEqual({ type: 'new', user: 'U1', channel: 'C1' });
+    expect(parseWavecoopCommand('start', 'U1', 'C1')).toEqual({ type: 'start', user: 'U1' });
+    expect(parseWavecoopCommand('cancel', 'U1', 'C1')).toEqual({ type: 'cancel', user: 'U1' });
+    expect(parseWavecoopCommand('clue 麻辣 火鍋', 'U1', 'C1')).toEqual({ type: 'clue', user: 'U1', text: '麻辣 火鍋' });
+    expect(parseWavecoopCommand('clue', 'U1', 'C1')).toBeNull();
+    expect(parseWavecoopCommand('addbot', 'U1', 'C1')).toEqual({ type: 'addBot', user: 'U1', count: 1 });
+    expect(parseWavecoopCommand('guess 3', 'U1', 'C1')).toBeNull();
+  });
+
+  it('從大廳開房：房間公告標示心電感應（合作），附上規則連結', async () => {
+    const { host, calls } = await startGame();
+    expect(host.wavecoopGames.get('C1')).toMatchObject({ host: 'U1', phase: 'clue' });
+    const lobby = calls.find((c) => c.method === 'chat.postMessage' && c.args.text?.includes('心電感應（合作）房間'))!;
+    expect(lobby.args.text).toContain(encodeURI('心電感應（合作）-遊戲規則'));
+  });
+
+  it('寫提示按鈕：用 trigger_id 開視窗，送出後變成提示', async () => {
+    const { host, calls } = await startGame();
+    await host.button('ww:wavecoop:0', 'C1|clue', 'U1', 'alice', 'T123');
+    const open = calls.find((c) => c.method === 'views.open')!.args;
+    expect(open).toMatchObject({ trigger_id: 'T123', view: { type: 'modal', callback_id: 'ww:wavecoopClue', private_metadata: 'C1' } });
+    await host.modal('ww:wavecoopClue', 'C1', 'U1', 'alice', ['火鍋']);
+    expect(host.wavecoopGames.get('C1')).toMatchObject({ phase: 'guess', clue: '火鍋' });
+  });
+
+  it('視窗打不開時，只讓出題者看到改用指令', async () => {
+    const { host, calls } = await startGame({ viewsFail: true });
+    await host.button('ww:wavecoop:0', 'C1|clue', 'U1', 'alice', 'T123');
+    expect(lastEph(calls)).toMatchObject({ user: 'U1', text: expect.stringContaining('/game wavecoop clue') });
+  });
+
+  it('用指令寫提示；猜位置的按鈕交給心電感應（合作）', async () => {
+    const { host } = await startGame();
+    await host.game('C1', 'U1', 'alice', 'wavecoop clue 火鍋');
+    expect(host.wavecoopGames.get('C1')).toMatchObject({ phase: 'guess', clue: '火鍋' });
+    await host.button('ww:wavecoop:9', 'C1|guess:9', 'U2', 'bob');
+    await host.button('ww:wavecoop:10', 'C1|guess:10', 'U3', 'carol');
+    expect(host.wavecoopGames.get('C1')).toMatchObject({ round: 1, score: 4, total: 8 });
+  });
+});
+
 describe('game-commands: 截碼戰', () => {
   const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
   // rng 固定：U1、U3 黑隊，U2、U4 白隊；第 1 回合加密者是 U1、U2
@@ -1280,5 +1345,272 @@ describe('game-commands: 截碼戰', () => {
     expect(host.decryptoGames.get('C1')!.decodeVotes).toEqual({ U3: '123' });
     await host.button('ww:decrypto:1', 'C1|history', 'U9', 'zed');
     expect(lastEph(calls)).toMatchObject({ user: 'U9', text: expect.stringContaining('提示紀錄') });
+  });
+});
+
+describe('game-commands: 圈內人', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+  const lastPost = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postMessage').at(-1)!.args;
+  // rng 固定：主持人是 U1（房主），圈內人是 U2
+  async function startGame() {
+    const { client, calls } = fakeClient();
+    const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, gifs: {} });
+    await host.game('C1', 'U1', 'alice', 'insider new');
+    for (const u of ['U2', 'U3', 'U4', 'U5']) await host.button('ww:join:0', 'C1|join', u, u);
+    await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
+    return { host, calls };
+  }
+
+  it('/game 清單和大廳推理類有圈內人；/game insider help 列出指令', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', '');
+    for (const s of ['圈內人', 'insider', '4～8 人', '/game insider new']) expect(lastEph(calls).text).toContain(s);
+    expect(JSON.stringify(lastEph(calls).blocks)).toContain('C1|insider');
+    await host.game('C1', 'U1', 'alice', 'insider help');
+    for (const s of ['new', 'start', 'ask', 'vote', 'cancel']) expect(lastEph(calls).text).toContain(`/game insider ${s}`);
+    await host.game('C1', 'U1', 'alice', 'insider dance');
+    expect(lastEph(calls).text).toContain('圈內人指令');
+  });
+
+  it('指令解析：new、start、cancel、addbot、ask、vote', () => {
+    expect(parseInsiderCommand('new', 'U1', 'C1')).toEqual({ type: 'new', user: 'U1', channel: 'C1' });
+    expect(parseInsiderCommand('start', 'U1', 'C1')).toEqual({ type: 'start', user: 'U1' });
+    expect(parseInsiderCommand('cancel', 'U1', 'C1')).toEqual({ type: 'cancel', user: 'U1' });
+    expect(parseInsiderCommand('addbot', 'U1', 'C1')).toEqual({ type: 'addBot', user: 'U1', count: 1 });
+    expect(parseInsiderCommand('ask 比 人 大嗎', 'U1', 'C1')).toEqual({ type: 'ask', user: 'U1', text: '比 人 大嗎' });
+    expect(parseInsiderCommand('ask', 'U1', 'C1')).toBeNull();
+    expect(parseInsiderCommand('vote', 'U1', 'C1')).toEqual({ type: 'skip', user: 'U1' });
+    expect(parseInsiderCommand('dance', 'U1', 'C1')).toBeNull();
+  });
+
+  it('頻道訊息交給圈內人：主持人看到回答按鈕，按了頻道公告', async () => {
+    const { host, calls } = await startGame();
+    await host.chat('C1', 'U3', '是動物嗎？');
+    const eph = lastEph(calls);
+    expect(eph.user).toBe('U1');
+    expect(eph.text).toContain('是動物嗎？');
+    expect(buttonsOf({ method: '', args: eph }).map((b: any) => b.value)).toEqual([
+      'C1|answer:1:yes',
+      'C1|answer:1:no',
+      'C1|answer:1:unknown',
+      'C1|answer:1:correct',
+    ]);
+    await host.button('ww:insider:0', 'C1|answer:1:yes', 'U1', 'alice');
+    expect(lastPost(calls).text).toContain('是動物嗎？');
+    expect(lastPost(calls).text).toContain('✅ 是');
+  });
+
+  it('猜中、提早投票、投票的按鈕交給圈內人', async () => {
+    const { host } = await startGame();
+    await host.game('C1', 'U4', 'dave', 'insider ask 是貓嗎');
+    await host.button('ww:insider:3', 'C1|answer:1:correct', 'U1', 'alice');
+    expect(host.insiderGames.get('C1')).toMatchObject({ phase: 'discuss', guesser: 'U4' });
+    await host.game('C1', 'U1', 'alice', 'insider vote');
+    expect(host.insiderGames.get('C1')!.phase).toBe('vote');
+    await host.button('ww:insider:0', 'C1|vote:U2', 'U3', 'carol');
+    expect(host.insiderGames.get('C1')!.votes).toEqual({ U3: 'U2' });
+  });
+
+  it('房主按開始投票按鈕', async () => {
+    const { host } = await startGame();
+    await host.chat('C1', 'U4', '是貓嗎');
+    await host.button('ww:insider:3', 'C1|answer:1:correct', 'U1', 'alice');
+    await host.button('ww:insider:0', 'C1|skip', 'U1', 'alice');
+    expect(host.insiderGames.get('C1')!.phase).toBe('vote');
+  });
+
+  it('其他遊戲（非狼人殺）進行中，頻道訊息不處理', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', 'decrypto new');
+    const before = calls.length;
+    await host.chat('C1', 'U1', '是動物嗎？');
+    expect(calls.length).toBe(before);
+  });
+});
+
+describe('game-commands: 骷髏與玫瑰', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+  async function startGame() {
+    const { client, calls } = fakeClient();
+    const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, gifs: {} });
+    await host.game('C1', 'U1', 'alice', 'skull new');
+    for (const u of ['U2', 'U3']) await host.button('ww:join:0', 'C1|join', u, u);
+    await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
+    return { host, calls };
+  }
+
+  it('/game 清單和大廳有骷髏與玫瑰；/game skull help 和不認識的子指令列出指令', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', '');
+    for (const s of ['骷髏與玫瑰', 'skull', '3～6 人', '/game skull new']) expect(lastEph(calls).text).toContain(s);
+    for (const text of ['skull help', 'skull foo']) {
+      await host.game('C1', 'U1', 'alice', text);
+      for (const s of ['new', 'addbot', 'removebot', 'start', 'cancel']) expect(lastEph(calls).text).toContain(`/game skull ${s}`);
+    }
+  });
+
+  it('指令解析：new、start、cancel、addbot、removebot，其他不認識', () => {
+    expect(parseSkullCommand('new', 'U1', 'C1')).toEqual({ type: 'new', user: 'U1', channel: 'C1' });
+    expect(parseSkullCommand('start', 'U1', 'C1')).toEqual({ type: 'start', user: 'U1' });
+    expect(parseSkullCommand('cancel', 'U1', 'C1')).toEqual({ type: 'cancel', user: 'U1' });
+    expect(parseSkullCommand('addbot 2', 'U1', 'C1')).toEqual({ type: 'addBot', user: 'U1', count: 2 });
+    expect(parseSkullCommand('removebot', 'U1', 'C1')).toEqual({ type: 'removeBot', user: 'U1', count: 1 });
+    expect(parseSkullCommand('bid 3', 'U1', 'C1')).toBeNull();
+    expect(parseSkullCommand('guess x', 'U1', 'C1')).toBeNull();
+  });
+
+  it('按鈕交給骷髏與玫瑰：蓋牌選單只讓自己看到，蓋牌、挑戰、喊數、放棄、翻牌、我的牌', async () => {
+    const { host, calls } = await startGame();
+    const g = () => host.skullGames.get('C1')!;
+    expect(g().phase).toBe('place');
+    await host.button('ww:skull:0', 'C1|place', 'U1', 'alice');
+    const menu = lastEph(calls);
+    expect(menu.user).toBe('U1');
+    const discButtons = menu.blocks.filter((b: any) => b.type === 'actions').flatMap((b: any) => b.elements);
+    expect(discButtons.map((b: any) => b.value)).toEqual([`C1|disc:${g().step}:rose`, `C1|disc:${g().step}:skull`]);
+    for (const u of ['U1', 'U2', 'U3']) await host.button('ww:skull:0', `C1|disc:${g().step}:rose`, u, u);
+    expect(g()).toMatchObject({ phase: 'turn', turn: 2 });
+    await host.button('ww:skull:1', 'C1|challenge', 'U3', 'carol');
+    expect(lastEph(calls)).toMatchObject({ user: 'U3' });
+    await host.button('ww:skull:0', `C1|bid:${g().step}:1`, 'U3', 'carol');
+    expect(g()).toMatchObject({ phase: 'bid', bid: { n: 1, by: 'U3' } });
+    await host.button('ww:skull:3', `C1|pass:${g().step}`, 'U1', 'alice');
+    await host.button('ww:skull:3', `C1|pass:${g().step}`, 'U2', 'bob');
+    expect(g().players[0].wins + g().players[1].wins + g().players[2].wins).toBe(1);
+    await host.button('ww:skull:1', 'C1|mine', 'U2', 'bob');
+    expect(lastEph(calls)).toMatchObject({ user: 'U2', text: expect.stringContaining('你的牌') });
+  });
+
+  it('翻牌按鈕的 value 帶 bot 的 id 也能解析', async () => {
+    const { host } = await startGame();
+    const g = host.skullGames.get('C1')!;
+    g.phase = 'flip';
+    g.bid = { n: 2, by: 'U1' };
+    g.players[0].stack = ['rose'];
+    g.players[0].flipped = 1;
+    g.revealed = 1;
+    g.players[1].id = 'bot:1:Sam';
+    g.players[1].hand = ['rose', 'rose', 'skull'];
+    g.players[1].stack = ['rose'];
+    await host.button('ww:skull:0', `C1|flip:${g.step}:bot:1:Sam`, 'U1', 'alice');
+    expect(host.skullGames.get('C1')!.players[0].wins).toBe(1);
+  });
+});
+
+describe('game-commands: 誰是牛頭王', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+  const posts = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postMessage');
+  // rng 固定、牌組不洗：U1 手牌 1～10、U2 手牌 11～20、四列 21～24
+  async function startGame() {
+    const { client, calls } = fakeClient();
+    const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, gifs: {} });
+    await host.game('C1', 'U1', 'alice', 'nimmt new');
+    await host.button('ww:join:0', 'C1|join', 'U2', 'bob');
+    await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
+    return { host, calls };
+  }
+
+  it('/game 清單有誰是牛頭王；/game nimmt help 列出指令', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', '');
+    for (const s of ['誰是牛頭王', 'nimmt', '2～10 人', '/game nimmt new']) expect(lastEph(calls).text).toContain(s);
+    await host.game('C1', 'U1', 'alice', 'nimmt help');
+    for (const s of ['new', 'addbot', 'removebot', 'start', 'play', 'cancel']) expect(lastEph(calls).text).toContain(`/game nimmt ${s}`);
+    await host.game('C1', 'U1', 'alice', 'nimmt dance');
+    expect(lastEph(calls).text).toContain('/game nimmt play');
+  });
+
+  it('指令解析：new、addbot、play <牌號>', () => {
+    expect(parseNimmtCommand('new', 'U1', 'C1')).toEqual({ type: 'new', user: 'U1', channel: 'C1' });
+    expect(parseNimmtCommand('addbot 3', 'U1', 'C1')).toEqual({ type: 'addBot', user: 'U1', count: 3 });
+    expect(parseNimmtCommand('play 37', 'U1', 'C1')).toEqual({ type: 'pick', user: 'U1', card: 37 });
+    expect(parseNimmtCommand('play x', 'U1', 'C1')).toBeNull();
+    expect(parseNimmtCommand('vote', 'U1', 'C1')).toBeNull();
+  });
+
+  it('選牌選單只讓自己看到，10 張分 2 列；選牌、選列按鈕交給誰是牛頭王', async () => {
+    const { host, calls } = await startGame();
+    await host.button('ww:nimmt:0', 'C1|hand', 'U1', 'alice');
+    const menu = lastEph(calls);
+    expect(menu.user).toBe('U1');
+    expect(menu.blocks.filter((b: any) => b.type === 'actions').map((b: any) => b.elements.length)).toEqual([5, 5]);
+    await host.button('ww:nimmt:0', 'C1|pick:1:1', 'U1', 'alice');
+    expect(host.nimmtGames.get('C1')!.players[0].pick).toBe(1);
+    await host.game('C1', 'U2', 'bob', 'nimmt play 11');
+    expect(host.nimmtGames.get('C1')!.phase).toBe('chooseRow');
+    expect(buttonsOf(posts(calls).at(-1)!)).toHaveLength(4); // 選列訊息沒有 ref，照舊發新訊息
+    await host.button('ww:nimmt:2', 'C1|row:1:2', 'U1', 'alice');
+    expect(host.nimmtGames.get('C1')!.rows[2]).toEqual([1, 11]);
+  });
+
+  it('選牌進度更新同一則頻道訊息，揭曉時拿掉按鈕，下一回合發新訊息', async () => {
+    const { host, calls } = await startGame();
+    const first = posts(calls).filter((c) => String(c.args.text).includes('已選 0/2'));
+    expect(first).toHaveLength(1);
+    const before = posts(calls).length;
+    await host.button('ww:nimmt:0', 'C1|pick:1:10', 'U1', 'alice');
+    expect(posts(calls).length).toBe(before);
+    const update = calls.filter((c) => c.method === 'chat.update').at(-1)!;
+    expect(update.args.text).toContain('已選 1/2');
+    await host.button('ww:nimmt:0', 'C1|pick:1:20', 'U2', 'bob');
+    const revealed = calls.filter((c) => c.method === 'chat.update').at(-1)!;
+    expect(revealed.args).toMatchObject({ ts: update.args.ts, text: expect.stringContaining('已揭曉') });
+    expect(buttonsOf(revealed)).toHaveLength(0);
+    await host.button('ww:nimmt:2', 'C1|row:1:0', 'U1', 'alice');
+    expect(posts(calls).filter((c) => String(c.args.text).includes('已選 0/2'))).toHaveLength(2);
+  });
+});
+
+describe('game-commands: 情書', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+  const ephButtons = (calls: Call[]) => lastEph(calls).blocks.filter((b: any) => b.type === 'actions').flatMap((b: any) => b.elements);
+
+  it('/game 清單有情書；/game loveletter help 和不認識的子指令列出指令', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', '');
+    for (const s of ['情書', 'loveletter', '2～6 人', '/game loveletter new']) expect(lastEph(calls).text).toContain(s);
+    for (const text of ['loveletter help', 'loveletter xyz']) {
+      await host.game('C1', 'U1', 'alice', text);
+      for (const s of ['new', 'start', 'addbot', 'removebot', 'cancel']) expect(lastEph(calls).text).toContain(`/game loveletter ${s}`);
+    }
+  });
+
+  it('指令解析：只有房間指令', () => {
+    expect(parseLoveLetterCommand('new', 'U1', 'C1')).toEqual({ type: 'new', user: 'U1', channel: 'C1' });
+    expect(parseLoveLetterCommand('addbot 2', 'U1', 'C1')).toEqual({ type: 'addBot', user: 'U1', count: 2 });
+    expect(parseLoveLetterCommand('removebot', 'U1', 'C1')).toEqual({ type: 'removeBot', user: 'U1', count: 1 });
+    expect(parseLoveLetterCommand('play 1', 'U1', 'C1')).toBeNull();
+  });
+
+  it('從大廳開情書：按的人是房主', async () => {
+    const { host, calls } = setup();
+    await host.button('ww:lobbyOpen:11', 'C1|loveletter', 'U2', 'bob');
+    expect(host.loveLetterGames.get('C1')).toMatchObject({ phase: 'lobby', host: 'U2' });
+    expect(calls.at(-1)!.args.text).toContain('情書房間');
+  });
+
+  it('出牌、選目標（顯示名字、bot 也可以選）、猜角色、看手牌、棄牌紀錄都交給情書', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', 'loveletter new');
+    await host.game('C1', 'U1', 'alice', 'loveletter addbot');
+    await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
+    // rng 固定：bot 先出衛兵，接著輪到 U1
+    const s = host.loveLetterGames.get('C1')!;
+    expect(s.players[s.turn].id).toBe('U1');
+    await host.button('ww:loveletter:0', 'C1|menu', 'U1', 'alice');
+    expect(lastEph(calls).user).toBe('U1');
+    await host.button('ww:loveletter:0', ephButtons(calls)[0].value, 'U1', 'alice');
+    const target = ephButtons(calls)[0];
+    expect(target.value).toMatch(/^C1\|tgt:\d+:0:bot:1:/);
+    expect(target.text.text).toContain('🤖');
+    await host.button('ww:loveletter:0', target.value, 'U1', 'alice');
+    const guesses = ephButtons(calls);
+    expect(guesses).toHaveLength(9);
+    await host.button('ww:loveletter:0', guesses[0].value, 'U1', 'alice');
+    expect(host.loveLetterGames.get('C1')!.players.find((p) => p.id === 'U1')!.discards).toEqual(['guard']);
+    await host.button('ww:loveletter:1', 'C1|hand', 'U1', 'alice');
+    expect(lastEph(calls)).toMatchObject({ user: 'U1', text: expect.stringContaining('你的手牌') });
+    await host.button('ww:loveletter:2', 'C1|log', 'U9', 'zed');
+    expect(lastEph(calls)).toMatchObject({ user: 'U9', text: expect.stringContaining('棄牌紀錄') });
   });
 });
