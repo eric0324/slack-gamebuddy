@@ -18,8 +18,9 @@ import { applySkull, type SkAction, type SkState } from './skull.js';
 import { applyNimmt, type NAction, type NState } from './nimmt.js';
 import { applyLoveLetter, type LAction as LLAction, type LState as LLState, type Role as LLRole } from './loveletter.js';
 import { applyCockroach, isBug, type CrAction, type CrState } from './cockroach.js';
+import { applyChameleon, type CAction as ChAction, type CState as ChState } from './chameleon.js';
 
-type Kind = 'werewolf' | 'undercover' | 'spyfall' | 'avalon' | 'codenames' | 'liarsdice' | 'justone' | 'coup' | 'hanabi' | 'wavelength' | 'decrypto' | 'wavecoop' | 'insider' | 'skull' | 'nimmt' | 'loveletter' | 'cockroach';
+type Kind = 'werewolf' | 'undercover' | 'spyfall' | 'avalon' | 'codenames' | 'liarsdice' | 'justone' | 'coup' | 'hanabi' | 'wavelength' | 'decrypto' | 'wavecoop' | 'insider' | 'skull' | 'nimmt' | 'loveletter' | 'cockroach' | 'chameleon';
 type OtherKind = Exclude<Kind, 'werewolf'>;
 
 // 狼人殺以外的遊戲都用同一套方式接上 adapter：engine、指令解析、按鈕對應、說明
@@ -93,6 +94,7 @@ const GAME_LIST = [
   '• 🐮 *誰是牛頭王*（`nimmt`）：2～10 人，開房 `/game nimmt new`',
     '• 💌 *情書*（`loveletter`）：2～6 人，開房 `/game loveletter new`',
   '• 🪳 *蟑螂撲克*（`cockroach`）：2～6 人，開房 `/game cockroach new`',
+  '• 🦎 *變色龍*（`chameleon`）：3～8 人（不支援 bot），開房 `/game chameleon new`',
   '各遊戲的指令：`/game <遊戲代號> help`，例如 `/game liarsdice help`',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
@@ -138,6 +140,19 @@ const LOVELETTER_HELP = [
   '• `/game loveletter start`：開始遊戲，需要 2～6 人（房主）',
   '• `/game loveletter cancel`：取消遊戲（房主）',
   '輪到你時按「🃏 出牌」選牌、目標和（衛兵）猜的角色；「👀 我的手牌」「📜 棄牌紀錄」隨時可以按（只有你看得到）',
+  `📖 完整說明：<${WIKI}|wiki>`,
+].join('\n');
+
+const CHAMELEON_HELP = [
+  '*變色龍指令*',
+  '• `/game chameleon new`：開房（任何人）',
+  '• `/game chameleon start`：開始遊戲，需要 3～8 位真人（房主）',
+  '• 說詞：輪到你時按「✍️ 說詞」輸入一個和祕密詞有關的詞（不能是主題卡上的詞）；也可以打 `/game chameleon say <詞>`',
+  '• `/game chameleon next`：跳過目前的說詞者（房主）',
+  '• `/game chameleon vote`：討論中提早開始投票（房主）',
+  '• `/game chameleon guess <詞或座標>`：被抓到的變色龍猜祕密詞，例如 `B3`；也可以按頻道按鈕',
+  '• `/game chameleon cancel`：取消遊戲（房主）',
+  '投票抓變色龍用頻道按鈕；每一步都是 2 分鐘',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
@@ -307,6 +322,7 @@ const CATALOG: { kind: Kind; category: string; emoji: string; name: string; play
   { kind: 'nimmt', category: 'bluff', emoji: '🐮', name: '誰是牛頭王', players: '2～10 人', desc: '大家同時出牌，第 6 張和最小的牌要收走整列牛頭' },
     { kind: 'loveletter', category: 'deduction', emoji: '💌', name: '情書', players: '2～6 人', desc: '每人一張手牌，抽一張出一張，推理別人的牌、送出情書' },
   { kind: 'cockroach', category: 'bluff', emoji: '🪳', name: '蟑螂撲克', players: '2～6 人', desc: '蓋著傳一張害蟲牌說「這是蟑螂」，猜錯的人收下，同種 4 張就輸' },
+  { kind: 'chameleon', category: 'deduction', emoji: '🦎', name: '變色龍', players: '3～8 人', desc: '大家各說一個和祕密詞有關的詞，找出不知道祕密詞的變色龍' },
 ];
 
 // 大廳的分類：一次只顯示一類，按上面的分類按鈕切換
@@ -648,6 +664,31 @@ function loveLetterButton(kind: string, value: string, user: string, channel: st
   return null;
 }
 
+// 變色龍的子指令：say <詞>、next（房主跳過）、vote（房主提早投票）、guess <詞或座標>
+export function parseChameleonCommand(text: string, user: string, channel: string): ChAction | null {
+  const [sub, ...rest] = text.trim().split(/\s+/);
+  if (sub === 'say') return rest.length ? { type: 'say', user, text: rest.join(' ') } : null;
+  if (sub === 'guess') return rest.length ? { type: 'guess', user, text: rest.join(' ') } : null;
+  if (sub === 'next') return { type: 'next', user };
+  if (sub === 'vote') return { type: 'startVote', user };
+  const action = parseUndercoverCommand(text, user, channel);
+  if (!action || !['new', 'start', 'cancel', 'addBot', 'removeBot'].includes(action.type)) return null;
+  return action as ChAction;
+}
+
+// value：say、startVote、vote:<userId>、guess:<格子編號>
+function chameleonButton(kind: string, value: string, user: string, channel: string): ChAction | null {
+  if (kind === 'join' || kind === 'leave' || kind === 'start') return { type: kind, user };
+  if (kind === 'rematch') return { type: 'rematch', user, channel };
+  if (kind !== 'chameleon') return null;
+  if (value === 'say') return { type: 'openSay', user };
+  if (value === 'startVote') return { type: 'startVote', user };
+  const [act, arg] = value.split(':');
+  if (act === 'vote' && arg) return { type: 'vote', user, target: value.slice(5) };
+  if (act === 'guess' && /^\d+$/.test(arg ?? '')) return { type: 'guess', user, cell: Number(arg) };
+  return null;
+}
+
 // 蟑螂撲克只有房間指令，遊戲中都用按鈕
 export function parseCockroachCommand(text: string, user: string, channel: string): CrAction | null {
   const action = parseUndercoverCommand(text, user, channel);
@@ -810,6 +851,7 @@ export class GameHost {
   nimmtGames = new Map<string, NState>();
   loveLetterGames = new Map<string, LLState>();
   cockroachGames = new Map<string, CrState>();
+  chameleonGames = new Map<string, ChState>();
   private lastKind = new Map<string, Kind>(); // 每個頻道最近一局是哪款遊戲
   private lobbyTs = new Map<string, string>();
   private boardTs = new Map<string, string>(); // 機密代號的牌桌訊息
@@ -851,6 +893,7 @@ export class GameHost {
       nimmt: { states: this.nimmtGames, apply: applyNimmt, parse: parseNimmtCommand, button: nimmtButton, help: NIMMT_HELP },
             loveletter: { states: this.loveLetterGames, apply: applyLoveLetter, parse: parseLoveLetterCommand, button: loveLetterButton, help: LOVELETTER_HELP },
       cockroach: { states: this.cockroachGames, apply: applyCockroach, parse: parseCockroachCommand, button: cockroachButton, help: COCKROACH_HELP },
+      chameleon: { states: this.chameleonGames, apply: applyChameleon, parse: parseChameleonCommand, button: chameleonButton, help: CHAMELEON_HELP },
     };
   }
 
@@ -975,6 +1018,7 @@ export class GameHost {
     if (callbackId === 'ww:wavelengthClue') return this.dispatchGame('wavelength', channel, { type: 'clue', user, text: texts[0] ?? '' } as WAction);
     if (callbackId === 'ww:decryptoClue') return this.dispatchGame('decrypto', channel, { type: 'clue', user, texts } as DAction);
     if (callbackId === 'ww:wavecoopClue') return this.dispatchGame('wavecoop', channel, { type: 'clue', user, text: texts[0] ?? '' } as WCAction);
+    if (callbackId === 'ww:chameleonWord') return this.dispatchGame('chameleon', channel, { type: 'say', user, text: texts[0] ?? '' } as ChAction);
     return Promise.resolve();
   }
 
@@ -1132,8 +1176,8 @@ export class GameHost {
           });
         } catch (err) {
           console.error('[werewolf] views.open failed', err);
-          const cmd = e.kind === 'decryptoClue' ? '/game decrypto clue <提示1> / <提示2> / <提示3>' : e.kind === 'wavecoopClue' ? '/game wavecoop clue <提示>' : '/game wavelength clue <提示>';
-          await chat.postEphemeral({ channel, user: e.to, text: slackText(`視窗打不開，請改用 \`${cmd}\` 送出提示。`) });
+          const cmd = e.kind === 'decryptoClue' ? '/game decrypto clue <提示1> / <提示2> / <提示3>' : e.kind === 'wavecoopClue' ? '/game wavecoop clue <提示>' : e.kind === 'chameleonWord' ? '/game chameleon say <詞>' : '/game wavelength clue <提示>';
+          await chat.postEphemeral({ channel, user: e.to, text: slackText(`視窗打不開，請改用 \`${cmd}\` 送出${e.kind === 'chameleonWord' ? '' : '提示'}。`) });
         }
         return;
       case 'ephemeral':
