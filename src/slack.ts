@@ -14,8 +14,9 @@ import { applyWavelength, type WAction, type WState } from './wavelength.js';
 import { applyDecrypto, type DAction, type DState } from './decrypto.js';
 import { applyWavecoop, type WCAction, type WCState } from './wavecoop.js';
 import { applyInsider, type IAction, type IState } from './insider.js';
+import { applySkull, type SkAction, type SkState } from './skull.js';
 
-type Kind = 'werewolf' | 'undercover' | 'spyfall' | 'avalon' | 'codenames' | 'liarsdice' | 'justone' | 'coup' | 'hanabi' | 'wavelength' | 'decrypto' | 'wavecoop' | 'insider';
+type Kind = 'werewolf' | 'undercover' | 'spyfall' | 'avalon' | 'codenames' | 'liarsdice' | 'justone' | 'coup' | 'hanabi' | 'wavelength' | 'decrypto' | 'wavecoop' | 'insider' | 'skull';
 type OtherKind = Exclude<Kind, 'werewolf'>;
 
 // 狼人殺以外的遊戲都用同一套方式接上 adapter：engine、指令解析、按鈕對應、說明
@@ -85,7 +86,19 @@ const GAME_LIST = [
   '• 🔐 *截碼戰*（`decrypto`）：4～12 人（不支援 bot），開房 `/game decrypto new`',
   '• 🧠 *心電感應（合作）*（`wavecoop`）：2～12 人（不支援 bot），開房 `/game wavecoop new`',
   '• 🕴️ *圈內人*（`insider`）：4～8 人（不支援 bot），開房 `/game insider new`',
+  '• 💀 *骷髏與玫瑰*（`skull`）：3～6 人，開房 `/game skull new`',
   '各遊戲的指令：`/game <遊戲代號> help`，例如 `/game liarsdice help`',
+  `📖 完整說明：<${WIKI}|wiki>`,
+].join('\n');
+
+const SKULL_HELP = [
+  '*骷髏與玫瑰指令*',
+  '• `/game skull new`：開房（任何人）',
+  '• `/game skull addbot [數量]`：加入 bot 補人數（房主，開始前）',
+  '• `/game skull removebot [數量]`：移除 bot（房主，開始前）',
+  '• `/game skull start`：開始遊戲，需要 3～6 人（房主）',
+  '• `/game skull cancel`：取消遊戲（房主）',
+  '蓋牌、開始挑戰、喊數、放棄、翻牌都用按鈕；隨時按「👀 我的牌」看自己的牌',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
@@ -250,6 +263,7 @@ const CATALOG: { kind: Kind; category: string; emoji: string; name: string; play
   { kind: 'decrypto', category: 'team', emoji: '🔐', name: '截碼戰', players: '4～12 人', desc: '兩隊對抗，用提示傳 3 碼密碼給隊友，也試著攔截對方' },
   { kind: 'wavecoop', category: 'coop', emoji: '🧠', name: '心電感應（合作）', players: '2～12 人', desc: '全員合作，輪流出題、大家一起猜光譜上的位置拚總分' },
   { kind: 'insider', category: 'deduction', emoji: '🕴️', name: '圈內人', players: '4～8 人', desc: '是非題合力猜出答案，再找出知道答案卻裝不知道的圈內人' },
+  { kind: 'skull', category: 'bluff', emoji: '💀', name: '骷髏與玫瑰', players: '3～6 人', desc: '蓋牌喊數，翻開的全是玫瑰才算成功，翻到骷髏就少一張牌' },
 ];
 
 // 大廳的分類：一次只顯示一類，按上面的分類按鈕切換
@@ -526,6 +540,29 @@ function insiderButton(kind: string, value: string, user: string, channel: strin
   return null;
 }
 
+// 骷髏與玫瑰：沒有遊戲中的打字指令，全部用按鈕
+export function parseSkullCommand(text: string, user: string, channel: string): SkAction | null {
+  const action = parseUndercoverCommand(text, user, channel);
+  if (!action || !['new', 'start', 'cancel', 'addBot', 'removeBot'].includes(action.type)) return null;
+  return action as SkAction;
+}
+
+function skullButton(kind: string, value: string, user: string, channel: string): SkAction | null {
+  if (kind === 'join' || kind === 'leave' || kind === 'start') return { type: kind, user };
+  if (kind === 'rematch') return { type: 'rematch', user, channel };
+  if (kind !== 'skull') return null;
+  if (value === 'place') return { type: 'placeMenu', user };
+  if (value === 'challenge') return { type: 'challengeMenu', user };
+  if (value === 'mine') return { type: 'mine', user };
+  const [act, step, ...rest] = value.split(':');
+  const arg = rest.join(':'); // 翻牌的目標可能是 bot:1:Sam
+  if (act === 'disc' && (arg === 'rose' || arg === 'skull')) return { type: 'disc', user, step: Number(step), disc: arg };
+  if (act === 'bid') return { type: 'bid', user, step: Number(step), n: Number(arg) };
+  if (act === 'pass') return { type: 'pass', user, step: Number(step) };
+  if (act === 'flip') return { type: 'flip', user, step: Number(step), target: arg };
+  return null;
+}
+
 function codenamesButton(kind: string, value: string, user: string, channel: string): CAction | null {
   switch (kind) {
     case 'join':
@@ -657,6 +694,7 @@ export class GameHost {
   decryptoGames = new Map<string, DState>();
   wavecoopGames = new Map<string, WCState>();
   insiderGames = new Map<string, IState>();
+  skullGames = new Map<string, SkState>();
   private lastKind = new Map<string, Kind>(); // 每個頻道最近一局是哪款遊戲
   private lobbyTs = new Map<string, string>();
   private boardTs = new Map<string, string>(); // 機密代號的牌桌訊息
@@ -693,6 +731,7 @@ export class GameHost {
       decrypto: { states: this.decryptoGames, apply: applyDecrypto, parse: parseDecryptoCommand, button: decryptoButton, help: DECRYPTO_HELP },
       wavecoop: { states: this.wavecoopGames, apply: applyWavecoop, parse: parseWavecoopCommand, button: wavecoopButton, help: WAVECOOP_HELP },
       insider: { states: this.insiderGames, apply: applyInsider, parse: parseInsiderCommand, button: insiderButton, help: INSIDER_HELP },
+      skull: { states: this.skullGames, apply: applySkull, parse: parseSkullCommand, button: skullButton, help: SKULL_HELP },
     };
   }
 
