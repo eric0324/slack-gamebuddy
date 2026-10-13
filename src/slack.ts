@@ -12,8 +12,9 @@ import { applySpyfall, type SAction, type SState } from './spyfall.js';
 import { applyUndercover, type UAction, type UState } from './undercover.js';
 import { applyWavelength, type WAction, type WState } from './wavelength.js';
 import { applyDecrypto, type DAction, type DState } from './decrypto.js';
+import { applyWavecoop, type WCAction, type WCState } from './wavecoop.js';
 
-type Kind = 'werewolf' | 'undercover' | 'spyfall' | 'avalon' | 'codenames' | 'liarsdice' | 'justone' | 'coup' | 'hanabi' | 'wavelength' | 'decrypto';
+type Kind = 'werewolf' | 'undercover' | 'spyfall' | 'avalon' | 'codenames' | 'liarsdice' | 'justone' | 'coup' | 'hanabi' | 'wavelength' | 'decrypto' | 'wavecoop';
 type OtherKind = Exclude<Kind, 'werewolf'>;
 
 // 狼人殺以外的遊戲都用同一套方式接上 adapter：engine、指令解析、按鈕對應、說明
@@ -81,6 +82,7 @@ const GAME_LIST = [
   '• 🎆 *花火*（`hanabi`）：2～5 人（不支援 bot），開房 `/game hanabi new`',
   '• 📡 *心電感應*（`wavelength`）：4～12 人（不支援 bot），開房 `/game wavelength new`',
   '• 🔐 *截碼戰*（`decrypto`）：4～12 人（不支援 bot），開房 `/game decrypto new`',
+  '• 🧠 *心電感應（合作）*（`wavecoop`）：2～12 人（不支援 bot），開房 `/game wavecoop new`',
   '各遊戲的指令：`/game <遊戲代號> help`，例如 `/game liarsdice help`',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
@@ -102,6 +104,16 @@ const WAVELENGTH_HELP = [
   '• 出題：輪到你時按「✍️ 寫提示」輸入提示詞；也可以打 `/game wavelength clue <提示>`',
   '• `/game wavelength cancel`：取消遊戲（房主）',
   '猜位置、猜左右都用頻道按鈕',
+  `📖 完整說明：<${WIKI}|wiki>`,
+].join('\n');
+
+const WAVECOOP_HELP = [
+  '*心電感應（合作）指令*',
+  '• `/game wavecoop new`：開房（任何人）',
+  '• `/game wavecoop start`：開始遊戲，需要 2～12 位真人（房主）',
+  '• 出題：輪到你時按「✍️ 寫提示」輸入提示詞；也可以打 `/game wavecoop clue <提示>`',
+  '• `/game wavecoop cancel`：取消遊戲（房主）',
+  '猜位置用頻道按鈕；共 7 題，正中目標加一題',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
@@ -222,6 +234,7 @@ const CATALOG: { kind: Kind; category: string; emoji: string; name: string; play
   { kind: 'hanabi', category: 'coop', emoji: '🎆', name: '花火', players: '2～5 人', desc: '合作遊戲，看得到別人的牌、看不到自己的' },
   { kind: 'wavelength', category: 'team', emoji: '📡', name: '心電感應', players: '4～12 人', desc: '兩隊對抗，出題者用一個詞讓隊友猜光譜上的位置' },
   { kind: 'decrypto', category: 'team', emoji: '🔐', name: '截碼戰', players: '4～12 人', desc: '兩隊對抗，用提示傳 3 碼密碼給隊友，也試著攔截對方' },
+  { kind: 'wavecoop', category: 'coop', emoji: '🧠', name: '心電感應（合作）', players: '2～12 人', desc: '全員合作，輪流出題、大家一起猜光譜上的位置拚總分' },
 ];
 
 // 大廳的分類：一次只顯示一類，按上面的分類按鈕切換
@@ -439,6 +452,20 @@ function wavelengthButton(kind: string, value: string, user: string, channel: st
   return null;
 }
 
+// 心電感應（合作）的子指令和按鈕：和兩隊對抗版相同，只是沒有猜左右
+export function parseWavecoopCommand(text: string, user: string, channel: string): WCAction | null {
+  return parseWavelengthCommand(text, user, channel) as WCAction | null;
+}
+
+function wavecoopButton(kind: string, value: string, user: string, channel: string): WCAction | null {
+  if (kind === 'join' || kind === 'leave' || kind === 'start') return { type: kind, user };
+  if (kind === 'rematch') return { type: 'rematch', user, channel };
+  if (kind !== 'wavecoop') return null;
+  if (value === 'clue') return { type: 'openClue', user };
+  const [act, arg] = value.split(':');
+  return act === 'guess' ? { type: 'guess', user, value: Number(arg) } : null;
+}
+
 // 截碼戰的子指令：clue <提示1> / <提示2> / <提示3>（提示可以有空白）
 export function parseDecryptoCommand(text: string, user: string, channel: string): DAction | null {
   const [sub, ...rest] = text.trim().split(/\s+/);
@@ -592,6 +619,7 @@ export class GameHost {
   hanabiGames = new Map<string, HState>();
   wavelengthGames = new Map<string, WState>();
   decryptoGames = new Map<string, DState>();
+  wavecoopGames = new Map<string, WCState>();
   private lastKind = new Map<string, Kind>(); // 每個頻道最近一局是哪款遊戲
   private lobbyTs = new Map<string, string>();
   private boardTs = new Map<string, string>(); // 機密代號的牌桌訊息
@@ -626,6 +654,7 @@ export class GameHost {
       hanabi: { states: this.hanabiGames, apply: applyHanabi, parse: parseHanabiCommand, button: hanabiButton, help: HANABI_HELP },
       wavelength: { states: this.wavelengthGames, apply: applyWavelength, parse: parseWavelengthCommand, button: wavelengthButton, help: WAVELENGTH_HELP },
       decrypto: { states: this.decryptoGames, apply: applyDecrypto, parse: parseDecryptoCommand, button: decryptoButton, help: DECRYPTO_HELP },
+      wavecoop: { states: this.wavecoopGames, apply: applyWavecoop, parse: parseWavecoopCommand, button: wavecoopButton, help: WAVECOOP_HELP },
     };
   }
 
@@ -749,6 +778,7 @@ export class GameHost {
     this.names.set(user, userName);
     if (callbackId === 'ww:wavelengthClue') return this.dispatchGame('wavelength', channel, { type: 'clue', user, text: texts[0] ?? '' } as WAction);
     if (callbackId === 'ww:decryptoClue') return this.dispatchGame('decrypto', channel, { type: 'clue', user, texts } as DAction);
+    if (callbackId === 'ww:wavecoopClue') return this.dispatchGame('wavecoop', channel, { type: 'clue', user, text: texts[0] ?? '' } as WCAction);
     return Promise.resolve();
   }
 
@@ -898,7 +928,7 @@ export class GameHost {
           });
         } catch (err) {
           console.error('[werewolf] views.open failed', err);
-          const cmd = e.kind === 'decryptoClue' ? '/game decrypto clue <提示1> / <提示2> / <提示3>' : '/game wavelength clue <提示>';
+          const cmd = e.kind === 'decryptoClue' ? '/game decrypto clue <提示1> / <提示2> / <提示3>' : e.kind === 'wavecoopClue' ? '/game wavecoop clue <提示>' : '/game wavelength clue <提示>';
           await chat.postEphemeral({ channel, user: e.to, text: slackText(`視窗打不開，請改用 \`${cmd}\` 送出提示。`) });
         }
         return;

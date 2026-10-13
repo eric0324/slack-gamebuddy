@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GIFS } from '../src/gifs.js';
 import { StatsStore } from '../src/stats.js';
 import { mention } from '../src/engine.js';
-import { buttonAction, GameHost, slackText, parseAvalonCommand, parseCodenamesCommand, parseCommand, parseDecryptoCommand, parseHanabiCommand, parseJustOneCommand, parseLiarsDiceCommand, parseSpyfallCommand, parseUndercoverCommand, parseWavelengthCommand, type SlackClient } from '../src/slack.js';
+import { buttonAction, GameHost, slackText, parseAvalonCommand, parseCodenamesCommand, parseCommand, parseDecryptoCommand, parseHanabiCommand, parseJustOneCommand, parseLiarsDiceCommand, parseSpyfallCommand, parseUndercoverCommand, parseWavelengthCommand, parseWavecoopCommand, type SlackClient } from '../src/slack.js';
 
 type Call = { method: string; args: Record<string, any> };
 
@@ -999,7 +999,7 @@ describe('game-commands: 花火', () => {
 
 describe('game-commands: 遊戲大廳', () => {
   const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
-  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto'];
+  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop'];
 
   const TABS = ['deduction', 'team', 'coop', 'bluff'];
   const openButtons = (blocks: any[]) => blocks.filter((b) => b.accessory).map((b) => b.accessory);
@@ -1047,7 +1047,7 @@ describe('game-commands: 遊戲大廳', () => {
     const { url, payload } = responds[0];
     expect(url).toBe('https://hooks/x');
     expect(payload.replace_original).toBe(true);
-    expect(openButtons(payload.blocks).map((b: any) => b.value)).toEqual(['C1|justone', 'C1|hanabi']);
+    expect(openButtons(payload.blocks).map((b: any) => b.value)).toEqual(['C1|justone', 'C1|hanabi', 'C1|wavecoop']);
     expect(tabButtons(payload.blocks).map((b: any) => b.style)).toEqual([undefined, undefined, 'primary', undefined]);
   });
 
@@ -1219,6 +1219,70 @@ describe('game-commands: 心電感應', () => {
     const msg = calls.filter((c) => c.method === 'chat.postMessage' && c.args.text?.includes('寫提示')).at(-1)!;
     expect(msg.args.blocks.filter((b: any) => b.type === 'actions')).toHaveLength(1);
     expect(host.wavelengthGames.get('C1')!.phase).toBe('clue');
+  });
+});
+
+describe('game-commands: 心電感應（合作）', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+  // rng 固定：出題順序 U1、U2、U3，第 1 題 U1 出題，U2、U3 猜，目標 10
+  async function startGame(opts: { viewsFail?: boolean } = {}) {
+    const { client, calls } = fakeClient(opts);
+    const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, gifs: {} });
+    await host.button('ww:lobbyOpen:0', 'C1|wavecoop', 'U1', 'alice');
+    for (const u of ['U2', 'U3']) await host.button('ww:join:0', 'C1|join', u, u);
+    await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
+    return { host, calls };
+  }
+
+  it('/game 清單有心電感應（合作）；/game wavecoop help 和不認識的子指令列出指令', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', '');
+    for (const s of ['心電感應（合作）', 'wavecoop', '2～12 人', '/game wavecoop new']) expect(lastEph(calls).text).toContain(s);
+    for (const text of ['wavecoop help', 'wavecoop dance']) {
+      await host.game('C1', 'U1', 'alice', text);
+      for (const s of ['new', 'start', 'clue', 'cancel']) expect(lastEph(calls).text).toContain(`/game wavecoop ${s}`);
+    }
+  });
+
+  it('指令解析：new、start、cancel、clue、addbot', () => {
+    expect(parseWavecoopCommand('new', 'U1', 'C1')).toEqual({ type: 'new', user: 'U1', channel: 'C1' });
+    expect(parseWavecoopCommand('start', 'U1', 'C1')).toEqual({ type: 'start', user: 'U1' });
+    expect(parseWavecoopCommand('cancel', 'U1', 'C1')).toEqual({ type: 'cancel', user: 'U1' });
+    expect(parseWavecoopCommand('clue 麻辣 火鍋', 'U1', 'C1')).toEqual({ type: 'clue', user: 'U1', text: '麻辣 火鍋' });
+    expect(parseWavecoopCommand('clue', 'U1', 'C1')).toBeNull();
+    expect(parseWavecoopCommand('addbot', 'U1', 'C1')).toEqual({ type: 'addBot', user: 'U1', count: 1 });
+    expect(parseWavecoopCommand('guess 3', 'U1', 'C1')).toBeNull();
+  });
+
+  it('從大廳開房：房間公告標示心電感應（合作），附上規則連結', async () => {
+    const { host, calls } = await startGame();
+    expect(host.wavecoopGames.get('C1')).toMatchObject({ host: 'U1', phase: 'clue' });
+    const lobby = calls.find((c) => c.method === 'chat.postMessage' && c.args.text?.includes('心電感應（合作）房間'))!;
+    expect(lobby.args.text).toContain(encodeURI('心電感應（合作）-遊戲規則'));
+  });
+
+  it('寫提示按鈕：用 trigger_id 開視窗，送出後變成提示', async () => {
+    const { host, calls } = await startGame();
+    await host.button('ww:wavecoop:0', 'C1|clue', 'U1', 'alice', 'T123');
+    const open = calls.find((c) => c.method === 'views.open')!.args;
+    expect(open).toMatchObject({ trigger_id: 'T123', view: { type: 'modal', callback_id: 'ww:wavecoopClue', private_metadata: 'C1' } });
+    await host.modal('ww:wavecoopClue', 'C1', 'U1', 'alice', ['火鍋']);
+    expect(host.wavecoopGames.get('C1')).toMatchObject({ phase: 'guess', clue: '火鍋' });
+  });
+
+  it('視窗打不開時，只讓出題者看到改用指令', async () => {
+    const { host, calls } = await startGame({ viewsFail: true });
+    await host.button('ww:wavecoop:0', 'C1|clue', 'U1', 'alice', 'T123');
+    expect(lastEph(calls)).toMatchObject({ user: 'U1', text: expect.stringContaining('/game wavecoop clue') });
+  });
+
+  it('用指令寫提示；猜位置的按鈕交給心電感應（合作）', async () => {
+    const { host } = await startGame();
+    await host.game('C1', 'U1', 'alice', 'wavecoop clue 火鍋');
+    expect(host.wavecoopGames.get('C1')).toMatchObject({ phase: 'guess', clue: '火鍋' });
+    await host.button('ww:wavecoop:9', 'C1|guess:9', 'U2', 'bob');
+    await host.button('ww:wavecoop:10', 'C1|guess:10', 'U3', 'carol');
+    expect(host.wavecoopGames.get('C1')).toMatchObject({ round: 1, score: 4, total: 8 });
   });
 });
 
