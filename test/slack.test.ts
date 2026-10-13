@@ -4,6 +4,7 @@ import { StatsStore } from '../src/stats.js';
 import { mention } from '../src/engine.js';
 import { buttonAction, GameHost, slackText, parseAvalonCommand, parseCodenamesCommand, parseCommand, parseDecryptoCommand, parseHanabiCommand, parseJustOneCommand, parseLiarsDiceCommand, parseSpyfallCommand, parseUndercoverCommand, parseWavelengthCommand, parseWavecoopCommand, type SlackClient } from '../src/slack.js';
 import { parseInsiderCommand, parseLoveLetterCommand, parseNimmtCommand, parseSkullCommand } from '../src/slack.js';
+import { parseCockroachCommand } from '../src/slack.js';
 
 type Call = { method: string; args: Record<string, any> };
 
@@ -1000,7 +1001,7 @@ describe('game-commands: 花火', () => {
 
 describe('game-commands: 遊戲大廳', () => {
   const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
-  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter'];
+  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter', 'cockroach'];
 
   const TABS = ['deduction', 'team', 'coop', 'bluff'];
   const openButtons = (blocks: any[]) => blocks.filter((b) => b.accessory).map((b) => b.accessory);
@@ -1056,7 +1057,7 @@ describe('game-commands: 遊戲大廳', () => {
     const { client, calls } = fakeClient();
     const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, respond: async () => { throw new Error('expired'); } });
     await host.button('ww:lobbyTab:3', 'C1|bluff', 'U1', 'alice', undefined, 'https://hooks/x');
-    expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|liarsdice', 'C1|coup', 'C1|skull', 'C1|nimmt']);
+    expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|liarsdice', 'C1|coup', 'C1|skull', 'C1|nimmt', 'C1|cockroach']);
     await host.button('ww:lobbyTab:1', 'C1|team', 'U1', 'alice');
     expect(lastEph(calls)).toMatchObject({ user: 'U1' });
     expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|codenames', 'C1|wavelength', 'C1|decrypto']);
@@ -1612,5 +1613,86 @@ describe('game-commands: 情書', () => {
     expect(lastEph(calls)).toMatchObject({ user: 'U1', text: expect.stringContaining('你的手牌') });
     await host.button('ww:loveletter:2', 'C1|log', 'U9', 'zed');
     expect(lastEph(calls)).toMatchObject({ user: 'U9', text: expect.stringContaining('棄牌紀錄') });
+  });
+});
+
+describe('game-commands: 蟑螂撲克', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+  const ephButtons = (calls: Call[]) => lastEph(calls).blocks.filter((b: any) => b.type === 'actions').flatMap((b: any) => b.elements);
+
+  it('/game 清單有蟑螂撲克；/game cockroach help 和不認識的子指令列出指令', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', '');
+    for (const s of ['蟑螂撲克', 'cockroach', '2～6 人', '/game cockroach new']) expect(lastEph(calls).text).toContain(s);
+    for (const text of ['cockroach help', 'cockroach foo']) {
+      await host.game('C1', 'U1', 'alice', text);
+      for (const s of ['new', 'addbot', 'removebot', 'start', 'cancel']) expect(lastEph(calls).text).toContain(`/game cockroach ${s}`);
+    }
+  });
+
+  it('指令解析：只有房間指令', () => {
+    expect(parseCockroachCommand('new', 'U1', 'C1')).toEqual({ type: 'new', user: 'U1', channel: 'C1' });
+    expect(parseCockroachCommand('start', 'U1', 'C1')).toEqual({ type: 'start', user: 'U1' });
+    expect(parseCockroachCommand('cancel', 'U1', 'C1')).toEqual({ type: 'cancel', user: 'U1' });
+    expect(parseCockroachCommand('addbot 2', 'U1', 'C1')).toEqual({ type: 'addBot', user: 'U1', count: 2 });
+    expect(parseCockroachCommand('removebot', 'U1', 'C1')).toEqual({ type: 'removeBot', user: 'U1', count: 1 });
+    expect(parseCockroachCommand('give rat', 'U1', 'C1')).toBeNull();
+  });
+
+  it('從大廳開蟑螂撲克：按的人是房主', async () => {
+    const { host } = setup();
+    await host.button('ww:lobbyOpen:16', 'C1|cockroach', 'U2', 'bob');
+    expect(host.cockroachGames.get('C1')).toMatchObject({ phase: 'lobby', host: 'U2' });
+  });
+
+  it('出牌、選目標（bot 也可以選）、宣稱、回答、偷看、傳下去、看手牌都交給蟑螂撲克', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', 'cockroach new');
+    for (const u of ['U2', 'U3']) await host.button('ww:join:0', 'C1|join', u, u);
+    await host.game('C1', 'U1', 'alice', 'cockroach addbot');
+    await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
+    const g = () => host.cockroachGames.get('C1')!;
+    // rng 固定：第一位出牌的是最後一位（bot），bot 把牌傳給某人後輪到真人
+    const holder = g().card?.to ?? g().players[g().turn].id;
+    expect(holder.startsWith('bot:')).toBe(false);
+    await host.button('ww:cockroach:0', 'C1|hand', 'U9', 'zed');
+    expect(lastEph(calls)).toMatchObject({ user: 'U9', text: expect.stringContaining('你不在這局遊戲裡') });
+    await host.button('ww:cockroach:0', 'C1|hand', 'U1', 'alice');
+    expect(lastEph(calls)).toMatchObject({ user: 'U1', text: expect.stringContaining('你的手牌') });
+    expect(g().phase).toBe('respond');
+    {
+      const to = g().card!.to;
+      await host.button('ww:cockroach:2', `C1|peek:${g().step}`, to, to);
+      expect(g().phase).toBe('pass');
+      await host.button('ww:cockroach:0', 'C1|passmenu', to, to);
+      const target = ephButtons(calls)[0];
+      expect(target.value).toMatch(/^C1\|to:\d+:U\d$/);
+      await host.button('ww:cockroach:0', target.value, to, to);
+      const says = ephButtons(calls);
+      expect(says).toHaveLength(8);
+      expect(says[0].value).toMatch(/^C1\|say:\d+:cockroach:U\d$/);
+      await host.button('ww:cockroach:0', says[0].value, to, to);
+      expect(g().phase).not.toBe('pass');
+    }
+    // 走到輪到真人出牌
+    for (let i = 0; i < 50 && !(g().phase === 'give' && !g().players[g().turn].id.startsWith('bot:')); i++) {
+      const to = g().card!.to;
+      await host.button('ww:cockroach:0', `C1|no:${g().step}`, to, to);
+    }
+    const me = g().players[g().turn].id;
+    await host.button('ww:cockroach:0', 'C1|play', me, me);
+    const cards = ephButtons(calls);
+    expect(cards[0].value).toMatch(/^C1\|card:\d+:/);
+    await host.button('ww:cockroach:0', cards[0].value, me, me);
+    const targets = ephButtons(calls);
+    const bot = targets.find((b: any) => b.value.includes(':bot:'));
+    expect(bot.text.text).toContain('🤖');
+    expect(bot.value).toMatch(/^C1\|tgt:\d+:\w+:bot:1:/);
+    await host.button('ww:cockroach:0', bot.value, me, me);
+    const claims = ephButtons(calls);
+    expect(claims).toHaveLength(8);
+    const before = g().players.find((p) => p.id === me)!.hand.length;
+    await host.button('ww:cockroach:0', claims[0].value, me, me);
+    expect(g().players.find((p) => p.id === me)!.hand.length).toBe(before - 1);
   });
 });

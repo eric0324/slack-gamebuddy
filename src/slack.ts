@@ -17,8 +17,9 @@ import { applyInsider, type IAction, type IState } from './insider.js';
 import { applySkull, type SkAction, type SkState } from './skull.js';
 import { applyNimmt, type NAction, type NState } from './nimmt.js';
 import { applyLoveLetter, type LAction as LLAction, type LState as LLState, type Role as LLRole } from './loveletter.js';
+import { applyCockroach, isBug, type CrAction, type CrState } from './cockroach.js';
 
-type Kind = 'werewolf' | 'undercover' | 'spyfall' | 'avalon' | 'codenames' | 'liarsdice' | 'justone' | 'coup' | 'hanabi' | 'wavelength' | 'decrypto' | 'wavecoop' | 'insider' | 'skull' | 'nimmt' | 'loveletter';
+type Kind = 'werewolf' | 'undercover' | 'spyfall' | 'avalon' | 'codenames' | 'liarsdice' | 'justone' | 'coup' | 'hanabi' | 'wavelength' | 'decrypto' | 'wavecoop' | 'insider' | 'skull' | 'nimmt' | 'loveletter' | 'cockroach';
 type OtherKind = Exclude<Kind, 'werewolf'>;
 
 // 狼人殺以外的遊戲都用同一套方式接上 adapter：engine、指令解析、按鈕對應、說明
@@ -91,6 +92,7 @@ const GAME_LIST = [
   '• 💀 *骷髏與玫瑰*（`skull`）：3～6 人，開房 `/game skull new`',
   '• 🐮 *誰是牛頭王*（`nimmt`）：2～10 人，開房 `/game nimmt new`',
     '• 💌 *情書*（`loveletter`）：2～6 人，開房 `/game loveletter new`',
+  '• 🪳 *蟑螂撲克*（`cockroach`）：2～6 人，開房 `/game cockroach new`',
   '各遊戲的指令：`/game <遊戲代號> help`，例如 `/game liarsdice help`',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
@@ -136,6 +138,17 @@ const LOVELETTER_HELP = [
   '• `/game loveletter start`：開始遊戲，需要 2～6 人（房主）',
   '• `/game loveletter cancel`：取消遊戲（房主）',
   '輪到你時按「🃏 出牌」選牌、目標和（衛兵）猜的角色；「👀 我的手牌」「📜 棄牌紀錄」隨時可以按（只有你看得到）',
+  `📖 完整說明：<${WIKI}|wiki>`,
+].join('\n');
+
+const COCKROACH_HELP = [
+  '*蟑螂撲克指令*',
+  '• `/game cockroach new`：開房（任何人）',
+  '• `/game cockroach addbot [數量]`：加入 bot 補人數（房主，開始前）',
+  '• `/game cockroach removebot [數量]`：移除 bot（房主，開始前）',
+  '• `/game cockroach start`：開始遊戲，需要 2～6 人（房主）',
+  '• `/game cockroach cancel`：取消遊戲（房主）',
+  '輪到你時按「🪳 出牌」選牌、要傳給誰、要說它是什麼；收到牌時按「✅ 是」「❌ 不是」或「👀 偷看再傳」；隨時按「🃏 我的手牌」（只有你看得到）',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
@@ -293,6 +306,7 @@ const CATALOG: { kind: Kind; category: string; emoji: string; name: string; play
   { kind: 'skull', category: 'bluff', emoji: '💀', name: '骷髏與玫瑰', players: '3～6 人', desc: '蓋牌喊數，翻開的全是玫瑰才算成功，翻到骷髏就少一張牌' },
   { kind: 'nimmt', category: 'bluff', emoji: '🐮', name: '誰是牛頭王', players: '2～10 人', desc: '大家同時出牌，第 6 張和最小的牌要收走整列牛頭' },
     { kind: 'loveletter', category: 'deduction', emoji: '💌', name: '情書', players: '2～6 人', desc: '每人一張手牌，抽一張出一張，推理別人的牌、送出情書' },
+  { kind: 'cockroach', category: 'bluff', emoji: '🪳', name: '蟑螂撲克', players: '2～6 人', desc: '蓋著傳一張害蟲牌說「這是蟑螂」，猜錯的人收下，同種 4 張就輸' },
 ];
 
 // 大廳的分類：一次只顯示一類，按上面的分類按鈕切換
@@ -634,6 +648,33 @@ function loveLetterButton(kind: string, value: string, user: string, channel: st
   return null;
 }
 
+// 蟑螂撲克只有房間指令，遊戲中都用按鈕
+export function parseCockroachCommand(text: string, user: string, channel: string): CrAction | null {
+  const action = parseUndercoverCommand(text, user, channel);
+  if (!action || !['new', 'start', 'cancel', 'addBot', 'removeBot'].includes(action.type)) return null;
+  return action as CrAction;
+}
+
+// value：play、hand、passmenu、yes／no／peek:<step>、card:<step>:<牌>、tgt:<step>:<牌>:<目標>、claim:<step>:<牌>:<宣稱>:<目標>、to:<step>:<目標>、say:<step>:<宣稱>:<目標>（bot 的 id 有冒號，目標放最後）
+function cockroachButton(kind: string, value: string, user: string, channel: string): CrAction | null {
+  if (kind === 'join' || kind === 'leave' || kind === 'start') return { type: kind, user };
+  if (kind === 'rematch') return { type: 'rematch', user, channel };
+  if (kind !== 'cockroach') return null;
+  if (value === 'play' || value === 'hand') return { type: value, user };
+  if (value === 'passmenu') return { type: 'passMenu', user };
+  const [act, stepText, ...rest] = value.split(':');
+  const step = Number(stepText);
+  if (act === 'yes' || act === 'no') return { type: 'answer', user, step, yes: act === 'yes' };
+  if (act === 'peek') return { type: 'peek', user, step };
+  if (act === 'to') return { type: 'to', user, step, target: rest.join(':') };
+  const [a, b, ...more] = rest;
+  if (act === 'card' && isBug(a)) return { type: 'card', user, step, bug: a };
+  if (act === 'tgt' && isBug(a)) return { type: 'target', user, step, bug: a, target: [b, ...more].join(':') };
+  if (act === 'say' && isBug(a)) return { type: 'pass', user, step, claim: a, target: [b, ...more].join(':') };
+  if (act === 'claim' && isBug(a) && isBug(b)) return { type: 'give', user, step, bug: a, claim: b, target: more.join(':') };
+  return null;
+}
+
 function codenamesButton(kind: string, value: string, user: string, channel: string): CAction | null {
   switch (kind) {
     case 'join':
@@ -768,6 +809,7 @@ export class GameHost {
   skullGames = new Map<string, SkState>();
   nimmtGames = new Map<string, NState>();
   loveLetterGames = new Map<string, LLState>();
+  cockroachGames = new Map<string, CrState>();
   private lastKind = new Map<string, Kind>(); // 每個頻道最近一局是哪款遊戲
   private lobbyTs = new Map<string, string>();
   private boardTs = new Map<string, string>(); // 機密代號的牌桌訊息
@@ -808,6 +850,7 @@ export class GameHost {
       skull: { states: this.skullGames, apply: applySkull, parse: parseSkullCommand, button: skullButton, help: SKULL_HELP },
       nimmt: { states: this.nimmtGames, apply: applyNimmt, parse: parseNimmtCommand, button: nimmtButton, help: NIMMT_HELP },
             loveletter: { states: this.loveLetterGames, apply: applyLoveLetter, parse: parseLoveLetterCommand, button: loveLetterButton, help: LOVELETTER_HELP },
+      cockroach: { states: this.cockroachGames, apply: applyCockroach, parse: parseCockroachCommand, button: cockroachButton, help: COCKROACH_HELP },
     };
   }
 
