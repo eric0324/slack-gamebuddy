@@ -15,10 +15,11 @@
 - **花火**（`/game hanabi`）：2～5 位真人的合作遊戲，看得到別人的牌、看不到自己的，靠提示合力依序打出五種顏色的煙火
 - **心電感應**（`/game wavelength`）：4～12 位真人分兩隊，出題者用一個詞讓隊友猜光譜上的位置，有空就按、不用輪流
 - **截碼戰**（`/game decrypto`）：4～12 位真人分黑白兩隊，加密者用 3 個提示把密碼傳給隊友，同時試著攔截對方的密碼
+- **情書**（`/game loveletter`）：2～6 人的推理小品（2019 版 21 張），每人一張手牌，輪到時抽一張、出一張發動角色能力，先拿到目標數量好感標記的人贏；可以加 bot
 
 輸入 `/game` 會打開遊戲大廳（只有你看得到），用上面的分類按鈕切換（推理、團隊對抗、合作、心理戰），點遊戲旁邊的「開房」就能開一局，不用記指令；房間公告也會附上該遊戲的規則連結。
 
-各遊戲的玩法和指令請看 [wiki](https://github.com/eric0324/slack-gamebuddy/wiki)。截碼戰：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/截碼戰-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/截碼戰-指令)。心電感應：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/心電感應-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/心電感應-指令)。花火：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/花火-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/花火-指令)。政變：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/政變-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/政變-指令)。一字千金：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/一字千金-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/一字千金-指令)。吹牛骰：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/吹牛骰-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/吹牛骰-指令)。機密代號：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/機密代號-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/機密代號-指令)。阿瓦隆：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/阿瓦隆-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/阿瓦隆-指令)。間諜危機：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/間諜危機-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/間諜危機-指令)。誰是臥底：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/誰是臥底-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/誰是臥底-指令)。狼人殺：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/狼人殺-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/狼人殺-指令)。
+各遊戲的玩法和指令請看 [wiki](https://github.com/eric0324/slack-gamebuddy/wiki)。情書：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/情書-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/情書-指令)。截碼戰：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/截碼戰-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/截碼戰-指令)。心電感應：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/心電感應-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/心電感應-指令)。花火：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/花火-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/花火-指令)。政變：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/政變-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/政變-指令)。一字千金：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/一字千金-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/一字千金-指令)。吹牛骰：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/吹牛骰-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/吹牛骰-指令)。機密代號：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/機密代號-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/機密代號-指令)。阿瓦隆：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/阿瓦隆-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/阿瓦隆-指令)。間諜危機：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/間諜危機-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/間諜危機-指令)。誰是臥底：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/誰是臥底-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/誰是臥底-指令)。狼人殺：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/狼人殺-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/狼人殺-指令)。
 
 ## 建立 Slack App
 
@@ -33,8 +34,8 @@
        always_online: true
      slash_commands:
        - command: /game
-         description: 桌遊（狼人殺、誰是臥底、間諜危機、阿瓦隆、機密代號、吹牛骰、一字千金、政變、花火、心電感應、截碼戰）
-         usage_hint: werewolf new | undercover new | spyfall new | avalon new | codenames new | liarsdice new | justone new | coup new | hanabi new | wavelength new | decrypto new | help
+         description: 桌遊（狼人殺、誰是臥底、間諜危機、阿瓦隆、機密代號、吹牛骰、一字千金、政變、花火、心電感應、截碼戰、情書）
+         usage_hint: werewolf new | undercover new | spyfall new | avalon new | codenames new | liarsdice new | justone new | coup new | hanabi new | wavelength new | decrypto new | loveletter new | help
          should_escape: true
        - command: /werewolf
          description: 狼人殺

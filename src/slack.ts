@@ -12,8 +12,9 @@ import { applySpyfall, type SAction, type SState } from './spyfall.js';
 import { applyUndercover, type UAction, type UState } from './undercover.js';
 import { applyWavelength, type WAction, type WState } from './wavelength.js';
 import { applyDecrypto, type DAction, type DState } from './decrypto.js';
+import { applyLoveLetter, type LAction as LLAction, type LState as LLState, type Role as LLRole } from './loveletter.js';
 
-type Kind = 'werewolf' | 'undercover' | 'spyfall' | 'avalon' | 'codenames' | 'liarsdice' | 'justone' | 'coup' | 'hanabi' | 'wavelength' | 'decrypto';
+type Kind = 'werewolf' | 'undercover' | 'spyfall' | 'avalon' | 'codenames' | 'liarsdice' | 'justone' | 'coup' | 'hanabi' | 'wavelength' | 'decrypto' | 'loveletter';
 type OtherKind = Exclude<Kind, 'werewolf'>;
 
 // 狼人殺以外的遊戲都用同一套方式接上 adapter：engine、指令解析、按鈕對應、說明
@@ -81,6 +82,7 @@ const GAME_LIST = [
   '• 🎆 *花火*（`hanabi`）：2～5 人（不支援 bot），開房 `/game hanabi new`',
   '• 📡 *心電感應*（`wavelength`）：4～12 人（不支援 bot），開房 `/game wavelength new`',
   '• 🔐 *截碼戰*（`decrypto`）：4～12 人（不支援 bot），開房 `/game decrypto new`',
+  '• 💌 *情書*（`loveletter`）：2～6 人，開房 `/game loveletter new`',
   '各遊戲的指令：`/game <遊戲代號> help`，例如 `/game liarsdice help`',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
@@ -92,6 +94,17 @@ const DECRYPTO_HELP = [
   '• 加密：輪到你時按「✍️ 寫提示」依序寫 3 個提示；也可以打 `/game decrypto clue 海 / 火 / 鐘`（用 / 分開）',
   '• `/game decrypto cancel`：取消遊戲（房主）',
   '解碼、攔截、提示紀錄都用頻道按鈕',
+  `📖 完整說明：<${WIKI}|wiki>`,
+].join('\n');
+
+const LOVELETTER_HELP = [
+  '*情書指令*',
+  '• `/game loveletter new`：開房（任何人）',
+  '• `/game loveletter addbot [數量]`：加入 bot 補人數（房主，開始前）',
+  '• `/game loveletter removebot [數量]`：移除 bot（房主，開始前）',
+  '• `/game loveletter start`：開始遊戲，需要 2～6 人（房主）',
+  '• `/game loveletter cancel`：取消遊戲（房主）',
+  '輪到你時按「🃏 出牌」選牌、目標和（衛兵）猜的角色；「👀 我的手牌」「📜 棄牌紀錄」隨時可以按（只有你看得到）',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
@@ -222,6 +235,7 @@ const CATALOG: { kind: Kind; category: string; emoji: string; name: string; play
   { kind: 'hanabi', category: 'coop', emoji: '🎆', name: '花火', players: '2～5 人', desc: '合作遊戲，看得到別人的牌、看不到自己的' },
   { kind: 'wavelength', category: 'team', emoji: '📡', name: '心電感應', players: '4～12 人', desc: '兩隊對抗，出題者用一個詞讓隊友猜光譜上的位置' },
   { kind: 'decrypto', category: 'team', emoji: '🔐', name: '截碼戰', players: '4～12 人', desc: '兩隊對抗，用提示傳 3 碼密碼給隊友，也試著攔截對方' },
+  { kind: 'loveletter', category: 'deduction', emoji: '💌', name: '情書', players: '2～6 人', desc: '每人一張手牌，抽一張出一張，推理別人的牌、送出情書' },
 ];
 
 // 大廳的分類：一次只顯示一類，按上面的分類按鈕切換
@@ -463,6 +477,28 @@ function decryptoButton(kind: string, value: string, user: string, channel: stri
   return null;
 }
 
+// 情書只有房間指令，出牌都用按鈕
+export function parseLoveLetterCommand(text: string, user: string, channel: string): LLAction | null {
+  const action = parseUndercoverCommand(text, user, channel);
+  if (!action || !['new', 'start', 'cancel', 'addBot', 'removeBot'].includes(action.type)) return null;
+  return action as LLAction;
+}
+
+// value：menu、hand、log、pick:<seq>:<i>、tgt:<seq>:<i>:<目標>、guess:<seq>:<i>:<角色>:<目標>、keep:<seq>:<i>（bot 的 id 有冒號，目標放最後）
+function loveLetterButton(kind: string, value: string, user: string, channel: string): LLAction | null {
+  if (kind === 'join' || kind === 'leave' || kind === 'start') return { type: kind, user };
+  if (kind === 'rematch') return { type: 'rematch', user, channel };
+  if (kind !== 'loveletter') return null;
+  if (value === 'menu' || value === 'hand' || value === 'log') return { type: value, user };
+  const [act, seqText, indexText, ...rest] = value.split(':');
+  const seq = Number(seqText);
+  const index = Number(indexText);
+  if (act === 'pick' || act === 'keep') return { type: act, user, seq, index };
+  if (act === 'tgt') return { type: 'target', user, seq, index, target: rest.join(':') };
+  if (act === 'guess') return { type: 'play', user, seq, index, guess: rest[0] as LLRole, target: rest.slice(1).join(':') };
+  return null;
+}
+
 function codenamesButton(kind: string, value: string, user: string, channel: string): CAction | null {
   switch (kind) {
     case 'join':
@@ -592,6 +628,7 @@ export class GameHost {
   hanabiGames = new Map<string, HState>();
   wavelengthGames = new Map<string, WState>();
   decryptoGames = new Map<string, DState>();
+  loveLetterGames = new Map<string, LLState>();
   private lastKind = new Map<string, Kind>(); // 每個頻道最近一局是哪款遊戲
   private lobbyTs = new Map<string, string>();
   private boardTs = new Map<string, string>(); // 機密代號的牌桌訊息
@@ -626,6 +663,7 @@ export class GameHost {
       hanabi: { states: this.hanabiGames, apply: applyHanabi, parse: parseHanabiCommand, button: hanabiButton, help: HANABI_HELP },
       wavelength: { states: this.wavelengthGames, apply: applyWavelength, parse: parseWavelengthCommand, button: wavelengthButton, help: WAVELENGTH_HELP },
       decrypto: { states: this.decryptoGames, apply: applyDecrypto, parse: parseDecryptoCommand, button: decryptoButton, help: DECRYPTO_HELP },
+      loveletter: { states: this.loveLetterGames, apply: applyLoveLetter, parse: parseLoveLetterCommand, button: loveLetterButton, help: LOVELETTER_HELP },
     };
   }
 
