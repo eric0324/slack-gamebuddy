@@ -2,7 +2,7 @@
 
 - 現有遊戲已經有：ephemeral 帶按鈕的 prompt（花火的看牌、截碼戰的投票選單）、`perRow` 分列、`startTimer`／`timeout`、bot 機制（`randomBotName`、`isBot`，吹牛骰／政變的 addbot／removebot）、`lobby` 事件、再來一局。
 - 誰是牛頭王的特點是**同時出牌**，和截碼戰的「全部投完或時間到」一樣，可以沿用同一套計時與提早結束的寫法。
-- 不需要新的 GameEvent 種類，也不需要改 `engine.ts`、`index.ts`。
+- 不需要新的 GameEvent 種類，也不需要改 `index.ts`；`engine.ts` 只在 `prompt` 加一個可選欄位（見決定 9）。
 
 ## Goals / Non-Goals
 
@@ -14,7 +14,6 @@
 
 **Non-Goals:**
 - 不做官方變體（專家規則、戰術版、指定人數牌組等）
-- 不在頻道顯示「誰還沒選」的即時進度（ephemeral 無法更新，頻道每次有人選就發訊息會洗版）
 - 不記錄戰績（只有狼人殺有 stats）
 
 ## Decisions
@@ -36,7 +35,8 @@
 6. **bot 選牌**：回合開始時立刻依 spec 的風險規則選好（只看目前牌桌，不猜別人出什麼）。風險相同出最小的牌，邏輯簡單、可測、行為穩定。
 7. **輪的結束判斷**：10 回合擺完才檢查 66（官方「達到 66 就結束」，大多數玩法是打完這一輪再算），這樣每輪資訊完整、公告也簡單。
 8. **私訊手牌**：每輪開始私訊一次手牌當參考；實際選牌以「🃏 選牌」的即時選單為準。
-9. **指令解析** `parseNimmtCommand`：`play <牌號>` 解析成 `{ type: 'pick', card }`（不帶 turn，視為目前回合），其他交給 `parseUndercoverCommand` 並只接受 new／start／cancel／addBot／removeBot。
+9. **「已選 N/M」用同一則訊息更新**：`prompt` 事件新增可選的 `ref?: string`（`engine.ts` 一行）。adapter 每個頻道只記一組 `{ ref, ts }`：頻道 prompt 帶 `ref` 時，`ref` 和記住的相同就 `chat.update` 那則訊息，不同就 `postMessage` 並記住新的 ts。engine 每回合用 `nimmt:<回合序號>` 當 `ref`，所以新回合會發新訊息、同回合的進度都更新同一則；揭曉時送同一個 `ref`、`options: []`，把按鈕拿掉。不帶 `ref` 的 prompt 行為不變，其他遊戲不受影響。不新增 GameEvent 種類，也不沿用機密代號的 `board`（它的按鈕固定路由成 `guess`）。
+10. **指令解析** `parseNimmtCommand`：`play <牌號>` 解析成 `{ type: 'pick', card }`（不帶 turn，視為目前回合），其他交給 `parseUndercoverCommand` 並只接受 new／start／cancel／addBot／removeBot。
 
 ## Risks / Trade-offs
 

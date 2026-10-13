@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GIFS } from '../src/gifs.js';
 import { StatsStore } from '../src/stats.js';
 import { mention } from '../src/engine.js';
-import { buttonAction, GameHost, slackText, parseAvalonCommand, parseCodenamesCommand, parseCommand, parseDecryptoCommand, parseHanabiCommand, parseJustOneCommand, parseLiarsDiceCommand, parseSpyfallCommand, parseUndercoverCommand, parseWavelengthCommand, type SlackClient } from '../src/slack.js';
+import { buttonAction, GameHost, slackText, parseAvalonCommand, parseCodenamesCommand, parseCommand, parseDecryptoCommand, parseHanabiCommand, parseJustOneCommand, parseLiarsDiceCommand, parseNimmtCommand, parseSpyfallCommand, parseUndercoverCommand, parseWavelengthCommand, type SlackClient } from '../src/slack.js';
 
 type Call = { method: string; args: Record<string, any> };
 
@@ -999,7 +999,7 @@ describe('game-commands: 花火', () => {
 
 describe('game-commands: 遊戲大廳', () => {
   const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
-  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto'];
+  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'nimmt'];
 
   const TABS = ['deduction', 'team', 'coop', 'bluff'];
   const openButtons = (blocks: any[]) => blocks.filter((b) => b.accessory).map((b) => b.accessory);
@@ -1055,7 +1055,7 @@ describe('game-commands: 遊戲大廳', () => {
     const { client, calls } = fakeClient();
     const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, respond: async () => { throw new Error('expired'); } });
     await host.button('ww:lobbyTab:3', 'C1|bluff', 'U1', 'alice', undefined, 'https://hooks/x');
-    expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|liarsdice', 'C1|coup']);
+    expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|liarsdice', 'C1|coup', 'C1|nimmt']);
     await host.button('ww:lobbyTab:1', 'C1|team', 'U1', 'alice');
     expect(lastEph(calls)).toMatchObject({ user: 'U1' });
     expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|codenames', 'C1|wavelength', 'C1|decrypto']);
@@ -1280,5 +1280,69 @@ describe('game-commands: 截碼戰', () => {
     expect(host.decryptoGames.get('C1')!.decodeVotes).toEqual({ U3: '123' });
     await host.button('ww:decrypto:1', 'C1|history', 'U9', 'zed');
     expect(lastEph(calls)).toMatchObject({ user: 'U9', text: expect.stringContaining('提示紀錄') });
+  });
+});
+
+describe('game-commands: 誰是牛頭王', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+  const posts = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postMessage');
+  // rng 固定、牌組不洗：U1 手牌 1～10、U2 手牌 11～20、四列 21～24
+  async function startGame() {
+    const { client, calls } = fakeClient();
+    const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, gifs: {} });
+    await host.game('C1', 'U1', 'alice', 'nimmt new');
+    await host.button('ww:join:0', 'C1|join', 'U2', 'bob');
+    await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
+    return { host, calls };
+  }
+
+  it('/game 清單有誰是牛頭王；/game nimmt help 列出指令', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', '');
+    for (const s of ['誰是牛頭王', 'nimmt', '2～10 人', '/game nimmt new']) expect(lastEph(calls).text).toContain(s);
+    await host.game('C1', 'U1', 'alice', 'nimmt help');
+    for (const s of ['new', 'addbot', 'removebot', 'start', 'play', 'cancel']) expect(lastEph(calls).text).toContain(`/game nimmt ${s}`);
+    await host.game('C1', 'U1', 'alice', 'nimmt dance');
+    expect(lastEph(calls).text).toContain('/game nimmt play');
+  });
+
+  it('指令解析：new、addbot、play <牌號>', () => {
+    expect(parseNimmtCommand('new', 'U1', 'C1')).toEqual({ type: 'new', user: 'U1', channel: 'C1' });
+    expect(parseNimmtCommand('addbot 3', 'U1', 'C1')).toEqual({ type: 'addBot', user: 'U1', count: 3 });
+    expect(parseNimmtCommand('play 37', 'U1', 'C1')).toEqual({ type: 'pick', user: 'U1', card: 37 });
+    expect(parseNimmtCommand('play x', 'U1', 'C1')).toBeNull();
+    expect(parseNimmtCommand('vote', 'U1', 'C1')).toBeNull();
+  });
+
+  it('選牌選單只讓自己看到，10 張分 2 列；選牌、選列按鈕交給誰是牛頭王', async () => {
+    const { host, calls } = await startGame();
+    await host.button('ww:nimmt:0', 'C1|hand', 'U1', 'alice');
+    const menu = lastEph(calls);
+    expect(menu.user).toBe('U1');
+    expect(menu.blocks.filter((b: any) => b.type === 'actions').map((b: any) => b.elements.length)).toEqual([5, 5]);
+    await host.button('ww:nimmt:0', 'C1|pick:1:1', 'U1', 'alice');
+    expect(host.nimmtGames.get('C1')!.players[0].pick).toBe(1);
+    await host.game('C1', 'U2', 'bob', 'nimmt play 11');
+    expect(host.nimmtGames.get('C1')!.phase).toBe('chooseRow');
+    expect(buttonsOf(posts(calls).at(-1)!)).toHaveLength(4); // 選列訊息沒有 ref，照舊發新訊息
+    await host.button('ww:nimmt:2', 'C1|row:1:2', 'U1', 'alice');
+    expect(host.nimmtGames.get('C1')!.rows[2]).toEqual([1, 11]);
+  });
+
+  it('選牌進度更新同一則頻道訊息，揭曉時拿掉按鈕，下一回合發新訊息', async () => {
+    const { host, calls } = await startGame();
+    const first = posts(calls).filter((c) => String(c.args.text).includes('已選 0/2'));
+    expect(first).toHaveLength(1);
+    const before = posts(calls).length;
+    await host.button('ww:nimmt:0', 'C1|pick:1:10', 'U1', 'alice');
+    expect(posts(calls).length).toBe(before);
+    const update = calls.filter((c) => c.method === 'chat.update').at(-1)!;
+    expect(update.args.text).toContain('已選 1/2');
+    await host.button('ww:nimmt:0', 'C1|pick:1:20', 'U2', 'bob');
+    const revealed = calls.filter((c) => c.method === 'chat.update').at(-1)!;
+    expect(revealed.args).toMatchObject({ ts: update.args.ts, text: expect.stringContaining('已揭曉') });
+    expect(buttonsOf(revealed)).toHaveLength(0);
+    await host.button('ww:nimmt:2', 'C1|row:1:0', 'U1', 'alice');
+    expect(posts(calls).filter((c) => String(c.args.text).includes('已選 0/2'))).toHaveLength(2);
   });
 });
