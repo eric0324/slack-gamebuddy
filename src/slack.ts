@@ -11,8 +11,9 @@ import { applyLiarsDice, type LAction, type LState } from './liarsdice.js';
 import { applySpyfall, type SAction, type SState } from './spyfall.js';
 import { applyUndercover, type UAction, type UState } from './undercover.js';
 import { applyWavelength, type WAction, type WState } from './wavelength.js';
+import { applyDecrypto, type DAction, type DState } from './decrypto.js';
 
-type Kind = 'werewolf' | 'undercover' | 'spyfall' | 'avalon' | 'codenames' | 'liarsdice' | 'justone' | 'coup' | 'hanabi' | 'wavelength';
+type Kind = 'werewolf' | 'undercover' | 'spyfall' | 'avalon' | 'codenames' | 'liarsdice' | 'justone' | 'coup' | 'hanabi' | 'wavelength' | 'decrypto';
 type OtherKind = Exclude<Kind, 'werewolf'>;
 
 // 狼人殺以外的遊戲都用同一套方式接上 adapter：engine、指令解析、按鈕對應、說明
@@ -73,7 +74,18 @@ const GAME_LIST = [
   '• 👑 *政變*（`coup`）：3～6 人，開房 `/game coup new`',
   '• 🎆 *花火*（`hanabi`）：2～5 人（不支援 bot），開房 `/game hanabi new`',
   '• 📡 *心電感應*（`wavelength`）：4～12 人（不支援 bot），開房 `/game wavelength new`',
+  '• 🔐 *截碼戰*（`decrypto`）：4～12 人（不支援 bot），開房 `/game decrypto new`',
   '各遊戲的指令：`/game <遊戲代號> help`，例如 `/game liarsdice help`',
+  `📖 完整說明：<${WIKI}|wiki>`,
+].join('\n');
+
+const DECRYPTO_HELP = [
+  '*截碼戰指令*',
+  '• `/game decrypto new`：開房（任何人）',
+  '• `/game decrypto start`：開始遊戲，需要 4～12 位真人（房主）',
+  '• 加密：輪到你時按「✍️ 寫提示」依序寫 3 個提示；也可以打 `/game decrypto clue 海 / 火 / 鐘`（用 / 分開）',
+  '• `/game decrypto cancel`：取消遊戲（房主）',
+  '解碼、攔截、提示紀錄都用頻道按鈕',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
@@ -203,6 +215,7 @@ const CATALOG: { kind: Kind; emoji: string; name: string; players: string; desc:
   { kind: 'coup', emoji: '👑', name: '政變', players: '3～6 人', desc: '虛張聲勢，宣稱任何角色的能力，質疑或阻擋' },
   { kind: 'hanabi', emoji: '🎆', name: '花火', players: '2～5 人', desc: '合作遊戲，看得到別人的牌、看不到自己的' },
   { kind: 'wavelength', emoji: '📡', name: '心電感應', players: '4～12 人', desc: '兩隊對抗，出題者用一個詞讓隊友猜光譜上的位置' },
+  { kind: 'decrypto', emoji: '🔐', name: '截碼戰', players: '4～12 人', desc: '兩隊對抗，用提示傳 3 碼密碼給隊友，也試著攔截對方' },
 ];
 
 function lobbyBlocks(channel: string) {
@@ -408,6 +421,30 @@ function wavelengthButton(kind: string, value: string, user: string, channel: st
   return null;
 }
 
+// 截碼戰的子指令：clue <提示1> / <提示2> / <提示3>（提示可以有空白）
+export function parseDecryptoCommand(text: string, user: string, channel: string): DAction | null {
+  const [sub, ...rest] = text.trim().split(/\s+/);
+  if (sub === 'clue') {
+    const texts = rest.join(' ').split('/').map((x) => x.trim());
+    return texts.length === 3 && texts.every(Boolean) ? { type: 'clue', user, texts } : null;
+  }
+  const action = parseUndercoverCommand(text, user, channel);
+  if (!action || !['new', 'start', 'cancel', 'addBot', 'removeBot'].includes(action.type)) return null;
+  return action as DAction;
+}
+
+function decryptoButton(kind: string, value: string, user: string, channel: string): DAction | null {
+  if (kind === 'join' || kind === 'leave' || kind === 'start') return { type: kind, user };
+  if (kind === 'rematch') return { type: 'rematch', user, channel };
+  if (kind !== 'decrypto') return null;
+  if (value === 'clue') return { type: 'openClue', user };
+  if (value === 'history') return { type: 'history', user };
+  if (value === 'decode' || value === 'intercept') return { type: 'voteMenu', user, mode: value };
+  const [act, mode, round, code] = value.split(':');
+  if (act === 'vote' && (mode === 'decode' || mode === 'intercept')) return { type: 'vote', user, mode, round: Number(round), code };
+  return null;
+}
+
 function codenamesButton(kind: string, value: string, user: string, channel: string): CAction | null {
   switch (kind) {
     case 'join':
@@ -536,6 +573,7 @@ export class GameHost {
   coupGames = new Map<string, KState>();
   hanabiGames = new Map<string, HState>();
   wavelengthGames = new Map<string, WState>();
+  decryptoGames = new Map<string, DState>();
   private lastKind = new Map<string, Kind>(); // 每個頻道最近一局是哪款遊戲
   private lobbyTs = new Map<string, string>();
   private boardTs = new Map<string, string>(); // 機密代號的牌桌訊息
@@ -567,6 +605,7 @@ export class GameHost {
       coup: { states: this.coupGames, apply: applyCoup, parse: parseCoupCommand, button: coupButton, help: COUP_HELP },
       hanabi: { states: this.hanabiGames, apply: applyHanabi, parse: parseHanabiCommand, button: hanabiButton, help: HANABI_HELP },
       wavelength: { states: this.wavelengthGames, apply: applyWavelength, parse: parseWavelengthCommand, button: wavelengthButton, help: WAVELENGTH_HELP },
+      decrypto: { states: this.decryptoGames, apply: applyDecrypto, parse: parseDecryptoCommand, button: decryptoButton, help: DECRYPTO_HELP },
     };
   }
 
@@ -674,11 +713,11 @@ export class GameHost {
     return action ? this.dispatch(channel, action) : Promise.resolve();
   }
 
-  // Slack 視窗送出：callback_id 是 `ww:<視窗種類>`，private_metadata 是遊戲頻道
-  modal(callbackId: string, channel: string, user: string, userName: string, text: string): Promise<void> {
+  // Slack 視窗送出：callback_id 是 `ww:<視窗種類>`，private_metadata 是遊戲頻道，texts 是各欄位依序的內容
+  modal(callbackId: string, channel: string, user: string, userName: string, texts: string[]): Promise<void> {
     this.names.set(user, userName);
-    const action: WAction = { type: 'clue', user, text };
-    if (callbackId === 'ww:wavelengthClue') return this.dispatchGame('wavelength', channel, action);
+    if (callbackId === 'ww:wavelengthClue') return this.dispatchGame('wavelength', channel, { type: 'clue', user, text: texts[0] ?? '' } as WAction);
+    if (callbackId === 'ww:decryptoClue') return this.dispatchGame('decrypto', channel, { type: 'clue', user, texts } as DAction);
     return Promise.resolve();
   }
 
@@ -818,12 +857,18 @@ export class GameHost {
               title: { type: 'plain_text', text: e.title },
               submit: { type: 'plain_text', text: '送出' },
               close: { type: 'plain_text', text: '取消' },
-              blocks: [{ type: 'input', block_id: 'text', label: { type: 'plain_text', text: e.label }, element: { type: 'plain_text_input', action_id: 'text' } }],
+              blocks: (e.fields ?? [e.label]).map((label, i) => ({
+                type: 'input',
+                block_id: e.fields ? `f${i}` : 'text',
+                label: { type: 'plain_text', text: label },
+                element: { type: 'plain_text_input', action_id: 'text' },
+              })),
             },
           });
         } catch (err) {
           console.error('[werewolf] views.open failed', err);
-          await chat.postEphemeral({ channel, user: e.to, text: slackText('視窗打不開，請改用 `/game wavelength clue <提示>` 送出提示。') });
+          const cmd = e.kind === 'decryptoClue' ? '/game decrypto clue <提示1> / <提示2> / <提示3>' : '/game wavelength clue <提示>';
+          await chat.postEphemeral({ channel, user: e.to, text: slackText(`視窗打不開，請改用 \`${cmd}\` 送出提示。`) });
         }
         return;
       case 'ephemeral':

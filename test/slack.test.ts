@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GIFS } from '../src/gifs.js';
 import { StatsStore } from '../src/stats.js';
 import { mention } from '../src/engine.js';
-import { buttonAction, GameHost, slackText, parseAvalonCommand, parseCodenamesCommand, parseCommand, parseHanabiCommand, parseJustOneCommand, parseLiarsDiceCommand, parseSpyfallCommand, parseUndercoverCommand, parseWavelengthCommand, type SlackClient } from '../src/slack.js';
+import { buttonAction, GameHost, slackText, parseAvalonCommand, parseCodenamesCommand, parseCommand, parseDecryptoCommand, parseHanabiCommand, parseJustOneCommand, parseLiarsDiceCommand, parseSpyfallCommand, parseUndercoverCommand, parseWavelengthCommand, type SlackClient } from '../src/slack.js';
 
 type Call = { method: string; args: Record<string, any> };
 
@@ -997,7 +997,7 @@ describe('game-commands: 花火', () => {
 
 describe('game-commands: 遊戲大廳', () => {
   const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
-  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength'];
+  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto'];
 
   it('/game、/game help、不認識的代號：只讓自己看到大廳，每款遊戲一列加開房按鈕', async () => {
     for (const text of ['', 'help', 'chess']) {
@@ -1141,7 +1141,8 @@ describe('game-commands: 心電感應', () => {
     const open = calls.find((c) => c.method === 'views.open')!.args;
     expect(open).toMatchObject({ trigger_id: 'T123', view: { type: 'modal', callback_id: 'ww:wavelengthClue', private_metadata: 'C1' } });
     expect(JSON.stringify(open.view)).toContain('寫提示');
-    await host.modal('ww:wavelengthClue', 'C1', 'U2', 'bob', '火鍋');
+    expect(open.view.blocks.map((b: any) => b.block_id)).toEqual(['text']);
+    await host.modal('ww:wavelengthClue', 'C1', 'U2', 'bob', ['火鍋']);
     expect(host.wavelengthGames.get('C1')).toMatchObject({ phase: 'guess', clue: '火鍋' });
   });
 
@@ -1170,5 +1171,66 @@ describe('game-commands: 心電感應', () => {
     const msg = calls.filter((c) => c.method === 'chat.postMessage' && c.args.text?.includes('寫提示')).at(-1)!;
     expect(msg.args.blocks.filter((b: any) => b.type === 'actions')).toHaveLength(1);
     expect(host.wavelengthGames.get('C1')!.phase).toBe('clue');
+  });
+});
+
+describe('game-commands: 截碼戰', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+  // rng 固定：U1、U3 黑隊，U2、U4 白隊；第 1 回合加密者是 U1、U2
+  async function startGame(opts: { viewsFail?: boolean } = {}) {
+    const { client, calls } = fakeClient(opts);
+    const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, gifs: {} });
+    await host.game('C1', 'U1', 'alice', 'decrypto new');
+    for (const u of ['U2', 'U3', 'U4']) await host.button('ww:join:0', 'C1|join', u, u);
+    await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
+    return { host, calls };
+  }
+
+  it('/game 清單和大廳有截碼戰；/game decrypto help 列出指令', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', '');
+    for (const s of ['截碼戰', 'decrypto', '4～12 人', '/game decrypto new']) expect(lastEph(calls).text).toContain(s);
+    expect(JSON.stringify(lastEph(calls).blocks)).toContain('C1|decrypto');
+    await host.game('C1', 'U1', 'alice', 'decrypto help');
+    for (const s of ['new', 'start', 'clue', 'cancel']) expect(lastEph(calls).text).toContain(`/game decrypto ${s}`);
+  });
+
+  it('指令解析：new、addbot、clue 用 / 分開剛好 3 個', () => {
+    expect(parseDecryptoCommand('new', 'U1', 'C1')).toEqual({ type: 'new', user: 'U1', channel: 'C1' });
+    expect(parseDecryptoCommand('addbot', 'U1', 'C1')).toEqual({ type: 'addBot', user: 'U1', count: 1 });
+    expect(parseDecryptoCommand('clue 海 / 火山 爆發 / 鐘', 'U1', 'C1')).toEqual({ type: 'clue', user: 'U1', texts: ['海', '火山 爆發', '鐘'] });
+    expect(parseDecryptoCommand('clue 海 / 火', 'U1', 'C1')).toBeNull();
+    expect(parseDecryptoCommand('vote 123', 'U1', 'C1')).toBeNull();
+  });
+
+  it('寫提示按鈕：開 3 欄視窗，送出後依序變成提示', async () => {
+    const { host, calls } = await startGame();
+    await host.button('ww:decrypto:0', 'C1|clue', 'U1', 'alice', 'T1');
+    const open = calls.find((c) => c.method === 'views.open')!.args;
+    expect(open).toMatchObject({ trigger_id: 'T1', view: { callback_id: 'ww:decryptoClue', private_metadata: 'C1' } });
+    expect(open.view.blocks.map((b: any) => b.block_id)).toEqual(['f0', 'f1', 'f2']);
+    await host.modal('ww:decryptoClue', 'C1', 'U1', 'alice', ['海', '火', '鐘']);
+    expect(host.decryptoGames.get('C1')!.teams.black.clues).toEqual(['海', '火', '鐘']);
+  });
+
+  it('視窗打不開時，只讓加密者看到改用指令', async () => {
+    const { host, calls } = await startGame({ viewsFail: true });
+    await host.button('ww:decrypto:0', 'C1|clue', 'U1', 'alice', 'T1');
+    expect(lastEph(calls)).toMatchObject({ user: 'U1', text: expect.stringContaining('/game decrypto clue') });
+  });
+
+  it('投票選單 24 組分 4 列；投票和提示紀錄按鈕交給截碼戰', async () => {
+    const { host, calls } = await startGame();
+    await host.game('C1', 'U1', 'alice', 'decrypto clue 海 / 火 / 鐘');
+    await host.game('C1', 'U2', 'bob', 'decrypto clue 甲 / 乙 / 丙');
+    expect(host.decryptoGames.get('C1')!.phase).toBe('vote');
+    await host.button('ww:decrypto:0', 'C1|decode', 'U3', 'carol');
+    const menu = lastEph(calls);
+    expect(menu.user).toBe('U3');
+    expect(menu.blocks.filter((b: any) => b.type === 'actions').map((b: any) => b.elements.length)).toEqual([6, 6, 6, 6]);
+    await host.button('ww:decrypto:0', 'C1|vote:decode:0:123', 'U3', 'carol');
+    expect(host.decryptoGames.get('C1')!.decodeVotes).toEqual({ U3: '123' });
+    await host.button('ww:decrypto:1', 'C1|history', 'U9', 'zed');
+    expect(lastEph(calls)).toMatchObject({ user: 'U9', text: expect.stringContaining('提示紀錄') });
   });
 });
