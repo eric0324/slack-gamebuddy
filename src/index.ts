@@ -28,7 +28,7 @@ app.command('/game', async ({ command, ack }) => {
 
 app.action<BlockAction<ButtonAction>>(/^ww:/, async ({ action, body, ack }) => {
   await ack();
-  await host.button(action.action_id, action.value ?? '', body.user.id, body.user.username, body.trigger_id);
+  await host.button(action.action_id, action.value ?? '', body.user.id, body.user.username, body.trigger_id, body.response_url);
 });
 
 // 按鈕開的 Slack 視窗送出時（例如心電感應、截碼戰的寫提示）：單一欄位是 `text`，多個欄位是 f0、f1…
