@@ -973,6 +973,8 @@ describe('game-commands: 花火', () => {
     await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
     await host.button('ww:hanabiTurn:0', 'C1|peek', 'U1', 'alice');
     expect(lastEph(calls)).toMatchObject({ user: 'U1', text: expect.stringContaining('<@U2>：🟥3') });
+    await host.button('ww:hanabiTurn:1', 'C1|discards', 'U3', 'carol');
+    expect(lastEph(calls)).toMatchObject({ user: 'U3', text: expect.stringContaining('棄牌堆是空的') });
     await host.game('C1', 'U2', 'bob', 'hanabi hint <@U1|alice> 紅');
     expect(host.hanabiGames.get('C1')).toMatchObject({ hints: 7, turn: 0 });
     await host.button('ww:hanabiTurn:1', 'C1|play:0', 'U1', 'alice');
