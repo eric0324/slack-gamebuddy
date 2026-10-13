@@ -10,8 +10,9 @@ import { applyJustOne, type JAction, type JState } from './justone.js';
 import { applyLiarsDice, type LAction, type LState } from './liarsdice.js';
 import { applySpyfall, type SAction, type SState } from './spyfall.js';
 import { applyUndercover, type UAction, type UState } from './undercover.js';
+import { applyWavelength, type WAction, type WState } from './wavelength.js';
 
-type Kind = 'werewolf' | 'undercover' | 'spyfall' | 'avalon' | 'codenames' | 'liarsdice' | 'justone' | 'coup' | 'hanabi';
+type Kind = 'werewolf' | 'undercover' | 'spyfall' | 'avalon' | 'codenames' | 'liarsdice' | 'justone' | 'coup' | 'hanabi' | 'wavelength';
 type OtherKind = Exclude<Kind, 'werewolf'>;
 
 // 狼人殺以外的遊戲都用同一套方式接上 adapter：engine、指令解析、按鈕對應、說明
@@ -31,6 +32,9 @@ export interface SlackClient {
     postEphemeral(args: any): Promise<any>;
   };
   conversations: {
+    open(args: any): Promise<any>;
+  };
+  views: {
     open(args: any): Promise<any>;
   };
 }
@@ -68,7 +72,18 @@ const GAME_LIST = [
   '• 💡 *一字千金*（`justone`）：3～7 人（不支援 bot），開房 `/game justone new`',
   '• 👑 *政變*（`coup`）：3～6 人，開房 `/game coup new`',
   '• 🎆 *花火*（`hanabi`）：2～5 人（不支援 bot），開房 `/game hanabi new`',
+  '• 📡 *心電感應*（`wavelength`）：4～12 人（不支援 bot），開房 `/game wavelength new`',
   '各遊戲的指令：`/game <遊戲代號> help`，例如 `/game liarsdice help`',
+  `📖 完整說明：<${WIKI}|wiki>`,
+].join('\n');
+
+const WAVELENGTH_HELP = [
+  '*心電感應指令*',
+  '• `/game wavelength new`：開房（任何人）',
+  '• `/game wavelength start`：開始遊戲，需要 4～12 位真人（房主）',
+  '• 出題：輪到你時按「✍️ 寫提示」輸入提示詞；也可以打 `/game wavelength clue <提示>`',
+  '• `/game wavelength cancel`：取消遊戲（房主）',
+  '猜位置、猜左右都用頻道按鈕',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
@@ -186,6 +201,7 @@ const CATALOG: { kind: Kind; emoji: string; name: string; players: string; desc:
   { kind: 'justone', emoji: '💡', name: '一字千金', players: '3～7 人', desc: '合作猜詞，大家各給一個提示，重複的會被刪掉' },
   { kind: 'coup', emoji: '👑', name: '政變', players: '3～6 人', desc: '虛張聲勢，宣稱任何角色的能力，質疑或阻擋' },
   { kind: 'hanabi', emoji: '🎆', name: '花火', players: '2～5 人', desc: '合作遊戲，看得到別人的牌、看不到自己的' },
+  { kind: 'wavelength', emoji: '📡', name: '心電感應', players: '4～12 人', desc: '兩隊對抗，出題者用一個詞讓隊友猜光譜上的位置' },
 ];
 
 function lobbyBlocks(channel: string) {
@@ -370,6 +386,26 @@ function hanabiButton(kind: string, value: string, user: string, channel: string
   return act === 'play' || act === 'discard' ? { type: act, user, index: Number(arg) } : null;
 }
 
+// 心電感應的子指令：clue <提示>（提示可以有空白）
+export function parseWavelengthCommand(text: string, user: string, channel: string): WAction | null {
+  const [sub, ...rest] = text.trim().split(/\s+/);
+  if (sub === 'clue') return rest.length ? { type: 'clue', user, text: rest.join(' ') } : null;
+  const action = parseUndercoverCommand(text, user, channel);
+  if (!action || !['new', 'start', 'cancel', 'addBot', 'removeBot'].includes(action.type)) return null;
+  return action as WAction;
+}
+
+function wavelengthButton(kind: string, value: string, user: string, channel: string): WAction | null {
+  if (kind === 'join' || kind === 'leave' || kind === 'start') return { type: kind, user };
+  if (kind === 'rematch') return { type: 'rematch', user, channel };
+  if (kind !== 'wavelength') return null;
+  if (value === 'clue') return { type: 'openClue', user };
+  const [act, arg] = value.split(':');
+  if (act === 'guess') return { type: 'guess', user, value: Number(arg) };
+  if (act === 'side' && (arg === 'left' || arg === 'right')) return { type: 'side', user, value: arg };
+  return null;
+}
+
 function codenamesButton(kind: string, value: string, user: string, channel: string): CAction | null {
   switch (kind) {
     case 'join':
@@ -497,6 +533,7 @@ export class GameHost {
   justOneGames = new Map<string, JState>();
   coupGames = new Map<string, KState>();
   hanabiGames = new Map<string, HState>();
+  wavelengthGames = new Map<string, WState>();
   private lastKind = new Map<string, Kind>(); // 每個頻道最近一局是哪款遊戲
   private lobbyTs = new Map<string, string>();
   private boardTs = new Map<string, string>(); // 機密代號的牌桌訊息
@@ -527,6 +564,7 @@ export class GameHost {
       justone: { states: this.justOneGames, apply: applyJustOne, parse: parseJustOneCommand, button: justOneButton, help: JUSTONE_HELP },
       coup: { states: this.coupGames, apply: applyCoup, parse: parseCoupCommand, button: coupButton, help: COUP_HELP },
       hanabi: { states: this.hanabiGames, apply: applyHanabi, parse: parseHanabiCommand, button: hanabiButton, help: HANABI_HELP },
+      wavelength: { states: this.wavelengthGames, apply: applyWavelength, parse: parseWavelengthCommand, button: wavelengthButton, help: WAVELENGTH_HELP },
     };
   }
 
@@ -603,7 +641,7 @@ export class GameHost {
     return this.dispatchGame(kind, channel, action);
   }
 
-  dispatchGame(kind: OtherKind, channel: string, action: { type: string }): Promise<void> {
+  dispatchGame(kind: OtherKind, channel: string, action: { type: string }, triggerId?: string): Promise<void> {
     const def = this.defs[kind];
     const prev = def.states.get(channel);
     const { state, events } = def.apply(prev, action, this.rng);
@@ -611,10 +649,11 @@ export class GameHost {
       def.states.set(channel, state);
       if (state !== prev && isCreation(action)) this.lastKind.set(channel, kind);
     }
-    return this.deliver(channel, events, kind);
+    return this.deliver(channel, events, kind, triggerId);
   }
 
-  button(actionId: string, value: string, user: string, userName: string): Promise<void> {
+  // triggerId：這次按鈕點擊的 trigger_id，engine 要開視窗時用（3 秒內有效）
+  button(actionId: string, value: string, user: string, userName: string, triggerId?: string): Promise<void> {
     this.names.set(user, userName);
     const kind = actionId.split(':')[1];
     const sep = value.indexOf('|');
@@ -627,10 +666,18 @@ export class GameHost {
     const last = this.lastKind.get(channel);
     if (this.isOther(last)) {
       const action = this.defs[last].button(kind, value.slice(sep + 1), user, channel);
-      return action ? this.dispatchGame(last, channel, action) : Promise.resolve();
+      return action ? this.dispatchGame(last, channel, action, triggerId) : Promise.resolve();
     }
     const action = buttonAction(kind, value.slice(sep + 1), user, channel);
     return action ? this.dispatch(channel, action) : Promise.resolve();
+  }
+
+  // Slack 視窗送出：callback_id 是 `ww:<視窗種類>`，private_metadata 是遊戲頻道
+  modal(callbackId: string, channel: string, user: string, userName: string, text: string): Promise<void> {
+    this.names.set(user, userName);
+    const action: WAction = { type: 'clue', user, text };
+    if (callbackId === 'ww:wavelengthClue') return this.dispatchGame('wavelength', channel, action);
+    return Promise.resolve();
   }
 
   // `/werewolf stats [@某人]`：開啟 should_escape 後，mention 會是 <@U123> 或 <@U123|名字>
@@ -663,10 +710,10 @@ export class GameHost {
 
 
   // 依序送出，避免同一局的訊息順序錯亂
-  private deliver(channel: string, events: GameEvent[], kind: Kind = 'werewolf'): Promise<void> {
+  private deliver(channel: string, events: GameEvent[], kind: Kind = 'werewolf', triggerId?: string): Promise<void> {
     this.queue = this.queue
       .then(async () => {
-        for (const e of events) await this.send(channel, e, kind);
+        for (const e of events) await this.send(channel, e, kind, triggerId);
       })
       .catch((err) => console.error('[werewolf] Slack API error', err));
     return this.queue;
@@ -703,7 +750,7 @@ export class GameHost {
       .join(' ');
   }
 
-  private async send(channel: string, event: GameEvent, kind: Kind) {
+  private async send(channel: string, event: GameEvent, kind: Kind, triggerId?: string) {
     const e = 'text' in event && typeof event.text === 'string' ? ({ ...event, text: slackText(event.text) } as GameEvent) : event;
     const chat = this.client.chat;
     switch (e.type) {
@@ -729,10 +776,9 @@ export class GameHost {
       case 'prompt': {
         if ((e.audience === 'user' || e.audience === 'ephemeral') && isBot(e.user!)) return;
         const elements = e.options.map((o, i) => button(e.kind, i, this.label(o.label), channel, o.value));
-        const blocks = [
-          { type: 'section', text: { type: 'mrkdwn', text: e.text } },
-          { type: 'actions', elements },
-        ];
+        const size = e.perRow ?? elements.length;
+        const rows = Array.from({ length: Math.ceil(elements.length / size) }, (_, r) => elements.slice(r * size, r * size + size));
+        const blocks = [{ type: 'section', text: { type: 'mrkdwn', text: e.text } }, ...rows.map((row) => ({ type: 'actions', elements: row }))];
         // 只讓某人看到的按鈕選單（例如花火的給提示）
         if (e.audience === 'ephemeral') {
           await chat.postEphemeral({ channel, user: e.user!, text: e.text, blocks });
@@ -758,6 +804,26 @@ export class GameHost {
         await chat.postMessage({ channel, text: e.text, blocks });
         return;
       }
+      case 'modal':
+        try {
+          if (!triggerId) throw new Error('missing trigger_id');
+          await this.client.views.open({
+            trigger_id: triggerId,
+            view: {
+              type: 'modal',
+              callback_id: `ww:${e.kind}`,
+              private_metadata: channel,
+              title: { type: 'plain_text', text: e.title },
+              submit: { type: 'plain_text', text: '送出' },
+              close: { type: 'plain_text', text: '取消' },
+              blocks: [{ type: 'input', block_id: 'text', label: { type: 'plain_text', text: e.label }, element: { type: 'plain_text_input', action_id: 'text' } }],
+            },
+          });
+        } catch (err) {
+          console.error('[werewolf] views.open failed', err);
+          await chat.postEphemeral({ channel, user: e.to, text: slackText('視窗打不開，請改用 `/game wavelength clue <提示>` 送出提示。') });
+        }
+        return;
       case 'ephemeral':
         if (isBot(e.to)) return;
         await chat.postEphemeral({ channel, user: e.to, text: e.text });

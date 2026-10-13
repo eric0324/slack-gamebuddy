@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { GIFS } from '../src/gifs.js';
 import { StatsStore } from '../src/stats.js';
 import { mention } from '../src/engine.js';
-import { buttonAction, GameHost, slackText, parseAvalonCommand, parseCodenamesCommand, parseCommand, parseHanabiCommand, parseJustOneCommand, parseLiarsDiceCommand, parseSpyfallCommand, parseUndercoverCommand, type SlackClient } from '../src/slack.js';
+import { buttonAction, GameHost, slackText, parseAvalonCommand, parseCodenamesCommand, parseCommand, parseHanabiCommand, parseJustOneCommand, parseLiarsDiceCommand, parseSpyfallCommand, parseUndercoverCommand, parseWavelengthCommand, type SlackClient } from '../src/slack.js';
 
 type Call = { method: string; args: Record<string, any> };
 
-function fakeClient() {
+function fakeClient(opts: { viewsFail?: boolean } = {}) {
   const calls: Call[] = [];
   let ts = 0;
   const record = (method: string, result: (args: any) => unknown) => async (args: any) => {
@@ -21,6 +21,12 @@ function fakeClient() {
     },
     conversations: {
       open: record('conversations.open', (a) => ({ ok: true, channel: { id: `D:${a.users}` } })),
+    },
+    views: {
+      open: record('views.open', () => {
+        if (opts.viewsFail) throw new Error('expired_trigger_id');
+        return { ok: true };
+      }),
     },
   };
   return { client, calls };
@@ -989,7 +995,7 @@ describe('game-commands: 花火', () => {
 
 describe('game-commands: 遊戲大廳', () => {
   const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
-  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi'];
+  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength'];
 
   it('/game、/game help、不認識的代號：只讓自己看到大廳，每款遊戲一列加開房按鈕', async () => {
     for (const text of ['', 'help', 'chess']) {
@@ -1095,5 +1101,72 @@ describe('game-commands: 換遊戲後按鈕仍交給新遊戲', () => {
     await host.idle();
     await host.button('ww:join:0', 'C1|join', 'U2', 'bob');
     expect(host.coupGames.get('C1')!.players.map((p) => p.id)).toEqual(['U1', 'U2']);
+  });
+});
+
+describe('game-commands: 心電感應', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+  // rng 固定：U1、U3 橘隊，U2、U4 紫隊，紫隊 U2 先出題，隊友 U4
+  async function startGame(opts: { viewsFail?: boolean } = {}) {
+    const { client, calls } = fakeClient(opts);
+    const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, gifs: {} });
+    await host.game('C1', 'U1', 'alice', 'wavelength new');
+    for (const u of ['U2', 'U3', 'U4']) await host.button('ww:join:0', 'C1|join', u, u);
+    await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
+    return { host, calls };
+  }
+
+  it('/game 清單和大廳有心電感應；/game wavelength help 列出指令', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', '');
+    for (const s of ['心電感應', 'wavelength', '4～12 人', '/game wavelength new']) expect(lastEph(calls).text).toContain(s);
+    expect(JSON.stringify(lastEph(calls).blocks)).toContain('C1|wavelength');
+    await host.game('C1', 'U1', 'alice', 'wavelength help');
+    for (const s of ['new', 'start', 'clue', 'cancel']) expect(lastEph(calls).text).toContain(`/game wavelength ${s}`);
+  });
+
+  it('指令解析：new、start、cancel、clue、addbot', () => {
+    expect(parseWavelengthCommand('new', 'U1', 'C1')).toEqual({ type: 'new', user: 'U1', channel: 'C1' });
+    expect(parseWavelengthCommand('clue 麻辣 火鍋', 'U1', 'C1')).toEqual({ type: 'clue', user: 'U1', text: '麻辣 火鍋' });
+    expect(parseWavelengthCommand('clue', 'U1', 'C1')).toBeNull();
+    expect(parseWavelengthCommand('addbot', 'U1', 'C1')).toEqual({ type: 'addBot', user: 'U1', count: 1 });
+    expect(parseWavelengthCommand('guess 3', 'U1', 'C1')).toBeNull();
+  });
+
+  it('寫提示按鈕：用 trigger_id 開視窗，送出後變成提示', async () => {
+    const { host, calls } = await startGame();
+    await host.button('ww:wavelength:0', 'C1|clue', 'U2', 'bob', 'T123');
+    const open = calls.find((c) => c.method === 'views.open')!.args;
+    expect(open).toMatchObject({ trigger_id: 'T123', view: { type: 'modal', callback_id: 'ww:wavelengthClue', private_metadata: 'C1' } });
+    expect(JSON.stringify(open.view)).toContain('寫提示');
+    await host.modal('ww:wavelengthClue', 'C1', 'U2', 'bob', '火鍋');
+    expect(host.wavelengthGames.get('C1')).toMatchObject({ phase: 'guess', clue: '火鍋' });
+  });
+
+  it('視窗打不開時，只讓出題者看到改用指令', async () => {
+    const { host, calls } = await startGame({ viewsFail: true });
+    await host.button('ww:wavelength:0', 'C1|clue', 'U2', 'bob', 'T123');
+    expect(lastEph(calls)).toMatchObject({ user: 'U2', text: expect.stringContaining('/game wavelength clue') });
+  });
+
+  it('0～10 按鈕分兩列；猜位置和猜左右的按鈕交給心電感應', async () => {
+    const { host, calls } = await startGame();
+    await host.game('C1', 'U2', 'bob', 'wavelength clue 火鍋');
+    const msg = calls.filter((c) => c.method === 'chat.postMessage').at(-1)!;
+    const rows = msg.args.blocks.filter((b: any) => b.type === 'actions');
+    expect(rows.map((b: any) => b.elements.length)).toEqual([6, 5]);
+    expect(new Set(buttonsOf(msg).map((b: any) => b.action_id)).size).toBe(11);
+    await host.button('ww:wavelength:9', 'C1|guess:9', 'U4', 'dan');
+    expect(host.wavelengthGames.get('C1')).toMatchObject({ phase: 'side', answer: 9 });
+    await host.button('ww:wavelength:1', 'C1|side:right', 'U1', 'alice');
+    await host.button('ww:wavelength:1', 'C1|side:right', 'U3', 'carol');
+    expect(host.wavelengthGames.get('C1')).toMatchObject({ round: 1, scores: { purple: 3, orange: 1 } });
+  });
+
+  it('沒有設 perRow 的按鈕訊息維持一列', async () => {
+    const { host, calls } = await startGame();
+    const msg = calls.filter((c) => c.method === 'chat.postMessage' && c.args.text?.includes('寫提示')).at(-1)!;
+    expect(msg.args.blocks.filter((b: any) => b.type === 'actions')).toHaveLength(1);
+    expect(host.wavelengthGames.get('C1')!.phase).toBe('clue');
   });
 });

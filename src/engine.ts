@@ -134,7 +134,8 @@ export type GameEvent =
   | { type: 'dm'; to: string; text: string }
   | { type: 'wolfChat'; wolves: string[]; text: string }
   | { type: 'lobby'; host: string; players: string[]; open: boolean; title?: string } // title 沒寫就是狼人殺
-  | { type: 'prompt'; kind: string; audience: 'channel' | 'wolves' | 'user' | 'ephemeral'; user?: string; text: string; options: Option[] }
+  | { type: 'prompt'; kind: string; audience: 'channel' | 'wolves' | 'user' | 'ephemeral'; user?: string; text: string; options: Option[]; perRow?: number }
+  | { type: 'modal'; to: string; kind: string; title: string; label: string } // 按鈕開的 Slack 視窗，送出後變成遊戲 action
   | { type: 'startTimer'; id: number; ms: number }
   | { type: 'gameRecord'; winner: 'good' | 'wolves'; players: { id: string; role: Role }[] };
 
