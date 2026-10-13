@@ -15,8 +15,9 @@ import { applyDecrypto, type DAction, type DState } from './decrypto.js';
 import { applyWavecoop, type WCAction, type WCState } from './wavecoop.js';
 import { applyInsider, type IAction, type IState } from './insider.js';
 import { applySkull, type SkAction, type SkState } from './skull.js';
+import { applyNimmt, type NAction, type NState } from './nimmt.js';
 
-type Kind = 'werewolf' | 'undercover' | 'spyfall' | 'avalon' | 'codenames' | 'liarsdice' | 'justone' | 'coup' | 'hanabi' | 'wavelength' | 'decrypto' | 'wavecoop' | 'insider' | 'skull';
+type Kind = 'werewolf' | 'undercover' | 'spyfall' | 'avalon' | 'codenames' | 'liarsdice' | 'justone' | 'coup' | 'hanabi' | 'wavelength' | 'decrypto' | 'wavecoop' | 'insider' | 'skull' | 'nimmt';
 type OtherKind = Exclude<Kind, 'werewolf'>;
 
 // 狼人殺以外的遊戲都用同一套方式接上 adapter：engine、指令解析、按鈕對應、說明
@@ -87,6 +88,7 @@ const GAME_LIST = [
   '• 🧠 *心電感應（合作）*（`wavecoop`）：2～12 人（不支援 bot），開房 `/game wavecoop new`',
   '• 🕴️ *圈內人*（`insider`）：4～8 人（不支援 bot），開房 `/game insider new`',
   '• 💀 *骷髏與玫瑰*（`skull`）：3～6 人，開房 `/game skull new`',
+  '• 🐮 *誰是牛頭王*（`nimmt`）：2～10 人，開房 `/game nimmt new`',
   '各遊戲的指令：`/game <遊戲代號> help`，例如 `/game liarsdice help`',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
@@ -109,6 +111,18 @@ const DECRYPTO_HELP = [
   '• 加密：輪到你時按「✍️ 寫提示」依序寫 3 個提示；也可以打 `/game decrypto clue 海 / 火 / 鐘`（用 / 分開）',
   '• `/game decrypto cancel`：取消遊戲（房主）',
   '解碼、攔截、提示紀錄都用頻道按鈕',
+  `📖 完整說明：<${WIKI}|wiki>`,
+].join('\n');
+
+const NIMMT_HELP = [
+  '*誰是牛頭王指令*',
+  '• `/game nimmt new`：開房（任何人）',
+  '• `/game nimmt addbot [數量]`：加入 bot 補人數（房主，開始前）',
+  '• `/game nimmt removebot [數量]`：移除 bot（房主，開始前）',
+  '• `/game nimmt start`：開始遊戲，需要 2～10 人（房主）',
+  '• 選牌：每回合按「🃏 選牌」從手牌選一張（只有你看得到，揭曉前可以改）；也可以打 `/game nimmt play <牌號>`',
+  '• `/game nimmt cancel`：取消遊戲（房主）',
+  '出的牌比四列都小時，用頻道按鈕選一列收走；有人累積 66 個牛頭時，打完這一輪就結束，最少的人獲勝',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
@@ -264,6 +278,7 @@ const CATALOG: { kind: Kind; category: string; emoji: string; name: string; play
   { kind: 'wavecoop', category: 'coop', emoji: '🧠', name: '心電感應（合作）', players: '2～12 人', desc: '全員合作，輪流出題、大家一起猜光譜上的位置拚總分' },
   { kind: 'insider', category: 'deduction', emoji: '🕴️', name: '圈內人', players: '4～8 人', desc: '是非題合力猜出答案，再找出知道答案卻裝不知道的圈內人' },
   { kind: 'skull', category: 'bluff', emoji: '💀', name: '骷髏與玫瑰', players: '3～6 人', desc: '蓋牌喊數，翻開的全是玫瑰才算成功，翻到骷髏就少一張牌' },
+  { kind: 'nimmt', category: 'bluff', emoji: '🐮', name: '誰是牛頭王', players: '2～10 人', desc: '大家同時出牌，第 6 張和最小的牌要收走整列牛頭' },
 ];
 
 // 大廳的分類：一次只顯示一類，按上面的分類按鈕切換
@@ -563,6 +578,26 @@ function skullButton(kind: string, value: string, user: string, channel: string)
   return null;
 }
 
+// 誰是牛頭王的子指令：play <牌號>
+export function parseNimmtCommand(text: string, user: string, channel: string): NAction | null {
+  const [sub, arg] = text.trim().split(/\s+/);
+  if (sub === 'play') return /^\d+$/.test(arg ?? '') ? { type: 'pick', user, card: Number(arg) } : null;
+  const action = parseUndercoverCommand(text, user, channel);
+  if (!action || !['new', 'start', 'cancel', 'addBot', 'removeBot'].includes(action.type)) return null;
+  return action as NAction;
+}
+
+function nimmtButton(kind: string, value: string, user: string, channel: string): NAction | null {
+  if (kind === 'join' || kind === 'leave' || kind === 'start') return { type: kind, user };
+  if (kind === 'rematch') return { type: 'rematch', user, channel };
+  if (kind !== 'nimmt') return null;
+  if (value === 'hand') return { type: 'hand', user };
+  const [act, seq, arg] = value.split(':');
+  if (act === 'pick') return { type: 'pick', user, seq: Number(seq), card: Number(arg) };
+  if (act === 'row') return { type: 'row', user, seq: Number(seq), row: Number(arg) };
+  return null;
+}
+
 function codenamesButton(kind: string, value: string, user: string, channel: string): CAction | null {
   switch (kind) {
     case 'join':
@@ -695,9 +730,11 @@ export class GameHost {
   wavecoopGames = new Map<string, WCState>();
   insiderGames = new Map<string, IState>();
   skullGames = new Map<string, SkState>();
+  nimmtGames = new Map<string, NState>();
   private lastKind = new Map<string, Kind>(); // 每個頻道最近一局是哪款遊戲
   private lobbyTs = new Map<string, string>();
   private boardTs = new Map<string, string>(); // 機密代號的牌桌訊息
+  private promptTs = new Map<string, { ref: string; ts: string }>(); // 帶 ref 的頻道 prompt：同一個 ref 就更新同一則
   private names = new Map<string, string>();
   private dms = new Map<string, string>(); // user → 私訊頻道
   private wolfChats = new Map<string, { users: string; id: string }>(); // 遊戲頻道 → 狼人多人私訊
@@ -732,6 +769,7 @@ export class GameHost {
       wavecoop: { states: this.wavecoopGames, apply: applyWavecoop, parse: parseWavecoopCommand, button: wavecoopButton, help: WAVECOOP_HELP },
       insider: { states: this.insiderGames, apply: applyInsider, parse: parseInsiderCommand, button: insiderButton, help: INSIDER_HELP },
       skull: { states: this.skullGames, apply: applySkull, parse: parseSkullCommand, button: skullButton, help: SKULL_HELP },
+      nimmt: { states: this.nimmtGames, apply: applyNimmt, parse: parseNimmtCommand, button: nimmtButton, help: NIMMT_HELP },
     };
   }
 
@@ -968,7 +1006,13 @@ export class GameHost {
         const target =
           e.audience === 'channel' ? channel : e.audience === 'wolves' ? this.wolfChats.get(channel)?.id : await this.dm(e.user!);
         if (!target) return;
-        await chat.postMessage({ channel: target, text: e.text, blocks });
+        const saved = e.audience === 'channel' && e.ref ? this.promptTs.get(channel) : undefined;
+        if (saved && saved.ref === e.ref) {
+          await chat.update({ channel, ts: saved.ts, text: e.text, blocks });
+          return;
+        }
+        const res = await chat.postMessage({ channel: target, text: e.text, blocks });
+        if (e.audience === 'channel' && e.ref) this.promptTs.set(channel, { ref: e.ref, ts: res.ts });
         return;
       }
       case 'announce': {
