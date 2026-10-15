@@ -41,3 +41,5 @@
 - Slack 設定不用改：manifest 已有 `channels:history`、`groups:history`、`message.channels`、`message.groups`
 - Tests：新增 `test/taboo.test.ts`、`test/tabooCards.test.ts`；`test/slack.test.ts`（KINDS、大廳團隊對抗分類）、`test/characterization.test.ts`（KINDS 和 snapshot 會多一款遊戲的文字）
 - Docs：README（遊戲列表、wiki 連結、manifest description／usage_hint、讀取頻道訊息的說明）、wiki 三頁（禁語、禁語-遊戲規則、禁語-指令）
+
+> 註：禁語、四葉草、不要謝謝一起合併。大廳分類（`game-commands`）和戰績獲勝規則（`player-stats`）的修改，統一寫在 `add-soclover-game` 的 delta（最後歸檔）。

@@ -27,3 +27,5 @@
 - Code：新增 `src/soclover.ts`（engine，用 `src/common.ts` 的 `joinRoom`、`leaveRoom`、`cancelGame`、`runGame`、`shuffle`、`reply`、`startTimer`、`lobbyEvent`）、`src/socloverWords.ts`、`src/games/soclover.ts`（`GameDef`）；`src/games/index.ts` 的 `GAMES` 加一行。`src/engine.ts`、`src/slack.ts`、`src/index.ts` 不需要改（多欄位視窗、`ref` 更新同一則 prompt 都已支援）
 - Tests：新增 `test/soclover.test.ts`、`test/socloverWords.test.ts`；`test/slack.test.ts`（KINDS、大廳合作分類、指令解析、按鈕路由、視窗）；`test/characterization.test.ts` 的 KINDS 加 `soclover`，snapshot 會多一款遊戲的文字（預期中的變更）
 - Docs：README（遊戲列表、wiki 連結、manifest `description`／`usage_hint`）、wiki 新增「四葉草」「四葉草-遊戲規則」「四葉草-指令」三頁
+
+> 註：禁語、四葉草、不要謝謝一起合併。大廳分類（`game-commands`）和戰績獲勝規則（`player-stats`）的修改，統一寫在 `add-soclover-game` 的 delta（最後歸檔）。

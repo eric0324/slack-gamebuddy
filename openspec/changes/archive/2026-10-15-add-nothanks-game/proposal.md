@@ -36,3 +36,5 @@
 - Code：新增 `src/nothanks.ts`（engine，用 `src/common.ts` 的房間邏輯、`runGame`、`shuffle`、`reply`、`startTimer`）；新增 `src/games/nothanks.ts`（`GameDef`）；`src/games/index.ts` 的 `GAMES` 加一行。不需要新的 GameEvent 種類
 - Tests：新增 `test/nothanks.test.ts`；`test/slack.test.ts`（KINDS、大廳心理戰分類）；`test/__snapshots__/characterization.test.ts.snap` 預期多一款遊戲的文字
 - Docs：README（遊戲列表、wiki 連結、manifest description／usage_hint）、wiki 新增「不要謝謝」「不要謝謝-遊戲規則」「不要謝謝-指令」三頁
+
+> 註：禁語、四葉草、不要謝謝一起合併。大廳分類（`game-commands`）和戰績獲勝規則（`player-stats`）的修改，統一寫在 `add-soclover-game` 的 delta（最後歸檔）。
