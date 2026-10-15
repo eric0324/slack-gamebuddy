@@ -19,6 +19,8 @@ import { parseNimmtCommand } from '../src/games/nimmt.js';
 import { parseSkullCommand } from '../src/games/skull.js';
 import { parseCockroachCommand } from '../src/games/cockroach.js';
 import { parseChameleonCommand } from '../src/games/chameleon.js';
+import { parseTabooCommand } from '../src/games/taboo.js';
+import { TABOO_CARDS } from '../src/tabooCards.js';
 
 type Call = { method: string; args: Record<string, any> };
 
@@ -1017,7 +1019,7 @@ describe('game-commands: 花火', () => {
 
 describe('game-commands: 遊戲大廳', () => {
   const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
-  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter', 'cockroach', 'chameleon'];
+  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter', 'cockroach', 'chameleon', 'taboo'];
 
   const TABS = ['deduction', 'team', 'coop', 'bluff'];
   const openButtons = (blocks: any[]) => blocks.filter((b) => b.accessory).map((b) => b.accessory);
@@ -1076,7 +1078,7 @@ describe('game-commands: 遊戲大廳', () => {
     expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|liarsdice', 'C1|coup', 'C1|skull', 'C1|nimmt', 'C1|cockroach']);
     await host.button('ww:lobbyTab:1', 'C1|team', 'U1', 'alice');
     expect(lastEph(calls)).toMatchObject({ user: 'U1' });
-    expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|codenames', 'C1|wavelength', 'C1|decrypto']);
+    expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|codenames', 'C1|wavelength', 'C1|decrypto', 'C1|taboo']);
   });
 
   it('按開房等同 /game <代號> new，按的人當房主', async () => {
@@ -1853,5 +1855,65 @@ describe('player-stats: 跨遊戲戰績與排行榜', () => {
     await host.game('C1', 'U1', 'alice', '');
     expect(lastEph(calls).text).toContain('/game stats');
     expect(lastEph(calls).text).toContain('/game rank');
+  });
+});
+
+describe('game-commands: 禁語', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+  const lastPost = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postMessage').at(-1)!.args;
+  // rng 固定：紅隊 U1、U3，藍隊 U2、U4；藍隊 U2 先描述，U4 猜；第一張卡是詞庫第一張
+  async function startGame() {
+    const { client, calls } = fakeClient();
+    const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, gifs: {} });
+    await host.game('C1', 'U1', 'alice', 'taboo new');
+    for (const u of ['U2', 'U3', 'U4']) await host.button('ww:join:0', 'C1|join', u, u);
+    await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
+    return { host, calls };
+  }
+
+  it('/game 清單和大廳團隊對抗有禁語；/game taboo help 列出指令', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', '');
+    for (const s of ['禁語', 'taboo', '4～12 人', '/game taboo new']) expect(lastEph(calls).text).toContain(s);
+    await host.game('C1', 'U1', 'alice', 'taboo help');
+    for (const s of ['new', 'start', 'skip', 'card', 'cancel']) expect(lastEph(calls).text).toContain(`/game taboo ${s}`);
+    await host.game('C1', 'U1', 'alice', 'taboo dance');
+    expect(lastEph(calls).text).toContain('禁語指令');
+  });
+
+  it('指令解析：new、start、cancel、addbot、skip、card', () => {
+    expect(parseTabooCommand('new', 'U1', 'C1')).toEqual({ type: 'new', user: 'U1', channel: 'C1' });
+    expect(parseTabooCommand('start', 'U1', 'C1')).toEqual({ type: 'start', user: 'U1' });
+    expect(parseTabooCommand('cancel', 'U1', 'C1')).toEqual({ type: 'cancel', user: 'U1' });
+    expect(parseTabooCommand('addbot', 'U1', 'C1')).toEqual({ type: 'addBot', user: 'U1', count: 1 });
+    expect(parseTabooCommand('skip', 'U1', 'C1')).toEqual({ type: 'skip', user: 'U1' });
+    expect(parseTabooCommand('card', 'U1', 'C1')).toEqual({ type: 'card', user: 'U1' });
+    expect(parseTabooCommand('dance', 'U1', 'C1')).toBeNull();
+  });
+
+  it('從大廳開房', async () => {
+    const { host } = setup();
+    await host.button('ww:lobbyOpen:0', 'C1|taboo', 'U2', 'bob');
+    expect(host.state('taboo', 'C1')).toMatchObject({ phase: 'lobby', host: 'U2' });
+  });
+
+  it('開始按鈕、跳過按鈕交給禁語；描述者看到題目卡', async () => {
+    const { host, calls } = await startGame();
+    await host.button('ww:taboo:0', 'C1|go', 'U2', 'bob');
+    expect(host.state('taboo', 'C1')!.phase).toBe('describe');
+    const eph = lastEph(calls);
+    expect(eph.user).toBe('U2');
+    expect(eph.text).toContain(TABOO_CARDS[0].word);
+    expect(buttonsOf({ method: '', args: eph }).map((b: any) => b.value)).toEqual(['C1|skip:1']);
+    await host.button('ww:taboo:0', 'C1|skip:1', 'U2', 'bob');
+    expect(host.state('taboo', 'C1')!.scores).toEqual({ red: 1, blue: 0 });
+  });
+
+  it('頻道訊息交給禁語：隊友猜中有公告', async () => {
+    const { host, calls } = await startGame();
+    await host.button('ww:taboo:0', 'C1|go', 'U2', 'bob');
+    await host.chat('C1', 'U4', `是${TABOO_CARDS[0].word}嗎`);
+    expect(lastPost(calls).text).toContain(`猜中「${TABOO_CARDS[0].word}」`);
+    expect(host.state('taboo', 'C1')!.scores).toEqual({ red: 0, blue: 1 });
   });
 });
