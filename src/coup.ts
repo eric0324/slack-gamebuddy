@@ -1,6 +1,7 @@
 // 政變遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyCoup(state, action, rng) → { state, events }。
 import { randomBotName } from './botLines.js';
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
+import { lobbyEvent, reply, shuffle, startTimer } from './common.js';
 
 export const MIN_COUP_PLAYERS = 3;
 export const MAX_COUP_PLAYERS = 6;
@@ -86,23 +87,6 @@ interface Ctx {
   rng: Rng;
 }
 
-const lobbyEvent = (s: KState): GameEvent => ({
-  type: 'lobby',
-  title: TITLE,
-  host: s.host,
-  players: s.players.map((p) => p.id),
-  open: s.phase === 'lobby',
-});
-
-function shuffle<T>(items: T[], rng: Rng): T[] {
-  const a = [...items];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
 const cardList = (p: KPlayer) => p.cards.filter((x) => !x.revealed).map((x) => ROLE_NAME[x.role]).join('、');
 
 // 發牌：15 張洗牌，每人 2 張暗牌和 2 枚金幣
@@ -121,11 +105,6 @@ function deal(c: Ctx) {
     gif: 'start',
   });
   for (const p of s.players) c.events.push({ type: 'dm', to: p.id, text: `🃏 你的手牌：${cardList(p)}\n\n${ROLE_HELP}` });
-}
-
-function startTimer(c: Ctx, ms: number) {
-  c.s.timers.phase = ++c.s.timerSeq;
-  c.events.push({ type: 'startTimer', id: c.s.timerSeq, ms });
 }
 
 const ACT_LABEL: Record<ActKind, string> = {
@@ -517,11 +496,6 @@ function closeWindow(c: Ctx) {
   } else proceed(c);
 }
 
-const reply = (c: Ctx, to: string, text: string) => {
-  c.events.push({ type: 'ephemeral', to, text });
-  return false;
-};
-
 function handle(c: Ctx, action: GameAction): boolean {
   const s = c.s;
   switch (action.type) {
@@ -530,7 +504,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (s.players.some((p) => p.id === action.user)) return reply(c, action.user, '你已經在房間裡了。');
       if (s.players.length >= MAX_COUP_PLAYERS) return reply(c, action.user, '房間已滿。');
       s.players.push({ id: action.user, cards: [], coins: 0 });
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'leave': {
@@ -538,11 +512,11 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (s.phase !== 'lobby') return reply(c, action.user, '遊戲已經開始了，不能離開。');
       if (action.user === s.host) {
         s.phase = 'ended';
-        c.events.push(lobbyEvent(s), { type: 'announce', text: '🛑 房主離開，遊戲已取消。' });
+        c.events.push(lobbyEvent(TITLE, s), { type: 'announce', text: '🛑 房主離開，遊戲已取消。' });
         return true;
       }
       s.players = s.players.filter((p) => p.id !== action.user);
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'addBot': {
@@ -556,7 +530,7 @@ function handle(c: Ctx, action: GameAction): boolean {
         taken.add(name);
         s.players.push({ id: `bot:${bots + i}:${name}`, cards: [], coins: 0 });
       }
-      if (room > 0) c.events.push(lobbyEvent(s));
+      if (room > 0) c.events.push(lobbyEvent(TITLE, s));
       if (action.count > room) reply(c, action.user, '房間已滿。');
       return room > 0;
     }
@@ -567,7 +541,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (!bots.length) return reply(c, action.user, '房間裡沒有 bot。');
       const removed = new Set(bots.slice(-action.count).map((p) => p.id));
       s.players = s.players.filter((p) => !removed.has(p.id));
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'start': {
@@ -575,7 +549,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (s.phase !== 'lobby') return false;
       const n = s.players.length;
       if (n < MIN_COUP_PLAYERS) return reply(c, action.user, `目前 ${n} 人，至少需要 ${MIN_COUP_PLAYERS} 人才能開始。`);
-      c.events.push(lobbyEvent({ ...s, phase: 'action' }));
+      c.events.push(lobbyEvent(TITLE, { ...s, phase: 'action' }));
       deal(c);
       startTurn(c);
       return true;
@@ -695,5 +669,5 @@ function createLobby(prev: KState | undefined, host: string, channel: string): R
     timerSeq: prev?.timerSeq ?? 0,
     timers: {},
   };
-  return { state: created, events: [lobbyEvent(created)] };
+  return { state: created, events: [lobbyEvent(TITLE, created)] };
 }

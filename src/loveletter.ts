@@ -1,6 +1,7 @@
 // 情書（Love Letter 2019 版）遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyLoveLetter(state, action, rng) → { state, events }。
 import { randomBotName } from './botLines.js';
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
+import { lobbyEvent, reply, shuffle, startTimer } from './common.js';
 
 export const MIN_LOVELETTER_PLAYERS = 2;
 export const MAX_LOVELETTER_PLAYERS = 6;
@@ -88,23 +89,6 @@ interface Ctx {
   rng: Rng;
 }
 
-const lobbyEvent = (s: LState): GameEvent => ({
-  type: 'lobby',
-  title: TITLE,
-  host: s.host,
-  players: s.players.map((p) => p.id),
-  open: s.phase === 'lobby',
-});
-
-function shuffle<T>(items: T[], rng: Rng): T[] {
-  const a = [...items];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
 const pick = <T>(items: T[], rng: Rng): T => items[Math.floor(rng() * items.length)];
 const current = (s: LState) => s.players[s.turn];
 const playerOf = (s: LState, id: string) => s.players.find((p) => p.id === id);
@@ -112,16 +96,7 @@ const say = (c: Ctx, text: string) => c.events.push({ type: 'announce', text });
 const dm = (c: Ctx, to: string, text: string) => {
   if (!isBot(to)) c.events.push({ type: 'dm', to, text });
 };
-const reply = (c: Ctx, to: string, text: string) => {
-  c.events.push({ type: 'ephemeral', to, text });
-  return false;
-};
 const handText = (p: LPlayer) => p.hand.map(cardLabel).join('、');
-
-function startTimer(c: Ctx) {
-  c.s.timers.phase = ++c.s.timerSeq;
-  c.events.push({ type: 'startTimer', id: c.s.timerSeq, ms: TURN_MS });
-}
 
 // 每輪：洗牌、蓋 1 張（2 人局再翻開 3 張）、每人 1 張；上一輪勝者先開始
 function startRound(c: Ctx) {
@@ -166,7 +141,7 @@ function beginTurn(c: Ctx) {
       ],
     });
   }
-  startTimer(c);
+  startTimer(c, TURN_MS);
 }
 
 // 可以出的牌（同一種只列一次）：伯爵夫人和國王／王子同時在手只能出伯爵夫人；公主不能主動出
@@ -315,7 +290,7 @@ function resolve(c: Ctx, p: LPlayer, index: number, targetId?: string, guess?: R
       s.phase = 'chancellor';
       say(c, `${head}，正在從 ${s.chancellor.pool.length} 張牌中選 1 張留下…`);
       promptKeep(c);
-      startTimer(c);
+      startTimer(c, TURN_MS);
       return true;
     }
     say(c, `${head}，但牌堆沒有牌了。`);
@@ -480,7 +455,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (s.players.some((p) => p.id === action.user)) return reply(c, action.user, '你已經在房間裡了。');
       if (s.players.length >= MAX_LOVELETTER_PLAYERS) return reply(c, action.user, '房間已滿。');
       s.players.push(newPlayer(action.user));
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'leave': {
@@ -488,11 +463,11 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (s.phase !== 'lobby') return reply(c, action.user, '遊戲已經開始了，不能離開。');
       if (action.user === s.host) {
         s.phase = 'ended';
-        c.events.push(lobbyEvent(s), { type: 'announce', text: '🛑 房主離開，遊戲已取消。' });
+        c.events.push(lobbyEvent(TITLE, s), { type: 'announce', text: '🛑 房主離開，遊戲已取消。' });
         return true;
       }
       s.players = s.players.filter((p) => p.id !== action.user);
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'addBot': {
@@ -506,7 +481,7 @@ function handle(c: Ctx, action: GameAction): boolean {
         taken.add(name);
         s.players.push(newPlayer(`bot:${bots + i}:${name}`));
       }
-      if (room > 0) c.events.push(lobbyEvent(s));
+      if (room > 0) c.events.push(lobbyEvent(TITLE, s));
       if (action.count > room) reply(c, action.user, '房間已滿。');
       return room > 0;
     }
@@ -517,7 +492,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (!bots.length) return reply(c, action.user, '房間裡沒有 bot。');
       const removed = new Set(bots.slice(-action.count).map((p) => p.id));
       s.players = s.players.filter((p) => !removed.has(p.id));
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'start': {
@@ -525,7 +500,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (s.phase !== 'lobby') return false;
       const n = s.players.length;
       if (n < MIN_LOVELETTER_PLAYERS) return reply(c, action.user, `目前 ${n} 人，至少需要 ${MIN_LOVELETTER_PLAYERS} 人才能開始。`);
-      c.events.push(lobbyEvent({ ...s, phase: 'turn' }));
+      c.events.push(lobbyEvent(TITLE, { ...s, phase: 'turn' }));
       startRound(c);
       return true;
     }
@@ -606,5 +581,5 @@ function createLobby(prev: LState | undefined, host: string, channel: string): R
     timerSeq: prev?.timerSeq ?? 0,
     timers: {},
   };
-  return { state: created, events: [lobbyEvent(created)] };
+  return { state: created, events: [lobbyEvent(TITLE, created)] };
 }
