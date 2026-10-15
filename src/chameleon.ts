@@ -1,6 +1,6 @@
 // 變色龍遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyChameleon(state, action, rng) → { state, events }。
-import { isBot, mention, type GameEvent, type Rng } from './engine.js';
-import { lobbyEvent, reply, startTimer } from './common.js';
+import { mention, type GameEvent, type Rng } from './engine.js';
+import { cancelGame, joinRoom, leaveRoom, lobbyEvent, reply, runGame, startTimer } from './common.js';
 import { CHAMELEON_CARDS } from './chameleonCards.js';
 
 export const MIN_CHAMELEON_PLAYERS = 3;
@@ -250,26 +250,10 @@ function endGame(c: Ctx, lines: string[]) {
 function handle(c: Ctx, action: GameAction): boolean {
   const s = c.s;
   switch (action.type) {
-    case 'join': {
-      if (s.phase !== 'lobby') return reply(c, action.user, '遊戲已經開始了。');
-      if (s.players.some((p) => p.id === action.user)) return reply(c, action.user, '你已經在房間裡了。');
-      if (s.players.length >= MAX_CHAMELEON_PLAYERS) return reply(c, action.user, '房間已滿。');
-      s.players.push({ id: action.user });
-      c.events.push(lobbyEvent(TITLE, s));
-      return true;
-    }
-    case 'leave': {
-      if (!s.players.some((p) => p.id === action.user)) return false;
-      if (s.phase !== 'lobby') return reply(c, action.user, '遊戲已經開始了，不能離開。');
-      if (action.user === s.host) {
-        s.phase = 'ended';
-        c.events.push(lobbyEvent(TITLE, s), { type: 'announce', text: '🛑 房主離開，遊戲已取消。' });
-        return true;
-      }
-      s.players = s.players.filter((p) => p.id !== action.user);
-      c.events.push(lobbyEvent(TITLE, s));
-      return true;
-    }
+    case 'join':
+      return joinRoom(c, TITLE, action.user, MAX_CHAMELEON_PLAYERS, (id) => ({ id }));
+    case 'leave':
+      return leaveRoom(c, TITLE, action.user);
     case 'addBot':
     case 'removeBot':
       return reply(c, action.user, '變色龍不支援 bot。');
@@ -282,14 +266,8 @@ function handle(c: Ctx, action: GameAction): boolean {
       deal(c);
       return true;
     }
-    case 'cancel': {
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以取消遊戲。');
-      const reveal = s.chameleon ? `祕密詞是 ${cell(s, s.secret!)}，變色龍是 ${mention(s.chameleon)}。` : '';
-      s.phase = 'ended';
-      s.timers = {};
-      c.events.push({ type: 'announce', text: `🛑 房主已取消遊戲。${reveal}` });
-      return true;
-    }
+    case 'cancel':
+      return cancelGame(c, action.user, s.chameleon ? `祕密詞是 ${cell(s, s.secret!)}，變色龍是 ${mention(s.chameleon)}。` : '');
     case 'openSay':
       if (s.phase !== 'speak') return reply(c, action.user, '現在不是說詞時間。');
       if (action.user !== s.order[s.turn]) return reply(c, action.user, '還沒輪到你。');
@@ -326,25 +304,12 @@ function handle(c: Ctx, action: GameAction): boolean {
 }
 
 export function applyChameleon(state: CState | undefined, action: CAction, rng: Rng): Result {
-  if (action.type === 'new') {
-    if (state && state.phase !== 'ended') {
-      return { state, events: [{ type: 'ephemeral', to: action.user, text: '這個頻道已經有遊戲了。' }] };
-    }
-    return createLobby(state, action.user, action.channel);
-  }
-  if (action.type === 'rematch') {
-    if (!state) return { state: state!, events: [] };
-    if (state.phase !== 'ended') return { state, events: [{ type: 'ephemeral', to: action.user, text: '這個頻道已經有遊戲了。' }] };
-    if (!state.finished) return { state, events: [] };
-    if (isBot(action.user) || !state.players.some((p) => p.id === action.user)) {
-      return { state, events: [{ type: 'ephemeral', to: action.user, text: '只有上一局的玩家可以開新的一局。' }] };
-    }
-    return createLobby(state, action.user, action.channel);
-  }
-  if (!state || state.phase === 'ended') return { state: state!, events: [] };
-  const c: Ctx = { s: structuredClone(state), events: [], rng };
-  const changed = handle(c, action);
-  return { state: changed ? c.s : state, events: c.events };
+  return runGame(state, action, rng, {
+    finished: (s) => !!s.finished,
+    isPlayer: (s, user) => s.players.some((p) => p.id === user),
+    createLobby,
+    handle,
+  });
 }
 
 function createLobby(prev: CState | undefined, host: string, channel: string): Result {

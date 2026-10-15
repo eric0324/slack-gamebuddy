@@ -1,7 +1,6 @@
 // 情書（Love Letter 2019 版）遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyLoveLetter(state, action, rng) → { state, events }。
-import { randomBotName } from './botLines.js';
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
-import { lobbyEvent, reply, shuffle, startTimer } from './common.js';
+import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
 
 export const MIN_LOVELETTER_PLAYERS = 2;
 export const MAX_LOVELETTER_PLAYERS = 6;
@@ -450,51 +449,14 @@ const newPlayer = (id: string): LPlayer => ({ id, hand: [], discards: [], out: f
 function handle(c: Ctx, action: GameAction): boolean {
   const s = c.s;
   switch (action.type) {
-    case 'join': {
-      if (s.phase !== 'lobby') return reply(c, action.user, '遊戲已經開始了。');
-      if (s.players.some((p) => p.id === action.user)) return reply(c, action.user, '你已經在房間裡了。');
-      if (s.players.length >= MAX_LOVELETTER_PLAYERS) return reply(c, action.user, '房間已滿。');
-      s.players.push(newPlayer(action.user));
-      c.events.push(lobbyEvent(TITLE, s));
-      return true;
-    }
-    case 'leave': {
-      if (!s.players.some((p) => p.id === action.user)) return false;
-      if (s.phase !== 'lobby') return reply(c, action.user, '遊戲已經開始了，不能離開。');
-      if (action.user === s.host) {
-        s.phase = 'ended';
-        c.events.push(lobbyEvent(TITLE, s), { type: 'announce', text: '🛑 房主離開，遊戲已取消。' });
-        return true;
-      }
-      s.players = s.players.filter((p) => p.id !== action.user);
-      c.events.push(lobbyEvent(TITLE, s));
-      return true;
-    }
-    case 'addBot': {
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以加入 bot。');
-      if (s.phase !== 'lobby') return reply(c, action.user, '遊戲已經開始了。');
-      const room = MAX_LOVELETTER_PLAYERS - s.players.length;
-      const bots = s.players.filter((p) => isBot(p.id)).length;
-      const taken = new Set(s.players.filter((p) => isBot(p.id)).map((p) => p.id.split(':')[2]));
-      for (let i = 1; i <= Math.min(action.count, room); i++) {
-        const name = randomBotName(c.rng, taken);
-        taken.add(name);
-        s.players.push(newPlayer(`bot:${bots + i}:${name}`));
-      }
-      if (room > 0) c.events.push(lobbyEvent(TITLE, s));
-      if (action.count > room) reply(c, action.user, '房間已滿。');
-      return room > 0;
-    }
-    case 'removeBot': {
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以移除 bot。');
-      if (s.phase !== 'lobby') return reply(c, action.user, '遊戲已經開始了。');
-      const bots = s.players.filter((p) => isBot(p.id));
-      if (!bots.length) return reply(c, action.user, '房間裡沒有 bot。');
-      const removed = new Set(bots.slice(-action.count).map((p) => p.id));
-      s.players = s.players.filter((p) => !removed.has(p.id));
-      c.events.push(lobbyEvent(TITLE, s));
-      return true;
-    }
+    case 'join':
+      return joinRoom(c, TITLE, action.user, MAX_LOVELETTER_PLAYERS, newPlayer);
+    case 'leave':
+      return leaveRoom(c, TITLE, action.user);
+    case 'addBot':
+      return addBots(c, TITLE, action.user, action.count, MAX_LOVELETTER_PLAYERS, newPlayer);
+    case 'removeBot':
+      return removeBots(c, TITLE, action.user, action.count);
     case 'start': {
       if (action.user !== s.host) return reply(c, action.user, '只有房主可以開始遊戲。');
       if (s.phase !== 'lobby') return false;
@@ -504,13 +466,8 @@ function handle(c: Ctx, action: GameAction): boolean {
       startRound(c);
       return true;
     }
-    case 'cancel': {
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以取消遊戲。');
-      s.phase = 'ended';
-      s.timers = {};
-      say(c, '🛑 房主已取消遊戲。');
-      return true;
-    }
+    case 'cancel':
+      return cancelGame(c, action.user);
     case 'hand':
       showHand(c, action.user);
       return false;
@@ -543,26 +500,13 @@ function handle(c: Ctx, action: GameAction): boolean {
 }
 
 export function applyLoveLetter(state: LState | undefined, action: LAction, rng: Rng): Result {
-  if (action.type === 'new') {
-    if (state && state.phase !== 'ended') {
-      return { state, events: [{ type: 'ephemeral', to: action.user, text: '這個頻道已經有遊戲了。' }] };
-    }
-    return createLobby(state, action.user, action.channel);
-  }
-  if (action.type === 'rematch') {
-    if (!state) return { state: state!, events: [] };
-    if (state.phase !== 'ended') return { state, events: [{ type: 'ephemeral', to: action.user, text: '這個頻道已經有遊戲了。' }] };
-    if (!state.winners) return { state, events: [] };
-    if (isBot(action.user) || !state.players.some((p) => p.id === action.user)) {
-      return { state, events: [{ type: 'ephemeral', to: action.user, text: '只有上一局的玩家可以開新的一局。' }] };
-    }
-    return createLobby(state, action.user, action.channel);
-  }
-  if (!state || state.phase === 'ended') return { state: state!, events: [] };
-  const c: Ctx = { s: structuredClone(state), events: [], rng };
-  const changed = handle(c, action);
-  if (changed) runBots(c);
-  return { state: changed ? c.s : state, events: c.events };
+  return runGame(state, action, rng, {
+    finished: (s) => !!s.winners,
+    isPlayer: (s, user) => s.players.some((p) => p.id === user),
+    createLobby,
+    handle,
+    afterChange: runBots,
+  });
 }
 
 function createLobby(prev: LState | undefined, host: string, channel: string): Result {
