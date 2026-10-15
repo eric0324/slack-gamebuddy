@@ -183,6 +183,18 @@ describe('taboo/rounds: 題目卡', () => {
     expect(seen).toHaveLength(TABOO_CARDS.length + 3);
     expect(s.card).toBeDefined();
   });
+
+  it('連續幾局也不重複：新的一局接著上一局剩下的牌堆抽', () => {
+    const first = playGame().state;
+    const used = TABOO_CARDS.map((_, i) => i).filter((i) => !first.deck.includes(i));
+    expect(used.length).toBeGreaterThan(0);
+    for (const action of [{ type: 'rematch' }, { type: 'new' }] as const) {
+      const lobby = run([{ ...action, user: 'p3', channel: 'C1' }], first).state;
+      expect(lobby.deck).toEqual(first.deck);
+      const s = run([...['p1', 'p2', 'p4'].map((u) => ({ type: 'join', user: u }) as TAction), { type: 'start', user: 'p3' }], lobby).state;
+      expect(used).not.toContain(run([{ type: 'go', user: s.order[0] }], s).state.card);
+    }
+  });
 });
 
 describe('taboo/rounds: 文字比對', () => {
@@ -236,6 +248,39 @@ describe('taboo/rounds: 犯規', () => {
     const { state, events } = run([{ type: 'chat', user: 'p2', text: '外皮有條紋' }], s);
     expect(state).toBe(s);
     expect(events).toEqual([]);
+  });
+});
+
+describe('taboo/rounds: 禁用替代字', () => {
+  const say = (text: string, user = 'p2') => run([{ type: 'chat', user, text }], describing().state);
+
+  it('描述者用 x 代替文字：犯規，公告用了哪個替代字，換下一張卡', () => {
+    const { state, events } = say('老x');
+    expect(state.scores).toEqual({ red: 1, blue: 0 });
+    expect(announces(events)).toContain(`🚨 <@p2> 犯規！用了「x」代替文字，題目是「${C0.word}」。🔴紅隊 +1`);
+    expect(cardPrompt(events)!.text).toContain(C1.word);
+    expect(state.log).toEqual([{ word: C0.word, result: 'foul' }]);
+  });
+
+  it('大寫或全形也算', () => {
+    for (const text of ['失Ｘ', '失X', '失ｘ']) expect(say(text).state.scores, text).toEqual({ red: 1, blue: 0 });
+  });
+
+  it('佔位符號也算', () => {
+    for (const text of ['老○', '老〇', '老●', '老*', '老＊', '老×', '老✕', '老✖']) expect(say(text).state.scores, text).toEqual({ red: 1, blue: 0 });
+  });
+
+  it('英文單字裡的 x 也算', () => {
+    expect(say('Netflix 上面有').state.scores).toEqual({ red: 1, blue: 0 });
+  });
+
+  it('同時說到禁語：以說到禁語公告', () => {
+    expect(announces(say(`x${C0.taboo[0]}`).events).join('\n')).toContain(`說了「${C0.taboo[0]}」`);
+  });
+
+  it('隊友不受限制：不算犯規也不算猜中', () => {
+    const s = describing().state;
+    expect(run([{ type: 'chat', user: 'p4', text: 'x' }], s).state).toBe(s);
   });
 });
 

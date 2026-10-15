@@ -125,3 +125,26 @@ TBD - created by archiving change add-taboo-game. Update Purpose after archive.
 #### Scenario: 取消不記錄
 - **WHEN** 房主在第 2 輪取消遊戲
 - **THEN** 沒有 `result` 事件，也沒有「再來一局」
+
+### Requirement: 禁用替代字
+描述階段，描述者在頻道打的訊息含有替代字時，SHALL 算犯規，計分和換卡方式和說到禁語一樣：對手隊 +1 分，換下一張卡。替代字是：英文字母 x（不分大小寫、全形或半形）、×、✕、✖、○、〇、●、*、＊。頻道公告 SHALL 寫明描述者用了哪個替代字，以及這張卡的題目詞。這條規則只限描述者；隊友的訊息照常比對猜詞。說到禁語和用了替代字同時發生時，以說到禁語公告。`/game taboo help` 的說明 SHALL 提到不能用 x 之類的字代替。
+
+#### Scenario: 用 x 代替文字
+- **WHEN** 描述者 A 的卡是「老虎」，A 打「老x」
+- **THEN** 頻道公告「🚨 A 犯規！用了「x」代替文字，題目是「老虎」。」和對手隊 +1，A 看到下一張卡
+
+#### Scenario: 大寫或全形也算
+- **WHEN** 描述者打「失Ｘ」或「失X」
+- **THEN** 算犯規
+
+#### Scenario: 佔位符號也算
+- **WHEN** 描述者打「老○」或「老*」
+- **THEN** 算犯規
+
+#### Scenario: 英文單字裡的 x 也算
+- **WHEN** 描述者打「Netflix 上面有」
+- **THEN** 算犯規，因為含有 x
+
+#### Scenario: 隊友不受限制
+- **WHEN** 描述者的隊友打「x」
+- **THEN** 不算犯規，也不算猜中
