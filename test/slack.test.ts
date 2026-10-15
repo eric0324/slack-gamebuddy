@@ -19,6 +19,7 @@ import { parseNimmtCommand } from '../src/games/nimmt.js';
 import { parseSkullCommand } from '../src/games/skull.js';
 import { parseCockroachCommand } from '../src/games/cockroach.js';
 import { parseChameleonCommand } from '../src/games/chameleon.js';
+import { parseNoThanksCommand } from '../src/games/nothanks.js';
 
 type Call = { method: string; args: Record<string, any> };
 
@@ -1017,7 +1018,7 @@ describe('game-commands: 花火', () => {
 
 describe('game-commands: 遊戲大廳', () => {
   const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
-  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter', 'cockroach', 'chameleon'];
+  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter', 'cockroach', 'chameleon', 'nothanks'];
 
   const TABS = ['deduction', 'team', 'coop', 'bluff'];
   const openButtons = (blocks: any[]) => blocks.filter((b) => b.accessory).map((b) => b.accessory);
@@ -1073,7 +1074,7 @@ describe('game-commands: 遊戲大廳', () => {
     const { client, calls } = fakeClient();
     const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, respond: async () => { throw new Error('expired'); } });
     await host.button('ww:lobbyTab:3', 'C1|bluff', 'U1', 'alice', undefined, 'https://hooks/x');
-    expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|liarsdice', 'C1|coup', 'C1|skull', 'C1|nimmt', 'C1|cockroach']);
+    expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|liarsdice', 'C1|coup', 'C1|skull', 'C1|nimmt', 'C1|cockroach', 'C1|nothanks']);
     await host.button('ww:lobbyTab:1', 'C1|team', 'U1', 'alice');
     expect(lastEph(calls)).toMatchObject({ user: 'U1' });
     expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|codenames', 'C1|wavelength', 'C1|decrypto']);
@@ -1853,5 +1854,53 @@ describe('player-stats: 跨遊戲戰績與排行榜', () => {
     await host.game('C1', 'U1', 'alice', '');
     expect(lastEph(calls).text).toContain('/game stats');
     expect(lastEph(calls).text).toContain('/game rank');
+  });
+});
+
+describe('game-commands: 不要謝謝', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+  async function startGame() {
+    const { client, calls } = fakeClient();
+    const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, gifs: {} });
+    await host.game('C1', 'U1', 'alice', 'nothanks new');
+    for (const u of ['U2', 'U3']) await host.button('ww:join:0', 'C1|join', u, u);
+    await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
+    return { host, calls };
+  }
+
+  it('/game 清單和大廳有不要謝謝；/game nothanks help 和不認識的子指令列出指令', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', '');
+    for (const s of ['不要謝謝', 'nothanks', '3～7 人', '/game nothanks new']) expect(lastEph(calls).text).toContain(s);
+    for (const text of ['nothanks help', 'nothanks foo']) {
+      await host.game('C1', 'U1', 'alice', text);
+      for (const s of ['new', 'addbot', 'removebot', 'start', 'cancel']) expect(lastEph(calls).text).toContain(`/game nothanks ${s}`);
+      for (const s of ['🙅 不要謝謝', '✋ 收下', '👀 我的籌碼']) expect(lastEph(calls).text).toContain(s);
+    }
+  });
+
+  it('指令解析：new、start、cancel、addbot、removebot，其他不認識', () => {
+    expect(parseNoThanksCommand('new', 'U1', 'C1')).toEqual({ type: 'new', user: 'U1', channel: 'C1' });
+    expect(parseNoThanksCommand('start', 'U1', 'C1')).toEqual({ type: 'start', user: 'U1' });
+    expect(parseNoThanksCommand('cancel', 'U1', 'C1')).toEqual({ type: 'cancel', user: 'U1' });
+    expect(parseNoThanksCommand('addbot 2', 'U1', 'C1')).toEqual({ type: 'addBot', user: 'U1', count: 2 });
+    expect(parseNoThanksCommand('removebot', 'U1', 'C1')).toEqual({ type: 'removeBot', user: 'U1', count: 1 });
+    expect(parseNoThanksCommand('take', 'U1', 'C1')).toBeNull();
+  });
+
+  it('按鈕交給不要謝謝：不要謝謝、收下、我的籌碼、再來一局', async () => {
+    const { host, calls } = await startGame();
+    const g = () => host.state('nothanks', 'C1')!;
+    expect(g()).toMatchObject({ phase: 'turn', turn: 2, card: 12 });
+    await host.button('ww:nothanks:0', `C1|pass:${g().step}`, 'U3', 'carol');
+    expect(g()).toMatchObject({ pot: 1, turn: 0 });
+    await host.button('ww:nothanks:1', `C1|take:${g().step}`, 'U1', 'alice');
+    expect(g().players[0].cards).toEqual([12]);
+    await host.button('ww:nothanks:2', 'C1|mine', 'U1', 'alice');
+    expect(lastEph(calls)).toMatchObject({ user: 'U1', text: expect.stringContaining('🪙 12 個籌碼') });
+    for (let i = 0; i < 30 && g().phase !== 'ended'; i++) await host.button('ww:nothanks:1', `C1|take:${g().step}`, 'U1', 'alice');
+    expect(g().phase).toBe('ended');
+    await host.button('ww:rematch:0', 'C1|rematch', 'U2', 'bob');
+    expect(g()).toMatchObject({ phase: 'lobby', host: 'U2' });
   });
 });

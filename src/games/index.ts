@@ -11,6 +11,7 @@ import { justOne } from './justone.js';
 import { liarsDice } from './liarsdice.js';
 import { loveLetter } from './loveletter.js';
 import { nimmt } from './nimmt.js';
+import { noThanks } from './nothanks.js';
 import { skull } from './skull.js';
 import { spyfall } from './spyfall.js';
 import { undercover } from './undercover.js';
@@ -35,6 +36,7 @@ export const GAMES = [
   loveLetter,
   cockroach,
   chameleon,
+  noThanks,
 ] as const;
 
 export type GameKind = (typeof GAMES)[number]['kind'];

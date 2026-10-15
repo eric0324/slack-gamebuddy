@@ -539,6 +539,23 @@ exports[`重構安全網 > 大廳四個分類 1`] = `
       "type": "section",
     },
     {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:18",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|nothanks",
+      },
+      "text": {
+        "text": "🙅 *不要謝謝* （ \`nothanks\` ）3～7 人
+付籌碼說不要，或收下牌和籌碼；連號只算最小的，分數最低的人贏",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
       "elements": [
         {
           "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
@@ -719,6 +736,7 @@ exports[`重構安全網 > 遊戲清單文字和預設大廳 1`] = `
 • 💌 *情書* （ \`loveletter\` ）：2～6 人，開房 \`/game loveletter new\`
 • 🪳 *蟑螂撲克* （ \`cockroach\` ）：2～6 人，開房 \`/game cockroach new\`
 • 🦎 *變色龍* （ \`chameleon\` ）：3～8 人（不支援 bot），開房 \`/game chameleon new\`
+• 🙅 *不要謝謝* （ \`nothanks\` ）：3～7 人，開房 \`/game nothanks new\`
 各遊戲的指令： \`/game <遊戲代號> help\` ，例如 \`/game liarsdice help\`
 📊 戰績： \`/game stats [@某人]\` ；排行榜： \`/game rank [遊戲代號]\`
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>"
