@@ -2,35 +2,14 @@
 import { applyAction, isBot, MAX_PLAYERS, mention, RULES_URL, type Action, type GameEvent, type GameState, type GifKey, type Rng } from './engine.js';
 import { GIFS } from './gifs.js';
 import { formatStats, type StatsStore } from './stats.js';
-import { applyAvalon, type AAction, type AState } from './avalon.js';
-import { applyCodenames, type CAction, type CState } from './codenames.js';
-import { applyCoup, type KAction, type KState } from './coup.js';
-import { applyHanabi, COLOR_NAME, type Color, type HAction, type HState } from './hanabi.js';
-import { applyJustOne, type JAction, type JState } from './justone.js';
-import { applyLiarsDice, type LAction, type LState } from './liarsdice.js';
-import { applySpyfall, type SAction, type SState } from './spyfall.js';
-import { applyUndercover, type UAction, type UState } from './undercover.js';
-import { applyWavelength, type WAction, type WState } from './wavelength.js';
-import { applyDecrypto, type DAction, type DState } from './decrypto.js';
-import { applyWavecoop, type WCAction, type WCState } from './wavecoop.js';
-import { applyInsider, type IAction, type IState } from './insider.js';
-import { applySkull, type SkAction, type SkState } from './skull.js';
-import { applyNimmt, type NAction, type NState } from './nimmt.js';
-import { applyLoveLetter, type LAction as LLAction, type LState as LLState, type Role as LLRole } from './loveletter.js';
-import { applyCockroach, isBug, type CrAction, type CrState } from './cockroach.js';
-import { applyChameleon, type CAction as ChAction, type CState as ChState } from './chameleon.js';
+import { GAMES, type GameKind, type StateOf } from './games/index.js';
+import { WIKI, type GameDef } from './games/types.js';
 
-type Kind = 'werewolf' | 'undercover' | 'spyfall' | 'avalon' | 'codenames' | 'liarsdice' | 'justone' | 'coup' | 'hanabi' | 'wavelength' | 'decrypto' | 'wavecoop' | 'insider' | 'skull' | 'nimmt' | 'loveletter' | 'cockroach' | 'chameleon';
-type OtherKind = Exclude<Kind, 'werewolf'>;
+type Kind = 'werewolf' | GameKind;
+type OtherKind = GameKind;
 
-// 狼人殺以外的遊戲都用同一套方式接上 adapter：engine、指令解析、按鈕對應、說明
-interface GameDef {
-  states: Map<string, { phase: string }>;
-  apply(state: any, action: any, rng: Rng): { state: any; events: GameEvent[] };
-  parse(text: string, user: string, channel: string): { type: string } | null;
-  button(kind: string, value: string, user: string, channel: string): { type: string } | null;
-  help: string;
-}
+// 狼人殺以外的遊戲：代號 → 設定（engine、指令解析、按鈕對應、說明、大廳資訊）
+const DEFS = Object.fromEntries(GAMES.map((g) => [g.kind, g])) as unknown as Record<GameKind, GameDef<any, any>>;
 
 // 只列出用到的 WebClient 方法，測試時可以換成假的 client
 export interface SlackClient {
@@ -73,223 +52,11 @@ const HELP = [
   `📖 完整說明：<${encodeURI('https://github.com/eric0324/slack-gamebuddy/wiki/狼人殺-指令')}|指令>、<${RULES_URL}|遊戲規則>`,
 ].join('\n');
 
-const WIKI = 'https://github.com/eric0324/slack-gamebuddy/wiki';
-
 const GAME_LIST = [
   '*可以玩的遊戲*',
   '• 🐺 *狼人殺*（`werewolf`）：6～12 人，開房 `/game werewolf new`（或 `/werewolf new`）',
-  '• 🕵️ *誰是臥底*（`undercover`）：4～12 人，開房 `/game undercover new`',
-  '• 📍 *間諜危機*（`spyfall`）：4～10 人，開房 `/game spyfall new`',
-  '• 🏰 *阿瓦隆*（`avalon`）：5～10 人，開房 `/game avalon new`',
-  '• 🟥 *機密代號*（`codenames`）：4～12 人（不支援 bot），開房 `/game codenames new`',
-  '• 🎲 *吹牛骰*（`liarsdice`）：2～8 人，開房 `/game liarsdice new`',
-  '• 💡 *一字千金*（`justone`）：3～7 人（不支援 bot），開房 `/game justone new`',
-  '• 👑 *政變*（`coup`）：3～6 人，開房 `/game coup new`',
-  '• 🎆 *花火*（`hanabi`）：2～5 人（不支援 bot），開房 `/game hanabi new`',
-  '• 📡 *心電感應*（`wavelength`）：4～12 人（不支援 bot），開房 `/game wavelength new`',
-  '• 🔐 *截碼戰*（`decrypto`）：4～12 人（不支援 bot），開房 `/game decrypto new`',
-  '• 🧠 *心電感應（合作）*（`wavecoop`）：2～12 人（不支援 bot），開房 `/game wavecoop new`',
-  '• 🕴️ *圈內人*（`insider`）：4～8 人（不支援 bot），開房 `/game insider new`',
-  '• 💀 *骷髏與玫瑰*（`skull`）：3～6 人，開房 `/game skull new`',
-  '• 🐮 *誰是牛頭王*（`nimmt`）：2～10 人，開房 `/game nimmt new`',
-    '• 💌 *情書*（`loveletter`）：2～6 人，開房 `/game loveletter new`',
-  '• 🪳 *蟑螂撲克*（`cockroach`）：2～6 人，開房 `/game cockroach new`',
-  '• 🦎 *變色龍*（`chameleon`）：3～8 人（不支援 bot），開房 `/game chameleon new`',
+  ...GAMES.map((g) => `• ${g.emoji} *${g.name}*（\`${g.kind}\`）：${g.players}${'noBots' in g ? '（不支援 bot）' : ''}，開房 \`/game ${g.kind} new\``),
   '各遊戲的指令：`/game <遊戲代號> help`，例如 `/game liarsdice help`',
-  `📖 完整說明：<${WIKI}|wiki>`,
-].join('\n');
-
-const SKULL_HELP = [
-  '*骷髏與玫瑰指令*',
-  '• `/game skull new`：開房（任何人）',
-  '• `/game skull addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/game skull removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/game skull start`：開始遊戲，需要 3～6 人（房主）',
-  '• `/game skull cancel`：取消遊戲（房主）',
-  '蓋牌、開始挑戰、喊數、放棄、翻牌都用按鈕；隨時按「👀 我的牌」看自己的牌',
-  `📖 完整說明：<${WIKI}|wiki>`,
-].join('\n');
-
-const DECRYPTO_HELP = [
-  '*截碼戰指令*',
-  '• `/game decrypto new`：開房（任何人）',
-  '• `/game decrypto start`：開始遊戲，需要 4～12 位真人（房主）',
-  '• 加密：輪到你時按「✍️ 寫提示」依序寫 3 個提示；也可以打 `/game decrypto clue 海 / 火 / 鐘`（用 / 分開）',
-  '• `/game decrypto cancel`：取消遊戲（房主）',
-  '解碼、攔截、提示紀錄都用頻道按鈕',
-  `📖 完整說明：<${WIKI}|wiki>`,
-].join('\n');
-
-const NIMMT_HELP = [
-  '*誰是牛頭王指令*',
-  '• `/game nimmt new`：開房（任何人）',
-  '• `/game nimmt addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/game nimmt removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/game nimmt start`：開始遊戲，需要 2～10 人（房主）',
-  '• 選牌：每回合按「🃏 選牌」從手牌選一張（只有你看得到，揭曉前可以改）；也可以打 `/game nimmt play <牌號>`',
-  '• `/game nimmt cancel`：取消遊戲（房主）',
-  '出的牌比四列都小時，用頻道按鈕選一列收走；有人累積 66 個牛頭時，打完這一輪就結束，最少的人獲勝',
-  `📖 完整說明：<${WIKI}|wiki>`,
-].join('\n');
-
-const LOVELETTER_HELP = [
-  '*情書指令*',
-  '• `/game loveletter new`：開房（任何人）',
-  '• `/game loveletter addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/game loveletter removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/game loveletter start`：開始遊戲，需要 2～6 人（房主）',
-  '• `/game loveletter cancel`：取消遊戲（房主）',
-  '輪到你時按「🃏 出牌」選牌、目標和（衛兵）猜的角色；「👀 我的手牌」「📜 棄牌紀錄」隨時可以按（只有你看得到）',
-  `📖 完整說明：<${WIKI}|wiki>`,
-].join('\n');
-
-const CHAMELEON_HELP = [
-  '*變色龍指令*',
-  '• `/game chameleon new`：開房（任何人）',
-  '• `/game chameleon start`：開始遊戲，需要 3～8 位真人（房主）',
-  '• 說詞：輪到你時按「✍️ 說詞」輸入一個和祕密詞有關的詞（不能是主題卡上的詞）；也可以打 `/game chameleon say <詞>`',
-  '• `/game chameleon next`：跳過目前的說詞者（房主）',
-  '• `/game chameleon vote`：討論中提早開始投票（房主）',
-  '• `/game chameleon guess <詞或座標>`：被抓到的變色龍猜祕密詞，例如 `B3`；也可以按頻道按鈕',
-  '• `/game chameleon cancel`：取消遊戲（房主）',
-  '投票抓變色龍用頻道按鈕；每一步都是 2 分鐘',
-  `📖 完整說明：<${WIKI}|wiki>`,
-].join('\n');
-
-const COCKROACH_HELP = [
-  '*蟑螂撲克指令*',
-  '• `/game cockroach new`：開房（任何人）',
-  '• `/game cockroach addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/game cockroach removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/game cockroach start`：開始遊戲，需要 2～6 人（房主）',
-  '• `/game cockroach cancel`：取消遊戲（房主）',
-  '輪到你時按「🪳 出牌」選牌、要傳給誰、要說它是什麼；收到牌時按「✅ 是」「❌ 不是」或「👀 偷看再傳」；隨時按「🃏 我的手牌」（只有你看得到）',
-  `📖 完整說明：<${WIKI}|wiki>`,
-].join('\n');
-
-const INSIDER_HELP = [
-  '*圈內人指令*',
-  '• `/game insider new`：開房（任何人）',
-  '• `/game insider start`：開始遊戲，需要 4～8 位真人（房主）',
-  '• 發問：問答期間直接在頻道打字；也可以打 `/game insider ask <問題>`',
-  '• 主持人用自己看得到的按鈕回答是／否／不知道，有人說出答案時按「🎯 猜中了」',
-  '• `/game insider vote`：討論中提早開始投票（房主）',
-  '• `/game insider cancel`：取消遊戲（房主）',
-  '投票找圈內人用頻道按鈕',
-  `📖 完整說明：<${WIKI}|wiki>`,
-].join('\n');
-
-const WAVELENGTH_HELP = [
-  '*心電感應指令*',
-  '• `/game wavelength new`：開房（任何人）',
-  '• `/game wavelength start`：開始遊戲，需要 4～12 位真人（房主）',
-  '• 出題：輪到你時按「✍️ 寫提示」輸入提示詞；也可以打 `/game wavelength clue <提示>`',
-  '• `/game wavelength cancel`：取消遊戲（房主）',
-  '猜位置、猜左右都用頻道按鈕',
-  `📖 完整說明：<${WIKI}|wiki>`,
-].join('\n');
-
-const WAVECOOP_HELP = [
-  '*心電感應（合作）指令*',
-  '• `/game wavecoop new`：開房（任何人）',
-  '• `/game wavecoop start`：開始遊戲，需要 2～12 位真人（房主）',
-  '• 出題：輪到你時按「✍️ 寫提示」輸入提示詞；也可以打 `/game wavecoop clue <提示>`',
-  '• `/game wavecoop cancel`：取消遊戲（房主）',
-  '猜位置用頻道按鈕；共 7 題，正中目標加一題',
-  `📖 完整說明：<${WIKI}|wiki>`,
-].join('\n');
-
-const UNDERCOVER_HELP = [
-  '*誰是臥底指令*',
-  '• `/game undercover new`：開房（任何人）',
-  '• `/game undercover addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/game undercover removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/game undercover start`：開始遊戲，需要 4～12 人（房主）',
-  '• `/game undercover next`：跳過目前的描述者（房主）',
-  '• `/game undercover vote`：結束描述，直接投票（房主）',
-  '• `/game undercover cancel`：取消遊戲（房主）',
-  '• `/game undercover guess <詞>`：被投出去的白板猜平民詞（60 秒內）',
-  `📖 完整說明：<${WIKI}|wiki>`,
-].join('\n');
-
-const SPYFALL_HELP = [
-  '*間諜危機指令*',
-  '• `/game spyfall new`：開房（任何人）',
-  '• `/game spyfall addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/game spyfall removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/game spyfall start`：開始遊戲，需要 4～10 人（房主）',
-  '• `/game spyfall next`：跳過目前卡住的提問或回答（房主）',
-  '• `/game spyfall vote`：結束提問，直接投票（房主）',
-  '• `/game spyfall cancel`：取消遊戲（房主）',
-  '• `/game spyfall guess <地點>`：間諜猜地點（提問期間一次，或被指控後 60 秒內）',
-  `📖 完整說明：<${WIKI}|wiki>`,
-].join('\n');
-
-const AVALON_HELP = [
-  '*阿瓦隆指令*',
-  '• `/game avalon new`：開房（任何人）',
-  '• `/game avalon addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/game avalon removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/game avalon start`：開始遊戲，需要 5～10 人（房主）',
-  '• `/game avalon next`：跳過目前的發言者（房主）',
-  '• `/game avalon cancel`：取消遊戲（房主）',
-  '選隊員、投票、出任務、刺殺都用按鈕',
-  `📖 完整說明：<${WIKI}|wiki>`,
-].join('\n');
-
-const CODENAMES_HELP = [
-  '*機密代號指令*',
-  '• `/game codenames new`：開房（任何人）',
-  '• `/game codenames start`：開始遊戲，需要 4～12 位真人（房主）',
-  '• `/game codenames clue <詞> <數字>`：隊長給提示，數字 1～9',
-  '• `/game codenames next`：直接結束目前隊伍的回合（房主）',
-  '• `/game codenames cancel`：取消遊戲（房主）',
-  '翻牌、結束猜牌都用按鈕',
-  `📖 完整說明：<${WIKI}|wiki>`,
-].join('\n');
-
-const LIARSDICE_HELP = [
-  '*吹牛骰指令*',
-  '• `/game liarsdice new`：開房（任何人）',
-  '• `/game liarsdice addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/game liarsdice removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/game liarsdice start`：開始遊戲，需要 2～8 人（房主）',
-  '• `/game liarsdice bid <數量> <點數>`：喊「全場至少有 N 個 X 點」（輪到你時）',
-  '• `/game liarsdice cancel`：取消遊戲（房主）',
-  '覺得上一個喊數是吹牛就按「開！」；1 點是萬用，這一輪有人喊過 1 點就不再萬用',
-  `📖 完整說明：<${WIKI}|wiki>`,
-].join('\n');
-
-const JUSTONE_HELP = [
-  '*一字千金指令*',
-  '• `/game justone new`：開房（任何人）',
-  '• `/game justone start`：開始遊戲，需要 3～7 位真人（房主）',
-  '• `/game justone clue <詞>`：給一個提示（猜詞以外的人，其他人看不到你打的字）',
-  '• `/game justone guess <詞>`：猜詞（猜詞的人），沒把握可以按「跳過」',
-  '• `/game justone next`：跳過卡住的步驟（房主）',
-  '• `/game justone cancel`：取消遊戲（房主）',
-  `📖 完整說明：<${WIKI}|wiki>`,
-].join('\n');
-
-const COUP_HELP = [
-  '*政變指令*',
-  '• `/game coup new`：開房（任何人）',
-  '• `/game coup addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/game coup removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/game coup start`：開始遊戲，需要 3～6 人（房主）',
-  '• `/game coup cancel`：取消遊戲（房主）',
-  '行動、選目標、質疑、阻擋都用頻道按鈕；翻牌和大使交換用私訊按鈕',
-  `📖 完整說明：<${WIKI}|wiki>`,
-].join('\n');
-
-const HANABI_HELP = [
-  '*花火指令*',
-  '• `/game hanabi new`：開房（任何人）',
-  '• `/game hanabi start`：開始遊戲，需要 2～5 位真人（房主）',
-  '• 棄牌堆：隨時按「🗑️ 棄牌堆」查看已經棄掉和失誤的牌（只有你看得到）',
-  '• 給提示：輪到你時按「💡 給提示」選人和顏色或數字（花 1 個提示標記）；也可以打 `/game hanabi hint @某人 紅` 或 `/game hanabi hint @某人 3`',
-  '• `/game hanabi cancel`：取消遊戲（房主）',
-  '看牌、出牌、棄牌都用頻道按鈕',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
@@ -306,23 +73,7 @@ export function slackText(text: string): string {
 // 遊戲大廳：每款遊戲一列，附「開房」按鈕
 const CATALOG: { kind: Kind; category: string; emoji: string; name: string; players: string; desc: string }[] = [
   { kind: 'werewolf', category: 'deduction', emoji: '🐺', name: '狼人殺', players: '6～12 人', desc: '陣營推理，夜晚私訊行動、白天輪流發言投票' },
-  { kind: 'undercover', category: 'deduction', emoji: '🕵️', name: '誰是臥底', players: '4～12 人', desc: '每人一個詞，輪流描述、投票找出拿到不同詞的臥底' },
-  { kind: 'spyfall', category: 'deduction', emoji: '📍', name: '間諜危機', players: '4～10 人', desc: '只有間諜不知道地點，接力提問、投票抓間諜' },
-  { kind: 'avalon', category: 'deduction', emoji: '🏰', name: '阿瓦隆', players: '5～10 人', desc: '好人對壞人，隊長組隊出任務，沒有人會出局' },
-  { kind: 'codenames', category: 'team', emoji: '🟥', name: '機密代號', players: '4～12 人', desc: '紅藍兩隊比賽，隊長用一個詞當提示翻字卡' },
-  { kind: 'liarsdice', category: 'bluff', emoji: '🎲', name: '吹牛骰', players: '2～8 人', desc: '偷偷擲骰子，輪流喊數或開，輸的人少一顆骰子' },
-  { kind: 'justone', category: 'coop', emoji: '💡', name: '一字千金', players: '3～7 人', desc: '合作猜詞，大家各給一個提示，重複的會被刪掉' },
-  { kind: 'coup', category: 'bluff', emoji: '👑', name: '政變', players: '3～6 人', desc: '虛張聲勢，宣稱任何角色的能力，質疑或阻擋' },
-  { kind: 'hanabi', category: 'coop', emoji: '🎆', name: '花火', players: '2～5 人', desc: '合作遊戲，看得到別人的牌、看不到自己的' },
-  { kind: 'wavelength', category: 'team', emoji: '📡', name: '心電感應', players: '4～12 人', desc: '兩隊對抗，出題者用一個詞讓隊友猜光譜上的位置' },
-  { kind: 'decrypto', category: 'team', emoji: '🔐', name: '截碼戰', players: '4～12 人', desc: '兩隊對抗，用提示傳 3 碼密碼給隊友，也試著攔截對方' },
-  { kind: 'wavecoop', category: 'coop', emoji: '🧠', name: '心電感應（合作）', players: '2～12 人', desc: '全員合作，輪流出題、大家一起猜光譜上的位置拚總分' },
-  { kind: 'insider', category: 'deduction', emoji: '🕴️', name: '圈內人', players: '4～8 人', desc: '是非題合力猜出答案，再找出知道答案卻裝不知道的圈內人' },
-  { kind: 'skull', category: 'bluff', emoji: '💀', name: '骷髏與玫瑰', players: '3～6 人', desc: '蓋牌喊數，翻開的全是玫瑰才算成功，翻到骷髏就少一張牌' },
-  { kind: 'nimmt', category: 'bluff', emoji: '🐮', name: '誰是牛頭王', players: '2～10 人', desc: '大家同時出牌，第 6 張和最小的牌要收走整列牛頭' },
-    { kind: 'loveletter', category: 'deduction', emoji: '💌', name: '情書', players: '2～6 人', desc: '每人一張手牌，抽一張出一張，推理別人的牌、送出情書' },
-  { kind: 'cockroach', category: 'bluff', emoji: '🪳', name: '蟑螂撲克', players: '2～6 人', desc: '蓋著傳一張害蟲牌說「這是蟑螂」，猜錯的人收下，同種 4 張就輸' },
-  { kind: 'chameleon', category: 'deduction', emoji: '🦎', name: '變色龍', players: '3～8 人', desc: '大家各說一個和祕密詞有關的詞，找出不知道祕密詞的變色龍' },
+  ...GAMES.map(({ kind, category, emoji, name, players, desc }) => ({ kind, category, emoji, name, players, desc })),
 ];
 
 // 大廳的分類：一次只顯示一類，按上面的分類按鈕切換
@@ -354,425 +105,6 @@ const isCreation = (action: { type: string }) => action.type === 'new' || action
 
 const NOT_APPLICABLE = '這個指令不適用於目前的遊戲。';
 const BUSY = '這個頻道已經有遊戲了。';
-
-export function parseUndercoverCommand(text: string, user: string, channel: string): UAction | null {
-  const [sub, ...rest] = text.trim().split(/\s+/);
-  switch (sub) {
-    case 'new':
-      return { type: 'new', user, channel };
-    case 'start':
-      return { type: 'start', user };
-    case 'cancel':
-      return { type: 'cancel', user };
-    case 'next':
-      return { type: 'skipSpeaker', user };
-    case 'vote':
-      return { type: 'endDiscussion', user };
-    case 'guess':
-      return rest.length ? { type: 'guess', user, word: rest.join(' ') } : null;
-    case 'addbot':
-    case 'removebot': {
-      const count = rest[0] === undefined ? 1 : Number(rest[0]);
-      if (rest.length > 1 || !Number.isInteger(count) || count < 1) return null;
-      return { type: sub === 'addbot' ? 'addBot' : 'removeBot', user, count };
-    }
-    default:
-      return null;
-  }
-}
-
-// 誰是臥底的按鈕和狼人殺共用 action_id 的種類
-function undercoverButton(kind: string, value: string, user: string, channel: string): UAction | null {
-  switch (kind) {
-    case 'join':
-    case 'leave':
-    case 'start':
-    case 'endSpeech':
-      return { type: kind, user };
-    case 'dayVote':
-    case 'pkVote':
-      return { type: 'dayVote', user, target: value };
-    case 'rematch':
-      return { type: 'rematch', user, channel };
-    default:
-      return null;
-  }
-}
-
-// 間諜危機的子指令和誰是臥底一樣，只有 guess 猜的是地點
-export function parseSpyfallCommand(text: string, user: string, channel: string): SAction | null {
-  const action = parseUndercoverCommand(text, user, channel);
-  if (action?.type === 'guess') return { type: 'guess', user, location: action.word };
-  return action as SAction | null;
-}
-
-// 阿瓦隆的子指令：沒有 vote（組隊投票用按鈕）和 guess
-export function parseAvalonCommand(text: string, user: string, channel: string): AAction | null {
-  const action = parseUndercoverCommand(text, user, channel);
-  if (!action || action.type === 'guess' || action.type === 'endDiscussion') return null;
-  return action as AAction;
-}
-
-// 機密代號的子指令：clue <詞> <數字>，next 是跳過目前隊伍的回合
-export function parseCodenamesCommand(text: string, user: string, channel: string): CAction | null {
-  const [sub, ...rest] = text.trim().split(/\s+/);
-  if (sub === 'clue') {
-    if (rest.length < 2) return null;
-    return { type: 'clue', user, word: rest.slice(0, -1).join(' '), count: Number(rest.at(-1)) };
-  }
-  if (sub === 'next') return { type: 'skipTurn', user };
-  const action = parseUndercoverCommand(text, user, channel);
-  if (!action || action.type === 'guess' || action.type === 'endDiscussion' || action.type === 'skipSpeaker') return null;
-  return action as CAction;
-}
-
-// 吹牛骰的子指令：bid <數量> <點數>
-export function parseLiarsDiceCommand(text: string, user: string, channel: string): LAction | null {
-  const [sub, ...rest] = text.trim().split(/\s+/);
-  if (sub === 'bid') return rest.length === 2 ? { type: 'bid', user, quantity: Number(rest[0]), face: Number(rest[1]) } : null;
-  const action = parseUndercoverCommand(text, user, channel);
-  if (!action || !['new', 'start', 'cancel', 'addBot', 'removeBot'].includes(action.type)) return null;
-  return action as LAction;
-}
-
-function liarsDiceButton(kind: string, _value: string, user: string, channel: string): LAction | null {
-  if (kind === 'join' || kind === 'leave' || kind === 'start' || kind === 'challenge') return { type: kind, user };
-  if (kind === 'rematch') return { type: 'rematch', user, channel };
-  return null;
-}
-
-// 一字千金的子指令：clue <詞>、guess <詞>，next 是跳過卡住的步驟
-export function parseJustOneCommand(text: string, user: string, channel: string): JAction | null {
-  const [sub, ...rest] = text.trim().split(/\s+/);
-  if (sub === 'clue' || sub === 'guess') return rest.length ? { type: sub, user, word: rest.join(' ') } : null;
-  if (sub === 'next') return { type: 'skipStep', user };
-  const action = parseUndercoverCommand(text, user, channel);
-  if (!action || !['new', 'start', 'cancel', 'addBot', 'removeBot'].includes(action.type)) return null;
-  return action as JAction;
-}
-
-function justOneButton(kind: string, _value: string, user: string, channel: string): JAction | null {
-  if (kind === 'join' || kind === 'leave' || kind === 'start' || kind === 'skipGuess') return { type: kind, user };
-  if (kind === 'rematch') return { type: 'rematch', user, channel };
-  return null;
-}
-
-// 政變只有房間指令，遊戲中都用按鈕
-export function parseCoupCommand(text: string, user: string, channel: string): KAction | null {
-  const action = parseUndercoverCommand(text, user, channel);
-  if (!action || !['new', 'start', 'cancel', 'addBot', 'removeBot'].includes(action.type)) return null;
-  return action as KAction;
-}
-
-function coupButton(kind: string, value: string, user: string, channel: string): KAction | null {
-  switch (kind) {
-    case 'join':
-    case 'leave':
-    case 'start':
-    case 'challenge':
-      return { type: kind, user };
-    case 'coupAction':
-      return { type: 'act', user, kind: value as Extract<KAction, { type: 'act' }>['kind'] };
-    case 'coupTarget':
-      return { type: 'target', user, target: value };
-    case 'block':
-      return { type: 'block', user, role: value as Extract<KAction, { type: 'block' }>['role'] };
-    case 'loseCard':
-      return { type: 'reveal', user, index: Number(value) };
-    case 'keepCard':
-      return { type: 'keep', user, index: Number(value) };
-    case 'rematch':
-      return { type: 'rematch', user, channel };
-    default:
-      return null;
-  }
-}
-
-const HANABI_COLORS: Record<string, Color> = { 紅: 'red', 黃: 'yellow', 綠: 'green', 藍: 'blue', 白: 'white' };
-
-// 花火的子指令：hint @某人 <顏色或數字>（開啟 should_escape 後 mention 是 <@U123> 或 <@U123|名字>）
-export function parseHanabiCommand(text: string, user: string, channel: string): HAction | null {
-  const [sub, ...rest] = text.trim().split(/\s+/);
-  if (sub === 'hint') {
-    const target = /^<@([A-Z0-9]+)(\|[^>]*)?>$/.exec(rest[0] ?? '')?.[1];
-    const value = rest[1] ?? '';
-    if (!target || rest.length !== 2) return null;
-    if (HANABI_COLORS[value]) return { type: 'hint', user, target, color: HANABI_COLORS[value] };
-    if (/^[1-5]$/.test(value)) return { type: 'hint', user, target, number: Number(value) };
-    return null;
-  }
-  const action = parseUndercoverCommand(text, user, channel);
-  if (!action || !['new', 'start', 'cancel', 'addBot', 'removeBot'].includes(action.type)) return null;
-  return action as HAction;
-}
-
-function hanabiButton(kind: string, value: string, user: string, channel: string): HAction | null {
-  if (kind === 'join' || kind === 'leave' || kind === 'start') return { type: kind, user };
-  if (kind === 'rematch') return { type: 'rematch', user, channel };
-  if (kind !== 'hanabiTurn') return null;
-  if (value === 'peek') return { type: 'peek', user };
-  if (value === 'discards') return { type: 'discards', user };
-  if (value === 'hint') return { type: 'hintMenu', user };
-  const [act, arg, hint] = value.split(':');
-  if (act === 'hintTarget') return { type: 'hintTarget', user, target: arg };
-  if (act === 'hint' && /^[1-5]$/.test(hint)) return { type: 'hint', user, target: arg, number: Number(hint) };
-  if (act === 'hint' && hint in COLOR_NAME) return { type: 'hint', user, target: arg, color: hint as Color };
-  return act === 'play' || act === 'discard' ? { type: act, user, index: Number(arg) } : null;
-}
-
-// 心電感應的子指令：clue <提示>（提示可以有空白）
-export function parseWavelengthCommand(text: string, user: string, channel: string): WAction | null {
-  const [sub, ...rest] = text.trim().split(/\s+/);
-  if (sub === 'clue') return rest.length ? { type: 'clue', user, text: rest.join(' ') } : null;
-  const action = parseUndercoverCommand(text, user, channel);
-  if (!action || !['new', 'start', 'cancel', 'addBot', 'removeBot'].includes(action.type)) return null;
-  return action as WAction;
-}
-
-function wavelengthButton(kind: string, value: string, user: string, channel: string): WAction | null {
-  if (kind === 'join' || kind === 'leave' || kind === 'start') return { type: kind, user };
-  if (kind === 'rematch') return { type: 'rematch', user, channel };
-  if (kind !== 'wavelength') return null;
-  if (value === 'clue') return { type: 'openClue', user };
-  const [act, arg] = value.split(':');
-  if (act === 'guess') return { type: 'guess', user, value: Number(arg) };
-  if (act === 'side' && (arg === 'left' || arg === 'right')) return { type: 'side', user, value: arg };
-  return null;
-}
-
-// 心電感應（合作）的子指令和按鈕：和兩隊對抗版相同，只是沒有猜左右
-export function parseWavecoopCommand(text: string, user: string, channel: string): WCAction | null {
-  return parseWavelengthCommand(text, user, channel) as WCAction | null;
-}
-
-function wavecoopButton(kind: string, value: string, user: string, channel: string): WCAction | null {
-  if (kind === 'join' || kind === 'leave' || kind === 'start') return { type: kind, user };
-  if (kind === 'rematch') return { type: 'rematch', user, channel };
-  if (kind !== 'wavecoop') return null;
-  if (value === 'clue') return { type: 'openClue', user };
-  const [act, arg] = value.split(':');
-  return act === 'guess' ? { type: 'guess', user, value: Number(arg) } : null;
-}
-
-// 截碼戰的子指令：clue <提示1> / <提示2> / <提示3>（提示可以有空白）
-export function parseDecryptoCommand(text: string, user: string, channel: string): DAction | null {
-  const [sub, ...rest] = text.trim().split(/\s+/);
-  if (sub === 'clue') {
-    const texts = rest.join(' ').split('/').map((x) => x.trim());
-    return texts.length === 3 && texts.every(Boolean) ? { type: 'clue', user, texts } : null;
-  }
-  const action = parseUndercoverCommand(text, user, channel);
-  if (!action || !['new', 'start', 'cancel', 'addBot', 'removeBot'].includes(action.type)) return null;
-  return action as DAction;
-}
-
-function decryptoButton(kind: string, value: string, user: string, channel: string): DAction | null {
-  if (kind === 'join' || kind === 'leave' || kind === 'start') return { type: kind, user };
-  if (kind === 'rematch') return { type: 'rematch', user, channel };
-  if (kind !== 'decrypto') return null;
-  if (value === 'clue') return { type: 'openClue', user };
-  if (value === 'history') return { type: 'history', user };
-  if (value === 'decode' || value === 'intercept') return { type: 'voteMenu', user, mode: value };
-  const [act, mode, round, code] = value.split(':');
-  if (act === 'vote' && (mode === 'decode' || mode === 'intercept')) return { type: 'vote', user, mode, round: Number(round), code };
-  return null;
-}
-
-// 圈內人的子指令：ask <問題>（問題可以有空白）、vote（房主提早投票）
-export function parseInsiderCommand(text: string, user: string, channel: string): IAction | null {
-  const [sub, ...rest] = text.trim().split(/\s+/);
-  if (sub === 'ask') return rest.length ? { type: 'ask', user, text: rest.join(' ') } : null;
-  if (sub === 'vote') return { type: 'skip', user };
-  const action = parseUndercoverCommand(text, user, channel);
-  if (!action || !['new', 'start', 'cancel', 'addBot', 'removeBot'].includes(action.type)) return null;
-  return action as IAction;
-}
-
-function insiderButton(kind: string, value: string, user: string, channel: string): IAction | null {
-  if (kind === 'join' || kind === 'leave' || kind === 'start') return { type: kind, user };
-  if (kind === 'rematch') return { type: 'rematch', user, channel };
-  if (kind !== 'insider') return null;
-  if (value === 'skip') return { type: 'skip', user };
-  const [act, arg, ans] = value.split(':');
-  if (act === 'vote' && arg) return { type: 'vote', user, target: arg };
-  if (act === 'answer' && (ans === 'yes' || ans === 'no' || ans === 'unknown' || ans === 'correct')) return { type: 'answer', user, question: Number(arg), answer: ans };
-  return null;
-}
-
-// 骷髏與玫瑰：沒有遊戲中的打字指令，全部用按鈕
-export function parseSkullCommand(text: string, user: string, channel: string): SkAction | null {
-  const action = parseUndercoverCommand(text, user, channel);
-  if (!action || !['new', 'start', 'cancel', 'addBot', 'removeBot'].includes(action.type)) return null;
-  return action as SkAction;
-}
-
-function skullButton(kind: string, value: string, user: string, channel: string): SkAction | null {
-  if (kind === 'join' || kind === 'leave' || kind === 'start') return { type: kind, user };
-  if (kind === 'rematch') return { type: 'rematch', user, channel };
-  if (kind !== 'skull') return null;
-  if (value === 'place') return { type: 'placeMenu', user };
-  if (value === 'challenge') return { type: 'challengeMenu', user };
-  if (value === 'mine') return { type: 'mine', user };
-  const [act, step, ...rest] = value.split(':');
-  const arg = rest.join(':'); // 翻牌的目標可能是 bot:1:Sam
-  if (act === 'disc' && (arg === 'rose' || arg === 'skull')) return { type: 'disc', user, step: Number(step), disc: arg };
-  if (act === 'bid') return { type: 'bid', user, step: Number(step), n: Number(arg) };
-  if (act === 'pass') return { type: 'pass', user, step: Number(step) };
-  if (act === 'flip') return { type: 'flip', user, step: Number(step), target: arg };
-  return null;
-}
-
-// 誰是牛頭王的子指令：play <牌號>
-export function parseNimmtCommand(text: string, user: string, channel: string): NAction | null {
-  const [sub, arg] = text.trim().split(/\s+/);
-  if (sub === 'play') return /^\d+$/.test(arg ?? '') ? { type: 'pick', user, card: Number(arg) } : null;
-  const action = parseUndercoverCommand(text, user, channel);
-  if (!action || !['new', 'start', 'cancel', 'addBot', 'removeBot'].includes(action.type)) return null;
-  return action as NAction;
-}
-
-function nimmtButton(kind: string, value: string, user: string, channel: string): NAction | null {
-  if (kind === 'join' || kind === 'leave' || kind === 'start') return { type: kind, user };
-  if (kind === 'rematch') return { type: 'rematch', user, channel };
-  if (kind !== 'nimmt') return null;
-  if (value === 'hand') return { type: 'hand', user };
-  const [act, seq, arg] = value.split(':');
-  if (act === 'pick') return { type: 'pick', user, seq: Number(seq), card: Number(arg) };
-  if (act === 'row') return { type: 'row', user, seq: Number(seq), row: Number(arg) };
-  return null;
-}
-
-// 情書只有房間指令，出牌都用按鈕
-export function parseLoveLetterCommand(text: string, user: string, channel: string): LLAction | null {
-  const action = parseUndercoverCommand(text, user, channel);
-  if (!action || !['new', 'start', 'cancel', 'addBot', 'removeBot'].includes(action.type)) return null;
-  return action as LLAction;
-}
-
-// value：menu、hand、log、pick:<seq>:<i>、tgt:<seq>:<i>:<目標>、guess:<seq>:<i>:<角色>:<目標>、keep:<seq>:<i>（bot 的 id 有冒號，目標放最後）
-function loveLetterButton(kind: string, value: string, user: string, channel: string): LLAction | null {
-  if (kind === 'join' || kind === 'leave' || kind === 'start') return { type: kind, user };
-  if (kind === 'rematch') return { type: 'rematch', user, channel };
-  if (kind !== 'loveletter') return null;
-  if (value === 'menu' || value === 'hand' || value === 'log') return { type: value, user };
-  const [act, seqText, indexText, ...rest] = value.split(':');
-  const seq = Number(seqText);
-  const index = Number(indexText);
-  if (act === 'pick' || act === 'keep') return { type: act, user, seq, index };
-  if (act === 'tgt') return { type: 'target', user, seq, index, target: rest.join(':') };
-  if (act === 'guess') return { type: 'play', user, seq, index, guess: rest[0] as LLRole, target: rest.slice(1).join(':') };
-  return null;
-}
-
-// 變色龍的子指令：say <詞>、next（房主跳過）、vote（房主提早投票）、guess <詞或座標>
-export function parseChameleonCommand(text: string, user: string, channel: string): ChAction | null {
-  const [sub, ...rest] = text.trim().split(/\s+/);
-  if (sub === 'say') return rest.length ? { type: 'say', user, text: rest.join(' ') } : null;
-  if (sub === 'guess') return rest.length ? { type: 'guess', user, text: rest.join(' ') } : null;
-  if (sub === 'next') return { type: 'next', user };
-  if (sub === 'vote') return { type: 'startVote', user };
-  const action = parseUndercoverCommand(text, user, channel);
-  if (!action || !['new', 'start', 'cancel', 'addBot', 'removeBot'].includes(action.type)) return null;
-  return action as ChAction;
-}
-
-// value：say、startVote、vote:<userId>、guess:<格子編號>
-function chameleonButton(kind: string, value: string, user: string, channel: string): ChAction | null {
-  if (kind === 'join' || kind === 'leave' || kind === 'start') return { type: kind, user };
-  if (kind === 'rematch') return { type: 'rematch', user, channel };
-  if (kind !== 'chameleon') return null;
-  if (value === 'say') return { type: 'openSay', user };
-  if (value === 'startVote') return { type: 'startVote', user };
-  const [act, arg] = value.split(':');
-  if (act === 'vote' && arg) return { type: 'vote', user, target: value.slice(5) };
-  if (act === 'guess' && /^\d+$/.test(arg ?? '')) return { type: 'guess', user, cell: Number(arg) };
-  return null;
-}
-
-// 蟑螂撲克只有房間指令，遊戲中都用按鈕
-export function parseCockroachCommand(text: string, user: string, channel: string): CrAction | null {
-  const action = parseUndercoverCommand(text, user, channel);
-  if (!action || !['new', 'start', 'cancel', 'addBot', 'removeBot'].includes(action.type)) return null;
-  return action as CrAction;
-}
-
-// value：play、hand、passmenu、yes／no／peek:<step>、card:<step>:<牌>、tgt:<step>:<牌>:<目標>、claim:<step>:<牌>:<宣稱>:<目標>、to:<step>:<目標>、say:<step>:<宣稱>:<目標>（bot 的 id 有冒號，目標放最後）
-function cockroachButton(kind: string, value: string, user: string, channel: string): CrAction | null {
-  if (kind === 'join' || kind === 'leave' || kind === 'start') return { type: kind, user };
-  if (kind === 'rematch') return { type: 'rematch', user, channel };
-  if (kind !== 'cockroach') return null;
-  if (value === 'play' || value === 'hand') return { type: value, user };
-  if (value === 'passmenu') return { type: 'passMenu', user };
-  const [act, stepText, ...rest] = value.split(':');
-  const step = Number(stepText);
-  if (act === 'yes' || act === 'no') return { type: 'answer', user, step, yes: act === 'yes' };
-  if (act === 'peek') return { type: 'peek', user, step };
-  if (act === 'to') return { type: 'to', user, step, target: rest.join(':') };
-  const [a, b, ...more] = rest;
-  if (act === 'card' && isBug(a)) return { type: 'card', user, step, bug: a };
-  if (act === 'tgt' && isBug(a)) return { type: 'target', user, step, bug: a, target: [b, ...more].join(':') };
-  if (act === 'say' && isBug(a)) return { type: 'pass', user, step, claim: a, target: [b, ...more].join(':') };
-  if (act === 'claim' && isBug(a) && isBug(b)) return { type: 'give', user, step, bug: a, claim: b, target: more.join(':') };
-  return null;
-}
-
-function codenamesButton(kind: string, value: string, user: string, channel: string): CAction | null {
-  switch (kind) {
-    case 'join':
-    case 'leave':
-    case 'start':
-    case 'endGuess':
-      return { type: kind, user };
-    case 'guess':
-      return { type: 'guess', user, index: Number(value) };
-    case 'rematch':
-      return { type: 'rematch', user, channel };
-    default:
-      return null;
-  }
-}
-
-function avalonButton(kind: string, value: string, user: string, channel: string): AAction | null {
-  switch (kind) {
-    case 'join':
-    case 'leave':
-    case 'start':
-    case 'endSpeech':
-    case 'confirmTeam':
-      return { type: kind, user };
-    case 'pickMember':
-    case 'assassinate':
-      return { type: kind, user, target: value };
-    case 'teamVote':
-      return value === 'approve' || value === 'reject' ? { type: 'teamVote', user, vote: value } : null;
-    case 'quest':
-      return value === 'success' || value === 'fail' ? { type: 'quest', user, card: value } : null;
-    case 'rematch':
-      return { type: 'rematch', user, channel };
-    default:
-      return null;
-  }
-}
-
-function spyfallButton(kind: string, value: string, user: string, channel: string): SAction | null {
-  switch (kind) {
-    case 'join':
-    case 'leave':
-    case 'start':
-    case 'endSpeech':
-    case 'endAnswer':
-      return { type: kind, user };
-    case 'askTarget':
-      return { type: 'askTarget', user, target: value };
-    case 'dayVote':
-    case 'pkVote':
-      return { type: 'dayVote', user, target: value };
-    case 'rematch':
-      return { type: 'rematch', user, channel };
-    default:
-      return null;
-  }
-}
 
 export function parseCommand(text: string, user: string, channel: string): Action | null {
   const [sub, arg, ...rest] = text.trim().split(/\s+/);
@@ -835,23 +167,7 @@ const button = (kind: string, i: number, label: string, channel: string, value: 
 
 export class GameHost {
   games = new Map<string, GameState>();
-  undercoverGames = new Map<string, UState>();
-  spyfallGames = new Map<string, SState>();
-  avalonGames = new Map<string, AState>();
-  codenamesGames = new Map<string, CState>();
-  liarsDiceGames = new Map<string, LState>();
-  justOneGames = new Map<string, JState>();
-  coupGames = new Map<string, KState>();
-  hanabiGames = new Map<string, HState>();
-  wavelengthGames = new Map<string, WState>();
-  decryptoGames = new Map<string, DState>();
-  wavecoopGames = new Map<string, WCState>();
-  insiderGames = new Map<string, IState>();
-  skullGames = new Map<string, SkState>();
-  nimmtGames = new Map<string, NState>();
-  loveLetterGames = new Map<string, LLState>();
-  cockroachGames = new Map<string, CrState>();
-  chameleonGames = new Map<string, ChState>();
+  private states = new Map<GameKind, Map<string, { phase: string }>>(GAMES.map((g) => [g.kind, new Map()]));
   private lastKind = new Map<string, Kind>(); // 每個頻道最近一局是哪款遊戲
   private lobbyTs = new Map<string, string>();
   private boardTs = new Map<string, string>(); // 機密代號的牌桌訊息
@@ -865,7 +181,6 @@ export class GameHost {
   private stats?: StatsStore;
   private setTimer: (fn: () => void, ms: number) => void;
   private respond: (url: string, payload: object) => Promise<void>;
-  private defs: Record<OtherKind, GameDef>;
 
   constructor(
     private client: SlackClient,
@@ -876,29 +191,20 @@ export class GameHost {
     this.stats = opts.stats;
     this.setTimer = opts.setTimer ?? ((fn, ms) => void setTimeout(fn, ms));
     this.respond = opts.respond ?? postJson;
-    this.defs = {
-      undercover: { states: this.undercoverGames, apply: applyUndercover, parse: parseUndercoverCommand, button: undercoverButton, help: UNDERCOVER_HELP },
-      spyfall: { states: this.spyfallGames, apply: applySpyfall, parse: parseSpyfallCommand, button: spyfallButton, help: SPYFALL_HELP },
-      avalon: { states: this.avalonGames, apply: applyAvalon, parse: parseAvalonCommand, button: avalonButton, help: AVALON_HELP },
-      codenames: { states: this.codenamesGames, apply: applyCodenames, parse: parseCodenamesCommand, button: codenamesButton, help: CODENAMES_HELP },
-      liarsdice: { states: this.liarsDiceGames, apply: applyLiarsDice, parse: parseLiarsDiceCommand, button: liarsDiceButton, help: LIARSDICE_HELP },
-      justone: { states: this.justOneGames, apply: applyJustOne, parse: parseJustOneCommand, button: justOneButton, help: JUSTONE_HELP },
-      coup: { states: this.coupGames, apply: applyCoup, parse: parseCoupCommand, button: coupButton, help: COUP_HELP },
-      hanabi: { states: this.hanabiGames, apply: applyHanabi, parse: parseHanabiCommand, button: hanabiButton, help: HANABI_HELP },
-      wavelength: { states: this.wavelengthGames, apply: applyWavelength, parse: parseWavelengthCommand, button: wavelengthButton, help: WAVELENGTH_HELP },
-      decrypto: { states: this.decryptoGames, apply: applyDecrypto, parse: parseDecryptoCommand, button: decryptoButton, help: DECRYPTO_HELP },
-      wavecoop: { states: this.wavecoopGames, apply: applyWavecoop, parse: parseWavecoopCommand, button: wavecoopButton, help: WAVECOOP_HELP },
-      insider: { states: this.insiderGames, apply: applyInsider, parse: parseInsiderCommand, button: insiderButton, help: INSIDER_HELP },
-      skull: { states: this.skullGames, apply: applySkull, parse: parseSkullCommand, button: skullButton, help: SKULL_HELP },
-      nimmt: { states: this.nimmtGames, apply: applyNimmt, parse: parseNimmtCommand, button: nimmtButton, help: NIMMT_HELP },
-            loveletter: { states: this.loveLetterGames, apply: applyLoveLetter, parse: parseLoveLetterCommand, button: loveLetterButton, help: LOVELETTER_HELP },
-      cockroach: { states: this.cockroachGames, apply: applyCockroach, parse: parseCockroachCommand, button: cockroachButton, help: COCKROACH_HELP },
-      chameleon: { states: this.chameleonGames, apply: applyChameleon, parse: parseChameleonCommand, button: chameleonButton, help: CHAMELEON_HELP },
-    };
   }
 
   private isOther(kind: string | undefined): kind is OtherKind {
-    return kind !== undefined && kind in this.defs;
+    return kind !== undefined && kind in DEFS;
+  }
+
+  // 某款遊戲在這個頻道的狀態（沒有就是 undefined）
+  state<K extends GameKind>(kind: K, channel: string): StateOf<K> | undefined {
+    return this.states.get(kind)!.get(channel) as StateOf<K> | undefined;
+  }
+
+  // 直接設定遊戲狀態（測試用）
+  setState<K extends GameKind>(kind: K, channel: string, state: StateOf<K>): void {
+    this.states.get(kind)!.set(channel, state);
   }
 
   // 等目前排隊中的訊息都送完（測試用）
@@ -910,8 +216,8 @@ export class GameHost {
   private active(channel: string): Kind | null {
     const w = this.games.get(channel);
     if (w && w.phase !== 'ended') return 'werewolf';
-    for (const [kind, def] of Object.entries(this.defs) as [OtherKind, GameDef][]) {
-      const st = def.states.get(channel);
+    for (const [kind, states] of this.states) {
+      const st = states.get(channel);
       if (st && st.phase !== 'ended') return kind;
     }
     return null;
@@ -963,7 +269,7 @@ export class GameHost {
 
   // `/game <遊戲> <子指令>`（狼人殺以外的遊戲）
   private play(kind: OtherKind, channel: string, user: string, text: string): Promise<void> {
-    const def = this.defs[kind];
+    const def = DEFS[kind];
     const action = def.parse(text, user, channel);
     if (!action) return this.reply(channel, user, def.help);
     if (this.blocked(channel, kind)) return this.reply(channel, user, action.type === 'new' ? BUSY : NOT_APPLICABLE);
@@ -971,11 +277,12 @@ export class GameHost {
   }
 
   dispatchGame(kind: OtherKind, channel: string, action: { type: string }, triggerId?: string): Promise<void> {
-    const def = this.defs[kind];
-    const prev = def.states.get(channel);
+    const def = DEFS[kind];
+    const states = this.states.get(kind)!;
+    const prev = states.get(channel);
     const { state, events } = def.apply(prev, action, this.rng);
     if (state) {
-      def.states.set(channel, state);
+      states.set(channel, state);
       if (state !== prev && isCreation(action)) this.lastKind.set(channel, kind);
     }
     return this.deliver(channel, events, kind, triggerId);
@@ -1005,7 +312,7 @@ export class GameHost {
     }
     const last = this.lastKind.get(channel);
     if (this.isOther(last)) {
-      const action = this.defs[last].button(kind, value.slice(sep + 1), user, channel);
+      const action = DEFS[last].button(kind, value.slice(sep + 1), user, channel);
       return action ? this.dispatchGame(last, channel, action, triggerId) : Promise.resolve();
     }
     const action = buttonAction(kind, value.slice(sep + 1), user, channel);
@@ -1015,11 +322,10 @@ export class GameHost {
   // Slack 視窗送出：callback_id 是 `ww:<視窗種類>`，private_metadata 是遊戲頻道，texts 是各欄位依序的內容
   modal(callbackId: string, channel: string, user: string, userName: string, texts: string[]): Promise<void> {
     this.names.set(user, userName);
-    if (callbackId === 'ww:wavelengthClue') return this.dispatchGame('wavelength', channel, { type: 'clue', user, text: texts[0] ?? '' } as WAction);
-    if (callbackId === 'ww:decryptoClue') return this.dispatchGame('decrypto', channel, { type: 'clue', user, texts } as DAction);
-    if (callbackId === 'ww:wavecoopClue') return this.dispatchGame('wavecoop', channel, { type: 'clue', user, text: texts[0] ?? '' } as WCAction);
-    if (callbackId === 'ww:chameleonWord') return this.dispatchGame('chameleon', channel, { type: 'say', user, text: texts[0] ?? '' } as ChAction);
-    return Promise.resolve();
+    const name = callbackId.replace(/^ww:/, '');
+    const game = GAMES.find((g) => 'modals' in g && name in g.modals);
+    if (!game) return Promise.resolve();
+    return this.dispatchGame(game.kind, channel, DEFS[game.kind].modals![name].action(user, texts));
   }
 
   // `/werewolf stats [@某人]`：開啟 should_escape 後，mention 會是 <@U123> 或 <@U123|名字>
@@ -1034,7 +340,8 @@ export class GameHost {
   // 頻道裡的一般訊息：狼人殺只讀不回應；圈內人當成問主持人的問題；其他遊戲忽略
   chat(channel: string, user: string, text: string): Promise<void> {
     const active = this.active(channel);
-    if (active === 'insider') return this.dispatchGame('insider', channel, { type: 'chat', user, text } as IAction);
+    const chat = active && active !== 'werewolf' ? DEFS[active].chat : undefined;
+    if (active && active !== 'werewolf' && chat) return this.dispatchGame(active, channel, chat(user, text));
     if (active !== 'werewolf') return Promise.resolve();
     return this.dispatch(channel, { type: 'chat', user, text });
   }
@@ -1176,8 +483,8 @@ export class GameHost {
           });
         } catch (err) {
           console.error('[werewolf] views.open failed', err);
-          const cmd = e.kind === 'decryptoClue' ? '/game decrypto clue <提示1> / <提示2> / <提示3>' : e.kind === 'wavecoopClue' ? '/game wavecoop clue <提示>' : e.kind === 'chameleonWord' ? '/game chameleon say <詞>' : '/game wavelength clue <提示>';
-          await chat.postEphemeral({ channel, user: e.to, text: slackText(`視窗打不開，請改用 \`${cmd}\` 送出${e.kind === 'chameleonWord' ? '' : '提示'}。`) });
+          const fallback = Object.values(DEFS).find((d) => d.modals?.[e.kind])?.modals![e.kind].fallback ?? '視窗打不開，請改用指令送出。';
+          await chat.postEphemeral({ channel, user: e.to, text: slackText(fallback) });
         }
         return;
       case 'ephemeral':
