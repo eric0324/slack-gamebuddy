@@ -13,6 +13,7 @@ import { loveLetter } from './loveletter.js';
 import { nimmt } from './nimmt.js';
 import { noThanks } from './nothanks.js';
 import { skull } from './skull.js';
+import { soclover } from './soclover.js';
 import { spyfall } from './spyfall.js';
 import { undercover } from './undercover.js';
 import { wavecoop } from './wavecoop.js';
@@ -39,6 +40,7 @@ export const GAMES = [
   chameleon,
   noThanks,
   taboo,
+  soclover,
 ] as const;
 
 export type GameKind = (typeof GAMES)[number]['kind'];
