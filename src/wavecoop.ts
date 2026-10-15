@@ -1,6 +1,7 @@
 // 心電感應（合作）遊戲引擎：純邏輯，不碰任何 I/O。全員同一隊，輪流出題、其他人一起猜，拚總分。
 // 介面和其他遊戲一樣：applyWavecoop(state, action, rng) → { state, events }。光譜卡和兩隊對抗版共用。
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
+import { reply, shuffle, startTimer } from './common.js';
 import { SPECTRUMS } from './wavelengthCards.js';
 
 export const MIN_WAVECOOP_PLAYERS = 2;
@@ -73,25 +74,6 @@ interface Ctx {
 
 const lobbyEvent = (s: WCState): GameEvent => ({ type: 'lobby', title: TITLE, host: s.host, players: [...s.players], open: s.phase === 'lobby' });
 
-function shuffle<T>(items: T[], rng: Rng): T[] {
-  const a = [...items];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-function startTimer(c: Ctx) {
-  c.s.timers.phase = ++c.s.timerSeq;
-  c.events.push({ type: 'startTimer', id: c.s.timerSeq, ms: PHASE_MS });
-}
-
-const reply = (c: Ctx, to: string, text: string) => {
-  c.events.push({ type: 'ephemeral', to, text });
-  return false;
-};
-
 const psychic = (s: WCState) => s.order[s.round % s.order.length];
 const guessers = (s: WCState) => s.players.filter((id) => id !== psychic(s));
 const dial = (s: WCState) => `${s.spectrum![0]} ◀ 0 ─ 10 ▶ ${s.spectrum![1]}`;
@@ -129,7 +111,7 @@ function startRound(c: Ctx) {
     { type: 'announce', text: `🔮 第 ${s.round + 1}／${s.total} 題（總分 ${s.score}）：輪到 ${mention(p)} 出題（${minutes}）\n光譜：${dial(s)}` },
     { type: 'prompt', kind: 'wavecoop', audience: 'channel', text: `${mention(p)} 想好了就按這裡寫提示`, options: [{ value: 'clue', label: '✍️ 寫提示' }] },
   );
-  startTimer(c);
+  startTimer(c, PHASE_MS);
 }
 
 function giveClue(c: Ctx, user: string, text: string): boolean {
@@ -150,7 +132,7 @@ function giveClue(c: Ctx, user: string, text: string): boolean {
       perRow: 6,
     },
   );
-  startTimer(c);
+  startTimer(c, PHASE_MS);
   return true;
 }
 

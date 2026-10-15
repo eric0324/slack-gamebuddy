@@ -1,5 +1,6 @@
 // 圈內人遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyInsider(state, action, rng) → { state, events }。
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
+import { lobbyEvent, reply, shuffle, startTimer } from './common.js';
 import { DECRYPTO_WORDS } from './decryptoWords.js';
 
 export const MIN_INSIDER_PLAYERS = 4;
@@ -69,33 +70,6 @@ interface Ctx {
   events: GameEvent[];
   rng: Rng;
 }
-
-const lobbyEvent = (s: IState): GameEvent => ({
-  type: 'lobby',
-  title: TITLE,
-  host: s.host,
-  players: s.players.map((p) => p.id),
-  open: s.phase === 'lobby',
-});
-
-function shuffle<T>(items: T[], rng: Rng): T[] {
-  const a = [...items];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-function startTimer(c: Ctx, ms: number) {
-  c.s.timers.phase = ++c.s.timerSeq;
-  c.events.push({ type: 'startTimer', id: c.s.timerSeq, ms });
-}
-
-const reply = (c: Ctx, to: string, text: string) => {
-  c.events.push({ type: 'ephemeral', to, text });
-  return false;
-};
 
 // 開局：抽主持人、圈內人和答案，私訊身分
 function deal(c: Ctx) {
@@ -239,7 +213,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (s.players.some((p) => p.id === action.user)) return reply(c, action.user, '你已經在房間裡了。');
       if (s.players.length >= MAX_INSIDER_PLAYERS) return reply(c, action.user, '房間已滿。');
       s.players.push({ id: action.user });
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'leave': {
@@ -247,11 +221,11 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (s.phase !== 'lobby') return reply(c, action.user, '遊戲已經開始了，不能離開。');
       if (action.user === s.host) {
         s.phase = 'ended';
-        c.events.push(lobbyEvent(s), { type: 'announce', text: '🛑 房主離開，遊戲已取消。' });
+        c.events.push(lobbyEvent(TITLE, s), { type: 'announce', text: '🛑 房主離開，遊戲已取消。' });
         return true;
       }
       s.players = s.players.filter((p) => p.id !== action.user);
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'addBot':
@@ -262,7 +236,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (s.phase !== 'lobby') return false;
       const n = s.players.length;
       if (n < MIN_INSIDER_PLAYERS) return reply(c, action.user, `目前 ${n} 人，至少需要 ${MIN_INSIDER_PLAYERS} 人才能開始。`);
-      c.events.push(lobbyEvent({ ...s, phase: 'question' }));
+      c.events.push(lobbyEvent(TITLE, { ...s, phase: 'question' }));
       deal(c);
       return true;
     }
@@ -337,5 +311,5 @@ function createLobby(prev: IState | undefined, host: string, channel: string): R
     timerSeq: prev?.timerSeq ?? 0,
     timers: {},
   };
-  return { state: created, events: [lobbyEvent(created)] };
+  return { state: created, events: [lobbyEvent(TITLE, created)] };
 }

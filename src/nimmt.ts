@@ -1,6 +1,7 @@
 // 誰是牛頭王（6 Nimmt!）遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyNimmt(state, action, rng) → { state, events }。
 import { randomBotName } from './botLines.js';
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
+import { lobbyEvent, reply, shuffle, startTimer } from './common.js';
 
 export const MIN_NIMMT_PLAYERS = 2;
 export const MAX_NIMMT_PLAYERS = 10;
@@ -73,33 +74,6 @@ export function bullheads(card: number): number {
 }
 
 const heads = (cards: number[]) => cards.reduce((n, c) => n + bullheads(c), 0);
-
-const lobbyEvent = (s: NState): GameEvent => ({
-  type: 'lobby',
-  title: TITLE,
-  host: s.host,
-  players: s.players.map((p) => p.id),
-  open: s.phase === 'lobby',
-});
-
-function shuffle<T>(items: T[], rng: Rng): T[] {
-  const a = [...items];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-function startTimer(c: Ctx, ms: number) {
-  c.s.timers.phase = ++c.s.timerSeq;
-  c.events.push({ type: 'startTimer', id: c.s.timerSeq, ms });
-}
-
-const reply = (c: Ctx, to: string, text: string) => {
-  c.events.push({ type: 'ephemeral', to, text });
-  return false;
-};
 
 const tableText = (s: NState) => s.rows.map((r, i) => `第 ${i + 1} 列：${r.join(' ')}（🐮${heads(r)}）`).join('\n');
 const scoreText = (s: NState) => `🐮 累積：${s.players.map((p) => `${mention(p.id)} ${p.total}`).join('、')}`;
@@ -329,7 +303,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (s.players.some((p) => p.id === action.user)) return reply(c, action.user, '你已經在房間裡了。');
       if (s.players.length >= MAX_NIMMT_PLAYERS) return reply(c, action.user, '房間已滿。');
       s.players.push(newPlayer(action.user));
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'leave': {
@@ -337,11 +311,11 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (s.phase !== 'lobby') return reply(c, action.user, '遊戲已經開始了，不能離開。');
       if (action.user === s.host) {
         s.phase = 'ended';
-        c.events.push(lobbyEvent(s), { type: 'announce', text: '🛑 房主離開，遊戲已取消。' });
+        c.events.push(lobbyEvent(TITLE, s), { type: 'announce', text: '🛑 房主離開，遊戲已取消。' });
         return true;
       }
       s.players = s.players.filter((p) => p.id !== action.user);
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'addBot': {
@@ -355,7 +329,7 @@ function handle(c: Ctx, action: GameAction): boolean {
         taken.add(name);
         s.players.push(newPlayer(`bot:${bots + i}:${name}`));
       }
-      if (room > 0) c.events.push(lobbyEvent(s));
+      if (room > 0) c.events.push(lobbyEvent(TITLE, s));
       if (action.count > room) reply(c, action.user, '房間已滿。');
       return room > 0;
     }
@@ -366,7 +340,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (!bots.length) return reply(c, action.user, '房間裡沒有 bot。');
       const removed = new Set(bots.slice(-action.count).map((p) => p.id));
       s.players = s.players.filter((p) => !removed.has(p.id));
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'start': {
@@ -374,7 +348,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (s.phase !== 'lobby') return false;
       const n = s.players.length;
       if (n < MIN_NIMMT_PLAYERS) return reply(c, action.user, `目前 ${n} 人，至少需要 ${MIN_NIMMT_PLAYERS} 人才能開始。`);
-      c.events.push(lobbyEvent({ ...s, phase: 'pick' }));
+      c.events.push(lobbyEvent(TITLE, { ...s, phase: 'pick' }));
       startRound(c);
       return true;
     }
@@ -447,5 +421,5 @@ function createLobby(prev: NState | undefined, host: string, channel: string): R
     timerSeq: prev?.timerSeq ?? 0,
     timers: {},
   };
-  return { state: created, events: [lobbyEvent(created)] };
+  return { state: created, events: [lobbyEvent(TITLE, created)] };
 }

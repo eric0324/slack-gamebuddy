@@ -1,6 +1,7 @@
 // 間諜危機遊戲引擎：純邏輯，不碰任何 I/O。介面和誰是臥底一樣：applySpyfall(state, action, rng) → { state, events }。
 import { randomBotName } from './botLines.js';
 import { isBot, mention, type GameEvent, type GifKey, type Rng } from './engine.js';
+import { lobbyEvent, reply, shuffle } from './common.js';
 import { LOCATIONS, QUESTIONS, SPY_ANSWERS } from './spyfallLocations.js';
 
 export const MIN_SPYFALL_PLAYERS = 4;
@@ -74,28 +75,6 @@ interface Ctx {
 }
 
 const pick = <T>(items: T[], rng: Rng): T => items[Math.floor(rng() * items.length)];
-
-function shuffle<T>(items: T[], rng: Rng): T[] {
-  const a = [...items];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-const lobbyEvent = (s: SState): GameEvent => ({
-  type: 'lobby',
-  title: TITLE,
-  host: s.host,
-  players: s.players.map((p) => p.id),
-  open: s.phase === 'lobby',
-});
-
-const reply = (c: Ctx, to: string, text: string) => {
-  c.events.push({ type: 'ephemeral', to, text });
-  return false;
-};
 
 // 發牌：隨機一位間諜、抽一個地點，平民依序拿角色（人比角色多時重複）
 function deal(c: Ctx) {
@@ -369,7 +348,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (s.players.some((p) => p.id === action.user)) return reply(c, action.user, '你已經在房間裡了。');
       if (s.players.length >= MAX_SPYFALL_PLAYERS) return reply(c, action.user, '房間已滿。');
       s.players.push({ id: action.user, alive: true });
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'leave': {
@@ -377,11 +356,11 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (s.phase !== 'lobby') return reply(c, action.user, '遊戲已經開始了，不能離開。');
       if (action.user === s.host) {
         s.phase = 'ended';
-        c.events.push(lobbyEvent(s), { type: 'announce', text: '🛑 房主離開，遊戲已取消。' });
+        c.events.push(lobbyEvent(TITLE, s), { type: 'announce', text: '🛑 房主離開，遊戲已取消。' });
         return true;
       }
       s.players = s.players.filter((p) => p.id !== action.user);
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'addBot': {
@@ -395,7 +374,7 @@ function handle(c: Ctx, action: GameAction): boolean {
         taken.add(name);
         s.players.push({ id: `bot:${bots + i}:${name}`, alive: true });
       }
-      if (room > 0) c.events.push(lobbyEvent(s));
+      if (room > 0) c.events.push(lobbyEvent(TITLE, s));
       if (action.count > room) reply(c, action.user, '房間已滿。');
       return room > 0;
     }
@@ -406,7 +385,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (!bots.length) return reply(c, action.user, '房間裡沒有 bot。');
       const removed = new Set(bots.slice(-action.count).map((p) => p.id));
       s.players = s.players.filter((p) => !removed.has(p.id));
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'start': {
@@ -414,7 +393,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (s.phase !== 'lobby') return false;
       const n = s.players.length;
       if (n < MIN_SPYFALL_PLAYERS) return reply(c, action.user, `目前 ${n} 人，至少需要 ${MIN_SPYFALL_PLAYERS} 人才能開始。`);
-      c.events.push(lobbyEvent({ ...s, phase: 'qa' }));
+      c.events.push(lobbyEvent(TITLE, { ...s, phase: 'qa' }));
       deal(c);
       startQa(c);
       return true;
@@ -529,5 +508,5 @@ function createLobby(prev: SState | undefined, host: string, channel: string): R
     usedAnswers: {},
     timers: {},
   };
-  return { state: created, events: [lobbyEvent(created)] };
+  return { state: created, events: [lobbyEvent(TITLE, created)] };
 }

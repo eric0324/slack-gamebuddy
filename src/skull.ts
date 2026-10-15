@@ -1,6 +1,7 @@
 // 骷髏與玫瑰遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applySkull(state, action, rng) → { state, events }。
 import { randomBotName } from './botLines.js';
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
+import { lobbyEvent, reply, startTimer } from './common.js';
 
 export const MIN_SKULL_PLAYERS = 3;
 export const MAX_SKULL_PLAYERS = 6;
@@ -70,14 +71,6 @@ interface Ctx {
   rng: Rng;
 }
 
-const lobbyEvent = (s: SkState): GameEvent => ({
-  type: 'lobby',
-  title: TITLE,
-  host: s.host,
-  players: s.players.map((p) => p.id),
-  open: s.phase === 'lobby',
-});
-
 const alive = (p: SkPlayer) => p.hand.length + p.stack.length > 0;
 const aliveCount = (s: SkState) => s.players.filter(alive).length;
 const total = (s: SkState) => s.players.reduce((n, p) => n + p.stack.length, 0);
@@ -87,20 +80,11 @@ const safeDisc = (p: SkPlayer): Disc => (p.hand.includes('rose') ? 'rose' : 'sku
 const status = (s: SkState) =>
   s.players.filter(alive).map((p) => `${mention(p.id)} 疊 ${p.stack.length} 張・手上 ${p.hand.length} 張`).join('｜');
 
-const reply = (c: Ctx, to: string, text: string) => {
-  c.events.push({ type: 'ephemeral', to, text });
-  return false;
-};
 const menu = (c: Ctx, user: string, text: string, options: { value: string; label: string }[], perRow?: number) => {
   c.events.push({ type: 'prompt', kind: 'skull', audience: 'ephemeral', user, text, options, ...(perRow ? { perRow } : {}) });
   return false;
 };
 const MINE = { value: 'mine', label: '👀 我的牌' };
-
-function startTimer(c: Ctx) {
-  c.s.timers.phase = ++c.s.timerSeq;
-  c.events.push({ type: 'startTimer', id: c.s.timerSeq, ms: STEP_MS });
-}
 
 // 下一位還沒出局（而且不在 skip 裡）的玩家
 function nextFrom(s: SkState, from: number, skip: string[] = []) {
@@ -140,7 +124,7 @@ function startRound(c: Ctx, starter: number) {
       options: [{ value: 'place', label: '🃏 蓋牌' }, MINE],
     },
   );
-  startTimer(c);
+  startTimer(c, STEP_MS);
 }
 
 function put(c: Ctx, p: SkPlayer, disc: Disc) {
@@ -187,7 +171,7 @@ function promptTurn(c: Ctx, first = false) {
       options: [...(p.hand.length ? [{ value: 'place', label: '🃏 再蓋一張' }] : []), { value: 'challenge', label: '📢 開始挑戰' }, MINE],
     },
   );
-  startTimer(c);
+  startTimer(c, STEP_MS);
 }
 
 function promptBid(c: Ctx) {
@@ -206,7 +190,7 @@ function promptBid(c: Ctx) {
       perRow: 6,
     },
   );
-  startTimer(c);
+  startTimer(c, STEP_MS);
 }
 
 function placeBid(c: Ctx, user: string, n: number): boolean {
@@ -268,7 +252,7 @@ function promptFlip(c: Ctx) {
     text: `🔍 ${mention(s.bid!.by)} 已翻開 ${s.revealed}／${s.bid!.n} 朵玫瑰，選要翻誰的牌（${STEP_MS / 60_000} 分鐘）`,
     options: [...flipChoices(s).map((p) => ({ value: `flip:${s.step}:${p.id}`, label: `翻 ${p.id} （剩 ${p.stack.length - p.flipped} 張）` })), MINE],
   });
-  startTimer(c);
+  startTimer(c, STEP_MS);
 }
 
 function flipOne(c: Ctx, user: string, target: string): boolean {
@@ -443,7 +427,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (find(s, action.user)) return reply(c, action.user, '你已經在房間裡了。');
       if (s.players.length >= MAX_SKULL_PLAYERS) return reply(c, action.user, '房間已滿。');
       s.players.push(newPlayer(action.user));
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'leave': {
@@ -451,11 +435,11 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (s.phase !== 'lobby') return reply(c, action.user, '遊戲已經開始了，不能離開。');
       if (action.user === s.host) {
         s.phase = 'ended';
-        c.events.push(lobbyEvent(s), { type: 'announce', text: '🛑 房主離開，遊戲已取消。' });
+        c.events.push(lobbyEvent(TITLE, s), { type: 'announce', text: '🛑 房主離開，遊戲已取消。' });
         return true;
       }
       s.players = s.players.filter((p) => p.id !== action.user);
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'addBot': {
@@ -469,7 +453,7 @@ function handle(c: Ctx, action: GameAction): boolean {
         taken.add(name);
         s.players.push(newPlayer(`bot:${bots.length + i}:${name}`));
       }
-      if (room > 0) c.events.push(lobbyEvent(s));
+      if (room > 0) c.events.push(lobbyEvent(TITLE, s));
       if (action.count > room) reply(c, action.user, '房間已滿。');
       return room > 0;
     }
@@ -480,7 +464,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (!bots.length) return reply(c, action.user, '房間裡沒有 bot。');
       const removed = new Set(bots.slice(-action.count).map((p) => p.id));
       s.players = s.players.filter((p) => !removed.has(p.id));
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'start': {
@@ -488,7 +472,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (s.phase !== 'lobby') return false;
       const n = s.players.length;
       if (n < MIN_SKULL_PLAYERS) return reply(c, action.user, `目前 ${n} 人，至少需要 ${MIN_SKULL_PLAYERS} 人才能開始。`);
-      c.events.push(lobbyEvent({ ...s, phase: 'place' }));
+      c.events.push(lobbyEvent(TITLE, { ...s, phase: 'place' }));
       for (const p of s.players) p.hand = ['rose', 'rose', 'rose', 'skull'];
       const starter = Math.floor(c.rng() * n);
       c.events.push({
@@ -575,5 +559,5 @@ function createLobby(prev: SkState | undefined, host: string, channel: string): 
     timerSeq: prev?.timerSeq ?? 0,
     timers: {},
   };
-  return { state: created, events: [lobbyEvent(created)] };
+  return { state: created, events: [lobbyEvent(TITLE, created)] };
 }

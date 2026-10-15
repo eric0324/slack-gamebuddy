@@ -2,6 +2,7 @@
 // events 沿用狼人殺的 GameEvent，adapter 的 send() 可以共用。
 import { randomBotName } from './botLines.js';
 import { isBot, MAX_PLAYERS, mention, type GameEvent, type GifKey, type Rng } from './engine.js';
+import { lobbyEvent, reply, shuffle } from './common.js';
 import { BLANK_LINES, WORD_PAIRS } from './undercoverWords.js';
 
 export const MIN_UNDERCOVER_PLAYERS = 4;
@@ -80,15 +81,6 @@ interface Ctx {
   s: UState;
   events: GameEvent[];
   rng: Rng;
-}
-
-function shuffle<T>(items: T[], rng: Rng): T[] {
-  const a = [...items];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
 }
 
 // 發牌：不洗牌時的順序是臥底、白板、平民
@@ -340,19 +332,6 @@ function endGame(c: Ctx, winner: 'civilian' | 'undercover', gif?: GifKey) {
 
 const isSpeaking = (s: UState) => s.phase === 'speech' || s.phase === 'pkSpeech';
 
-const lobbyEvent = (s: UState): GameEvent => ({
-  type: 'lobby',
-  title: TITLE,
-  host: s.host,
-  players: s.players.map((p) => p.id),
-  open: s.phase === 'lobby',
-});
-
-const reply = (c: Ctx, to: string, text: string) => {
-  c.events.push({ type: 'ephemeral', to, text });
-  return false;
-};
-
 function handle(c: Ctx, action: Exclude<UAction, { type: 'new' } | { type: 'rematch' }>): boolean {
   const s = c.s;
   switch (action.type) {
@@ -361,7 +340,7 @@ function handle(c: Ctx, action: Exclude<UAction, { type: 'new' } | { type: 'rema
       if (s.players.some((p) => p.id === action.user)) return reply(c, action.user, '你已經在房間裡了。');
       if (s.players.length >= MAX_PLAYERS) return reply(c, action.user, '房間已滿。');
       s.players.push({ id: action.user, alive: true });
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'leave': {
@@ -369,11 +348,11 @@ function handle(c: Ctx, action: Exclude<UAction, { type: 'new' } | { type: 'rema
       if (s.phase !== 'lobby') return reply(c, action.user, '遊戲已經開始了，不能離開。');
       if (action.user === s.host) {
         s.phase = 'ended';
-        c.events.push(lobbyEvent(s), { type: 'announce', text: '🛑 房主離開，遊戲已取消。' });
+        c.events.push(lobbyEvent(TITLE, s), { type: 'announce', text: '🛑 房主離開，遊戲已取消。' });
         return true;
       }
       s.players = s.players.filter((p) => p.id !== action.user);
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'addBot': {
@@ -387,7 +366,7 @@ function handle(c: Ctx, action: Exclude<UAction, { type: 'new' } | { type: 'rema
         taken.add(name);
         s.players.push({ id: `bot:${bots + i}:${name}`, alive: true });
       }
-      if (room > 0) c.events.push(lobbyEvent(s));
+      if (room > 0) c.events.push(lobbyEvent(TITLE, s));
       if (action.count > room) reply(c, action.user, '房間已滿。');
       return room > 0;
     }
@@ -398,7 +377,7 @@ function handle(c: Ctx, action: Exclude<UAction, { type: 'new' } | { type: 'rema
       if (!bots.length) return reply(c, action.user, '房間裡沒有 bot。');
       const removed = new Set(bots.slice(-action.count).map((p) => p.id));
       s.players = s.players.filter((p) => !removed.has(p.id));
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'start': {
@@ -408,7 +387,7 @@ function handle(c: Ctx, action: Exclude<UAction, { type: 'new' } | { type: 'rema
       if (n < MIN_UNDERCOVER_PLAYERS) {
         return reply(c, action.user, `目前 ${n} 人，至少需要 ${MIN_UNDERCOVER_PLAYERS} 人才能開始。`);
       }
-      c.events.push(lobbyEvent({ ...s, phase: 'speech' }));
+      c.events.push(lobbyEvent(TITLE, { ...s, phase: 'speech' }));
       deal(c);
       startRound(c);
       return true;
@@ -505,5 +484,5 @@ function createLobby(prev: UState | undefined, host: string, channel: string): R
     candidates: [],
     voters: [],
   };
-  return { state: created, events: [lobbyEvent(created)] };
+  return { state: created, events: [lobbyEvent(TITLE, created)] };
 }

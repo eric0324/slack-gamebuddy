@@ -1,6 +1,7 @@
 // 阿瓦隆遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyAvalon(state, action, rng) → { state, events }。
 import { randomBotName } from './botLines.js';
 import { isBot, mention, type GameEvent, type GifKey, type Rng } from './engine.js';
+import { lobbyEvent, reply, shuffle, startTimer } from './common.js';
 
 export const MIN_AVALON_PLAYERS = 5;
 export const MAX_AVALON_PLAYERS = 10;
@@ -101,24 +102,7 @@ interface Ctx {
   rng: Rng;
 }
 
-const lobbyEvent = (s: AState): GameEvent => ({
-  type: 'lobby',
-  title: TITLE,
-  host: s.host,
-  players: s.players.map((p) => p.id),
-  open: s.phase === 'lobby',
-});
-
 const pick = <T>(items: T[], rng: Rng): T => items[Math.floor(rng() * items.length)];
-
-function shuffle<T>(items: T[], rng: Rng): T[] {
-  const a = [...items];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
 
 const list = (ids: string[]) => ids.map(mention).join('、');
 
@@ -163,11 +147,6 @@ function deal(c: Ctx) {
     c.events.push({ type: 'dm', to: p.id, text: ROLE_INTRO[p.role!] + extra });
   }
   c.events.push({ type: 'wolfChat', wolves: evilIds, text: `😈 這是壞人的私訊群組：${list(evilIds)}\n可以在這裡討論，好人看不到。` });
-}
-
-function startTimer(c: Ctx, ms: number) {
-  c.s.timers.phase = ++c.s.timerSeq;
-  c.events.push({ type: 'startTimer', id: c.s.timerSeq, ms });
 }
 
 const teamSize = (s: AState) => QUESTS[s.players.length][s.quest];
@@ -418,11 +397,6 @@ function runBots(c: Ctx) {
   }
 }
 
-const reply = (c: Ctx, to: string, text: string) => {
-  c.events.push({ type: 'ephemeral', to, text });
-  return false;
-};
-
 function handle(c: Ctx, action: GameAction): boolean {
   const s = c.s;
   switch (action.type) {
@@ -431,7 +405,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (s.players.some((p) => p.id === action.user)) return reply(c, action.user, '你已經在房間裡了。');
       if (s.players.length >= MAX_AVALON_PLAYERS) return reply(c, action.user, '房間已滿。');
       s.players.push({ id: action.user });
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'leave': {
@@ -439,11 +413,11 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (s.phase !== 'lobby') return reply(c, action.user, '遊戲已經開始了，不能離開。');
       if (action.user === s.host) {
         s.phase = 'ended';
-        c.events.push(lobbyEvent(s), { type: 'announce', text: '🛑 房主離開，遊戲已取消。' });
+        c.events.push(lobbyEvent(TITLE, s), { type: 'announce', text: '🛑 房主離開，遊戲已取消。' });
         return true;
       }
       s.players = s.players.filter((p) => p.id !== action.user);
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'addBot': {
@@ -457,7 +431,7 @@ function handle(c: Ctx, action: GameAction): boolean {
         taken.add(name);
         s.players.push({ id: `bot:${bots + i}:${name}` });
       }
-      if (room > 0) c.events.push(lobbyEvent(s));
+      if (room > 0) c.events.push(lobbyEvent(TITLE, s));
       if (action.count > room) reply(c, action.user, '房間已滿。');
       return room > 0;
     }
@@ -468,7 +442,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (!bots.length) return reply(c, action.user, '房間裡沒有 bot。');
       const removed = new Set(bots.slice(-action.count).map((p) => p.id));
       s.players = s.players.filter((p) => !removed.has(p.id));
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'start': {
@@ -476,7 +450,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (s.phase !== 'lobby') return false;
       const n = s.players.length;
       if (n < MIN_AVALON_PLAYERS) return reply(c, action.user, `目前 ${n} 人，至少需要 ${MIN_AVALON_PLAYERS} 人才能開始。`);
-      c.events.push(lobbyEvent({ ...s, phase: 'speech' }));
+      c.events.push(lobbyEvent(TITLE, { ...s, phase: 'speech' }));
       deal(c);
       s.leader = Math.floor(c.rng() * n);
       startRound(c);
@@ -610,5 +584,5 @@ function createLobby(prev: AState | undefined, host: string, channel: string): R
     timerSeq: prev?.timerSeq ?? 0,
     timers: {},
   };
-  return { state: created, events: [lobbyEvent(created)] };
+  return { state: created, events: [lobbyEvent(TITLE, created)] };
 }

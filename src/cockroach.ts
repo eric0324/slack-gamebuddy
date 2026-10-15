@@ -1,6 +1,7 @@
 // 蟑螂撲克遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyCockroach(state, action, rng) → { state, events }。
 import { randomBotName } from './botLines.js';
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
+import { lobbyEvent, reply, shuffle, startTimer } from './common.js';
 
 export const MIN_COCKROACH_PLAYERS = 2;
 export const MAX_COCKROACH_PLAYERS = 6;
@@ -87,14 +88,6 @@ interface Ctx {
   rng: Rng;
 }
 
-const lobbyEvent = (s: CrState): GameEvent => ({
-  type: 'lobby',
-  title: TITLE,
-  host: s.host,
-  players: s.players.map((p) => p.id),
-  open: s.phase === 'lobby',
-});
-
 const find = (s: CrState, id: string) => s.players.find((p) => p.id === id);
 const count = (bugs: Bug[], b: Bug) => bugs.filter((x) => x === b).length;
 const pickOne = <T>(rng: Rng, xs: T[]) => xs[Math.floor(rng() * xs.length)];
@@ -105,20 +98,11 @@ const status = (s: CrState) => s.players.map((p) => `${mention(p.id)} 手牌 ${p
 // 還沒看過這張牌、可以接手的人
 const unseen = (s: CrState) => s.players.filter((p) => p.id !== s.card!.to && !s.card!.seen.includes(p.id)).map((p) => p.id);
 
-const reply = (c: Ctx, to: string, text: string) => {
-  c.events.push({ type: 'ephemeral', to, text });
-  return false;
-};
 const menu = (c: Ctx, user: string, text: string, options: { value: string; label: string }[]) => {
   c.events.push({ type: 'prompt', kind: 'cockroach', audience: 'ephemeral', user, text, options });
   return false;
 };
 const HAND = { value: 'hand', label: '🃏 我的手牌' };
-
-function startTimer(c: Ctx) {
-  c.s.timers.phase = ++c.s.timerSeq;
-  c.events.push({ type: 'startTimer', id: c.s.timerSeq, ms: STEP_MS });
-}
 
 function promptGive(c: Ctx) {
   const s = c.s;
@@ -135,7 +119,7 @@ function promptGive(c: Ctx) {
       options: [{ value: 'play', label: '🪳 出牌' }, HAND],
     },
   );
-  startTimer(c);
+  startTimer(c, STEP_MS);
 }
 
 function promptRespond(c: Ctx) {
@@ -156,7 +140,7 @@ function promptRespond(c: Ctx) {
       HAND,
     ],
   });
-  startTimer(c);
+  startTimer(c, STEP_MS);
 }
 
 function giveCard(c: Ctx, user: string, bug: Bug, target: string, claim: Bug): boolean {
@@ -215,7 +199,7 @@ function peek(c: Ctx, user: string): boolean {
     { type: 'prompt', kind: 'cockroach', audience: 'channel', text: `${mention(user)} 要把牌傳給誰？`, options: [{ value: 'passmenu', label: '📨 傳下去' }, HAND] },
   );
   if (!isBot(user)) passMenu(c, user);
-  startTimer(c);
+  startTimer(c, STEP_MS);
   return true;
 }
 
@@ -360,18 +344,10 @@ function runBots(c: Ctx) {
   }
 }
 
-function shuffle<T>(xs: T[], rng: Rng) {
-  for (let i = xs.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [xs[i], xs[j]] = [xs[j], xs[i]];
-  }
-  return xs;
-}
-
 function startGame(c: Ctx) {
   const s = c.s;
   const n = s.players.length;
-  c.events.push(lobbyEvent({ ...s, phase: 'give' }));
+  c.events.push(lobbyEvent(TITLE, { ...s, phase: 'give' }));
   const deck = shuffle(BUGS.flatMap((b) => Array<Bug>(8).fill(b.bug)), c.rng);
   for (const p of s.players) {
     p.hand = [];
@@ -403,7 +379,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (find(s, action.user)) return reply(c, action.user, '你已經在房間裡了。');
       if (s.players.length >= MAX_COCKROACH_PLAYERS) return reply(c, action.user, '房間已滿。');
       s.players.push(newPlayer(action.user));
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'leave': {
@@ -411,11 +387,11 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (s.phase !== 'lobby') return reply(c, action.user, '遊戲已經開始了，不能離開。');
       if (action.user === s.host) {
         s.phase = 'ended';
-        c.events.push(lobbyEvent(s), { type: 'announce', text: '🛑 房主離開，遊戲已取消。' });
+        c.events.push(lobbyEvent(TITLE, s), { type: 'announce', text: '🛑 房主離開，遊戲已取消。' });
         return true;
       }
       s.players = s.players.filter((p) => p.id !== action.user);
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'addBot': {
@@ -429,7 +405,7 @@ function handle(c: Ctx, action: GameAction): boolean {
         taken.add(name);
         s.players.push(newPlayer(`bot:${bots.length + i}:${name}`));
       }
-      if (room > 0) c.events.push(lobbyEvent(s));
+      if (room > 0) c.events.push(lobbyEvent(TITLE, s));
       if (action.count > room) reply(c, action.user, '房間已滿。');
       return room > 0;
     }
@@ -440,7 +416,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (!bots.length) return reply(c, action.user, '房間裡沒有 bot。');
       const removed = new Set(bots.slice(-action.count).map((p) => p.id));
       s.players = s.players.filter((p) => !removed.has(p.id));
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'start': {
@@ -530,5 +506,5 @@ function createLobby(prev: CrState | undefined, host: string, channel: string): 
     timerSeq: prev?.timerSeq ?? 0,
     timers: {},
   };
-  return { state: created, events: [lobbyEvent(created)] };
+  return { state: created, events: [lobbyEvent(TITLE, created)] };
 }

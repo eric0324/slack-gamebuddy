@@ -1,3 +1,4 @@
+import { reply, shuffle } from './common.js';
 import { parseChat } from './chatParser.js';
 import { botLine, counterClaim, followClaim, knightReveal, randomBotName, seerClaim, witchReveal } from './botLines.js';
 
@@ -172,15 +173,6 @@ interface Ctx {
   s: GameState;
   events: GameEvent[];
   rng: Rng;
-}
-
-function shuffle<T>(items: T[], rng: Rng): T[] {
-  const a = [...items];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
 }
 
 export function dealRoles(n: number, rng: Rng): Role[] {
@@ -800,11 +792,6 @@ function checkGameOver(c: Ctx): boolean {
 
 const isSpeaking = (s: GameState) => s.phase === 'speech' || s.phase === 'pkSpeech' || s.phase === 'lastWords';
 const advanceSpeaker = (c: Ctx) => (c.s.phase === 'lastWords' ? nextLastWords(c) : nextSpeaker(c));
-
-const reply = (c: Ctx, to: string, text: string) => {
-  c.events.push({ type: 'ephemeral', to, text });
-  return false;
-};
 
 type GameAction = Exclude<Action, { type: 'new' } | { type: 'rematch' }>;
 

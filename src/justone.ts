@@ -1,6 +1,7 @@
 // 一字千金遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyJustOne(state, action, rng) → { state, events }。
 import { CODENAMES_WORDS } from './codenamesWords.js';
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
+import { lobbyEvent, reply, shuffle, startTimer } from './common.js';
 
 export const MIN_JUSTONE_PLAYERS = 3;
 export const MAX_JUSTONE_PLAYERS = 7;
@@ -61,23 +62,6 @@ interface Ctx {
   rng: Rng;
 }
 
-const lobbyEvent = (s: JState): GameEvent => ({
-  type: 'lobby',
-  title: TITLE,
-  host: s.host,
-  players: s.players.map((p) => p.id),
-  open: s.phase === 'lobby',
-});
-
-function shuffle<T>(items: T[], rng: Rng): T[] {
-  const a = [...items];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
 // 新的一輪：翻一張牌給猜詞以外的人
 function startRound(c: Ctx) {
   const s = c.s;
@@ -94,11 +78,6 @@ function startRound(c: Ctx) {
     c.events.push({ type: 'dm', to: p.id, text: `🃏 第 ${s.card} 張的詞是「${s.word}」，${mention(guesser)} 要猜。用 \`/game justone clue <詞>\` 給一個提示。` });
   }
   startTimer(c, CLUE_MS);
-}
-
-function startTimer(c: Ctx, ms: number) {
-  c.s.timers.phase = ++c.s.timerSeq;
-  c.events.push({ type: 'startTimer', id: c.s.timerSeq, ms });
 }
 
 const cluers = (s: JState) => s.players.filter((_, i) => i !== s.guesser).map((p) => p.id);
@@ -190,11 +169,6 @@ function endGame(c: Ctx) {
   );
 }
 
-const reply = (c: Ctx, to: string, text: string) => {
-  c.events.push({ type: 'ephemeral', to, text });
-  return false;
-};
-
 function handle(c: Ctx, action: GameAction): boolean {
   const s = c.s;
   switch (action.type) {
@@ -203,7 +177,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (s.players.some((p) => p.id === action.user)) return reply(c, action.user, '你已經在房間裡了。');
       if (s.players.length >= MAX_JUSTONE_PLAYERS) return reply(c, action.user, '房間已滿。');
       s.players.push({ id: action.user });
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'leave': {
@@ -211,11 +185,11 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (s.phase !== 'lobby') return reply(c, action.user, '遊戲已經開始了，不能離開。');
       if (action.user === s.host) {
         s.phase = 'ended';
-        c.events.push(lobbyEvent(s), { type: 'announce', text: '🛑 房主離開，遊戲已取消。' });
+        c.events.push(lobbyEvent(TITLE, s), { type: 'announce', text: '🛑 房主離開，遊戲已取消。' });
         return true;
       }
       s.players = s.players.filter((p) => p.id !== action.user);
-      c.events.push(lobbyEvent(s));
+      c.events.push(lobbyEvent(TITLE, s));
       return true;
     }
     case 'addBot':
@@ -226,7 +200,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (s.phase !== 'lobby') return false;
       const n = s.players.length;
       if (n < MIN_JUSTONE_PLAYERS) return reply(c, action.user, `目前 ${n} 人，至少需要 ${MIN_JUSTONE_PLAYERS} 人才能開始。`);
-      c.events.push(lobbyEvent({ ...s, phase: 'clue' }));
+      c.events.push(lobbyEvent(TITLE, { ...s, phase: 'clue' }));
       s.deck = shuffle(CODENAMES_WORDS, c.rng).slice(0, DECK_SIZE);
       s.guesser = Math.floor(c.rng() * n);
       c.events.push({ type: 'announce', text: `💡 一字千金開始！牌堆 ${DECK_SIZE} 張，大家一起合作，看能猜對幾張。`, gif: 'start' });
@@ -307,5 +281,5 @@ function createLobby(prev: JState | undefined, host: string, channel: string): R
     timerSeq: prev?.timerSeq ?? 0,
     timers: {},
   };
-  return { state: created, events: [lobbyEvent(created)] };
+  return { state: created, events: [lobbyEvent(TITLE, created)] };
 }
