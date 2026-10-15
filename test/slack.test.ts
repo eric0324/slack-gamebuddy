@@ -23,6 +23,7 @@ import { parseNoThanksCommand } from '../src/games/nothanks.js';
 import { parseTabooCommand } from '../src/games/taboo.js';
 import { TABOO_CARDS } from '../src/tabooCards.js';
 import { parseSocloverCommand } from '../src/games/soclover.js';
+import { parseSushiGoCommand } from '../src/games/sushigo.js';
 
 type Call = { method: string; args: Record<string, any> };
 
@@ -1021,7 +1022,7 @@ describe('game-commands: 花火', () => {
 
 describe('game-commands: 遊戲大廳', () => {
   const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
-  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter', 'cockroach', 'chameleon', 'nothanks', 'taboo', 'soclover'];
+  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter', 'cockroach', 'chameleon', 'nothanks', 'taboo', 'soclover', 'sushigo'];
 
   const TABS = ['deduction', 'team', 'coop', 'bluff'];
   const openButtons = (blocks: any[]) => blocks.filter((b) => b.accessory).map((b) => b.accessory);
@@ -1077,7 +1078,7 @@ describe('game-commands: 遊戲大廳', () => {
     const { client, calls } = fakeClient();
     const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, respond: async () => { throw new Error('expired'); } });
     await host.button('ww:lobbyTab:3', 'C1|bluff', 'U1', 'alice', undefined, 'https://hooks/x');
-    expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|liarsdice', 'C1|coup', 'C1|skull', 'C1|nimmt', 'C1|cockroach', 'C1|nothanks']);
+    expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|liarsdice', 'C1|coup', 'C1|skull', 'C1|nimmt', 'C1|cockroach', 'C1|nothanks', 'C1|sushigo']);
     await host.button('ww:lobbyTab:1', 'C1|team', 'U1', 'alice');
     expect(lastEph(calls)).toMatchObject({ user: 'U1' });
     expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|codenames', 'C1|wavelength', 'C1|decrypto', 'C1|taboo']);
@@ -2041,5 +2042,60 @@ describe('game-commands: 四葉草', () => {
     for (const n of [0, 1, 2, 3]) await host.button('ww:soclover:5', v(`card:${n}`), 'U3', 'carol');
     await host.button('ww:soclover:11', v('submit'), 'U3', 'carol');
     expect(host.state('soclover', 'C1')!.board!.attempt).toBe(2); // 卡C 轉過一次，方向錯
+  });
+});
+
+describe('game-commands: 壽司派對', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+
+  it('/game 清單和大廳有壽司派對；/game sushigo help 和不認識的子指令列出指令', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', '');
+    for (const s of ['壽司派對', 'sushigo', '2～5 人', '/game sushigo new']) expect(lastEph(calls).text).toContain(s);
+    for (const text of ['sushigo help', 'sushigo foo']) {
+      await host.game('C1', 'U1', 'alice', text);
+      for (const s of ['new', 'addbot', 'removebot', 'start', 'cancel']) expect(lastEph(calls).text).toContain(`/game sushigo ${s}`);
+      for (const s of ['🍣 我的手牌', '🥢 用筷子再出一張']) expect(lastEph(calls).text).toContain(s);
+    }
+  });
+
+  it('指令解析：new、start、cancel、addbot、removebot，其他不認識', () => {
+    expect(parseSushiGoCommand('new', 'U1', 'C1')).toEqual({ type: 'new', user: 'U1', channel: 'C1' });
+    expect(parseSushiGoCommand('start', 'U1', 'C1')).toEqual({ type: 'start', user: 'U1' });
+    expect(parseSushiGoCommand('cancel', 'U1', 'C1')).toEqual({ type: 'cancel', user: 'U1' });
+    expect(parseSushiGoCommand('addbot 2', 'U1', 'C1')).toEqual({ type: 'addBot', user: 'U1', count: 2 });
+    expect(parseSushiGoCommand('removebot', 'U1', 'C1')).toEqual({ type: 'removeBot', user: 'U1', count: 1 });
+    expect(parseSushiGoCommand('pick', 'U1', 'C1')).toBeNull();
+  });
+
+  it('按鈕交給壽司派對：我的手牌、選牌、筷子、再來一局', async () => {
+    const { client, calls } = fakeClient();
+    const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, gifs: {} });
+    await host.game('C1', 'U1', 'alice', 'sushigo new');
+    await host.button('ww:join:0', 'C1|join', 'U2', 'bob');
+    await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
+    const g = () => host.state('sushigo', 'C1')!;
+    expect(g()).toMatchObject({ phase: 'pick', round: 1, turn: 1 });
+    await host.button('ww:sushigo:0', 'C1|hand', 'U1', 'alice');
+    expect(lastEph(calls)).toMatchObject({ user: 'U1', text: expect.stringContaining('選一張牌') });
+    await host.button('ww:sushigo:0', `C1|pick:${g().seq}:tempura`, 'U1', 'alice');
+    expect(g().players[0].pick).toBe('tempura');
+    // 讓 alice 桌上有筷子，測筷子按鈕
+    g().players[0].table = ['chopsticks'];
+    await host.button('ww:sushigo:0', `C1|pick:${g().seq}:tempura`, 'U1', 'alice');
+    await host.button('ww:sushigo:0', `C1|extra:${g().seq}:tempura`, 'U1', 'alice');
+    expect(g().players[0].extra).toBe('tempura');
+    await host.button('ww:sushigo:1', `C1|extra:${g().seq}:none`, 'U1', 'alice');
+    expect(g().players[0].extra).toBeNull();
+    for (let i = 0; i < 40 && g().phase !== 'ended'; i++) {
+      for (const [u, n] of [['U1', 'alice'], ['U2', 'bob']]) {
+        const me = g().players.find((p) => p.id === u)!;
+        if (g().phase === 'pick') await host.button('ww:sushigo:0', `C1|pick:${g().seq}:${me.hand[0]}`, u, n);
+        if (g().phase === 'pick' && me.extra === undefined) await host.button('ww:sushigo:0', `C1|extra:${g().seq}:none`, u, n);
+      }
+    }
+    expect(g().phase).toBe('ended');
+    await host.button('ww:rematch:0', 'C1|rematch', 'U2', 'bob');
+    expect(g()).toMatchObject({ phase: 'lobby', host: 'U2' });
   });
 });
