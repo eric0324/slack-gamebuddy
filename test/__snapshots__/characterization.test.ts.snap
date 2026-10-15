@@ -394,6 +394,23 @@ exports[`重構安全網 > 大廳四個分類 1`] = `
       "type": "section",
     },
     {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:18",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|soclover",
+      },
+      "text": {
+        "text": "🍀 *四葉草* （ \`soclover\` ）3～6 人
+全員合作，為自己的四葉草寫提示，大家一起把詞卡排回原位",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
       "elements": [
         {
           "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
@@ -662,6 +679,13 @@ exports[`重構安全網 > 每款遊戲的指令說明 1`] = `
 • \`/game skull cancel\` ：取消遊戲（房主）
 蓋牌、開始挑戰、喊數、放棄、翻牌都用按鈕；隨時按「👀 我的牌」看自己的牌
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "soclover": "*四葉草指令*
+• \`/game soclover new\` ：開房（任何人）
+• \`/game soclover start\` ：開始遊戲，需要 3～6 位真人（房主）
+• 寫提示：按「✍️ 寫提示」為 4 片葉子各寫一個提示；也可以打 \`/game soclover clue 夏天 / 速度 / 童年 / 冰冷\` （用 / 分開，依上、右、下、左葉）
+• \`/game soclover cancel\` ：取消遊戲（房主）
+排卡用頻道按鈕：選格 → 選卡 → 🔄 旋轉 → ✅ 送出；擺放者以外的人可以按「🙋 換我排」接手
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
   "spyfall": "*間諜危機指令*
 • \`/game spyfall new\` ：開房（任何人）
 • \`/game spyfall addbot [數量]\` ：加入 bot 補人數（房主，開始前）
@@ -719,6 +743,7 @@ exports[`重構安全網 > 遊戲清單文字和預設大廳 1`] = `
 • 💌 *情書* （ \`loveletter\` ）：2～6 人，開房 \`/game loveletter new\`
 • 🪳 *蟑螂撲克* （ \`cockroach\` ）：2～6 人，開房 \`/game cockroach new\`
 • 🦎 *變色龍* （ \`chameleon\` ）：3～8 人（不支援 bot），開房 \`/game chameleon new\`
+• 🍀 *四葉草* （ \`soclover\` ）：3～6 人（不支援 bot），開房 \`/game soclover new\`
 各遊戲的指令： \`/game <遊戲代號> help\` ，例如 \`/game liarsdice help\`
 📊 戰績： \`/game stats [@某人]\` ；排行榜： \`/game rank [遊戲代號]\`
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>"
