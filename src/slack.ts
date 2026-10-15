@@ -477,15 +477,15 @@ export class GameHost {
       }
       case 'announce': {
         const urls = (e.gif && this.gifs[e.gif]) || [];
-        if (!urls.length) {
+        const images = [
+          ...(e.image ? [{ type: 'image', image_url: e.image.url, alt_text: e.image.alt }] : []),
+          ...(urls.length ? [{ type: 'image', image_url: urls[Math.floor(this.rng() * urls.length)], alt_text: e.gif }] : []),
+        ];
+        if (!images.length) {
           await chat.postMessage({ channel, text: e.text });
           return;
         }
-        const url = urls[Math.floor(this.rng() * urls.length)];
-        const blocks = [
-          { type: 'section', text: { type: 'mrkdwn', text: e.text } },
-          { type: 'image', image_url: url, alt_text: e.gif },
-        ];
+        const blocks = [{ type: 'section', text: { type: 'mrkdwn', text: e.text } }, ...images];
         await chat.postMessage({ channel, text: e.text, blocks });
         return;
       }

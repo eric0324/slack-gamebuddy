@@ -129,7 +129,7 @@ export interface Option {
 }
 
 export type GameEvent =
-  | { type: 'announce'; text: string; gif?: GifKey }
+  | { type: 'announce'; text: string; gif?: GifKey; image?: { url: string; alt: string } } // image：要一起顯示的圖片
   | { type: 'board'; text: string; rows: { value: string; label: string; style?: 'primary' | 'danger' }[][] }
   | { type: 'ephemeral'; to: string; text: string }
   | { type: 'dm'; to: string; text: string }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GIFS } from '../src/gifs.js';
+import { MEME_IMAGES } from '../src/memeImages.js';
 import { StatsStore } from '../src/stats.js';
 import { mention } from '../src/engine.js';
 import { buttonAction, GameHost, slackText, parseCommand, type SlackClient } from '../src/slack.js';
@@ -23,6 +24,7 @@ import { parseNoThanksCommand } from '../src/games/nothanks.js';
 import { parseTabooCommand } from '../src/games/taboo.js';
 import { TABOO_CARDS } from '../src/tabooCards.js';
 import { parseSushiGoCommand } from '../src/games/sushigo.js';
+import { parseMemeCommand } from '../src/games/meme.js';
 
 type Call = { method: string; args: Record<string, any> };
 
@@ -293,6 +295,16 @@ describe('Slack：公告 GIF', () => {
     const call = await nightAnnounce({ night: ['https://x/a.gif'] }, () => 0.99999);
     expect(call.args.text).toContain('天黑');
     expect(imageOf(call)).toMatchObject({ type: 'image', image_url: 'https://x/a.gif' });
+  });
+
+  it('公告帶 image 時送出文字加 image block', async () => {
+    const { client, calls } = fakeClient();
+    const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => {}, gifs: {} });
+    await host.game('C1', 'U1', 'alice', 'meme new');
+    await host.game('C1', 'U1', 'alice', 'meme addbot 2');
+    await host.game('C1', 'U1', 'alice', 'meme start');
+    const call = calls.find((c) => c.method === 'chat.postMessage' && String(c.args.text).includes('第 1/6 輪：'))!;
+    expect(imageOf(call)).toMatchObject({ type: 'image', image_url: MEME_IMAGES[0].url, alt_text: MEME_IMAGES[0].name });
   });
 
   it('多張 GIF 隨機選', async () => {
@@ -1033,7 +1045,7 @@ describe('game-commands: 花火', () => {
 
 describe('game-commands: 遊戲大廳', () => {
   const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
-  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter', 'cockroach', 'chameleon', 'nothanks', 'taboo', 'sushigo'];
+  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter', 'cockroach', 'chameleon', 'nothanks', 'taboo', 'sushigo', 'meme'];
 
   const TABS = ['deduction', 'team', 'coop', 'bluff'];
   const openButtons = (blocks: any[]) => blocks.filter((b) => b.accessory).map((b) => b.accessory);
@@ -1089,7 +1101,7 @@ describe('game-commands: 遊戲大廳', () => {
     const { client, calls } = fakeClient();
     const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, respond: async () => { throw new Error('expired'); } });
     await host.button('ww:lobbyTab:3', 'C1|bluff', 'U1', 'alice', undefined, 'https://hooks/x');
-    expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|liarsdice', 'C1|coup', 'C1|skull', 'C1|nimmt', 'C1|cockroach', 'C1|nothanks', 'C1|sushigo']);
+    expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|liarsdice', 'C1|coup', 'C1|skull', 'C1|nimmt', 'C1|cockroach', 'C1|nothanks', 'C1|sushigo', 'C1|meme']);
     await host.button('ww:lobbyTab:1', 'C1|team', 'U1', 'alice');
     expect(lastEph(calls)).toMatchObject({ user: 'U1' });
     expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|codenames', 'C1|wavelength', 'C1|decrypto', 'C1|taboo']);
@@ -2027,6 +2039,72 @@ describe('game-commands: 壽司派對', () => {
         const me = g().players.find((p) => p.id === u)!;
         if (g().phase === 'pick') await host.button('ww:sushigo:0', `C1|pick:${g().seq}:${me.hand[0]}`, u, n);
         if (g().phase === 'pick' && me.extra === undefined) await host.button('ww:sushigo:0', `C1|extra:${g().seq}:none`, u, n);
+      }
+    }
+    expect(g().phase).toBe('ended');
+    await host.button('ww:rematch:0', 'C1|rematch', 'U2', 'bob');
+    expect(g()).toMatchObject({ phase: 'lobby', host: 'U2' });
+  });
+});
+
+describe('game-commands: 梗圖大亂鬥', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+
+  async function startGame(opts: { viewsFail?: boolean } = {}) {
+    const { client, calls } = fakeClient(opts);
+    const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, gifs: {} });
+    await host.game('C1', 'U1', 'alice', 'meme new');
+    await host.button('ww:join:0', 'C1|join', 'U2', 'bob');
+    await host.button('ww:join:0', 'C1|join', 'U3', 'carol');
+    await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
+    return { host, calls, g: () => host.state('meme', 'C1')! };
+  }
+
+  it('/game 清單和大廳有梗圖大亂鬥；/game meme help 和不認識的子指令列出指令', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', '');
+    for (const s of ['梗圖大亂鬥', 'meme', '3～8 人', '/game meme new']) expect(lastEph(calls).text).toContain(s);
+    for (const text of ['meme help', 'meme foo']) {
+      await host.game('C1', 'U1', 'alice', text);
+      for (const s of ['new', 'addbot', 'removebot', 'start', 'cancel', 'write']) expect(lastEph(calls).text).toContain(`/game meme ${s}`);
+      for (const s of ['🃏 我的手牌', '✍️ 自己寫']) expect(lastEph(calls).text).toContain(s);
+    }
+  });
+
+  it('指令解析：write 後面的文字（可以有空白）、房間指令，其他不認識', () => {
+    expect(parseMemeCommand('write 當 PM 說 需求不會再改', 'U1', 'C1')).toEqual({ type: 'write', user: 'U1', text: '當 PM 說 需求不會再改' });
+    expect(parseMemeCommand('addbot 2', 'U1', 'C1')).toEqual({ type: 'addBot', user: 'U1', count: 2 });
+    expect(parseMemeCommand('start', 'U1', 'C1')).toEqual({ type: 'start', user: 'U1' });
+    expect(parseMemeCommand('vote', 'U1', 'C1')).toBeNull();
+  });
+
+  it('自己寫按鈕：用 trigger_id 開視窗，送出後變成答案；也可以用指令', async () => {
+    const { host, calls, g } = await startGame();
+    await host.button('ww:meme:1', 'C1|write', 'U1', 'alice', 'T123');
+    const open = calls.find((c) => c.method === 'views.open')!.args;
+    expect(open).toMatchObject({ trigger_id: 'T123', view: { type: 'modal', callback_id: 'ww:memeWrite', private_metadata: 'C1' } });
+    await host.modal('ww:memeWrite', 'C1', 'U1', 'alice', ['週一早上的我']);
+    expect(g().players[0].answer).toEqual({ text: '週一早上的我', own: true });
+    await host.game('C1', 'U2', 'bob', 'meme write 部署前一天');
+    expect(g().players[1].answer).toEqual({ text: '部署前一天', own: true });
+  });
+
+  it('視窗打不開時，只讓本人看到改用指令', async () => {
+    const { host, calls } = await startGame({ viewsFail: true });
+    await host.button('ww:meme:1', 'C1|write', 'U1', 'alice', 'T123');
+    expect(lastEph(calls)).toMatchObject({ user: 'U1', text: expect.stringContaining('/game meme write') });
+  });
+
+  it('手牌、出牌、投票按鈕交給梗圖大亂鬥，玩完 6 輪可以再來一局', async () => {
+    const { host, calls, g } = await startGame();
+    await host.button('ww:meme:0', 'C1|hand', 'U1', 'alice');
+    expect(lastEph(calls)).toMatchObject({ user: 'U1', text: expect.stringContaining('挑一句') });
+    for (let i = 0; i < 6; i++) {
+      for (const [u, n] of [['U1', 'alice'], ['U2', 'bob'], ['U3', 'carol']]) await host.button('ww:meme:0', `C1|play:${g().seq}:0`, u, n);
+      expect(g().phase).toBe('vote');
+      for (const [u, n] of [['U1', 'alice'], ['U2', 'bob'], ['U3', 'carol']]) {
+        const mine = g().answers.findIndex((a) => a.by === u);
+        await host.button('ww:meme:0', `C1|vote:${g().seq}:${(mine + 1) % 3}`, u, n);
       }
     }
     expect(g().phase).toBe('ended');
