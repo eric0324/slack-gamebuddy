@@ -185,6 +185,7 @@ function endGame(c: Ctx) {
   s.finished = true;
   s.timers = {};
   const rating = RATINGS.find(([min]) => s.score >= min)![1];
+  c.events.push({ type: 'result', players: [...s.players], winners: [], score: s.score }); // 合作遊戲：只記分數
   c.events.push(
     { type: 'announce', text: `🏁 遊戲結束！共 ${s.total} 題，全隊總分 ${s.score}\n${rating}`, gif: 'goodWin' },
     { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },

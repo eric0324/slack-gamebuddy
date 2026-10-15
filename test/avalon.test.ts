@@ -357,6 +357,8 @@ describe('avalon/win-condition: 勝負判定', () => {
   it('3 個任務失敗：壞人獲勝', () => {
     const { state } = playQuests([true, false, true, true]);
     expect(state).toMatchObject({ phase: 'ended', winner: 'evil' });
+    const evil = state.players.filter((p) => ['assassin', 'morgana', 'minion'].includes(p.role!)).map((p) => p.id);
+    expect(playQuests([true, false, true, true]).events.find((e) => e.type === 'result')).toEqual({ type: 'result', players: state.players.map((p) => p.id), winners: evil });
   });
 
   it('同一個任務連續 5 次被否決：壞人獲勝', () => {

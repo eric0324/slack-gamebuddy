@@ -329,6 +329,7 @@ function endGame(c: Ctx, winner: 'spy' | 'civilian', gif?: GifKey) {
     .filter((p) => p.role === 'civilian')
     .map((p) => `${mention(p.id)}：${p.job}`)
     .join('\n');
+  c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: s.players.filter((p) => (p.role === 'spy') === (winner === 'spy')).map((p) => p.id) });
   c.events.push(
     {
       type: 'announce',

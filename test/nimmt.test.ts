@@ -313,6 +313,7 @@ describe('nimmt/rounds: 輪與勝負', () => {
     const { state, events } = playAll(last([70, 21, 35]));
     expect(state.phase).toBe('ended');
     expect(state.winners).toEqual(['p2']);
+    expect(events.find((e) => e.type === 'result')).toEqual({ type: 'result', players: state.players.map((p) => p.id), winners: ['p2'] });
     const text = announces(events).at(-1)!;
     expect(text.indexOf('<@p2>')).toBeLessThan(text.indexOf('<@p3>'));
     expect(text.indexOf('<@p3>')).toBeLessThan(text.indexOf('<@p1>'));

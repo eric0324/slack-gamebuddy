@@ -163,6 +163,7 @@ function endGame(c: Ctx) {
   s.phase = 'ended';
   s.timers = {};
   s.finished = true;
+  c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: [], score: s.score }); // 合作遊戲：只記分數
   c.events.push(
     { type: 'announce', text: `🏁 遊戲結束！大家一起猜對 ${s.score} 張，得分 ${s.score} 分：${rating(s.score)}`, gif: 'goodWin' },
     { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },

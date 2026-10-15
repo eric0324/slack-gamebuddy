@@ -25,6 +25,8 @@
 
 輸入 `/game` 會打開遊戲大廳（只有你看得到），用上面的分類按鈕切換（推理、團隊對抗、合作、心理戰），點遊戲旁邊的「開房」就能開一局，不用記指令；房間公告也會附上該遊戲的規則連結。
 
+輸入 `/game stats [@某人]` 查看這個頻道所有遊戲的戰績，`/game rank [遊戲代號]` 查看排行榜（依勝場數；合作遊戲依最高分）。有 bot 參加的局和取消的局不記錄。
+
 各遊戲的玩法和指令請看 [wiki](https://github.com/eric0324/slack-gamebuddy/wiki)。變色龍：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/變色龍-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/變色龍-指令)。蟑螂撲克：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/蟑螂撲克-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/蟑螂撲克-指令)。情書：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/情書-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/情書-指令)。誰是牛頭王：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/誰是牛頭王-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/誰是牛頭王-指令)。圈內人：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/圈內人-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/圈內人-指令)。心電感應（合作）：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/心電感應（合作）-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/心電感應（合作）-指令)。截碼戰：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/截碼戰-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/截碼戰-指令)。心電感應：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/心電感應-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/心電感應-指令)。花火：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/花火-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/花火-指令)。政變：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/政變-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/政變-指令)。一字千金：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/一字千金-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/一字千金-指令)。吹牛骰：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/吹牛骰-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/吹牛骰-指令)。機密代號：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/機密代號-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/機密代號-指令)。阿瓦隆：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/阿瓦隆-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/阿瓦隆-指令)。間諜危機：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/間諜危機-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/間諜危機-指令)。誰是臥底：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/誰是臥底-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/誰是臥底-指令)。狼人殺：[遊戲規則](https://github.com/eric0324/slack-gamebuddy/wiki/狼人殺-遊戲規則)、[指令](https://github.com/eric0324/slack-gamebuddy/wiki/狼人殺-指令)。
 
 ## 建立 Slack App
@@ -41,7 +43,7 @@
      slash_commands:
        - command: /game
          description: 桌遊（狼人殺、誰是臥底、間諜危機、阿瓦隆、機密代號、吹牛骰、一字千金、政變、花火、心電感應、截碼戰、心電感應（合作）、圈內人、骷髏與玫瑰、誰是牛頭王、情書、蟑螂撲克、變色龍）
-         usage_hint: werewolf new | undercover new | spyfall new | avalon new | codenames new | liarsdice new | justone new | coup new | hanabi new | wavelength new | decrypto new | wavecoop new | insider new | skull new | nimmt new | loveletter new | cockroach new | chameleon new | help
+         usage_hint: werewolf new | undercover new | spyfall new | avalon new | codenames new | liarsdice new | justone new | coup new | hanabi new | wavelength new | decrypto new | wavecoop new | insider new | skull new | nimmt new | loveletter new | cockroach new | chameleon new | stats | rank | help
          should_escape: true
        - command: /werewolf
          description: 狼人殺

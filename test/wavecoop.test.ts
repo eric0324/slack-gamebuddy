@@ -257,6 +257,7 @@ describe('wavecoop/rounds: 結束與評價', () => {
   it('題數用完：公告總分、評價和再來一局', () => {
     const { state, events } = finish(14);
     expect(state.phase).toBe('ended');
+    expect(events.find((e) => e.type === 'result')).toEqual({ type: 'result', players: state.players, winners: [], score: 14 });
     const text = announces(events).join('\n');
     expect(text).toContain('總分 14');
     expect(text).toContain('🔥 心有靈犀');

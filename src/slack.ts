@@ -1,7 +1,7 @@
 // Slack adapter：把 slash command 和按鈕轉成 engine action，再把 engine event 轉成 Slack API 呼叫。
 import { applyAction, isBot, MAX_PLAYERS, mention, RULES_URL, type Action, type GameEvent, type GameState, type GifKey, type Rng } from './engine.js';
 import { GIFS } from './gifs.js';
-import { formatStats, type StatsStore } from './stats.js';
+import { formatLeaderboard, formatStats, formatSummary, type StatsStore } from './stats.js';
 import { GAMES, type GameKind, type StateOf } from './games/index.js';
 import { WIKI, type GameDef } from './games/types.js';
 
@@ -57,8 +57,12 @@ const GAME_LIST = [
   '• 🐺 *狼人殺*（`werewolf`）：6～12 人，開房 `/game werewolf new`（或 `/werewolf new`）',
   ...GAMES.map((g) => `• ${g.emoji} *${g.name}*（\`${g.kind}\`）：${g.players}${'noBots' in g ? '（不支援 bot）' : ''}，開房 \`/game ${g.kind} new\``),
   '各遊戲的指令：`/game <遊戲代號> help`，例如 `/game liarsdice help`',
+  '📊 戰績：`/game stats [@某人]`；排行榜：`/game rank [遊戲代號]`',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
+
+// 遊戲代號 → 顯示名稱（戰績和排行榜用）
+const gameLabel = (kind: string) => (kind === 'werewolf' ? '🐺 狼人殺' : kind in DEFS ? `${DEFS[kind as GameKind].emoji} ${DEFS[kind as GameKind].name}` : kind);
 
 // Slack 的 *粗體* 和 `程式碼` 標記外側不能緊貼文字；中文沒有空格，緊貼中文或全形標點時補一個空格
 const SAFE_EDGE = /[\s!-/:-@[-`{-~]/;
@@ -240,7 +244,8 @@ export class GameHost {
     const restText = rest.join(' ');
     if (g === 'werewolf') return this.command(channel, user, userName, restText);
     if (this.isOther(g)) return this.play(g, channel, user, restText);
-    if (g === 'stats') return this.showStats(channel, user, restText);
+    if (g === 'stats') return this.showSummary(channel, user, restText);
+    if (g === 'rank') return this.showRank(channel, user, restText);
     return this.showLobby(channel, user);
   }
 
@@ -328,6 +333,25 @@ export class GameHost {
     return this.dispatchGame(game.kind, channel, DEFS[game.kind].modals![name].action(user, texts));
   }
 
+  // `/game stats [@某人]`：這個頻道所有遊戲的戰績
+  private showSummary(channel: string, user: string, arg: string): Promise<void> {
+    const target = arg ? /^<@([A-Z0-9]+)(\|[^>]*)?>$/.exec(arg)?.[1] : user;
+    const text = target
+      ? formatSummary(mention(target), this.stats?.summary(channel, target) ?? [], gameLabel)
+      : '請用 @ 選擇要查詢的玩家，例如 `/game stats @某人`。';
+    return this.reply(channel, user, text);
+  }
+
+  // `/game rank [遊戲代號]`：這個頻道的排行榜
+  private showRank(channel: string, user: string, arg: string): Promise<void> {
+    const kind = arg.trim() || undefined;
+    if (kind && kind !== 'werewolf' && !(kind in DEFS)) {
+      return this.reply(channel, user, '用法：`/game rank` 看這個頻道的排行榜，`/game rank <遊戲代號>` 看單一遊戲，例如 `/game rank skull`。');
+    }
+    const board = this.stats?.leaderboard(channel, kind) ?? { by: 'wins' as const, rows: [] };
+    return this.reply(channel, user, formatLeaderboard(board, kind ? `${gameLabel(kind)}排行榜` : '這個頻道的排行榜'));
+  }
+
   // `/werewolf stats [@某人]`：開啟 should_escape 後，mention 會是 <@U123> 或 <@U123|名字>
   private showStats(channel: string, user: string, arg: string): Promise<void> {
     const target = arg ? /^<@([A-Z0-9]+)(\|[^>]*)?>$/.exec(arg)?.[1] : user;
@@ -407,6 +431,10 @@ export class GameHost {
     switch (e.type) {
       case 'gameRecord':
         this.stats?.record(channel, e.winner, e.players);
+        return;
+      case 'result':
+        // 有 bot 參加的局不記錄
+        if (kind !== 'werewolf' && !e.players.some(isBot)) this.stats?.recordMatch(channel, kind, e.players, e.winners, e.score);
         return;
       case 'startTimer':
         this.setTimer(() => {

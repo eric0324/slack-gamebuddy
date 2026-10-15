@@ -249,6 +249,7 @@ describe('spyfall/rounds: 間諜猜地點', () => {
   it('間諜在提問中猜中（忽略前後空白）：間諜獲勝，遊戲結束', () => {
     const { state, events } = guess('p4', ' 飯店 ', started(4).state);
     expect(state.phase).toBe('ended');
+    expect(events.find((e) => e.type === 'result')).toEqual({ type: 'result', players: state.players.map((p) => p.id), winners: state.players.filter((p) => p.role === 'spy').map((p) => p.id) });
     expect(announces(events).join('\n')).toContain('猜中');
   });
 

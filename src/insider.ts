@@ -191,14 +191,15 @@ function endVote(c: Ctx) {
   const who = accused(s);
   const verdict = who ? `👉 被指認的是 ${mention(who)}` : '🤷 沒有指認出任何人';
   const result = who === s.insider ? '🎉 主持人和平民獲勝！找到圈內人了！' : `🕴️ 圈內人 ${mention(s.insider!)} 獲勝！`;
-  endGame(c, ['🗳️ 投票結果：', ...lines, verdict, `🏁 遊戲結束！${result}`, `🎯 猜中的人：${mention(s.guesser!)}`]);
+  endGame(c, ['🗳️ 投票結果：', ...lines, verdict, `🏁 遊戲結束！${result}`, `🎯 猜中的人：${mention(s.guesser!)}`], who === s.insider ? s.players.map((p) => p.id).filter((id) => id !== s.insider) : [s.insider!]);
 }
 
-function endGame(c: Ctx, lines: string[]) {
+function endGame(c: Ctx, lines: string[], winners: string[]) {
   const s = c.s;
   s.phase = 'ended';
   s.finished = true;
   s.timers = {};
+  c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: winners });
   c.events.push(
     { type: 'announce', text: [...lines, `答案：「${s.word}」`, `🕴️ 圈內人：${mention(s.insider!)}`, `🎩 主持人：${mention(s.master!)}`].join('\n') },
     { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },
@@ -247,7 +248,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       return castVote(c, action.user, action.target);
     case 'timeout': {
       if (action.id !== s.timers.phase) return false;
-      if (s.phase === 'question') endGame(c, ['⏰ 時間到，沒有人猜中答案！所有人一起落敗。']);
+      if (s.phase === 'question') endGame(c, ['⏰ 時間到，沒有人猜中答案！所有人一起落敗。'], []);
       else if (s.phase === 'discuss') startVote(c);
       else if (s.phase === 'vote') endVote(c);
       return true;

@@ -199,6 +199,7 @@ describe('coup/turns: 勝負', () => {
   it('只剩一人：公告獲勝者和每個人的牌，貼出再來一局', () => {
     const { state, events } = won();
     expect(state).toMatchObject({ phase: 'ended', winner: 'p3' });
+    expect(events.find((e) => e.type === 'result')).toEqual({ type: 'result', players: state.players.map((p) => p.id), winners: ['p3'] });
     const text = announces(events).at(-1)!;
     expect(text).toContain('<@p3> 獲勝');
     expect(text).toContain('<@p2>：公爵、刺客');

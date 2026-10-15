@@ -227,6 +227,7 @@ describe('insider/rounds: 猜中', () => {
     expect(state.phase).toBe('ended');
     const text = announces(events).join('\n');
     expect(text).toContain('所有人一起落敗');
+    expect(events.find((e) => e.type === 'result')).toEqual({ type: 'result', players: state.players.map((p) => p.id), winners: [] });
     expect(text).toContain(WORD);
     expect(text).toContain('圈內人：<@p2>');
     expect(prompts(events, 'rematch')).toHaveLength(1);
@@ -324,6 +325,8 @@ describe('insider/rounds: 指認與勝負', () => {
   it('找到圈內人：主持人和平民獲勝，公告答案、圈內人、主持人、猜中的人', () => {
     const text = result([['p3', 'p2'], ['p4', 'p2'], ['p5', 'p3']]);
     expect(text).toContain('🎉 主持人和平民獲勝');
+    const end = finish([['p3', 'p2'], ['p4', 'p2'], ['p5', 'p3']]);
+    expect(end.events.find((e) => e.type === 'result')).toEqual({ type: 'result', players: end.state.players.map((p) => p.id), winners: end.state.players.map((p) => p.id).filter((id) => id !== 'p2') });
     expect(text).toContain(`答案：「${WORD}」`);
     expect(text).toContain('圈內人：<@p2>');
     expect(text).toContain('主持人：<@p1>');

@@ -229,6 +229,7 @@ function endGame(c: Ctx, loser: string, why: string) {
   s.timers = {};
   s.loser = loser;
   const lines = s.players.map((p) => `${mention(p.id)}：面前 ${shortList(p.front)}`);
+  c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: s.players.filter((p) => p.id !== loser).map((p) => p.id) });
   c.events.push(
     { type: 'announce', text: `🪳 遊戲結束，${mention(loser)} 輸了：${why}\n${lines.join('\n')}` },
     { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },

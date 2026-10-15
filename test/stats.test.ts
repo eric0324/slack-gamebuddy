@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { Role } from '../src/engine.js';
-import { formatStats, StatsStore } from '../src/stats.js';
+import { formatLeaderboard, formatStats, formatSummary, StatsStore } from '../src/stats.js';
 
 // A 在 C1 玩了 4 場：好人 3 場贏 2 場（預言家贏、村民贏、女巫輸），狼人 1 場贏
 function seed(store: StatsStore) {
@@ -89,5 +89,107 @@ describe('player-stats: bot 重新啟動後戰績還在', () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+const LABEL: Record<string, string> = { werewolf: '🐺 狼人殺', skull: '💀 骷髏與玫瑰', hanabi: '🎆 花火', coup: '👑 政變' };
+const label = (k: string) => LABEL[k] ?? k;
+
+// A 在 C1：狼人殺 4 場 3 勝、骷髏與玫瑰 2 場 1 勝、花火 1 場 18 分
+function seedAll(store: StatsStore) {
+  const ww = (winner: 'good' | 'wolves', roleOfA: Role) =>
+    store.record('C1', winner, [{ id: 'A', role: roleOfA }, { id: 'B', role: roleOfA === 'werewolf' ? 'villager' : 'werewolf' }]);
+  ww('good', 'seer');
+  ww('good', 'villager');
+  ww('wolves', 'witch');
+  ww('wolves', 'werewolf');
+  store.recordMatch('C1', 'skull', ['A', 'B', 'C'], ['A']);
+  store.recordMatch('C1', 'skull', ['A', 'B', 'C'], ['B']);
+  store.recordMatch('C1', 'hanabi', ['A', 'B'], [], 18);
+  store.recordMatch('C2', 'skull', ['A', 'B', 'C'], ['A']);
+}
+
+describe('player-stats: 跨遊戲戰績', () => {
+  it('含舊的狼人殺紀錄，每款遊戲一行依場數排，合作遊戲記最高分，只算這個頻道', () => {
+    const store = new StatsStore(':memory:');
+    seedAll(store);
+    expect(store.summary('C1', 'A')).toEqual([
+      { kind: 'werewolf', games: 4, wins: 3, best: null },
+      { kind: 'skull', games: 2, wins: 1, best: null },
+      { kind: 'hanabi', games: 1, wins: null, best: 18 },
+    ]);
+    expect(store.summary('C2', 'A')).toEqual([{ kind: 'skull', games: 1, wins: 1, best: null }]);
+    expect(store.summary('C1', 'Z')).toEqual([]);
+  });
+
+  it('格式：總計、對戰勝率、每款遊戲一行', () => {
+    const store = new StatsStore(':memory:');
+    seedAll(store);
+    expect(formatSummary('<@A>', store.summary('C1', 'A'), label)).toBe(
+      ['📊 <@A> 在這個頻道的戰績', '總計 7 場，對戰 6 場 4 勝（67%）', '🐺 狼人殺 4 場 3 勝（75%）', '💀 骷髏與玫瑰 2 場 1 勝（50%）', '🎆 花火 1 場，最高 18 分'].join('\n'),
+    );
+    expect(formatSummary('<@Z>', [], label)).toBe('這個頻道還沒有 <@Z> 的戰績。');
+  });
+});
+
+describe('player-stats: 排行榜', () => {
+  // B 5 勝／6 場、A 5 勝／8 場、C 2 勝／3 場
+  function seedRank(store: StatsStore) {
+    const m = (winners: string[], players = ['A', 'B', 'C']) => store.recordMatch('C1', 'coup', players, winners);
+    for (let i = 0; i < 5; i++) m(['A', 'B'], ['A', 'B']);
+    m([], ['A', 'B']);
+    m(['C'], ['A', 'C']);
+    m(['C'], ['A', 'C']);
+    m([], ['C']);
+  }
+
+  it('依勝場、勝率、場數排序', () => {
+    const store = new StatsStore(':memory:');
+    seedRank(store);
+    expect(store.leaderboard('C1')).toEqual({
+      by: 'wins',
+      rows: [
+        { user: 'B', wins: 5, games: 6 },
+        { user: 'A', wins: 5, games: 8 },
+        { user: 'C', wins: 2, games: 3 },
+      ],
+    });
+    expect(store.leaderboard('C2')).toEqual({ by: 'wins', rows: [] });
+  });
+
+  it('最多前 10 名；含狼人殺；合作遊戲不算進總排行', () => {
+    const store = new StatsStore(':memory:');
+    for (let i = 0; i < 12; i++) store.recordMatch('C1', 'skull', [`U${i}`], [`U${i}`]);
+    store.record('C1', 'good', [{ id: 'U0', role: 'seer' }]);
+    store.recordMatch('C1', 'hanabi', ['U1'], [], 25);
+    const { rows } = store.leaderboard('C1');
+    expect(rows).toHaveLength(10);
+    expect(rows[0]).toEqual({ user: 'U0', wins: 2, games: 2 });
+  });
+
+  it('單一遊戲；合作遊戲依最高分排', () => {
+    const store = new StatsStore(':memory:');
+    seedAll(store);
+    store.recordMatch('C1', 'hanabi', ['C'], [], 22);
+    store.recordMatch('C1', 'hanabi', ['C'], [], 5);
+    expect(store.leaderboard('C1', 'skull').rows.map((r) => r.user)).toEqual(['A', 'B', 'C']);
+    expect(store.leaderboard('C1', 'hanabi')).toEqual({
+      by: 'score',
+      rows: [
+        { user: 'C', best: 22, games: 2 },
+        { user: 'A', best: 18, games: 1 },
+        { user: 'B', best: 18, games: 1 },
+      ],
+    });
+  });
+
+  it('格式：名次、勝場／場數、勝率；合作遊戲顯示最高分；沒有紀錄', () => {
+    const store = new StatsStore(':memory:');
+    seedRank(store);
+    expect(formatLeaderboard(store.leaderboard('C1'), '這個頻道的排行榜')).toBe(
+      ['🏆 這個頻道的排行榜', '🥇 <@B> 5 勝／6 場（83%）', '🥈 <@A> 5 勝／8 場（63%）', '🥉 <@C> 2 勝／3 場（67%）'].join('\n'),
+    );
+    expect(formatLeaderboard({ by: 'score', rows: [{ user: 'C', best: 22, games: 2 }] }, '🎆 花火排行榜')).toBe('🏆 🎆 花火排行榜\n🥇 <@C> 最高 22 分（2 場）');
+    expect(formatLeaderboard({ by: 'wins', rows: [] }, '這個頻道的排行榜')).toBe('這個頻道還沒有戰績。');
   });
 });

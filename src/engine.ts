@@ -138,7 +138,8 @@ export type GameEvent =
   | { type: 'prompt'; kind: string; audience: 'channel' | 'wolves' | 'user' | 'ephemeral'; user?: string; text: string; options: Option[]; perRow?: number; ref?: string } // ref：頻道 prompt 帶同一個 ref 時更新同一則訊息
   | { type: 'modal'; to: string; kind: string; title: string; label: string; fields?: string[] } // 按鈕開的 Slack 視窗，送出後變成遊戲 action；fields 是多個輸入欄的標籤
   | { type: 'startTimer'; id: number; ms: number }
-  | { type: 'gameRecord'; winner: 'good' | 'wolves'; players: { id: string; role: Role }[] };
+  | { type: 'gameRecord'; winner: 'good' | 'wolves'; players: { id: string; role: Role }[] }
+  | { type: 'result'; players: string[]; winners: string[]; score?: number } // 狼人殺以外的遊戲正常結束：誰參加、誰贏；合作遊戲帶分數、沒有勝者
 
 export type Rng = () => number;
 

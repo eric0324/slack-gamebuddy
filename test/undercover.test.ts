@@ -283,6 +283,7 @@ describe('undercover/rounds: 白板猜詞', () => {
     const after = run([{ type: 'guess', user: 'p2', word: guess }], state);
     expect(announces(after.events)).toContainEqual(expect.stringContaining('猜中'));
     expect(after.state).toMatchObject({ phase: 'ended', winner: 'undercover' });
+    expect(after.events.find((e) => e.type === 'result')).toEqual({ type: 'result', players: after.state.players.map((p) => p.id), winners: after.state.players.filter((p) => p.role !== 'civilian').map((p) => p.id) });
   });
 
   it('白板猜錯：照一般規則繼續遊戲，而且不能再猜', () => {

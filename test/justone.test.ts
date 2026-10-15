@@ -203,6 +203,7 @@ describe('justone/rounds: 結束與評價', () => {
   ])('牌堆用完：%i 分「%s」', (score, rating) => {
     const { state, events } = finish(score);
     expect(state).toMatchObject({ phase: 'ended', score });
+    expect(events.find((e) => e.type === 'result')).toEqual({ type: 'result', players: state.players.map((p) => p.id), winners: [], score });
     const text = announces(events).at(-1)!;
     expect(text).toContain(`${score} 分`);
     expect(text).toContain(rating);

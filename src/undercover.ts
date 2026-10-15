@@ -319,6 +319,7 @@ function endGame(c: Ctx, winner: 'civilian' | 'undercover', gif?: GifKey) {
   const roster = s.players
     .map((p) => `${mention(p.id)}：${ROLE_NAME_U[p.role!]}${p.word ? `（${p.word}）` : ''}，${p.alive ? '存活' : '出局'}`)
     .join('\n');
+  c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: s.players.filter((p) => (p.role === 'civilian') === (winner === 'civilian')).map((p) => p.id) });
   c.events.push(
     {
       type: 'announce',

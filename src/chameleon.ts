@@ -196,7 +196,7 @@ function endVote(c: Ctx) {
   const who = accused(s);
   const verdict = who ? `👉 被指認的是 ${mention(who)}` : '🤷 沒有指認出任何人';
   if (!who || who !== s.chameleon) {
-    return endGame(c, ['🗳️ 投票結果：', ...lines, verdict, `🦎 變色龍 ${mention(s.chameleon!)} 沒被抓到，逃脫成功！變色龍獲勝！`]);
+    return endGame(c, ['🗳️ 投票結果：', ...lines, verdict, `🦎 變色龍 ${mention(s.chameleon!)} 沒被抓到，逃脫成功！變色龍獲勝！`], [s.chameleon!]);
   }
   s.phase = 'guess';
   c.events.push(
@@ -229,15 +229,19 @@ function guess(c: Ctx, user: string, cellIdx?: number, text?: string): boolean {
     i === s.secret
       ? `🦎 變色龍 ${mention(user)} 猜中祕密詞，逃脫成功！變色龍獲勝！`
       : `❌ 變色龍猜 ${cell(s, i)}，猜錯了！平民獲勝！`;
-  endGame(c, [result]);
+  endGame(c, [result], i === s.secret ? [user] : others(s));
   return true;
 }
 
-function endGame(c: Ctx, lines: string[]) {
+// 變色龍以外的所有人
+const others = (s: CState) => s.players.map((p) => p.id).filter((id) => id !== s.chameleon);
+
+function endGame(c: Ctx, lines: string[], winners: string[]) {
   const s = c.s;
   s.phase = 'ended';
   s.finished = true;
   s.timers = {};
+  c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: winners });
   c.events.push(
     {
       type: 'announce',
@@ -297,7 +301,7 @@ function handle(c: Ctx, action: GameAction): boolean {
         nextSpeaker(c);
       } else if (s.phase === 'discuss') startVote(c);
       else if (s.phase === 'vote') endVote(c);
-      else if (s.phase === 'guess') endGame(c, ['⏰ 變色龍沒有猜祕密詞，平民獲勝！']);
+      else if (s.phase === 'guess') endGame(c, ['⏰ 變色龍沒有猜祕密詞，平民獲勝！'], others(s));
       return true;
     }
   }

@@ -387,6 +387,7 @@ function endGame(c: Ctx, winner: string) {
   s.timers = {};
   s.winner = winner;
   const roster = s.players.map((p) => `${mention(p.id)}：${p.cards.map((x) => ROLE_NAME[x.role]).join('、')}`).join('\n');
+  c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: [winner] });
   c.events.push(
     { type: 'announce', text: `🏆 遊戲結束，${mention(winner)} 獲勝！\n${roster}`, gif: 'goodWin' },
     { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },
