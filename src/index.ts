@@ -4,6 +4,7 @@ import { dirname } from 'node:path';
 import { App, type BlockAction, type ButtonAction } from '@slack/bolt';
 import { GameHost } from './slack.js';
 import { StatsStore } from './stats.js';
+import { MemeStore } from './memeStore.js';
 
 const { SLACK_BOT_TOKEN, SLACK_APP_TOKEN } = process.env;
 if (!SLACK_BOT_TOKEN || !SLACK_APP_TOKEN) {
@@ -14,7 +15,7 @@ if (!SLACK_BOT_TOKEN || !SLACK_APP_TOKEN) {
 const app = new App({ token: SLACK_BOT_TOKEN, appToken: SLACK_APP_TOKEN, socketMode: true });
 const statsFile = process.env.STATS_DB ?? 'data/stats.db';
 mkdirSync(dirname(statsFile), { recursive: true });
-const host = new GameHost(app.client, { stats: new StatsStore(statsFile) });
+const host = new GameHost(app.client, { stats: new StatsStore(statsFile), memes: new MemeStore(statsFile) });
 
 app.command('/werewolf', async ({ command, ack }) => {
   await ack();

@@ -224,7 +224,7 @@ describe('meme/rounds: 結束', () => {
     let r = { state: s, events: [] as GameEvent[] };
     const images: string[] = [];
     for (let i = 0; i < 6; i++) {
-      images.push(r.state.images[r.state.round - 1].toString());
+      images.push(r.state.images[r.state.round - 1].url);
       r = playRound(r.state);
     }
     return { ...r, images };
@@ -279,5 +279,40 @@ describe('meme/bots: bot 出牌與投票', () => {
     }
     expect(s.phase).toBe('ended');
     expect(s.winners!.length).toBeGreaterThan(0);
+  });
+});
+
+describe('meme/setup: 每局最多 2 張投稿梗圖', () => {
+  const custom = (n: number) => Array.from({ length: n }, (_, i) => ({ id: i + 1, url: `https://x/${i + 1}.png`, name: `投稿${i + 1}`, by: `u${i + 1}` }));
+  const startWith = (n: number) => run([{ type: 'start', user: 'p1', custom: custom(n) }], lobbyWith(3).state);
+  const fromCustom = (s: MemeState) => s.images.filter((m) => m.by).length;
+
+  it('5 張投稿：剛好 2 輪；1 張：1 輪；沒有：0 輪；6 輪都不重複', () => {
+    expect(fromCustom(startWith(5).state)).toBe(2);
+    expect(fromCustom(startWith(1).state)).toBe(1);
+    expect(fromCustom(startWith(0).state)).toBe(0);
+    expect(fromCustom(started(3).state)).toBe(0);
+    for (const n of [0, 1, 5]) {
+      const imgs = startWith(n).state.images;
+      expect(imgs).toHaveLength(6);
+      expect(new Set(imgs.map((m) => m.url)).size).toBe(6);
+    }
+  });
+
+  it('投稿的位置是隨機的', () => {
+    const seqs = [0.1, 0.5, 0.9].map((x) => {
+      let i = 0;
+      const r = () => [x, 0.3, 0.7, 0.2, 0.99999][i++ % 5];
+      return run([{ type: 'start', user: 'p1', custom: custom(2) }], lobbyWith(3).state, r).state.images.map((m) => !!m.by).join();
+    });
+    expect(new Set(seqs).size).toBeGreaterThan(1);
+  });
+
+  it('投稿那一輪的公告標示投稿者並顯示圖片', () => {
+    const { state, events } = startWith(2); // rng 不洗動：投稿排在前面
+    expect(state.images[0]).toEqual({ name: '投稿1', url: 'https://x/1.png', by: 'u1' });
+    const round = announces(events)[1];
+    expect(round.text).toContain('投稿1（<@u1> 投稿）');
+    expect(round.image).toEqual({ url: 'https://x/1.png', alt: '投稿1' });
   });
 });

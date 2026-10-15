@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GIFS } from '../src/gifs.js';
 import { MEME_IMAGES } from '../src/memeImages.js';
+import { MemeStore } from '../src/memeStore.js';
 import { StatsStore } from '../src/stats.js';
 import { mention } from '../src/engine.js';
 import { buttonAction, GameHost, slackText, parseCommand, type SlackClient } from '../src/slack.js';
@@ -28,7 +29,7 @@ import { parseMemeCommand } from '../src/games/meme.js';
 
 type Call = { method: string; args: Record<string, any> };
 
-function fakeClient(opts: { viewsFail?: boolean } = {}) {
+function fakeClient(opts: { viewsFail?: boolean; badImage?: string } = {}) {
   const calls: Call[] = [];
   let ts = 0;
   const record = (method: string, result: (args: any) => unknown) => async (args: any) => {
@@ -37,7 +38,10 @@ function fakeClient(opts: { viewsFail?: boolean } = {}) {
   };
   const client: SlackClient = {
     chat: {
-      postMessage: record('chat.postMessage', (a) => ({ ok: true, channel: a.channel, ts: String(++ts) })),
+      postMessage: record('chat.postMessage', (a) => {
+        if (opts.badImage && (a.blocks ?? []).some((b: any) => b.image_url === opts.badImage)) throw new Error('invalid_blocks');
+        return { ok: true, channel: a.channel, ts: String(++ts) };
+      }),
       update: record('chat.update', () => ({ ok: true })),
       postEphemeral: record('chat.postEphemeral', () => ({ ok: true })),
     },
@@ -2110,5 +2114,109 @@ describe('game-commands: 梗圖大亂鬥', () => {
     expect(g().phase).toBe('ended');
     await host.button('ww:rematch:0', 'C1|rematch', 'U2', 'bob');
     expect(g()).toMatchObject({ phase: 'lobby', host: 'U2' });
+  });
+});
+
+describe('meme/library: 頻道梗圖庫', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+  const posts = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postMessage').map((c) => c.args);
+
+  function memeHost(opts: { badImage?: string } = {}) {
+    const { client, calls } = fakeClient(opts);
+    const memes = new MemeStore(':memory:');
+    const checked: string[] = [];
+    const checkImage = async (url: string) => (checked.push(url), !url.includes('notimage'));
+    const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, gifs: {}, memes, checkImage });
+    return { host, calls, memes, checked };
+  }
+
+  it('投稿成功：頻道公告投稿者、編號、名稱和圖片；沒寫名稱是「自家梗」', async () => {
+    const { host, calls, memes } = memeHost();
+    await host.game('C1', 'U1', 'alice', 'meme add https://x.com/boss.png 老闆的 眼神');
+    const post = posts(calls).at(-1)!;
+    expect(post.text).toContain('<@U1> 投稿了一張梗圖：#1 老闆的 眼神');
+    expect(post.blocks.find((b: any) => b.type === 'image')).toMatchObject({ image_url: 'https://x.com/boss.png' });
+    await host.game('C1', 'U1', 'alice', 'meme add https://x.com/a.jpg');
+    expect(memes.list('C1').map((m) => m.name)).toEqual(['老闆的 眼神', '自家梗']);
+  });
+
+  it('Slack 跳脫過的網址（<網址> 或 <網址|文字>、&amp;）會還原', async () => {
+    const { host, memes } = memeHost();
+    await host.game('C1', 'U1', 'alice', 'meme add <https://x.com/a.png?w=1&amp;h=2> A');
+    await host.game('C1', 'U1', 'alice', 'meme add <https://x.com/b.png|x.com/b.png> B');
+    expect(memes.list('C1').map((m) => m.url)).toEqual(['https://x.com/a.png?w=1&h=2', 'https://x.com/b.png']);
+  });
+
+  it('http 被擋且不檢查；不是圖片、重複、名稱超過 20 字、沒給網址都被擋，只讓本人看到', async () => {
+    const { host, calls, memes, checked } = memeHost();
+    await host.game('C1', 'U1', 'alice', 'meme add http://x.com/a.png');
+    expect(lastEph(calls)).toMatchObject({ user: 'U1', text: expect.stringContaining('https') });
+    expect(checked).toEqual([]);
+    await host.game('C1', 'U1', 'alice', 'meme add https://x.com/notimage.html');
+    expect(lastEph(calls).text).toContain('公開的圖片網址');
+    await host.game('C1', 'U1', 'alice', 'meme add https://x.com/a.png A');
+    await host.game('C1', 'U2', 'bob', 'meme add https://x.com/a.png B');
+    expect(lastEph(calls)).toMatchObject({ user: 'U2', text: expect.stringContaining('#1') });
+    await host.game('C1', 'U2', 'bob', `meme add https://x.com/b.png ${'字'.repeat(21)}`);
+    expect(lastEph(calls).text).toContain('20');
+    await host.game('C1', 'U2', 'bob', 'meme add');
+    expect(lastEph(calls).text).toContain('/game meme add');
+    expect(memes.list('C1')).toHaveLength(1);
+  });
+
+  it('頻道有其他遊戲進行中也能投稿；別的頻道看不到', async () => {
+    const { host, memes } = memeHost();
+    await host.game('C1', 'U1', 'alice', 'sushigo new');
+    await host.game('C1', 'U1', 'alice', 'meme add https://x.com/a.png');
+    expect(memes.list('C1')).toHaveLength(1);
+    expect(memes.list('C2')).toHaveLength(0);
+  });
+
+  it('list 只讓自己看到；沒有投稿時顯示用法', async () => {
+    const { host, calls } = memeHost();
+    await host.game('C1', 'U2', 'bob', 'meme list');
+    expect(lastEph(calls)).toMatchObject({ user: 'U2', text: expect.stringContaining('還沒有投稿') });
+    expect(lastEph(calls).text).toContain('/game meme add');
+    await host.game('C1', 'U1', 'alice', 'meme add https://x.com/a.png 老闆');
+    await host.game('C1', 'U1', 'alice', 'meme add https://x.com/b.png 同事');
+    await host.game('C1', 'U2', 'bob', 'meme list');
+    for (const s of ['#1', '老闆', '#2', '同事', '<@U1>']) expect(lastEph(calls).text).toContain(s);
+  });
+
+  it('remove：任何人都能刪，公告刪的人和投稿者；編號不存在被擋', async () => {
+    const { host, calls, memes } = memeHost();
+    await host.game('C1', 'U1', 'alice', 'meme add https://x.com/a.png 老闆的眼神');
+    await host.game('C1', 'U2', 'bob', 'meme remove 1');
+    expect(posts(calls).at(-1)!.text).toContain('🗑️ <@U2> 刪掉了 #1 老闆的眼神（<@U1> 投稿）');
+    expect(memes.list('C1')).toEqual([]);
+    await host.game('C1', 'U2', 'bob', 'meme remove 99');
+    expect(lastEph(calls)).toMatchObject({ user: 'U2', text: expect.stringContaining('找不到') });
+  });
+
+  it('開始梗圖大亂鬥時帶入這個頻道的投稿', async () => {
+    const { host, memes } = memeHost();
+    memes.add('C1', 'https://x.com/a.png', '老闆', 'U9');
+    await host.game('C1', 'U1', 'alice', 'meme new');
+    await host.game('C1', 'U1', 'alice', 'meme addbot 2');
+    await host.game('C1', 'U1', 'alice', 'meme start');
+    expect(host.state('meme', 'C1')!.images.filter((m) => m.by)).toEqual([{ name: '老闆', url: 'https://x.com/a.png', by: 'U9' }]);
+  });
+
+  it('帶圖片的公告失敗時改發文字並附上網址，遊戲照常進行', async () => {
+    const { host, calls, memes } = memeHost({ badImage: 'https://x.com/dead.png' });
+    memes.add('C1', 'https://x.com/dead.png', '壞圖', 'U9');
+    await host.game('C1', 'U1', 'alice', 'meme new');
+    await host.game('C1', 'U1', 'alice', 'meme addbot 2');
+    await host.game('C1', 'U1', 'alice', 'meme start');
+    const round = posts(calls).find((p) => String(p.text).includes('第 1/6 輪') && !p.blocks)!;
+    expect(round.text).toContain('壞圖');
+    expect(round.text).toContain('https://x.com/dead.png');
+    expect(posts(calls).some((p) => String(p.text).includes('我的手牌'))).toBe(true);
+  });
+
+  it('/game meme help 有 add、list、remove', async () => {
+    const { host, calls } = memeHost();
+    await host.game('C1', 'U1', 'alice', 'meme help');
+    for (const s of ['add', 'list', 'remove']) expect(lastEph(calls).text).toContain(`/game meme ${s}`);
   });
 });
