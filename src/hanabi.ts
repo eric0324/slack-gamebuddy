@@ -281,6 +281,7 @@ function endGame(c: Ctx, exploded: boolean) {
   s.score = exploded ? 0 : COLORS.reduce((n, col) => n + s.fireworks[col], 0);
   const hands = s.players.map((p) => `${mention(p.id)}：${p.hand.map(show).join(' ')}`).join('\n');
   const title = exploded ? `💥 煙火爆炸了！得分 0：${rating(0)}` : `🎆 遊戲結束！得分 ${s.score}：${rating(s.score)}`;
+  c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: [], score: s.score }); // 合作遊戲：只記分數
   c.events.push(
     { type: 'announce', text: `${title}\n煙火：${fireworksLine(s)}\n${hands}`, gif: exploded ? 'questFail' : 'goodWin' },
     { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },

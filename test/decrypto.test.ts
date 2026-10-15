@@ -349,6 +349,7 @@ describe('decrypto/rounds: 勝負與結束', () => {
     const s = withTokens([1, 0], [0, 0]);
     const { state, events } = allCorrect(s, [{ type: 'vote', user: 'p1', mode: 'intercept', round: 1, code: '123' }]);
     expect(state).toMatchObject({ phase: 'ended', winner: 'black' });
+    expect(events.find((e) => e.type === 'result')).toEqual({ type: 'result', players: state.players.map((p) => p.id), winners: state.players.filter((p) => p.team === 'black').map((p) => p.id) });
     const text = announces(events).join('\n');
     expect(text).toContain('⚫ 黑隊獲勝');
     for (const w of [...state.teams.black.words, ...state.teams.white.words]) expect(text).toContain(w);
@@ -382,6 +383,7 @@ describe('decrypto/rounds: 勝負與結束', () => {
     const { state, events } = allCorrect(withTokens([0, 0], [0, 0], 7));
     expect(state.winner).toBe('tie');
     expect(announces(events).join('\n')).toContain('平手');
+    expect(events.find((e) => e.type === 'result')).toEqual({ type: 'result', players: state.players.map((p) => p.id), winners: [] });
   });
 
   it('沒達到條件就進下一回合', () => {

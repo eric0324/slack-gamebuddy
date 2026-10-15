@@ -224,6 +224,7 @@ function endGame(c: Ctx, winner: Team) {
       .filter((p) => p.team === t)
       .map((p) => `${mention(p.id)}${p.spymaster ? '（隊長）' : ''}`)
       .join('、')}`;
+  c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: s.players.filter((p) => p.team === winner).map((p) => p.id) });
   c.events.push(
     boardEvent(s, true),
     { type: 'announce', text: `🎉 遊戲結束，${TEAM_NAME[winner]}獲勝！\n${members('red')}\n${members('blue')}`, gif: 'goodWin' },

@@ -296,6 +296,7 @@ describe('cockroach/rounds: 輸家與結束', () => {
     ).state;
     const { state, events } = step(s, (x) => answer(x, 'p2', true));
     expect(state).toMatchObject({ phase: 'ended', loser: 'p2' });
+    expect(events.find((e) => e.type === 'result')).toEqual({ type: 'result', players: state.players.map((p) => p.id), winners: ['p1', 'p3'] });
     const text = announces(events).join('\n');
     expect(text).toContain('<@p2> 輸了：面前有 4 張 🪳 蟑螂');
     expect(text).toContain('<@p1>');

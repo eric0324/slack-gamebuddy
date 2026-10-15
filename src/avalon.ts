@@ -352,6 +352,7 @@ function endGame(c: Ctx, winner: 'good' | 'evil', gif?: GifKey) {
   s.winner = winner;
   const title = winner === 'good' ? '🎉 遊戲結束，好人獲勝！' : '😈 遊戲結束，壞人獲勝！';
   const roster = s.players.map((p) => `${mention(p.id)}：${ROLE_NAME[p.role!]}`).join('\n');
+  c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: s.players.filter((p) => isEvil(p.role) === (winner === 'evil')).map((p) => p.id) });
   c.events.push(
     { type: 'announce', text: `${title}\n任務結果：${progress(s)}\n${roster}`, gif: gif ?? (winner === 'good' ? 'goodWin' : 'wolvesWin') },
     { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },

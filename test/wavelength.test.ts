@@ -240,6 +240,7 @@ describe('wavelength/rounds: 結束', () => {
   it('每人都出過題後結束，公告獲勝隊伍和再來一局', () => {
     const { state, events } = finish(started(4).state, { orange: 15, purple: 12 });
     expect(state).toMatchObject({ phase: 'ended', winner: 'orange' });
+    expect(events.find((e) => e.type === 'result')).toEqual({ type: 'result', players: state.players.map((p) => p.id), winners: state.players.filter((p) => p.team === 'orange').map((p) => p.id) });
     expect(announces(events).join('\n')).toContain('🟠 橘隊獲勝');
     expect(values(prompts(events, 'rematch')[0])).toEqual(['rematch']);
   });
@@ -248,6 +249,7 @@ describe('wavelength/rounds: 結束', () => {
     const { state, events } = finish(started(4).state, { orange: 10, purple: 10 });
     expect(state.winner).toBe('tie');
     expect(announces(events).join('\n')).toContain('平手');
+    expect(events.find((e) => e.type === 'result')).toEqual({ type: 'result', players: state.players.map((p) => p.id), winners: [] });
   });
 
   it('再來一局：上一局的玩家開新房；取消的遊戲不能再來一局', () => {

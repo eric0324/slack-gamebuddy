@@ -292,6 +292,7 @@ describe('hanabi/turns: 結束與計分', () => {
   it('失誤 3 次：煙火爆炸，得分 0', () => {
     const { state, events } = play('p2', 0, { ...started(2).state, fuses: 2, fireworks: fw(1) });
     expect(state).toMatchObject({ phase: 'ended', score: 0 });
+    expect(events.find((e) => e.type === 'result')).toEqual({ type: 'result', players: state.players.map((p) => p.id), winners: [], score: 0 });
     expect(announces(events).join('\n')).toContain('爆炸');
   });
 

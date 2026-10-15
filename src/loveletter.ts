@@ -378,6 +378,7 @@ function endGame(c: Ctx, winners: string[]) {
   s.phase = 'ended';
   s.timers = {};
   s.winners = winners;
+  c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: winners });
   c.events.push(
     { type: 'announce', text: `🏆 遊戲結束，${winners.map(mention).join('、')} 獲勝！💌`, gif: 'goodWin' },
     { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },

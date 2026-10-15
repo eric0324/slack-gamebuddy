@@ -198,6 +198,7 @@ describe('liarsdice/rounds: 勝負', () => {
   it('骰子沒了就出局；只剩一人時獲勝，貼出再來一局', () => {
     const { state, events } = lastOne();
     expect(state).toMatchObject({ phase: 'ended', winner: 'p1' });
+    expect(events.find((e) => e.type === 'result')).toEqual({ type: 'result', players: state.players.map((p) => p.id), winners: ['p1'] });
     const text = announces(events).join('\n');
     expect(text).toContain('<@p2> 出局');
     expect(text).toContain('<@p1> 獲勝');

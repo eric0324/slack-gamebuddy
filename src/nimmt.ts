@@ -272,6 +272,7 @@ function endGame(c: Ctx) {
   const min = Math.min(...s.players.map((p) => p.total));
   s.winners = s.players.filter((p) => p.total === min).map((p) => p.id);
   const ranking = [...s.players].sort((a, b) => a.total - b.total);
+  c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: s.winners });
   c.events.push(
     {
       type: 'announce',

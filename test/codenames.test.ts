@@ -264,6 +264,7 @@ describe('codenames/win-condition: 勝負判定', () => {
     const { state, events } = guess([24], guessing().state);
     expect(state).toMatchObject({ phase: 'ended', winner: 'red' });
     expect(announces(events).join('\n')).toContain('刺客');
+    expect(events.find((e) => e.type === 'result')).toEqual({ type: 'result', players: state.players.map((p) => p.id), winners: state.players.filter((p) => p.team === 'red').map((p) => p.id) });
   });
 
   it('自己隊的牌全部翻開：獲勝', () => {

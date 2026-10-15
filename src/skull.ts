@@ -309,6 +309,7 @@ function endGame(c: Ctx, winner: string) {
   s.timers = {};
   s.winner = winner;
   const lines = s.players.map((p) => `${mention(p.id)}：成功 ${p.wins} 次、剩 ${p.hand.length + p.stack.length} 張`);
+  c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: [winner] });
   c.events.push(
     { type: 'announce', text: `🏆 遊戲結束，${mention(winner)} 獲勝！\n${lines.join('\n')}`, gif: 'goodWin' },
     { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },

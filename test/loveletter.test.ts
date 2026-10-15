@@ -387,6 +387,7 @@ describe('loveletter/rounds: 勝負與結束', () => {
     const s = table([['handmaid', 'king'], ['guard'], ['priest'], ['spy']], [], { tokens: [3, 0, 0, 0] });
     const { state, events } = play(s, 'p1', 0);
     expect(state).toMatchObject({ phase: 'ended', winners: ['p1'] });
+    expect(events.find((e) => e.type === 'result')).toEqual({ type: 'result', players: state.players.map((p) => p.id), winners: ['p1'] });
     expect(announces(events).join('\n')).toContain('<@p1>');
     expect(prompts(events).some((p) => p.kind === 'rematch')).toBe(true);
     expect(run([{ type: 'rematch', user: 'p2', channel: 'C1' }], state).state).toMatchObject({ phase: 'lobby', host: 'p2' });

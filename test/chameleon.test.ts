@@ -277,6 +277,7 @@ describe('chameleon/rounds: 討論與投票', () => {
     const text = announces(events).join('\n');
     expect(text).toContain('被指認的是 <@p2>');
     expect(text).toContain('變色龍獲勝');
+    expect(events.find((e) => e.type === 'result')).toEqual({ type: 'result', players: state.players.map((p) => p.id), winners: [state.chameleon] });
   });
 
   it('平手由起始玩家的票決定', () => {

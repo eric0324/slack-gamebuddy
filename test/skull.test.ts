@@ -339,6 +339,7 @@ describe('skull/rounds: 挑戰成功與失敗', () => {
     });
     const { state, events } = step(s, (x) => flip(x, 'p1', 'p2'));
     expect(state).toMatchObject({ phase: 'ended', winner: 'p1' });
+    expect(events.find((e) => e.type === 'result')).toEqual({ type: 'result', players: state.players.map((p) => p.id), winners: ['p1'] });
     const text = announces(events).join('\n');
     expect(text).toContain('獲勝');
     expect(text).toContain('成功 2 次');

@@ -244,6 +244,7 @@ function endGame(c: Ctx) {
   const { orange, purple } = s.scores;
   s.winner = orange > purple ? 'orange' : purple > orange ? 'purple' : 'tie';
   const result = s.winner === 'tie' ? '🤝 平手！' : `🎉 ${TEAM_NAME[s.winner]}獲勝！`;
+  c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: s.players.filter((p) => p.team === s.winner).map((p) => p.id) });
   c.events.push(
     { type: 'announce', text: `🏁 遊戲結束！${scoreLine(s)}\n${result}`, gif: 'goodWin' },
     { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },

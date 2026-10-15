@@ -291,6 +291,7 @@ function endGame(c: Ctx, winner: Team | 'tie') {
   s.winner = winner;
   const result = winner === 'tie' ? '🤝 平手！' : `🎉 ${TEAM_NAME[winner]}獲勝！`;
   const words = TEAMS.map((t) => `${TEAM_NAME[t]}的祕密詞：${s.teams[t].words.map((x, i) => `${i + 1} ${x}`).join('、')}`);
+  c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: s.players.filter((p) => p.team === winner).map((p) => p.id) });
   c.events.push(
     { type: 'announce', text: [`🏁 遊戲結束！${result}`, tokens(s), ...words].join('\n'), gif: 'goodWin' },
     { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },
