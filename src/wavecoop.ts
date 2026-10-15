@@ -1,7 +1,7 @@
 // 心電感應（合作）遊戲引擎：純邏輯，不碰任何 I/O。全員同一隊，輪流出題、其他人一起猜，拚總分。
 // 介面和其他遊戲一樣：applyWavecoop(state, action, rng) → { state, events }。光譜卡和兩隊對抗版共用。
-import { isBot, mention, type GameEvent, type Rng } from './engine.js';
-import { reply, shuffle, startTimer } from './common.js';
+import { mention, type GameEvent, type Rng } from './engine.js';
+import { cancelGame, reply, runGame, shuffle, startTimer } from './common.js';
 import { SPECTRUMS } from './wavelengthCards.js';
 
 export const MIN_WAVECOOP_PLAYERS = 2;
@@ -226,13 +226,8 @@ function handle(c: Ctx, action: GameAction): boolean {
       deal(c);
       return true;
     }
-    case 'cancel': {
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以取消遊戲。');
-      s.phase = 'ended';
-      s.timers = {};
-      c.events.push({ type: 'announce', text: '🛑 房主已取消遊戲。' });
-      return true;
-    }
+    case 'cancel':
+      return cancelGame(c, action.user);
     case 'openClue':
       if (s.phase !== 'clue' || action.user !== psychic(s)) return reply(c, action.user, '現在不是你出題。');
       c.events.push({ type: 'modal', to: action.user, kind: 'wavecoopClue', title: '寫提示', label: `提示詞（1～${MAX_CLUE} 字）` });
@@ -253,25 +248,12 @@ function handle(c: Ctx, action: GameAction): boolean {
 }
 
 export function applyWavecoop(state: WCState | undefined, action: WCAction, rng: Rng): Result {
-  if (action.type === 'new') {
-    if (state && state.phase !== 'ended') {
-      return { state, events: [{ type: 'ephemeral', to: action.user, text: '這個頻道已經有遊戲了。' }] };
-    }
-    return createLobby(state, action.user, action.channel);
-  }
-  if (action.type === 'rematch') {
-    if (!state) return { state: state!, events: [] };
-    if (state.phase !== 'ended') return { state, events: [{ type: 'ephemeral', to: action.user, text: '這個頻道已經有遊戲了。' }] };
-    if (!state.finished) return { state, events: [] };
-    if (isBot(action.user) || !state.players.includes(action.user)) {
-      return { state, events: [{ type: 'ephemeral', to: action.user, text: '只有上一局的玩家可以開新的一局。' }] };
-    }
-    return createLobby(state, action.user, action.channel);
-  }
-  if (!state || state.phase === 'ended') return { state: state!, events: [] };
-  const c: Ctx = { s: structuredClone(state), events: [], rng };
-  const changed = handle(c, action);
-  return { state: changed ? c.s : state, events: c.events };
+  return runGame(state, action, rng, {
+    finished: (s) => !!s.finished,
+    isPlayer: (s, user) => s.players.includes(user),
+    createLobby,
+    handle,
+  });
 }
 
 function createLobby(prev: WCState | undefined, host: string, channel: string): Result {
