@@ -45,6 +45,6 @@
 
 ## 7. 文件與驗證
 
-- [ ] 7.1 README：遊戲列表、wiki 連結、manifest `description`／`usage_hint`（整合時由主控做）
-- [ ] 7.2 wiki 草稿「犯人在跳舞」「犯人在跳舞-遊戲規則」「犯人在跳舞-指令」三頁（由主控處理 push）（整合時由主控做）
+- [x] 7.1 README：遊戲列表、wiki 連結、manifest `description`／`usage_hint`（整合時由主控做）
+- [x] 7.2 wiki 草稿「犯人在跳舞」「犯人在跳舞-遊戲規則」「犯人在跳舞-指令」三頁（由主控處理 push）（整合時由主控做）
 - [x] 7.3 跑全部測試和 typecheck，確認綠燈

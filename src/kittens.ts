@@ -216,7 +216,7 @@ function play(c: Ctx, user: string, seq: number, card: Card, pair?: boolean): bo
     if (!targets.length) return reply(c, user, '沒有可以指定的玩家。');
     s.phase = 'target';
     s.choosing = { card, pair };
-    menu(c, user, `${playName(card, pair)}：要指定誰？`, targets.map((p) => ({ value: `target:${s.seq}:${p.id}`, label: mention(p.id) })));
+    menu(c, user, `${playName(card, pair)}：要指定誰？`, targets.map((p) => ({ value: `target:${s.seq}:${p.id}`, label: p.id })));
     return true;
   }
   commit(c, card, pair);

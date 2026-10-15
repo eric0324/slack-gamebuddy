@@ -356,6 +356,8 @@ describe('kittens/rounds: 功能牌效果', () => {
     const s = table([['favor'], ['defuse', 'attack'], ['defuse']], ['taco', 'bomb']);
     let r = run([{ type: 'play', user: 'p1', seq: s.seq, card: 'favor' }], s);
     expect(menuOf(r.events, 'p1')!.options.map((o) => o.value)).toEqual([`target:${s.seq}:p2`, `target:${s.seq}:p3`]);
+    // 按鈕文字放純 id，adapter 會換成名字（按鈕不能顯示 <@id>）
+    expect(menuOf(r.events, 'p1')!.options.map((o) => o.label)).toEqual(['p2', 'p3']);
     r = fire(run([{ type: 'target', user: 'p1', seq: s.seq, target: 'p2' }], r.state).state);
     expect(r.state.phase).toBe('favor');
     expect(menuOf(r.events, 'p2')!.options.map((o) => o.value)).toEqual(['give:defuse', 'give:attack']);

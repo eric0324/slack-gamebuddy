@@ -43,6 +43,6 @@
 
 ## 7. 文件與驗證
 
-- [ ] 7.1 （主控整合時做）README：遊戲列表、wiki 連結、manifest `description`／`usage_hint`
-- [ ] 7.2 （主控整合時做）wiki 草稿「炸彈貓」「炸彈貓-遊戲規則」「炸彈貓-指令」三頁（由主控處理 push）
+- [x] 7.1 （主控整合時做）README：遊戲列表、wiki 連結、manifest `description`／`usage_hint`
+- [x] 7.2 （主控整合時做）wiki 草稿「炸彈貓」「炸彈貓-遊戲規則」「炸彈貓-指令」三頁（由主控處理 push）
 - [x] 7.3 跑全部測試和 typecheck，確認綠燈

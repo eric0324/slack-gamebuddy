@@ -34,6 +34,6 @@
 
 ## 7. 文件與驗證
 
-- [ ] 7.1 README：遊戲列表、wiki 連結、manifest description／usage_hint
-- [ ] 7.2 wiki 三頁草稿：猜猜看、猜猜看-遊戲規則、猜猜看-指令（由主控 push）
+- [x] 7.1 README：遊戲列表、wiki 連結、manifest description／usage_hint
+- [x] 7.2 wiki 三頁草稿：猜猜看、猜猜看-遊戲規則、猜猜看-指令（由主控 push）
 - [x] 7.3 跑全部測試和 typecheck
