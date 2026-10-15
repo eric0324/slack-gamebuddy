@@ -19,6 +19,7 @@ import { wavecoop } from './wavecoop.js';
 import { wavelength } from './wavelength.js';
 import { taboo } from './taboo.js';
 import { sushiGo } from './sushigo.js';
+import { meme } from './meme.js';
 
 export const GAMES = [
   undercover,
@@ -41,6 +42,7 @@ export const GAMES = [
   noThanks,
   taboo,
   sushiGo,
+  meme,
 ] as const;
 
 export type GameKind = (typeof GAMES)[number]['kind'];

@@ -590,6 +590,23 @@ exports[`重構安全網 > 大廳四個分類 1`] = `
       "type": "section",
     },
     {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:21",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|meme",
+      },
+      "text": {
+        "text": "😂 *梗圖大亂鬥* （ \`meme\` ）3～8 人
+每輪看一張梗圖，出手牌或自己寫一句最好笑的，匿名投票拿分",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
       "elements": [
         {
           "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
@@ -696,6 +713,15 @@ exports[`重構安全網 > 每款遊戲的指令說明 1`] = `
 • \`/game loveletter cancel\` ：取消遊戲（房主）
 輪到你時按「🃏 出牌」選牌、目標和（衛兵）猜的角色；「👀 我的手牌」「📜 棄牌紀錄」隨時可以按（只有你看得到）
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "meme": "*梗圖大亂鬥指令*
+• \`/game meme new\` ：開房（任何人）
+• \`/game meme addbot [數量]\` ：加入 bot 補人數（房主，開始前）
+• \`/game meme removebot [數量]\` ：移除 bot（房主，開始前）
+• \`/game meme start\` ：開始遊戲，需要 3～8 人（房主）
+• \`/game meme write <一句話>\` ：自己寫一句配圖（1～40 字），和按「✍️ 自己寫」一樣
+• \`/game meme cancel\` ：取消遊戲（房主）
+每輪看到梗圖後，按「🃏 我的手牌」挑一句，或按「✍️ 自己寫」打一句；送出後不能改。接著匿名投票，不能投自己
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
   "nimmt": "*誰是牛頭王指令*
 • \`/game nimmt new\` ：開房（任何人）
 • \`/game nimmt addbot [數量]\` ：加入 bot 補人數（房主，開始前）
@@ -798,6 +824,7 @@ exports[`重構安全網 > 遊戲清單文字和預設大廳 1`] = `
 • 🙅 *不要謝謝* （ \`nothanks\` ）：3～7 人，開房 \`/game nothanks new\`
 • 🤐 *禁語* （ \`taboo\` ）：4～12 人（不支援 bot），開房 \`/game taboo new\`
 • 🍣 *壽司派對* （ \`sushigo\` ）：2～5 人，開房 \`/game sushigo new\`
+• 😂 *梗圖大亂鬥* （ \`meme\` ）：3～8 人，開房 \`/game meme new\`
 各遊戲的指令： \`/game <遊戲代號> help\` ，例如 \`/game liarsdice help\`
 📊 戰績： \`/game stats [@某人]\` ；排行榜： \`/game rank [遊戲代號]\`
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>"
