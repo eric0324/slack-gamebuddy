@@ -1,0 +1,906 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`重構安全網 > 大廳四個分類 1`] = `
+[
+  [
+    {
+      "text": {
+        "text": "*🎮 遊戲大廳* ：選分類，點「開房」就能開一局，你會是房主",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "elements": [
+        {
+          "action_id": "ww:lobbyTab:0",
+          "style": "primary",
+          "text": {
+            "text": "🔍 推理",
+            "type": "plain_text",
+          },
+          "type": "button",
+          "value": "C1|deduction",
+        },
+        {
+          "action_id": "ww:lobbyTab:1",
+          "text": {
+            "text": "⚔️ 團隊對抗",
+            "type": "plain_text",
+          },
+          "type": "button",
+          "value": "C1|team",
+        },
+        {
+          "action_id": "ww:lobbyTab:2",
+          "text": {
+            "text": "🤝 合作",
+            "type": "plain_text",
+          },
+          "type": "button",
+          "value": "C1|coop",
+        },
+        {
+          "action_id": "ww:lobbyTab:3",
+          "text": {
+            "text": "🎲 心理戰",
+            "type": "plain_text",
+          },
+          "type": "button",
+          "value": "C1|bluff",
+        },
+      ],
+      "type": "actions",
+    },
+    {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:0",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|werewolf",
+      },
+      "text": {
+        "text": "🐺 *狼人殺* （ \`werewolf\` ）6～12 人
+陣營推理，夜晚私訊行動、白天輪流發言投票",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:1",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|undercover",
+      },
+      "text": {
+        "text": "🕵️ *誰是臥底* （ \`undercover\` ）4～12 人
+每人一個詞，輪流描述、投票找出拿到不同詞的臥底",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:2",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|spyfall",
+      },
+      "text": {
+        "text": "📍 *間諜危機* （ \`spyfall\` ）4～10 人
+只有間諜不知道地點，接力提問、投票抓間諜",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:3",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|avalon",
+      },
+      "text": {
+        "text": "🏰 *阿瓦隆* （ \`avalon\` ）5～10 人
+好人對壞人，隊長組隊出任務，沒有人會出局",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:12",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|insider",
+      },
+      "text": {
+        "text": "🕴️ *圈內人* （ \`insider\` ）4～8 人
+是非題合力猜出答案，再找出知道答案卻裝不知道的圈內人",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:15",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|loveletter",
+      },
+      "text": {
+        "text": "💌 *情書* （ \`loveletter\` ）2～6 人
+每人一張手牌，抽一張出一張，推理別人的牌、送出情書",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:17",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|chameleon",
+      },
+      "text": {
+        "text": "🦎 *變色龍* （ \`chameleon\` ）3～8 人
+大家各說一個和祕密詞有關的詞，找出不知道祕密詞的變色龍",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "elements": [
+        {
+          "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+          "type": "mrkdwn",
+        },
+      ],
+      "type": "context",
+    },
+  ],
+  [
+    {
+      "text": {
+        "text": "*🎮 遊戲大廳* ：選分類，點「開房」就能開一局，你會是房主",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "elements": [
+        {
+          "action_id": "ww:lobbyTab:0",
+          "text": {
+            "text": "🔍 推理",
+            "type": "plain_text",
+          },
+          "type": "button",
+          "value": "C1|deduction",
+        },
+        {
+          "action_id": "ww:lobbyTab:1",
+          "style": "primary",
+          "text": {
+            "text": "⚔️ 團隊對抗",
+            "type": "plain_text",
+          },
+          "type": "button",
+          "value": "C1|team",
+        },
+        {
+          "action_id": "ww:lobbyTab:2",
+          "text": {
+            "text": "🤝 合作",
+            "type": "plain_text",
+          },
+          "type": "button",
+          "value": "C1|coop",
+        },
+        {
+          "action_id": "ww:lobbyTab:3",
+          "text": {
+            "text": "🎲 心理戰",
+            "type": "plain_text",
+          },
+          "type": "button",
+          "value": "C1|bluff",
+        },
+      ],
+      "type": "actions",
+    },
+    {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:4",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|codenames",
+      },
+      "text": {
+        "text": "🟥 *機密代號* （ \`codenames\` ）4～12 人
+紅藍兩隊比賽，隊長用一個詞當提示翻字卡",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:9",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|wavelength",
+      },
+      "text": {
+        "text": "📡 *心電感應* （ \`wavelength\` ）4～12 人
+兩隊對抗，出題者用一個詞讓隊友猜光譜上的位置",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:10",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|decrypto",
+      },
+      "text": {
+        "text": "🔐 *截碼戰* （ \`decrypto\` ）4～12 人
+兩隊對抗，用提示傳 3 碼密碼給隊友，也試著攔截對方",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "elements": [
+        {
+          "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+          "type": "mrkdwn",
+        },
+      ],
+      "type": "context",
+    },
+  ],
+  [
+    {
+      "text": {
+        "text": "*🎮 遊戲大廳* ：選分類，點「開房」就能開一局，你會是房主",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "elements": [
+        {
+          "action_id": "ww:lobbyTab:0",
+          "text": {
+            "text": "🔍 推理",
+            "type": "plain_text",
+          },
+          "type": "button",
+          "value": "C1|deduction",
+        },
+        {
+          "action_id": "ww:lobbyTab:1",
+          "text": {
+            "text": "⚔️ 團隊對抗",
+            "type": "plain_text",
+          },
+          "type": "button",
+          "value": "C1|team",
+        },
+        {
+          "action_id": "ww:lobbyTab:2",
+          "style": "primary",
+          "text": {
+            "text": "🤝 合作",
+            "type": "plain_text",
+          },
+          "type": "button",
+          "value": "C1|coop",
+        },
+        {
+          "action_id": "ww:lobbyTab:3",
+          "text": {
+            "text": "🎲 心理戰",
+            "type": "plain_text",
+          },
+          "type": "button",
+          "value": "C1|bluff",
+        },
+      ],
+      "type": "actions",
+    },
+    {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:6",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|justone",
+      },
+      "text": {
+        "text": "💡 *一字千金* （ \`justone\` ）3～7 人
+合作猜詞，大家各給一個提示，重複的會被刪掉",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:8",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|hanabi",
+      },
+      "text": {
+        "text": "🎆 *花火* （ \`hanabi\` ）2～5 人
+合作遊戲，看得到別人的牌、看不到自己的",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:11",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|wavecoop",
+      },
+      "text": {
+        "text": "🧠 *心電感應（合作）* （ \`wavecoop\` ）2～12 人
+全員合作，輪流出題、大家一起猜光譜上的位置拚總分",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "elements": [
+        {
+          "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+          "type": "mrkdwn",
+        },
+      ],
+      "type": "context",
+    },
+  ],
+  [
+    {
+      "text": {
+        "text": "*🎮 遊戲大廳* ：選分類，點「開房」就能開一局，你會是房主",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "elements": [
+        {
+          "action_id": "ww:lobbyTab:0",
+          "text": {
+            "text": "🔍 推理",
+            "type": "plain_text",
+          },
+          "type": "button",
+          "value": "C1|deduction",
+        },
+        {
+          "action_id": "ww:lobbyTab:1",
+          "text": {
+            "text": "⚔️ 團隊對抗",
+            "type": "plain_text",
+          },
+          "type": "button",
+          "value": "C1|team",
+        },
+        {
+          "action_id": "ww:lobbyTab:2",
+          "text": {
+            "text": "🤝 合作",
+            "type": "plain_text",
+          },
+          "type": "button",
+          "value": "C1|coop",
+        },
+        {
+          "action_id": "ww:lobbyTab:3",
+          "style": "primary",
+          "text": {
+            "text": "🎲 心理戰",
+            "type": "plain_text",
+          },
+          "type": "button",
+          "value": "C1|bluff",
+        },
+      ],
+      "type": "actions",
+    },
+    {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:5",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|liarsdice",
+      },
+      "text": {
+        "text": "🎲 *吹牛骰* （ \`liarsdice\` ）2～8 人
+偷偷擲骰子，輪流喊數或開，輸的人少一顆骰子",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:7",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|coup",
+      },
+      "text": {
+        "text": "👑 *政變* （ \`coup\` ）3～6 人
+虛張聲勢，宣稱任何角色的能力，質疑或阻擋",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:13",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|skull",
+      },
+      "text": {
+        "text": "💀 *骷髏與玫瑰* （ \`skull\` ）3～6 人
+蓋牌喊數，翻開的全是玫瑰才算成功，翻到骷髏就少一張牌",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:14",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|nimmt",
+      },
+      "text": {
+        "text": "🐮 *誰是牛頭王* （ \`nimmt\` ）2～10 人
+大家同時出牌，第 6 張和最小的牌要收走整列牛頭",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:16",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|cockroach",
+      },
+      "text": {
+        "text": "🪳 *蟑螂撲克* （ \`cockroach\` ）2～6 人
+蓋著傳一張害蟲牌說「這是蟑螂」，猜錯的人收下，同種 4 張就輸",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "elements": [
+        {
+          "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+          "type": "mrkdwn",
+        },
+      ],
+      "type": "context",
+    },
+  ],
+]
+`;
+
+exports[`重構安全網 > 每款遊戲的指令說明 1`] = `
+{
+  "avalon": "*阿瓦隆指令*
+• \`/game avalon new\` ：開房（任何人）
+• \`/game avalon addbot [數量]\` ：加入 bot 補人數（房主，開始前）
+• \`/game avalon removebot [數量]\` ：移除 bot（房主，開始前）
+• \`/game avalon start\` ：開始遊戲，需要 5～10 人（房主）
+• \`/game avalon next\` ：跳過目前的發言者（房主）
+• \`/game avalon cancel\` ：取消遊戲（房主）
+選隊員、投票、出任務、刺殺都用按鈕
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "chameleon": "*變色龍指令*
+• \`/game chameleon new\` ：開房（任何人）
+• \`/game chameleon start\` ：開始遊戲，需要 3～8 位真人（房主）
+• 說詞：輪到你時按「✍️ 說詞」輸入一個和祕密詞有關的詞（不能是主題卡上的詞）；也可以打 \`/game chameleon say <詞>\`
+• \`/game chameleon next\` ：跳過目前的說詞者（房主）
+• \`/game chameleon vote\` ：討論中提早開始投票（房主）
+• \`/game chameleon guess <詞或座標>\` ：被抓到的變色龍猜祕密詞，例如 \`B3\` ；也可以按頻道按鈕
+• \`/game chameleon cancel\` ：取消遊戲（房主）
+投票抓變色龍用頻道按鈕；每一步都是 2 分鐘
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "cockroach": "*蟑螂撲克指令*
+• \`/game cockroach new\` ：開房（任何人）
+• \`/game cockroach addbot [數量]\` ：加入 bot 補人數（房主，開始前）
+• \`/game cockroach removebot [數量]\` ：移除 bot（房主，開始前）
+• \`/game cockroach start\` ：開始遊戲，需要 2～6 人（房主）
+• \`/game cockroach cancel\` ：取消遊戲（房主）
+輪到你時按「🪳 出牌」選牌、要傳給誰、要說它是什麼；收到牌時按「✅ 是」「❌ 不是」或「👀 偷看再傳」；隨時按「🃏 我的手牌」（只有你看得到）
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "codenames": "*機密代號指令*
+• \`/game codenames new\` ：開房（任何人）
+• \`/game codenames start\` ：開始遊戲，需要 4～12 位真人（房主）
+• \`/game codenames clue <詞> <數字>\` ：隊長給提示，數字 1～9
+• \`/game codenames next\` ：直接結束目前隊伍的回合（房主）
+• \`/game codenames cancel\` ：取消遊戲（房主）
+翻牌、結束猜牌都用按鈕
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "coup": "*政變指令*
+• \`/game coup new\` ：開房（任何人）
+• \`/game coup addbot [數量]\` ：加入 bot 補人數（房主，開始前）
+• \`/game coup removebot [數量]\` ：移除 bot（房主，開始前）
+• \`/game coup start\` ：開始遊戲，需要 3～6 人（房主）
+• \`/game coup cancel\` ：取消遊戲（房主）
+行動、選目標、質疑、阻擋都用頻道按鈕；翻牌和大使交換用私訊按鈕
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "decrypto": "*截碼戰指令*
+• \`/game decrypto new\` ：開房（任何人）
+• \`/game decrypto start\` ：開始遊戲，需要 4～12 位真人（房主）
+• 加密：輪到你時按「✍️ 寫提示」依序寫 3 個提示；也可以打 \`/game decrypto clue 海 / 火 / 鐘\` （用 / 分開）
+• \`/game decrypto cancel\` ：取消遊戲（房主）
+解碼、攔截、提示紀錄都用頻道按鈕
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "hanabi": "*花火指令*
+• \`/game hanabi new\` ：開房（任何人）
+• \`/game hanabi start\` ：開始遊戲，需要 2～5 位真人（房主）
+• 棄牌堆：隨時按「🗑️ 棄牌堆」查看已經棄掉和失誤的牌（只有你看得到）
+• 給提示：輪到你時按「💡 給提示」選人和顏色或數字（花 1 個提示標記）；也可以打 \`/game hanabi hint @某人 紅\` 或 \`/game hanabi hint @某人 3\`
+• \`/game hanabi cancel\` ：取消遊戲（房主）
+看牌、出牌、棄牌都用頻道按鈕
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "insider": "*圈內人指令*
+• \`/game insider new\` ：開房（任何人）
+• \`/game insider start\` ：開始遊戲，需要 4～8 位真人（房主）
+• 發問：問答期間直接在頻道打字；也可以打 \`/game insider ask <問題>\`
+• 主持人用自己看得到的按鈕回答是／否／不知道，有人說出答案時按「🎯 猜中了」
+• \`/game insider vote\` ：討論中提早開始投票（房主）
+• \`/game insider cancel\` ：取消遊戲（房主）
+投票找圈內人用頻道按鈕
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "justone": "*一字千金指令*
+• \`/game justone new\` ：開房（任何人）
+• \`/game justone start\` ：開始遊戲，需要 3～7 位真人（房主）
+• \`/game justone clue <詞>\` ：給一個提示（猜詞以外的人，其他人看不到你打的字）
+• \`/game justone guess <詞>\` ：猜詞（猜詞的人），沒把握可以按「跳過」
+• \`/game justone next\` ：跳過卡住的步驟（房主）
+• \`/game justone cancel\` ：取消遊戲（房主）
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "liarsdice": "*吹牛骰指令*
+• \`/game liarsdice new\` ：開房（任何人）
+• \`/game liarsdice addbot [數量]\` ：加入 bot 補人數（房主，開始前）
+• \`/game liarsdice removebot [數量]\` ：移除 bot（房主，開始前）
+• \`/game liarsdice start\` ：開始遊戲，需要 2～8 人（房主）
+• \`/game liarsdice bid <數量> <點數>\` ：喊「全場至少有 N 個 X 點」（輪到你時）
+• \`/game liarsdice cancel\` ：取消遊戲（房主）
+覺得上一個喊數是吹牛就按「開！」；1 點是萬用，這一輪有人喊過 1 點就不再萬用
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "loveletter": "*情書指令*
+• \`/game loveletter new\` ：開房（任何人）
+• \`/game loveletter addbot [數量]\` ：加入 bot 補人數（房主，開始前）
+• \`/game loveletter removebot [數量]\` ：移除 bot（房主，開始前）
+• \`/game loveletter start\` ：開始遊戲，需要 2～6 人（房主）
+• \`/game loveletter cancel\` ：取消遊戲（房主）
+輪到你時按「🃏 出牌」選牌、目標和（衛兵）猜的角色；「👀 我的手牌」「📜 棄牌紀錄」隨時可以按（只有你看得到）
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "nimmt": "*誰是牛頭王指令*
+• \`/game nimmt new\` ：開房（任何人）
+• \`/game nimmt addbot [數量]\` ：加入 bot 補人數（房主，開始前）
+• \`/game nimmt removebot [數量]\` ：移除 bot（房主，開始前）
+• \`/game nimmt start\` ：開始遊戲，需要 2～10 人（房主）
+• 選牌：每回合按「🃏 選牌」從手牌選一張（只有你看得到，揭曉前可以改）；也可以打 \`/game nimmt play <牌號>\`
+• \`/game nimmt cancel\` ：取消遊戲（房主）
+出的牌比四列都小時，用頻道按鈕選一列收走；有人累積 66 個牛頭時，打完這一輪就結束，最少的人獲勝
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "skull": "*骷髏與玫瑰指令*
+• \`/game skull new\` ：開房（任何人）
+• \`/game skull addbot [數量]\` ：加入 bot 補人數（房主，開始前）
+• \`/game skull removebot [數量]\` ：移除 bot（房主，開始前）
+• \`/game skull start\` ：開始遊戲，需要 3～6 人（房主）
+• \`/game skull cancel\` ：取消遊戲（房主）
+蓋牌、開始挑戰、喊數、放棄、翻牌都用按鈕；隨時按「👀 我的牌」看自己的牌
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "spyfall": "*間諜危機指令*
+• \`/game spyfall new\` ：開房（任何人）
+• \`/game spyfall addbot [數量]\` ：加入 bot 補人數（房主，開始前）
+• \`/game spyfall removebot [數量]\` ：移除 bot（房主，開始前）
+• \`/game spyfall start\` ：開始遊戲，需要 4～10 人（房主）
+• \`/game spyfall next\` ：跳過目前卡住的提問或回答（房主）
+• \`/game spyfall vote\` ：結束提問，直接投票（房主）
+• \`/game spyfall cancel\` ：取消遊戲（房主）
+• \`/game spyfall guess <地點>\` ：間諜猜地點（提問期間一次，或被指控後 60 秒內）
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "undercover": "*誰是臥底指令*
+• \`/game undercover new\` ：開房（任何人）
+• \`/game undercover addbot [數量]\` ：加入 bot 補人數（房主，開始前）
+• \`/game undercover removebot [數量]\` ：移除 bot（房主，開始前）
+• \`/game undercover start\` ：開始遊戲，需要 4～12 人（房主）
+• \`/game undercover next\` ：跳過目前的描述者（房主）
+• \`/game undercover vote\` ：結束描述，直接投票（房主）
+• \`/game undercover cancel\` ：取消遊戲（房主）
+• \`/game undercover guess <詞>\` ：被投出去的白板猜平民詞（60 秒內）
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "wavecoop": "*心電感應（合作）指令*
+• \`/game wavecoop new\` ：開房（任何人）
+• \`/game wavecoop start\` ：開始遊戲，需要 2～12 位真人（房主）
+• 出題：輪到你時按「✍️ 寫提示」輸入提示詞；也可以打 \`/game wavecoop clue <提示>\`
+• \`/game wavecoop cancel\` ：取消遊戲（房主）
+猜位置用頻道按鈕；共 7 題，正中目標加一題
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "wavelength": "*心電感應指令*
+• \`/game wavelength new\` ：開房（任何人）
+• \`/game wavelength start\` ：開始遊戲，需要 4～12 位真人（房主）
+• 出題：輪到你時按「✍️ 寫提示」輸入提示詞；也可以打 \`/game wavelength clue <提示>\`
+• \`/game wavelength cancel\` ：取消遊戲（房主）
+猜位置、猜左右都用頻道按鈕
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+}
+`;
+
+exports[`重構安全網 > 遊戲清單文字和預設大廳 1`] = `
+"*可以玩的遊戲*
+• 🐺 *狼人殺* （ \`werewolf\` ）：6～12 人，開房 \`/game werewolf new\` （或 \`/werewolf new\` ）
+• 🕵️ *誰是臥底* （ \`undercover\` ）：4～12 人，開房 \`/game undercover new\`
+• 📍 *間諜危機* （ \`spyfall\` ）：4～10 人，開房 \`/game spyfall new\`
+• 🏰 *阿瓦隆* （ \`avalon\` ）：5～10 人，開房 \`/game avalon new\`
+• 🟥 *機密代號* （ \`codenames\` ）：4～12 人（不支援 bot），開房 \`/game codenames new\`
+• 🎲 *吹牛骰* （ \`liarsdice\` ）：2～8 人，開房 \`/game liarsdice new\`
+• 💡 *一字千金* （ \`justone\` ）：3～7 人（不支援 bot），開房 \`/game justone new\`
+• 👑 *政變* （ \`coup\` ）：3～6 人，開房 \`/game coup new\`
+• 🎆 *花火* （ \`hanabi\` ）：2～5 人（不支援 bot），開房 \`/game hanabi new\`
+• 📡 *心電感應* （ \`wavelength\` ）：4～12 人（不支援 bot），開房 \`/game wavelength new\`
+• 🔐 *截碼戰* （ \`decrypto\` ）：4～12 人（不支援 bot），開房 \`/game decrypto new\`
+• 🧠 *心電感應（合作）* （ \`wavecoop\` ）：2～12 人（不支援 bot），開房 \`/game wavecoop new\`
+• 🕴️ *圈內人* （ \`insider\` ）：4～8 人（不支援 bot），開房 \`/game insider new\`
+• 💀 *骷髏與玫瑰* （ \`skull\` ）：3～6 人，開房 \`/game skull new\`
+• 🐮 *誰是牛頭王* （ \`nimmt\` ）：2～10 人，開房 \`/game nimmt new\`
+• 💌 *情書* （ \`loveletter\` ）：2～6 人，開房 \`/game loveletter new\`
+• 🪳 *蟑螂撲克* （ \`cockroach\` ）：2～6 人，開房 \`/game cockroach new\`
+• 🦎 *變色龍* （ \`chameleon\` ）：3～8 人（不支援 bot），開房 \`/game chameleon new\`
+各遊戲的指令： \`/game <遊戲代號> help\` ，例如 \`/game liarsdice help\`
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>"
+`;
+
+exports[`重構安全網 > 遊戲清單文字和預設大廳 2`] = `
+[
+  {
+    "text": {
+      "text": "*🎮 遊戲大廳* ：選分類，點「開房」就能開一局，你會是房主",
+      "type": "mrkdwn",
+    },
+    "type": "section",
+  },
+  {
+    "elements": [
+      {
+        "action_id": "ww:lobbyTab:0",
+        "style": "primary",
+        "text": {
+          "text": "🔍 推理",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|deduction",
+      },
+      {
+        "action_id": "ww:lobbyTab:1",
+        "text": {
+          "text": "⚔️ 團隊對抗",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|team",
+      },
+      {
+        "action_id": "ww:lobbyTab:2",
+        "text": {
+          "text": "🤝 合作",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|coop",
+      },
+      {
+        "action_id": "ww:lobbyTab:3",
+        "text": {
+          "text": "🎲 心理戰",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|bluff",
+      },
+    ],
+    "type": "actions",
+  },
+  {
+    "accessory": {
+      "action_id": "ww:lobbyOpen:0",
+      "text": {
+        "text": "開房",
+        "type": "plain_text",
+      },
+      "type": "button",
+      "value": "C1|werewolf",
+    },
+    "text": {
+      "text": "🐺 *狼人殺* （ \`werewolf\` ）6～12 人
+陣營推理，夜晚私訊行動、白天輪流發言投票",
+      "type": "mrkdwn",
+    },
+    "type": "section",
+  },
+  {
+    "accessory": {
+      "action_id": "ww:lobbyOpen:1",
+      "text": {
+        "text": "開房",
+        "type": "plain_text",
+      },
+      "type": "button",
+      "value": "C1|undercover",
+    },
+    "text": {
+      "text": "🕵️ *誰是臥底* （ \`undercover\` ）4～12 人
+每人一個詞，輪流描述、投票找出拿到不同詞的臥底",
+      "type": "mrkdwn",
+    },
+    "type": "section",
+  },
+  {
+    "accessory": {
+      "action_id": "ww:lobbyOpen:2",
+      "text": {
+        "text": "開房",
+        "type": "plain_text",
+      },
+      "type": "button",
+      "value": "C1|spyfall",
+    },
+    "text": {
+      "text": "📍 *間諜危機* （ \`spyfall\` ）4～10 人
+只有間諜不知道地點，接力提問、投票抓間諜",
+      "type": "mrkdwn",
+    },
+    "type": "section",
+  },
+  {
+    "accessory": {
+      "action_id": "ww:lobbyOpen:3",
+      "text": {
+        "text": "開房",
+        "type": "plain_text",
+      },
+      "type": "button",
+      "value": "C1|avalon",
+    },
+    "text": {
+      "text": "🏰 *阿瓦隆* （ \`avalon\` ）5～10 人
+好人對壞人，隊長組隊出任務，沒有人會出局",
+      "type": "mrkdwn",
+    },
+    "type": "section",
+  },
+  {
+    "accessory": {
+      "action_id": "ww:lobbyOpen:12",
+      "text": {
+        "text": "開房",
+        "type": "plain_text",
+      },
+      "type": "button",
+      "value": "C1|insider",
+    },
+    "text": {
+      "text": "🕴️ *圈內人* （ \`insider\` ）4～8 人
+是非題合力猜出答案，再找出知道答案卻裝不知道的圈內人",
+      "type": "mrkdwn",
+    },
+    "type": "section",
+  },
+  {
+    "accessory": {
+      "action_id": "ww:lobbyOpen:15",
+      "text": {
+        "text": "開房",
+        "type": "plain_text",
+      },
+      "type": "button",
+      "value": "C1|loveletter",
+    },
+    "text": {
+      "text": "💌 *情書* （ \`loveletter\` ）2～6 人
+每人一張手牌，抽一張出一張，推理別人的牌、送出情書",
+      "type": "mrkdwn",
+    },
+    "type": "section",
+  },
+  {
+    "accessory": {
+      "action_id": "ww:lobbyOpen:17",
+      "text": {
+        "text": "開房",
+        "type": "plain_text",
+      },
+      "type": "button",
+      "value": "C1|chameleon",
+    },
+    "text": {
+      "text": "🦎 *變色龍* （ \`chameleon\` ）3～8 人
+大家各說一個和祕密詞有關的詞，找出不知道祕密詞的變色龍",
+      "type": "mrkdwn",
+    },
+    "type": "section",
+  },
+  {
+    "elements": [
+      {
+        "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+        "type": "mrkdwn",
+      },
+    ],
+    "type": "context",
+  },
+]
+`;
