@@ -1,6 +1,8 @@
 // Slack adapter：把 slash command 和按鈕轉成 engine action，再把 engine event 轉成 Slack API 呼叫。
 import { applyAction, isBot, MAX_PLAYERS, mention, RULES_URL, type Action, type GameEvent, type GameState, type GifKey, type Rng } from './engine.js';
 import { GIFS } from './gifs.js';
+import { checkImage, LIBRARY_COMMANDS, memeLibraryCommand } from './memeLibrary.js';
+import type { MemeStore } from './memeStore.js';
 import { formatLeaderboard, formatStats, formatSummary, type StatsStore } from './stats.js';
 import { GAMES, type GameKind, type StateOf } from './games/index.js';
 import { WIKI, type GameDef } from './games/types.js';
@@ -32,6 +34,8 @@ export interface HostOptions {
   stats?: StatsStore;
   setTimer?: (fn: () => void, ms: number) => void;
   respond?: (url: string, payload: object) => Promise<void>; // 用按鈕的 response_url 換掉 ephemeral 訊息
+  memes?: MemeStore; // 梗圖大亂鬥的頻道梗圖庫
+  checkImage?: (url: string) => Promise<boolean>; // 投稿梗圖時確認網址是圖片
 }
 
 const postJson = async (url: string, payload: object) => {
@@ -183,6 +187,8 @@ export class GameHost {
   private rng: Rng;
   private gifs: Partial<Record<GifKey, string[]>>;
   private stats?: StatsStore;
+  private memes?: MemeStore;
+  private checkImage: (url: string) => Promise<boolean>;
   private setTimer: (fn: () => void, ms: number) => void;
   private respond: (url: string, payload: object) => Promise<void>;
 
@@ -193,6 +199,8 @@ export class GameHost {
     this.rng = opts.rng ?? Math.random;
     this.gifs = opts.gifs ?? GIFS;
     this.stats = opts.stats;
+    this.memes = opts.memes;
+    this.checkImage = opts.checkImage ?? checkImage;
     this.setTimer = opts.setTimer ?? ((fn, ms) => void setTimeout(fn, ms));
     this.respond = opts.respond ?? postJson;
   }
@@ -243,6 +251,7 @@ export class GameHost {
     const [g, ...rest] = text.trim().split(/\s+/);
     const restText = rest.join(' ');
     if (g === 'werewolf') return this.command(channel, user, userName, restText);
+    if (g === 'meme' && LIBRARY_COMMANDS.includes(rest[0])) return this.memeLibrary(channel, user, restText);
     if (this.isOther(g)) return this.play(g, channel, user, restText);
     if (g === 'stats') return this.showSummary(channel, user, restText);
     if (g === 'rank') return this.showRank(channel, user, restText);
@@ -281,8 +290,16 @@ export class GameHost {
     return this.dispatchGame(kind, channel, action);
   }
 
+  // `/game meme add|list|remove`：頻道梗圖庫，和遊戲進行中與否無關
+  private async memeLibrary(channel: string, user: string, text: string): Promise<void> {
+    if (!this.memes) return this.reply(channel, user, '這個 bot 沒有設定梗圖庫。');
+    const events = await memeLibraryCommand(this.memes, this.checkImage, channel, user, text);
+    return this.deliver(channel, events);
+  }
+
   dispatchGame(kind: OtherKind, channel: string, action: { type: string }, triggerId?: string): Promise<void> {
     const def = DEFS[kind];
+    if (kind === 'meme' && action.type === 'start') action = { ...action, custom: this.memes?.list(channel) ?? [] } as typeof action; // 開局時帶入頻道的投稿梗圖
     const states = this.states.get(kind)!;
     const prev = states.get(channel);
     const { state, events } = def.apply(prev, action, this.rng);
@@ -486,7 +503,13 @@ export class GameHost {
           return;
         }
         const blocks = [{ type: 'section', text: { type: 'mrkdwn', text: e.text } }, ...images];
-        await chat.postMessage({ channel, text: e.text, blocks });
+        try {
+          await chat.postMessage({ channel, text: e.text, blocks });
+        } catch (err) {
+          // 圖片壞掉時 Slack 會拒絕整則訊息：改發文字，附上圖片網址
+          console.error('[werewolf] image announce failed', err);
+          await chat.postMessage({ channel, text: e.image ? `${e.text}\n${e.image.url}` : e.text });
+        }
         return;
       }
       case 'modal':

@@ -14,6 +14,10 @@ const MAX_TEXT = 40;
 const ANSWER_MS = 90_000;
 const VOTE_MS = 60_000;
 const LETTER = 'ABCDEFGH';
+const MAX_CUSTOM = 2; // 每局最多幾輪用頻道投稿的梗圖
+
+// 這局用到的梗圖；by 是投稿者（內建的沒有）
+export type RoundImage = { name: string; url: string; by?: string };
 
 export interface MemePlayer {
   id: string;
@@ -31,7 +35,7 @@ export interface MemeState {
   players: MemePlayer[];
   deck: string[];
   used: string[]; // 出過的手牌，牌庫抽完時洗回去
-  images: number[]; // 這局 6 輪的梗圖（MEME_IMAGES 的 index）
+  images: RoundImage[]; // 這局 6 輪的梗圖，開局時決定
   round: number;
   answers: { by: string; text: string; own: boolean }[]; // 投票時打亂後的答案
   seq: number; // 配圖／投票訊息的 ref，也用來擋掉舊按鈕
@@ -44,7 +48,7 @@ export type MemeAction =
   | { type: 'new'; user: string; channel: string }
   | { type: 'join'; user: string }
   | { type: 'leave'; user: string }
-  | { type: 'start'; user: string }
+  | { type: 'start'; user: string; custom?: { url: string; name: string; by: string }[] } // custom：頻道投稿的梗圖，adapter 帶入
   | { type: 'cancel'; user: string }
   | { type: 'addBot'; user: string; count: number }
   | { type: 'removeBot'; user: string; count: number }
@@ -124,8 +128,9 @@ function startRound(c: Ctx) {
     delete p.answer;
     delete p.vote;
   }
-  const img = MEME_IMAGES[s.images[s.round - 1]];
-  c.events.push({ type: 'announce', text: `🖼️ 第 ${s.round}/${ROUNDS} 輪：${img.name}`, image: { url: img.url, alt: img.name } });
+  const img = s.images[s.round - 1];
+  const credit = img.by ? `（${mention(img.by)} 投稿）` : '';
+  c.events.push({ type: 'announce', text: `🖼️ 第 ${s.round}/${ROUNDS} 輪：${img.name}${credit}`, image: { url: img.url, alt: img.name } });
   for (const p of s.players) if (isBot(p.id)) playCard(c, p, pickIndex(c.rng, p.hand.length));
   c.events.push(answerBoard(s));
   startTimer(c, ANSWER_MS);
@@ -267,7 +272,16 @@ const RULES = [
   `${ROUNDS} 輪後總分最高的人獲勝。`,
 ].join('\n');
 
-function start(c: Ctx, user: string): boolean {
+// 投稿最多 MAX_CUSTOM 張，其餘用內建的補，再打亂順序
+function pickImages(c: Ctx, custom: { url: string; name: string; by: string }[]): RoundImage[] {
+  const mine = shuffle(custom, c.rng).slice(0, MAX_CUSTOM).map(({ name, url, by }) => ({ name, url, by }));
+  const builtin = shuffle(MEME_IMAGES.filter((m) => !mine.some((x) => x.url === m.url)), c.rng)
+    .slice(0, ROUNDS - mine.length)
+    .map(({ name, url }) => ({ name, url }));
+  return shuffle([...mine, ...builtin], c.rng);
+}
+
+function start(c: Ctx, user: string, custom: { url: string; name: string; by: string }[] = []): boolean {
   const s = c.s;
   if (user !== s.host) return reply(c, user, '只有房主可以開始遊戲。');
   if (s.phase !== 'lobby') return false;
@@ -275,7 +289,7 @@ function start(c: Ctx, user: string): boolean {
   c.events.push(lobbyEvent(TITLE, { ...s, phase: 'answer' }));
   s.deck = shuffle(MEME_CARDS, c.rng);
   s.used = [];
-  s.images = shuffle(MEME_IMAGES.map((_, i) => i), c.rng).slice(0, ROUNDS);
+  s.images = pickImages(c, custom);
   for (const p of s.players) Object.assign(p, newPlayer(p.id), { hand: Array.from({ length: HAND }, () => draw(c)) });
   c.events.push({ type: 'announce', text: RULES });
   startRound(c);
@@ -293,7 +307,7 @@ function handle(c: Ctx, action: GameAction): boolean {
     case 'removeBot':
       return removeBots(c, TITLE, action.user, action.count);
     case 'start':
-      return start(c, action.user);
+      return start(c, action.user, action.custom);
     case 'cancel':
       return cancelGame(c, action.user);
     case 'hand':
