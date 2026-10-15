@@ -6,8 +6,8 @@
 
 ## 2. 儲存與查詢（src/stats.ts）
 
-- [ ] 2.1 先寫失敗的測試：記錄對戰和合作遊戲；跨遊戲戰績（含舊的狼人殺紀錄、每個頻道分開、依場數排序、合作遊戲最高分）；排行榜（勝場、勝率、場數排序、前 10 名、單一遊戲、合作遊戲依最高分）
-- [ ] 2.2 實作 `matches`／`match_players`、`recordMatch`、`playerSummary`、`leaderboard` 和格式化，讓 2.1 綠燈
+- [x] 2.1 先寫失敗的測試：記錄對戰和合作遊戲；跨遊戲戰績（含舊的狼人殺紀錄、每個頻道分開、依場數排序、合作遊戲最高分）；排行榜（勝場、勝率、場數排序、前 10 名、單一遊戲、合作遊戲依最高分）
+- [x] 2.2 實作 `matches`／`match_players`、`recordMatch`、`playerSummary`、`leaderboard` 和格式化，讓 2.1 綠燈
 
 ## 3. Adapter（src/slack.ts）
 
