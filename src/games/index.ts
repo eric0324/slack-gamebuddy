@@ -20,6 +20,10 @@ import { wavelength } from './wavelength.js';
 import { taboo } from './taboo.js';
 import { sushiGo } from './sushigo.js';
 import { meme } from './meme.js';
+import { herd } from './herd.js';
+import { kittens } from './kittens.js';
+import { criminal } from './criminal.js';
+import { wager } from './wager.js';
 
 export const GAMES = [
   undercover,
@@ -43,6 +47,10 @@ export const GAMES = [
   taboo,
   sushiGo,
   meme,
+  herd,
+  kittens,
+  criminal,
+  wager,
 ] as const;
 
 export type GameKind = (typeof GAMES)[number]['kind'];

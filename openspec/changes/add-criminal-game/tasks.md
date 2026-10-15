@@ -39,9 +39,9 @@
 ## 6. Slack 設定（src/games/criminal.ts）
 
 - [x] 6.1 先寫失敗的測試：指令解析（new、start、cancel、addbot、removebot、help、不認識的子指令顯示說明）、按鈕路由（join、leave、start、rematch、`criminal` 的 `hand`／`play:<seq>:<index>`／`target:<seq>:<user>`／`give:<seq>:<index>`／`draw:<seq>:<slot>`）
-- [ ] 6.2 先寫失敗的測試（test/slack.test.ts）：KINDS 加 `criminal`、遊戲清單有犯人在跳舞、大廳「🔍 推理」有它的開房按鈕；`/game criminal help`（整合時由主控做）
-- [ ] 6.3 實作 `src/games/criminal.ts` 匯出 `GameDef`（`kind: 'criminal'`、`emoji: '🕺'`、`name: '犯人在跳舞'`、`players: '3～8 人'`、`category: 'deduction'`），`src/games/index.ts` 的 `GAMES` 加一行，讓 6.1～6.2 綠燈（`src/games/criminal.ts` 已完成；`GAMES` 註冊由主控整合時做）
-- [ ] 6.4 `test/characterization.test.ts` 的 KINDS 加 `'criminal'`，更新 snapshot，確認差異只有多一款遊戲的文字（整合時由主控做）
+- [x] 6.2 先寫失敗的測試（test/slack.test.ts）：KINDS 加 `criminal`、遊戲清單有犯人在跳舞、大廳「🔍 推理」有它的開房按鈕；`/game criminal help`（整合時由主控做）
+- [x] 6.3 實作 `src/games/criminal.ts` 匯出 `GameDef`（`kind: 'criminal'`、`emoji: '🕺'`、`name: '犯人在跳舞'`、`players: '3～8 人'`、`category: 'deduction'`），`src/games/index.ts` 的 `GAMES` 加一行，讓 6.1～6.2 綠燈（`src/games/criminal.ts` 已完成；`GAMES` 註冊由主控整合時做）
+- [x] 6.4 `test/characterization.test.ts` 的 KINDS 加 `'criminal'`，更新 snapshot，確認差異只有多一款遊戲的文字（整合時由主控做）
 
 ## 7. 文件與驗證
 

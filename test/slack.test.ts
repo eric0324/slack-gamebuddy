@@ -1049,7 +1049,7 @@ describe('game-commands: 花火', () => {
 
 describe('game-commands: 遊戲大廳', () => {
   const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
-  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter', 'cockroach', 'chameleon', 'nothanks', 'taboo', 'sushigo', 'meme'];
+  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter', 'cockroach', 'chameleon', 'nothanks', 'taboo', 'sushigo', 'meme', 'herd', 'kittens', 'criminal', 'wager'];
 
   const TABS = ['deduction', 'team', 'coop', 'bluff'];
   const openButtons = (blocks: any[]) => blocks.filter((b) => b.accessory).map((b) => b.accessory);
@@ -1067,7 +1067,7 @@ describe('game-commands: 遊戲大廳', () => {
       expect(tabs.map((b: any) => b.style)).toEqual(['primary', undefined, undefined, undefined]);
       expect(tabs.every((b: any) => b.action_id.startsWith('ww:lobbyTab:'))).toBe(true);
       const buttons = openButtons(eph.blocks);
-      expect(buttons.map((b) => b.value)).toEqual(['C1|werewolf', 'C1|undercover', 'C1|spyfall', 'C1|avalon', 'C1|insider', 'C1|loveletter', 'C1|chameleon']);
+      expect(buttons.map((b) => b.value)).toEqual(['C1|werewolf', 'C1|undercover', 'C1|spyfall', 'C1|avalon', 'C1|insider', 'C1|loveletter', 'C1|chameleon', 'C1|criminal']);
       expect(buttons.every((b: any) => b.action_id.startsWith('ww:lobbyOpen:') && b.text.text === '開房')).toBe(true);
       const all = JSON.stringify(eph.blocks);
       for (const s of ['狼人殺', '6～12 人', 'wiki', '/game <代號> help']) expect(all).toContain(s);
@@ -1105,7 +1105,7 @@ describe('game-commands: 遊戲大廳', () => {
     const { client, calls } = fakeClient();
     const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, respond: async () => { throw new Error('expired'); } });
     await host.button('ww:lobbyTab:3', 'C1|bluff', 'U1', 'alice', undefined, 'https://hooks/x');
-    expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|liarsdice', 'C1|coup', 'C1|skull', 'C1|nimmt', 'C1|cockroach', 'C1|nothanks', 'C1|sushigo', 'C1|meme']);
+    expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|liarsdice', 'C1|coup', 'C1|skull', 'C1|nimmt', 'C1|cockroach', 'C1|nothanks', 'C1|sushigo', 'C1|meme', 'C1|herd', 'C1|kittens', 'C1|wager']);
     await host.button('ww:lobbyTab:1', 'C1|team', 'U1', 'alice');
     expect(lastEph(calls)).toMatchObject({ user: 'U1' });
     expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|codenames', 'C1|wavelength', 'C1|decrypto', 'C1|taboo']);
@@ -2218,5 +2218,54 @@ describe('meme/library: 頻道梗圖庫', () => {
     const { host, calls } = memeHost();
     await host.game('C1', 'U1', 'alice', 'meme help');
     for (const s of ['add', 'list', 'remove']) expect(lastEph(calls).text).toContain(`/game meme ${s}`);
+  });
+});
+
+describe('game-commands: 從眾心理、炸彈貓、犯人在跳舞、猜猜看', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+  const tabGames = async (host: GameHost, responds: { payload: any }[], tab: string) => {
+    await host.button('ww:lobbyTab:0', `C1|${tab}`, 'U1', 'alice', undefined, `https://hooks/${tab}`);
+    return responds.at(-1)!.payload.blocks.filter((b: any) => b.accessory).map((b: any) => b.accessory.value.split('|')[1]);
+  };
+
+  it('大廳：推理類最後是犯人在跳舞，心理戰最後是從眾心理、炸彈貓、猜猜看', async () => {
+    const { host, responds } = setup();
+    expect((await tabGames(host, responds, 'deduction')).at(-1)).toBe('criminal');
+    expect((await tabGames(host, responds, 'bluff')).slice(-3)).toEqual(['herd', 'kittens', 'wager']);
+  });
+
+  it('從大廳開房：按的人是房主；help 列出指令', async () => {
+    for (const [kind, name] of [['herd', '從眾心理'], ['kittens', '炸彈貓'], ['criminal', '犯人在跳舞'], ['wager', '猜猜看']]) {
+      const { host, calls } = setup();
+      await host.button('ww:lobbyOpen:0', `C1|${kind}`, 'U1', 'alice');
+      expect(calls.at(-1)!.args.text, kind).toContain(name);
+      await host.game('C1', 'U1', 'alice', `${kind} help`);
+      expect(lastEph(calls).text, kind).toContain(`/game ${kind} start`);
+    }
+  });
+
+  async function started(kind: string, n: number) {
+    const { client, calls } = fakeClient();
+    const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, gifs: {} });
+    await host.game('C1', 'U1', 'alice', `${kind} new`);
+    for (let i = 2; i <= n; i++) await host.button('ww:join:0', 'C1|join', `U${i}`, `p${i}`);
+    await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
+    return { host, calls };
+  }
+
+  it('從眾心理：作答按鈕開視窗，送出後記下答案', async () => {
+    const { host, calls } = await started('herd', 4);
+    await host.button('ww:herd:1', 'C1|write', 'U2', 'bob', 'T1');
+    expect(calls.find((c) => c.method === 'views.open')!.args).toMatchObject({ trigger_id: 'T1', view: { callback_id: 'ww:herdAnswer', private_metadata: 'C1' } });
+    await host.modal('ww:herdAnswer', 'C1', 'U2', 'bob', ['珍珠奶茶']);
+    expect(host.state('herd', 'C1')!.answers).toEqual([{ user: 'U2', text: '珍珠奶茶' }]);
+  });
+
+  it('猜猜看：作答按鈕開視窗，送出後記下答案', async () => {
+    const { host, calls } = await started('wager', 3);
+    await host.button('ww:wager:1', 'C1|answer', 'U2', 'bob', 'T1');
+    expect(calls.find((c) => c.method === 'views.open')!.args).toMatchObject({ trigger_id: 'T1', view: { callback_id: 'ww:wagerAnswer', private_metadata: 'C1' } });
+    await host.modal('ww:wagerAnswer', 'C1', 'U2', 'bob', ['1,200']);
+    expect(host.state('wager', 'C1')!.answers).toEqual({ U2: 1200 });
   });
 });

@@ -37,9 +37,9 @@
 ## 6. Slack 設定（src/games/kittens.ts）
 
 - [x] 6.1 先寫失敗的測試：指令解析（new、start、cancel、addbot、removebot、help、不認識的子指令顯示說明）、按鈕路由（join、leave、start、rematch、`kittens` 的 `hand`／`draw`／`nope`／`play`／`target`／`give`／`place`）
-- [ ] 6.2 （主控整合時做）先寫失敗的測試（test/slack.test.ts）：KINDS 加 `kittens`、遊戲清單有炸彈貓、大廳「🎲 心理戰」有開房按鈕；`/game kittens help` 列出指令
-- [ ] 6.3 （`src/games/kittens.ts` 已完成；`GAMES` 註冊由主控整合時做）實作 `src/games/kittens.ts` 匯出 `GameDef`（`kind: 'kittens'`、`emoji: '💣'`、`name: '炸彈貓'`、`players: '2～5 人'`、`category: 'bluff'`），`src/games/index.ts` 的 `GAMES` 加一行，讓 6.1～6.2 綠燈
-- [ ] 6.4 （主控整合時做）`test/characterization.test.ts` 的 KINDS 加 `'kittens'`，更新 snapshot，確認差異只有多一款遊戲的文字
+- [x] 6.2 （主控整合時做）先寫失敗的測試（test/slack.test.ts）：KINDS 加 `kittens`、遊戲清單有炸彈貓、大廳「🎲 心理戰」有開房按鈕；`/game kittens help` 列出指令
+- [x] 6.3 （`src/games/kittens.ts` 已完成；`GAMES` 註冊由主控整合時做）實作 `src/games/kittens.ts` 匯出 `GameDef`（`kind: 'kittens'`、`emoji: '💣'`、`name: '炸彈貓'`、`players: '2～5 人'`、`category: 'bluff'`），`src/games/index.ts` 的 `GAMES` 加一行，讓 6.1～6.2 綠燈
+- [x] 6.4 （主控整合時做）`test/characterization.test.ts` 的 KINDS 加 `'kittens'`，更新 snapshot，確認差異只有多一款遊戲的文字
 
 ## 7. 文件與驗證
 

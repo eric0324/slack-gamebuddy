@@ -28,9 +28,9 @@
 ## 6. Slack 設定（src/games/wager.ts）
 
 - [x] 6.1 先寫失敗的測試（實作時放在 `test/wager.test.ts`，直接測 GameDef 的 parse／button／modals）：指令解析（new、start、cancel、addbot、answer、help 與不認識的子指令）；按鈕路由（`answer` 開視窗、`betMenu`、`bet:<n>`、`rebet`、join／leave／start／rematch）；視窗送出交給 engine
-- [ ] 6.2 （主控整合時做）先寫失敗的測試：`KINDS` 加 `wager`；遊戲清單和大廳 🎲 心理戰分類有 💰 猜猜看（`wager`）3～10 人（不支援 bot）
-- [ ] 6.3 （`src/games/wager.ts` 已完成；`GAMES` 註冊留給主控整合）實作 `src/games/wager.ts`（`GameDef`：kind `wager`、emoji 💰、name 猜猜看、players 3～10 人、category `bluff`、`noBots`、help、apply、parse、button、modals），`GAMES` 加一行，讓 6.1～6.2 綠燈
-- [ ] 6.4 （主控整合時做）`test/characterization.test.ts` 的 KINDS 加 `wager`，確認 snapshot 只多出猜猜看的文字後更新
+- [x] 6.2 （主控整合時做）先寫失敗的測試：`KINDS` 加 `wager`；遊戲清單和大廳 🎲 心理戰分類有 💰 猜猜看（`wager`）3～10 人（不支援 bot）
+- [x] 6.3 （`src/games/wager.ts` 已完成；`GAMES` 註冊留給主控整合）實作 `src/games/wager.ts`（`GameDef`：kind `wager`、emoji 💰、name 猜猜看、players 3～10 人、category `bluff`、`noBots`、help、apply、parse、button、modals），`GAMES` 加一行，讓 6.1～6.2 綠燈
+- [x] 6.4 （主控整合時做）`test/characterization.test.ts` 的 KINDS 加 `wager`，確認 snapshot 只多出猜猜看的文字後更新
 
 ## 7. 文件與驗證
 

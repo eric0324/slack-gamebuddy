@@ -27,9 +27,9 @@
 ## 6. Slack 設定（src/games/herd.ts）
 
 - [x] 6.1 先寫失敗的測試（GameDef 的指令、按鈕、視窗寫在 `test/herd.test.ts`；`test/slack.test.ts` 由主控整合）：指令解析（new、start、cancel、addbot、answer、merge、done、help 和不認識的子指令）；按鈕路由（join／leave／start／rematch、write 開視窗、`pick:<n>`、merge、done）；modal `herdAnswer`
-- [ ] 6.2 先寫失敗的測試：`KINDS` 加 `herd`；遊戲清單和大廳 🎲 心理戰分類有 🐑 從眾心理（4～12 人，不支援 bot）
-- [ ] 6.3 實作 `src/games/herd.ts`（已完成）、`GAMES` 加一行（主控整合），讓 6.1～6.2 綠燈
-- [ ] 6.4 更新 characterization KINDS 與 snapshot（只多出從眾心理相關文字）
+- [x] 6.2 先寫失敗的測試：`KINDS` 加 `herd`；遊戲清單和大廳 🎲 心理戰分類有 🐑 從眾心理（4～12 人，不支援 bot）
+- [x] 6.3 實作 `src/games/herd.ts`（已完成）、`GAMES` 加一行（主控整合），讓 6.1～6.2 綠燈
+- [x] 6.4 更新 characterization KINDS 與 snapshot（只多出從眾心理相關文字）
 
 ## 7. 文件與驗證
 
