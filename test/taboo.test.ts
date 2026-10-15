@@ -183,6 +183,18 @@ describe('taboo/rounds: 題目卡', () => {
     expect(seen).toHaveLength(TABOO_CARDS.length + 3);
     expect(s.card).toBeDefined();
   });
+
+  it('連續幾局也不重複：新的一局接著上一局剩下的牌堆抽', () => {
+    const first = playGame().state;
+    const used = TABOO_CARDS.map((_, i) => i).filter((i) => !first.deck.includes(i));
+    expect(used.length).toBeGreaterThan(0);
+    for (const action of [{ type: 'rematch' }, { type: 'new' }] as const) {
+      const lobby = run([{ ...action, user: 'p3', channel: 'C1' }], first).state;
+      expect(lobby.deck).toEqual(first.deck);
+      const s = run([...['p1', 'p2', 'p4'].map((u) => ({ type: 'join', user: u }) as TAction), { type: 'start', user: 'p3' }], lobby).state;
+      expect(used).not.toContain(run([{ type: 'go', user: s.order[0] }], s).state.card);
+    }
+  });
 });
 
 describe('taboo/rounds: 文字比對', () => {

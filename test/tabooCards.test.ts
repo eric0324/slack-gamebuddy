@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { TABOO_CARDS } from '../src/tabooCards.js';
 
 describe('taboo/setup: 題目卡詞庫', () => {
-  it('至少 150 張', () => {
-    expect(TABOO_CARDS.length).toBeGreaterThanOrEqual(150);
+  it('至少 500 張', () => {
+    expect(TABOO_CARDS.length).toBeGreaterThanOrEqual(500);
   });
 
   it('每張 1 個題目詞和 5 個不重複的禁語，每個詞至少 2 個字、不空白', () => {

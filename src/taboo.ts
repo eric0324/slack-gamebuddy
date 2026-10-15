@@ -284,7 +284,7 @@ function createLobby(prev: TState | undefined, host: string, channel: string): R
     players: [{ id: host }],
     order: [],
     round: 0,
-    deck: [],
+    deck: prev?.deck ?? [], // 接著上一局剩下的牌堆抽，同一頻道跨局不重複
     cardSeq: 0,
     log: [],
     scores: { red: 0, blue: 0 },
