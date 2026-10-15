@@ -19,6 +19,10 @@ import { parseNimmtCommand } from '../src/games/nimmt.js';
 import { parseSkullCommand } from '../src/games/skull.js';
 import { parseCockroachCommand } from '../src/games/cockroach.js';
 import { parseChameleonCommand } from '../src/games/chameleon.js';
+import { parseNoThanksCommand } from '../src/games/nothanks.js';
+import { parseTabooCommand } from '../src/games/taboo.js';
+import { TABOO_CARDS } from '../src/tabooCards.js';
+import { parseSocloverCommand } from '../src/games/soclover.js';
 
 type Call = { method: string; args: Record<string, any> };
 
@@ -1017,7 +1021,7 @@ describe('game-commands: 花火', () => {
 
 describe('game-commands: 遊戲大廳', () => {
   const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
-  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter', 'cockroach', 'chameleon'];
+  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter', 'cockroach', 'chameleon', 'nothanks', 'taboo', 'soclover'];
 
   const TABS = ['deduction', 'team', 'coop', 'bluff'];
   const openButtons = (blocks: any[]) => blocks.filter((b) => b.accessory).map((b) => b.accessory);
@@ -1065,7 +1069,7 @@ describe('game-commands: 遊戲大廳', () => {
     const { url, payload } = responds[0];
     expect(url).toBe('https://hooks/x');
     expect(payload.replace_original).toBe(true);
-    expect(openButtons(payload.blocks).map((b: any) => b.value)).toEqual(['C1|justone', 'C1|hanabi', 'C1|wavecoop']);
+    expect(openButtons(payload.blocks).map((b: any) => b.value)).toEqual(['C1|justone', 'C1|hanabi', 'C1|wavecoop', 'C1|soclover']);
     expect(tabButtons(payload.blocks).map((b: any) => b.style)).toEqual([undefined, undefined, 'primary', undefined]);
   });
 
@@ -1073,10 +1077,10 @@ describe('game-commands: 遊戲大廳', () => {
     const { client, calls } = fakeClient();
     const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, respond: async () => { throw new Error('expired'); } });
     await host.button('ww:lobbyTab:3', 'C1|bluff', 'U1', 'alice', undefined, 'https://hooks/x');
-    expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|liarsdice', 'C1|coup', 'C1|skull', 'C1|nimmt', 'C1|cockroach']);
+    expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|liarsdice', 'C1|coup', 'C1|skull', 'C1|nimmt', 'C1|cockroach', 'C1|nothanks']);
     await host.button('ww:lobbyTab:1', 'C1|team', 'U1', 'alice');
     expect(lastEph(calls)).toMatchObject({ user: 'U1' });
-    expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|codenames', 'C1|wavelength', 'C1|decrypto']);
+    expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|codenames', 'C1|wavelength', 'C1|decrypto', 'C1|taboo']);
   });
 
   it('按開房等同 /game <代號> new，按的人當房主', async () => {
@@ -1853,5 +1857,189 @@ describe('player-stats: 跨遊戲戰績與排行榜', () => {
     await host.game('C1', 'U1', 'alice', '');
     expect(lastEph(calls).text).toContain('/game stats');
     expect(lastEph(calls).text).toContain('/game rank');
+  });
+});
+
+describe('game-commands: 不要謝謝', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+  async function startGame() {
+    const { client, calls } = fakeClient();
+    const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, gifs: {} });
+    await host.game('C1', 'U1', 'alice', 'nothanks new');
+    for (const u of ['U2', 'U3']) await host.button('ww:join:0', 'C1|join', u, u);
+    await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
+    return { host, calls };
+  }
+
+  it('/game 清單和大廳有不要謝謝；/game nothanks help 和不認識的子指令列出指令', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', '');
+    for (const s of ['不要謝謝', 'nothanks', '3～7 人', '/game nothanks new']) expect(lastEph(calls).text).toContain(s);
+    for (const text of ['nothanks help', 'nothanks foo']) {
+      await host.game('C1', 'U1', 'alice', text);
+      for (const s of ['new', 'addbot', 'removebot', 'start', 'cancel']) expect(lastEph(calls).text).toContain(`/game nothanks ${s}`);
+      for (const s of ['🙅 不要謝謝', '✋ 收下', '👀 我的籌碼']) expect(lastEph(calls).text).toContain(s);
+    }
+  });
+
+  it('指令解析：new、start、cancel、addbot、removebot，其他不認識', () => {
+    expect(parseNoThanksCommand('new', 'U1', 'C1')).toEqual({ type: 'new', user: 'U1', channel: 'C1' });
+    expect(parseNoThanksCommand('start', 'U1', 'C1')).toEqual({ type: 'start', user: 'U1' });
+    expect(parseNoThanksCommand('cancel', 'U1', 'C1')).toEqual({ type: 'cancel', user: 'U1' });
+    expect(parseNoThanksCommand('addbot 2', 'U1', 'C1')).toEqual({ type: 'addBot', user: 'U1', count: 2 });
+    expect(parseNoThanksCommand('removebot', 'U1', 'C1')).toEqual({ type: 'removeBot', user: 'U1', count: 1 });
+    expect(parseNoThanksCommand('take', 'U1', 'C1')).toBeNull();
+  });
+
+  it('按鈕交給不要謝謝：不要謝謝、收下、我的籌碼、再來一局', async () => {
+    const { host, calls } = await startGame();
+    const g = () => host.state('nothanks', 'C1')!;
+    expect(g()).toMatchObject({ phase: 'turn', turn: 2, card: 12 });
+    await host.button('ww:nothanks:0', `C1|pass:${g().step}`, 'U3', 'carol');
+    expect(g()).toMatchObject({ pot: 1, turn: 0 });
+    await host.button('ww:nothanks:1', `C1|take:${g().step}`, 'U1', 'alice');
+    expect(g().players[0].cards).toEqual([12]);
+    await host.button('ww:nothanks:2', 'C1|mine', 'U1', 'alice');
+    expect(lastEph(calls)).toMatchObject({ user: 'U1', text: expect.stringContaining('🪙 12 個籌碼') });
+    for (let i = 0; i < 30 && g().phase !== 'ended'; i++) await host.button('ww:nothanks:1', `C1|take:${g().step}`, 'U1', 'alice');
+    expect(g().phase).toBe('ended');
+    await host.button('ww:rematch:0', 'C1|rematch', 'U2', 'bob');
+    expect(g()).toMatchObject({ phase: 'lobby', host: 'U2' });
+  });
+});
+
+describe('game-commands: 禁語', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+  const lastPost = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postMessage').at(-1)!.args;
+  // rng 固定：紅隊 U1、U3，藍隊 U2、U4；藍隊 U2 先描述，U4 猜；第一張卡是詞庫第一張
+  async function startGame() {
+    const { client, calls } = fakeClient();
+    const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, gifs: {} });
+    await host.game('C1', 'U1', 'alice', 'taboo new');
+    for (const u of ['U2', 'U3', 'U4']) await host.button('ww:join:0', 'C1|join', u, u);
+    await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
+    return { host, calls };
+  }
+
+  it('/game 清單和大廳團隊對抗有禁語；/game taboo help 列出指令', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', '');
+    for (const s of ['禁語', 'taboo', '4～12 人', '/game taboo new']) expect(lastEph(calls).text).toContain(s);
+    await host.game('C1', 'U1', 'alice', 'taboo help');
+    for (const s of ['new', 'start', 'skip', 'card', 'cancel']) expect(lastEph(calls).text).toContain(`/game taboo ${s}`);
+    await host.game('C1', 'U1', 'alice', 'taboo dance');
+    expect(lastEph(calls).text).toContain('禁語指令');
+  });
+
+  it('指令解析：new、start、cancel、addbot、skip、card', () => {
+    expect(parseTabooCommand('new', 'U1', 'C1')).toEqual({ type: 'new', user: 'U1', channel: 'C1' });
+    expect(parseTabooCommand('start', 'U1', 'C1')).toEqual({ type: 'start', user: 'U1' });
+    expect(parseTabooCommand('cancel', 'U1', 'C1')).toEqual({ type: 'cancel', user: 'U1' });
+    expect(parseTabooCommand('addbot', 'U1', 'C1')).toEqual({ type: 'addBot', user: 'U1', count: 1 });
+    expect(parseTabooCommand('skip', 'U1', 'C1')).toEqual({ type: 'skip', user: 'U1' });
+    expect(parseTabooCommand('card', 'U1', 'C1')).toEqual({ type: 'card', user: 'U1' });
+    expect(parseTabooCommand('dance', 'U1', 'C1')).toBeNull();
+  });
+
+  it('從大廳開房', async () => {
+    const { host } = setup();
+    await host.button('ww:lobbyOpen:0', 'C1|taboo', 'U2', 'bob');
+    expect(host.state('taboo', 'C1')).toMatchObject({ phase: 'lobby', host: 'U2' });
+  });
+
+  it('開始按鈕、跳過按鈕交給禁語；描述者看到題目卡', async () => {
+    const { host, calls } = await startGame();
+    await host.button('ww:taboo:0', 'C1|go', 'U2', 'bob');
+    expect(host.state('taboo', 'C1')!.phase).toBe('describe');
+    const eph = lastEph(calls);
+    expect(eph.user).toBe('U2');
+    expect(eph.text).toContain(TABOO_CARDS[0].word);
+    expect(buttonsOf({ method: '', args: eph }).map((b: any) => b.value)).toEqual(['C1|skip:1']);
+    await host.button('ww:taboo:0', 'C1|skip:1', 'U2', 'bob');
+    expect(host.state('taboo', 'C1')!.scores).toEqual({ red: 1, blue: 0 });
+  });
+
+  it('頻道訊息交給禁語：隊友猜中有公告', async () => {
+    const { host, calls } = await startGame();
+    await host.button('ww:taboo:0', 'C1|go', 'U2', 'bob');
+    await host.chat('C1', 'U4', `是${TABOO_CARDS[0].word}嗎`);
+    expect(lastPost(calls).text).toContain(`猜中「${TABOO_CARDS[0].word}」`);
+    expect(host.state('taboo', 'C1')!.scores).toEqual({ red: 0, blue: 1 });
+  });
+});
+
+describe('game-commands: 四葉草', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+  // rng 固定：座位 U1、U2、U3
+  async function startGame(opts: { viewsFail?: boolean } = {}) {
+    const { client, calls } = fakeClient(opts);
+    const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, gifs: {} });
+    await host.button('ww:lobbyOpen:0', 'C1|soclover', 'U1', 'alice');
+    for (const u of ['U2', 'U3']) await host.button('ww:join:0', 'C1|join', u, u);
+    await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
+    return { host, calls };
+  }
+
+  it('/game 清單有四葉草；/game soclover help 和不認識的子指令列出指令', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', '');
+    for (const s of ['四葉草', 'soclover', '3～6 人', '/game soclover new']) expect(lastEph(calls).text).toContain(s);
+    for (const text of ['soclover help', 'soclover dance']) {
+      await host.game('C1', 'U1', 'alice', text);
+      for (const s of ['new', 'start', 'clue', 'cancel']) expect(lastEph(calls).text).toContain(`/game soclover ${s}`);
+    }
+  });
+
+  it('指令解析：new、start、cancel、clue 用 / 分開剛好 4 個', () => {
+    expect(parseSocloverCommand('new', 'U1', 'C1')).toEqual({ type: 'new', user: 'U1', channel: 'C1' });
+    expect(parseSocloverCommand('start', 'U1', 'C1')).toEqual({ type: 'start', user: 'U1' });
+    expect(parseSocloverCommand('cancel', 'U1', 'C1')).toEqual({ type: 'cancel', user: 'U1' });
+    expect(parseSocloverCommand('clue 夏天 / 速度 / 童年 / 冰 冷', 'U1', 'C1')).toEqual({ type: 'clue', user: 'U1', texts: ['夏天', '速度', '童年', '冰 冷'] });
+    expect(parseSocloverCommand('clue 夏天 / 速度 / 童年', 'U1', 'C1')).toBeNull();
+    expect(parseSocloverCommand('clue 夏天 /  / 童年 / 冰', 'U1', 'C1')).toBeNull();
+  });
+
+  it('從大廳開房：房間公告標示四葉草，附上規則連結', async () => {
+    const { host, calls } = await startGame();
+    expect(host.state('soclover', 'C1')).toMatchObject({ host: 'U1', phase: 'clue' });
+    const lobby = calls.find((c) => c.method === 'chat.postMessage' && c.args.text?.includes('四葉草房間'))!;
+    expect(lobby.args.text).toContain(encodeURI('四葉草-遊戲規則'));
+  });
+
+  it('寫提示按鈕：開 4 欄視窗，送出後變成提示', async () => {
+    const { host, calls } = await startGame();
+    await host.button('ww:soclover:0', 'C1|clue', 'U1', 'alice', 'T123');
+    const open = calls.find((c) => c.method === 'views.open')!.args;
+    expect(open).toMatchObject({ trigger_id: 'T123', view: { type: 'modal', callback_id: 'ww:socloverClue', private_metadata: 'C1' } });
+    expect(open.view.blocks.map((b: any) => b.block_id)).toEqual(['f0', 'f1', 'f2', 'f3']);
+    await host.modal('ww:socloverClue', 'C1', 'U1', 'alice', ['夏天', '速度', '童年', '冰冷']);
+    expect(host.state('soclover', 'C1')!.clovers.U1.clues).toEqual(['夏天', '速度', '童年', '冰冷']);
+  });
+
+  it('視窗打不開時，只讓他看到改用指令', async () => {
+    const { host, calls } = await startGame({ viewsFail: true });
+    await host.button('ww:soclover:0', 'C1|clue', 'U1', 'alice', 'T123');
+    expect(lastEph(calls)).toMatchObject({ user: 'U1', text: expect.stringContaining('/game soclover clue') });
+  });
+
+  it('用指令寫提示；排卡按鈕交給四葉草', async () => {
+    const { host } = await startGame();
+    for (const u of ['U1', 'U2', 'U3']) await host.game('C1', u, u, 'soclover clue 夏天 / 速度 / 童年 / 冰冷');
+    const s = host.state('soclover', 'C1')!;
+    expect(s.phase).toBe('place');
+    expect(s.board!.placer).toBe('U2');
+    const v = (x: string) => `C1|${s.seq}:${x}`;
+    await host.button('ww:soclover:5', v('card:2'), 'U2', 'bob');
+    expect(host.state('soclover', 'C1')!.board!.slots).toEqual([2, null, null, null]);
+    await host.button('ww:soclover:1', v('slot:0'), 'U2', 'bob');
+    await host.button('ww:soclover:4', v('rotate'), 'U2', 'bob');
+    expect(host.state('soclover', 'C1')!.board!.rot[2]).toBe(0);
+    await host.button('ww:soclover:10', v('back'), 'U2', 'bob');
+    expect(host.state('soclover', 'C1')!.board!.slots).toEqual([null, null, null, null]);
+    await host.button('ww:soclover:12', v('take'), 'U3', 'carol');
+    expect(host.state('soclover', 'C1')!.board!.placer).toBe('U3');
+    for (const n of [0, 1, 2, 3]) await host.button('ww:soclover:5', v(`card:${n}`), 'U3', 'carol');
+    await host.button('ww:soclover:11', v('submit'), 'U3', 'carol');
+    expect(host.state('soclover', 'C1')!.board!.attempt).toBe(2); // 卡C 轉過一次，方向錯
   });
 });

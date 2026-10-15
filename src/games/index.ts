@@ -11,11 +11,14 @@ import { justOne } from './justone.js';
 import { liarsDice } from './liarsdice.js';
 import { loveLetter } from './loveletter.js';
 import { nimmt } from './nimmt.js';
+import { noThanks } from './nothanks.js';
 import { skull } from './skull.js';
+import { soclover } from './soclover.js';
 import { spyfall } from './spyfall.js';
 import { undercover } from './undercover.js';
 import { wavecoop } from './wavecoop.js';
 import { wavelength } from './wavelength.js';
+import { taboo } from './taboo.js';
 
 export const GAMES = [
   undercover,
@@ -35,6 +38,9 @@ export const GAMES = [
   loveLetter,
   cockroach,
   chameleon,
+  noThanks,
+  taboo,
+  soclover,
 ] as const;
 
 export type GameKind = (typeof GAMES)[number]['kind'];
