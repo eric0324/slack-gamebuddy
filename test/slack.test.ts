@@ -584,12 +584,14 @@ describe('game-commands: /game 指令與多款遊戲', () => {
     expect(parseUndercoverCommand('dance', 'U1', 'C1')).toBeNull();
   });
 
-  it('/game stats 查詢戰績', async () => {
+  it('/game stats 是跨遊戲戰績（包含狼人殺的紀錄）；/werewolf stats 維持狼人殺詳細戰績', async () => {
     const { client, calls } = fakeClient();
     const stats = new StatsStore(':memory:');
     stats.record('C1', 'good', [{ id: 'U1', role: 'seer' }]);
     const host = new GameHost(client, { stats, setTimer: () => {} });
     await host.game('C1', 'U1', 'alice', 'stats');
+    expect(lastEph(calls).text).toContain('🐺 狼人殺 1 場 1 勝（100%）');
+    await host.command('C1', 'U1', 'alice', 'stats');
     expect(lastEph(calls).text).toContain('總計：1 場 1 勝');
   });
 });
@@ -1785,5 +1787,71 @@ describe('game-commands: 變色龍', () => {
     expect(host.state('chameleon', 'C1')!.phase).toBe('guess');
     await host.button('ww:chameleon:15', 'C1|guess:15', 'U3', 'carol');
     expect(host.state('chameleon', 'C1')!.phase).toBe('ended');
+  });
+});
+
+describe('player-stats: 跨遊戲戰績與排行榜', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+  // rng 固定：花火 2 人局 U2 先出，手牌是紅 3、紅 3、紅 4、紅 4、紅 5；失誤 2 次時打出紅 3 就爆炸結束
+  async function explodeHanabi(players = ['U1', 'U2']) {
+    const { client, calls } = fakeClient();
+    const stats = new StatsStore(':memory:');
+    const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, gifs: {}, stats });
+    await host.game('C1', 'U1', 'alice', 'hanabi new');
+    await host.button('ww:join:0', 'C1|join', 'U2', 'bob');
+    await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
+    const s = host.state('hanabi', 'C1')!;
+    host.setState('hanabi', 'C1', { ...s, fuses: 2, players: s.players.map((p, i) => ({ ...p, id: players[i] })) });
+    await host.button('ww:hanabiTurn:2', 'C1|play:0', players[1], 'bob');
+    return { host, calls, stats };
+  }
+
+  it('遊戲正常結束就記錄；有 bot 的不記錄；取消的不記錄', async () => {
+    const { host, stats } = await explodeHanabi();
+    expect(host.state('hanabi', 'C1')!.phase).toBe('ended');
+    expect(stats.summary('C1', 'U1')).toEqual([{ kind: 'hanabi', games: 1, wins: null, best: 0 }]);
+    const withBot = await explodeHanabi(['U1', 'bot:1:Sam']);
+    expect(withBot.host.state('hanabi', 'C1')!.phase).toBe('ended');
+    expect(withBot.stats.summary('C1', 'U1')).toEqual([]);
+    const { client } = fakeClient();
+    const s2 = new StatsStore(':memory:');
+    const h2 = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, gifs: {}, stats: s2 });
+    await h2.game('C1', 'U1', 'alice', 'coup new');
+    await h2.game('C1', 'U1', 'alice', 'coup cancel');
+    expect(s2.summary('C1', 'U1')).toEqual([]);
+  });
+
+  it('/game stats 查自己和別人的跨遊戲戰績', async () => {
+    const { host, calls, stats } = await explodeHanabi();
+    stats.recordMatch('C1', 'skull', ['U1', 'U2'], ['U2']);
+    await host.game('C1', 'U1', 'alice', 'stats');
+    expect(lastEph(calls)).toMatchObject({ user: 'U1', text: expect.stringContaining('總計 2 場，對戰 1 場 0 勝（0%）') });
+    expect(lastEph(calls).text).toContain('💀 骷髏與玫瑰 1 場 0 勝（0%）');
+    expect(lastEph(calls).text).toContain('🎆 花火 1 場，最高 0 分');
+    await host.game('C1', 'U1', 'alice', 'stats <@U2|bob>');
+    expect(lastEph(calls).text).toContain('<@U2> 在這個頻道的戰績');
+    await host.game('C1', 'U1', 'alice', 'stats <@U9>');
+    expect(lastEph(calls).text).toBe('這個頻道還沒有 <@U9> 的戰績。');
+  });
+
+  it('/game rank 總排行和單一遊戲；不認識的代號顯示用法', async () => {
+    const { host, calls, stats } = await explodeHanabi();
+    stats.recordMatch('C1', 'skull', ['U1', 'U2'], ['U2']);
+    await host.game('C1', 'U1', 'alice', 'rank');
+    expect(lastEph(calls).text).toBe(['🏆 這個頻道的排行榜', '🥇 <@U2> 1 勝／1 場（100%）', '🥈 <@U1> 0 勝／1 場（0%）'].join('\n'));
+    await host.game('C1', 'U1', 'alice', 'rank hanabi');
+    expect(lastEph(calls).text).toContain('🏆 🎆 花火排行榜');
+    expect(lastEph(calls).text).toContain('最高 0 分');
+    await host.game('C1', 'U1', 'alice', 'rank chess');
+    expect(lastEph(calls).text).toContain('/game rank');
+    await host.game('C2', 'U1', 'alice', 'rank');
+    expect(lastEph(calls).text).toBe('這個頻道還沒有戰績。');
+  });
+
+  it('遊戲清單有戰績和排行榜的說明', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', '');
+    expect(lastEph(calls).text).toContain('/game stats');
+    expect(lastEph(calls).text).toContain('/game rank');
   });
 });

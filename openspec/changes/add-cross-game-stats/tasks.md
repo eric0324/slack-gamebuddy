@@ -11,10 +11,10 @@
 
 ## 3. Adapter（src/slack.ts）
 
-- [ ] 3.1 先寫失敗的測試：`result` 事件在沒有 bot 時記錄、有 bot 時不記錄；`/game stats [@某人]`、`/game rank [代號]`、不認識的代號顯示說明；遊戲清單多一行戰績說明
-- [ ] 3.2 實作，讓 3.1 綠燈；確認 characterization snapshot 只多了戰績那一行後更新
+- [x] 3.1 先寫失敗的測試：`result` 事件在沒有 bot 時記錄、有 bot 時不記錄；`/game stats [@某人]`、`/game rank [代號]`、不認識的代號顯示說明；遊戲清單多一行戰績說明
+- [x] 3.2 實作，讓 3.1 綠燈；確認 characterization snapshot 只多了戰績那一行後更新
 
 ## 4. 文件與驗證
 
-- [ ] 4.1 README、wiki 首頁提到 `/game stats`、`/game rank`
-- [ ] 4.2 跑全部測試、typecheck
+- [x] 4.1 README、wiki 首頁提到 `/game stats`、`/game rank`
+- [x] 4.2 跑全部測試、typecheck

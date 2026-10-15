@@ -720,6 +720,7 @@ exports[`重構安全網 > 遊戲清單文字和預設大廳 1`] = `
 • 🪳 *蟑螂撲克* （ \`cockroach\` ）：2～6 人，開房 \`/game cockroach new\`
 • 🦎 *變色龍* （ \`chameleon\` ）：3～8 人（不支援 bot），開房 \`/game chameleon new\`
 各遊戲的指令： \`/game <遊戲代號> help\` ，例如 \`/game liarsdice help\`
+📊 戰績： \`/game stats [@某人]\` ；排行榜： \`/game rank [遊戲代號]\`
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>"
 `;
 
