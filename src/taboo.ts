@@ -143,6 +143,8 @@ function showCard(c: Ctx) {
 // 比對前正規化：全形轉半形、英文轉小寫、去掉空白、標點和符號
 const normalize = (t: string) => t.normalize('NFKC').toLowerCase().replace(/[\s\p{P}\p{S}]/gu, '');
 export const contains = (text: string, w: string) => normalize(text).includes(normalize(w));
+// 描述者不能用來代替文字的字（例如「老x」）；比對原始訊息，因為 normalize 會去掉符號
+const placeholder = (t: string) => t.normalize('NFKC').match(/[x×✕✖○〇●*]/i)?.[0];
 
 // 一張卡結束：記錄、加分、公告，換下一張
 function finishCard(c: Ctx, result: 'correct' | 'foul' | 'skip', text: string) {
@@ -161,8 +163,10 @@ function chat(c: Ctx, user: string, text: string): boolean {
   const { word: w, taboo } = TABOO_CARDS[s.card!];
   if (user === describer(s)) {
     const hit = [w, ...taboo].find((x) => contains(text, x));
-    if (!hit) return false;
-    finishCard(c, 'foul', `🚨 ${mention(user)} 犯規！說了「${hit}」，題目是「${w}」。`);
+    const sub = placeholder(text);
+    if (!hit && !sub) return false;
+    const why = hit ? `說了「${hit}」` : `用了「${sub}」代替文字`;
+    finishCard(c, 'foul', `🚨 ${mention(user)} 犯規！${why}，題目是「${w}」。`);
     return true;
   }
   if (!mates(s).includes(user) || !contains(text, w)) return false;
