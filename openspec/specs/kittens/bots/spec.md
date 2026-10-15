@@ -1,0 +1,43 @@
+# kittens/bots Specification
+
+## Purpose
+TBD - created by archiving change add-kittens-game. Update Purpose after archive.
+
+## Requirements
+
+### Requirement: bot 的回合
+bot 的名字和顯示方式 SHALL 和其他遊戲相同。輪到 bot（而且沒有正在等反對或等別人）時，bot SHALL 立刻依序決定：
+1. 不知道牌堆最上面是什麼、手上有預見未來 → 出預見未來
+2. 知道最上面是炸彈 → 依序出攻擊、跳過、洗牌中第一張有的；都沒有就抽牌（有拆解就拆）
+3. 手上有一對相同貓咪，而且有可以指定的對象 → 打出一對，指定手牌最多的玩家（同樣多選座位順序最前面的）
+4. 其他情況 → 抽牌
+
+bot 記得的「牌堆最上面」SHALL 在牌堆被洗牌、有人抽牌或炸彈放回後失效。bot 出的牌和真人走一樣的反對等待和公告。
+
+#### Scenario: 看未來後閃開炸彈
+- **WHEN** 輪到 bot，手上有預見未來和跳過，牌堆最上面是炸彈
+- **THEN** bot 先出預見未來，結算後看到炸彈，再出跳過結束這回合
+
+#### Scenario: 沒什麼牌就抽牌
+- **WHEN** 輪到 bot，手上只有拆解和兩張不同的貓咪卡
+- **THEN** bot 抽牌
+
+### Requirement: bot 的反對、給牌和放炸彈
+- 反對：反對等待開始時，如果目前要生效的牌對 bot 不利（攻擊會讓 bot 進行 2 回合、索取或一對貓咪指定 bot），而且 bot 手上有反對，bot SHALL 立刻反對一次；其他情況（包含別人的反對）bot 都不反對
+- 給牌（被索取）：bot SHALL 立刻給出最不重要的一張，順序是貓咪卡（依固定順序）、洗牌、預見未來、索取、跳過、攻擊、反對、拆解，給排在最前面有的那張
+- 放炸彈：bot 拆解後 SHALL 隨機選一個位置放回
+
+#### Scenario: bot 反對攻擊
+- **WHEN** A 出攻擊，下一位是 bot，bot 手上有反對
+- **THEN** bot 立刻反對
+
+#### Scenario: bot 被索取
+- **WHEN** A 對 bot 出索取生效，bot 手上有拆解、攻擊和西瓜貓
+- **THEN** bot 給 A 西瓜貓
+
+### Requirement: 一個人也能玩完整局
+1 位真人加上 bot 時，即使真人完全不操作，遊戲 SHALL 一定會結束（真人每回合超時都會自動抽牌，牌堆的炸彈終究會讓玩家出局），並送出 `result` 事件。
+
+#### Scenario: 真人不操作也會結束
+- **WHEN** 1 位真人加 2 個 bot 開始一局，真人什麼都不做，每次都觸發超時
+- **THEN** 遊戲靠計時和 bot 的行動推進到只剩一人，公告勝負並送出 `result`

@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { GameHost, type SlackClient } from '../src/slack.js';
 
-const KINDS = ['undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter', 'cockroach', 'chameleon', 'nothanks', 'taboo', 'sushigo', 'meme'];
+const KINDS = ['undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter', 'cockroach', 'chameleon', 'nothanks', 'taboo', 'sushigo', 'meme', 'herd', 'kittens', 'criminal', 'wager'];
 const TABS = ['deduction', 'team', 'coop', 'bluff'];
 
 function setup() {

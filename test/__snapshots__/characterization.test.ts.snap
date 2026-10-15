@@ -172,6 +172,23 @@ exports[`重構安全網 > 大廳四個分類 1`] = `
       "type": "section",
     },
     {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:24",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|criminal",
+      },
+      "text": {
+        "text": "🕺 *犯人在跳舞* （ \`criminal\` ）3～8 人
+每人 4 張牌輪流出，犯人想撐到最後一張逃走，偵探要把他抓出來",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
       "elements": [
         {
           "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
@@ -607,6 +624,57 @@ exports[`重構安全網 > 大廳四個分類 1`] = `
       "type": "section",
     },
     {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:22",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|herd",
+      },
+      "text": {
+        "text": "🐑 *從眾心理* （ \`herd\` ）4～12 人
+猜猜多數人會怎麼答，跟大家一樣就得分；唯一的怪答案會拿到粉紅牛",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:23",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|kittens",
+      },
+      "text": {
+        "text": "💣 *炸彈貓* （ \`kittens\` ）2～5 人
+輪流出牌、抽牌，抽到炸彈貓又沒有拆解就出局，最後活下來的人贏",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:25",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|wager",
+      },
+      "text": {
+        "text": "💰 *猜猜看* （ \`wager\` ）3～10 人
+每題寫一個數字答案，再押注誰最接近正解，不會答也能靠押注贏",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
       "elements": [
         {
           "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
@@ -664,6 +732,16 @@ exports[`重構安全網 > 每款遊戲的指令說明 1`] = `
 • \`/game coup cancel\` ：取消遊戲（房主）
 行動、選目標、質疑、阻擋都用頻道按鈕；翻牌和大使交換用私訊按鈕
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "criminal": "*犯人在跳舞指令*
+• \`/game criminal new\` ：開房（任何人）
+• \`/game criminal addbot [數量]\` ：加入 bot 補人數（房主，開始前）
+• \`/game criminal removebot [數量]\` ：移除 bot（房主，開始前）
+• \`/game criminal start\` ：開始遊戲，需要 3～8 人（房主）
+• \`/game criminal cancel\` ：取消遊戲（房主）
+輪到你時按牌桌上的「🃏 我的手牌」選牌和對象；情報交換、交易、神犬也從這裡私下選（只有你看得到）
+🔪 犯人：手上只剩這張時打出就逃跑成功｜🕵️ 偵探：第 2 圈起指認犯人｜🛡️ 不在場證明：擋偵探｜🤝 共犯：加入犯人陣營
+👀 目擊者：偷看一人手牌｜👦 少年：知道誰拿犯人｜🔄 情報交換：各傳一張給下一位｜🗣️ 謠言：從上一位抽一張｜💱 交易：和一人換一張｜🐕 神犬：盲抽一人一張
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
   "decrypto": "*截碼戰指令*
 • \`/game decrypto new\` ：開房（任何人）
 • \`/game decrypto start\` ：開始遊戲，需要 4～12 位真人（房主）
@@ -678,6 +756,15 @@ exports[`重構安全網 > 每款遊戲的指令說明 1`] = `
 • 給提示：輪到你時按「💡 給提示」選人和顏色或數字（花 1 個提示標記）；也可以打 \`/game hanabi hint @某人 紅\` 或 \`/game hanabi hint @某人 3\`
 • \`/game hanabi cancel\` ：取消遊戲（房主）
 看牌、出牌、棄牌都用頻道按鈕
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "herd": "*從眾心理指令*
+• \`/game herd new\` ：開房（任何人）
+• \`/game herd start\` ：開始遊戲，需要 4～12 位真人（房主）
+• \`/game herd answer <答案>\` ：作答（1～20 字，分組前可以改），和按「✍️ 作答」一樣
+• \`/game herd merge <編號> <編號>…\` ：把意思一樣的組合併（房主，例如 \`merge 1 3\` ）
+• \`/game herd done\` ：合併完成，開始計分（房主）
+• \`/game herd cancel\` ：取消遊戲（房主）
+跟最多人一樣的那組每人 +1；唯一一個單獨答案的人拿到 🐮 粉紅牛。先到 8 分且沒有粉紅牛的人獲勝，最多 15 題
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
   "insider": "*圈內人指令*
 • \`/game insider new\` ：開房（任何人）
@@ -695,6 +782,14 @@ exports[`重構安全網 > 每款遊戲的指令說明 1`] = `
 • \`/game justone guess <詞>\` ：猜詞（猜詞的人），沒把握可以按「跳過」
 • \`/game justone next\` ：跳過卡住的步驟（房主）
 • \`/game justone cancel\` ：取消遊戲（房主）
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "kittens": "*炸彈貓指令*
+• \`/game kittens new\` ：開房（任何人）
+• \`/game kittens addbot [數量]\` ：加入 bot 補人數（房主，開始前）
+• \`/game kittens removebot [數量]\` ：移除 bot（房主，開始前）
+• \`/game kittens start\` ：開始遊戲，需要 2～5 人（房主）
+• \`/game kittens cancel\` ：取消遊戲（房主）
+輪到你時按牌桌訊息的「🃏 我的手牌」出功能牌，最後按「🂠 抽牌」結束回合；別人出牌後 5 秒內可以按「🚫 反對」讓它失效
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
   "liarsdice": "*吹牛骰指令*
 • \`/game liarsdice new\` ：開房（任何人）
@@ -787,6 +882,14 @@ exports[`重構安全網 > 每款遊戲的指令說明 1`] = `
 • \`/game undercover cancel\` ：取消遊戲（房主）
 • \`/game undercover guess <詞>\` ：被投出去的白板猜平民詞（60 秒內）
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "wager": "*猜猜看指令*
+• \`/game wager new\` ：開房（任何人）
+• \`/game wager start\` ：開始遊戲，需要 3～10 位真人（房主）
+• \`/game wager answer <數字>\` ：寫答案，和按「✍️ 寫答案」一樣；只收阿拉伯數字（可以有逗號、小數點），截止前可以改
+• 押注時按「🎯 押注」，每人 2 個標記，押最接近但不超過正解的答案；都太大就押「🔺 全部太大」
+• \`/game wager cancel\` ：取消遊戲（房主）
+押中每個標記 +1，寫出贏的答案再 +1；7 題後總分最高的人獲勝
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
   "wavecoop": "*心電感應（合作）指令*
 • \`/game wavecoop new\` ：開房（任何人）
 • \`/game wavecoop start\` ：開始遊戲，需要 2～12 位真人（房主）
@@ -828,6 +931,10 @@ exports[`重構安全網 > 遊戲清單文字和預設大廳 1`] = `
 • 🤐 *禁語* （ \`taboo\` ）：4～12 人（不支援 bot），開房 \`/game taboo new\`
 • 🍣 *壽司派對* （ \`sushigo\` ）：2～5 人，開房 \`/game sushigo new\`
 • 😂 *梗圖大亂鬥* （ \`meme\` ）：3～8 人，開房 \`/game meme new\`
+• 🐑 *從眾心理* （ \`herd\` ）：4～12 人（不支援 bot），開房 \`/game herd new\`
+• 💣 *炸彈貓* （ \`kittens\` ）：2～5 人，開房 \`/game kittens new\`
+• 🕺 *犯人在跳舞* （ \`criminal\` ）：3～8 人，開房 \`/game criminal new\`
+• 💰 *猜猜看* （ \`wager\` ）：3～10 人（不支援 bot），開房 \`/game wager new\`
 各遊戲的指令： \`/game <遊戲代號> help\` ，例如 \`/game liarsdice help\`
 📊 戰績： \`/game stats [@某人]\` ；排行榜： \`/game rank [遊戲代號]\`
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>"
@@ -999,6 +1106,23 @@ exports[`重構安全網 > 遊戲清單文字和預設大廳 2`] = `
     "text": {
       "text": "🦎 *變色龍* （ \`chameleon\` ）3～8 人
 大家各說一個和祕密詞有關的詞，找出不知道祕密詞的變色龍",
+      "type": "mrkdwn",
+    },
+    "type": "section",
+  },
+  {
+    "accessory": {
+      "action_id": "ww:lobbyOpen:24",
+      "text": {
+        "text": "開房",
+        "type": "plain_text",
+      },
+      "type": "button",
+      "value": "C1|criminal",
+    },
+    "text": {
+      "text": "🕺 *犯人在跳舞* （ \`criminal\` ）3～8 人
+每人 4 張牌輪流出，犯人想撐到最後一張逃走，偵探要把他抓出來",
       "type": "mrkdwn",
     },
     "type": "section",
