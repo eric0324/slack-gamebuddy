@@ -116,6 +116,8 @@ const buildable = (p: CPlayer) => p.hand.filter((card, i) => p.hand.indexOf(card
 const taxAmount = (p: CPlayer) => p.city.filter((x) => DISTRICTS[x.card].color === CHARS[p.char!].tax || x.card === 'schoolOfMagic').length;
 const handText = (hand: string[]) => (hand.length ? hand.map(districtInfo).join('\n') : '（沒有手牌）');
 const cityText = (p: CPlayer) => (p.city.length ? p.city.map((x) => districtLabel(x.card)).join('、') : '（還沒有建築）');
+// 場上一覽：每人金幣、手牌數、棟數，只顯示名字不 @
+const overview = (s: CState) => ['👥 場上：', ...s.players.map((p) => `• ${quiet(p.id)}：💰 ${p.gold} 金｜🃏 ${p.hand.length} 張｜🏘️ ${p.city.length} 棟`)].join('\n');
 const myCity = (p: CPlayer) => `🏘️ 你的城市（${p.city.length} 棟）：${cityText(p)}`;
 
 const RULES = [
@@ -132,6 +134,7 @@ function status(c: Ctx, user: string): boolean {
     `🏘️ 城市（${me.city.length} 棟）：${cityText(me)}`,
     `🃏 手牌（${me.hand.length} 張）：`,
     handText(me.hand),
+    overview(c.s),
   ];
   return reply(c, user, lines.join('\n'));
 }
@@ -350,7 +353,7 @@ function turnMenu(c: Ctx, user: string, seq: number, sub?: Sub): boolean {
     return false;
   }
   if (!t.gathered) {
-    menu(c, user, `🏰 先收集資源：\n${myCity(me)}`, [o('gather', '💰 拿 2 金'), o('gather', '🃏 抽牌')].map((x, i) => ({ ...x, value: `${x.value}:${i ? 'draw' : 'gold'}` })));
+    menu(c, user, `🏰 先收集資源：\n${myCity(me)}\n${overview(s)}`, [o('gather', '💰 拿 2 金'), o('gather', '🃏 抽牌')].map((x, i) => ({ ...x, value: `${x.value}:${i ? 'draw' : 'gold'}` })));
     return false;
   }
   if (sub === 'lab') {
@@ -373,7 +376,7 @@ function turnMenu(c: Ctx, user: string, seq: number, sub?: Sub): boolean {
     ...(canSmithy(s) ? [o('smithy', '⚒️ 鐵匠鋪')] : []),
     o('end', '✅ 結束回合'),
   ];
-  menu(c, user, `🏰 你的回合（${CHARS[me.char!].name}）｜💰 ${me.gold} 金｜🃏 ${me.hand.length} 張\n${myCity(me)}`, options);
+  menu(c, user, `🏰 你的回合（${CHARS[me.char!].name}）｜💰 ${me.gold} 金｜🃏 ${me.hand.length} 張\n${myCity(me)}\n${overview(s)}`, options);
   return false;
 }
 

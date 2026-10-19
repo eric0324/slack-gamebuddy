@@ -178,6 +178,15 @@ describe('citadels/setup: 我的狀態', () => {
     expect(events.every((e) => e.type === 'ephemeral' && e.to === 'p1')).toBe(true);
   });
 
+  it('狀態列出場上一覽：每人金幣、手牌數、棟數，不 @ 人', () => {
+    const s = structuredClone(started(4).state);
+    Object.assign(s.players[2], { gold: 7, hand: ['castle'], city: [{ card: 'tavern', round: 1 }] });
+    const text = ephemeralTo(run([{ type: 'status', user: 'p1' }], s).events, 'p1')[0];
+    expect(text).toContain('👥 場上：\n• {{name:p1}}：');
+    expect(text).toContain('• {{name:p3}}：💰 7 金｜🃏 1 張｜🏘️ 1 棟');
+    expect(text).not.toContain('<@');
+  });
+
   it('局外人被拒', () => {
     const { events } = run([{ type: 'status', user: 'Z' }], started(4).state);
     expect(ephemeralTo(events, 'Z')).toEqual(['你不在這局遊戲裡。']);
@@ -404,6 +413,17 @@ describe('citadels/turns: 回合選單', () => {
     expect(menuOf(run([{ type: 'turnMenu', user: 'p1', seq: g.seq }], g).events, 'p1')!.text).toContain(city);
     const empty = calling([2, 4, 6, 7]).state;
     expect(menuOf(run([{ type: 'turnMenu', user: 'p1', seq: empty.seq }], empty).events, 'p1')!.text).toContain('🏘️ 你的城市（0 棟）：（還沒有建築）');
+  });
+
+  it('選單列出場上一覽，不 @ 人', () => {
+    const s = calling([2, 4, 6, 7], { cities: [[], ['tavern', 'market'], [], []], hands: [[], ['castle', 'temple', 'manor'], [], []] }).state;
+    s.players[1].gold = 5;
+    for (const st of [s, gatherGold(s).state]) {
+      const text = menuOf(run([{ type: 'turnMenu', user: 'p1', seq: st.seq }], st).events, 'p1')!.text;
+      expect(text).toContain('👥 場上：');
+      expect(text).toContain('• {{name:p2}}：💰 5 金｜🃏 3 張｜🏘️ 2 棟');
+      expect(text).not.toContain('<@');
+    }
   });
 
   it('建造清單也列出自己的城市', () => {

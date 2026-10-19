@@ -21,3 +21,8 @@
 
 - [x] 5.1 先寫 `test/citadels.test.ts` 測試，對應「回合選單」新增的兩個 scenario（收集前後的選單、建造清單都有「🏘️ 你的城市」），確認紅燈
 - [x] 5.2 改 `src/citadels.ts` 的 `turnMenu()`，`npx vitest run` 全綠
+
+## 6. 場上一覽
+
+- [x] 6.1 先寫 `test/citadels.test.ts` 測試，對應「回合選單」的場上一覽 scenario 和「我的狀態」的場上一覽 scenario（有 `👥 場上：`、每人一行、沒有 `<@`），確認紅燈
+- [x] 6.2 改 `src/citadels.ts` 的 `turnMenu()` 和 `status()`，`npx vitest run` 全綠
