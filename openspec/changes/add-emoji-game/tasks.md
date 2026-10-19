@@ -1,12 +1,12 @@
 ## 1. 題庫（src/emojiPrompts.ts）
 
-- [ ] 1.1 先寫失敗的測試（`test/emojiPrompts.test.ts`）：至少 150 題；不重複、不空白；每題 2～12 字
-- [ ] 1.2 新增 `src/emojiPrompts.ts`（依成語、電影影視、食物、台灣日常、動作職業分段，逐題確認能用 emoji 表達），讓 1.1 綠燈
+- [x] 1.1 先寫失敗的測試（`test/emojiPrompts.test.ts`）：至少 150 題；不重複、不空白；每題 2～12 字
+- [x] 1.2 新增 `src/emojiPrompts.ts`（依成語、電影影視、食物、台灣日常、動作職業分段，逐題確認能用 emoji 表達），讓 1.1 綠燈
 
 ## 2. Engine：emoji 驗證（src/emoji.ts）
 
-- [ ] 2.1 先寫失敗的測試（`test/emoji.test.ts`）：`isEmojiOnly` 接受 Unicode emoji、空白（含全形）、shortcode、膚色 shortcode 相連、ZWJ 組合、國旗、keycap、沒有變體選擇符的單一 emoji；拒絕空白、中英文、單獨數字、`<3`、標點、沒閉合的 `:abc`、`:中文:`、超過 20 個；ZWJ 組合和 shortcode 各算 1 個
-- [ ] 2.2 實作 `isEmojiOnly`，讓 2.1 綠燈
+- [x] 2.1 先寫失敗的測試（`test/emoji.test.ts`）：`isEmojiOnly` 接受 Unicode emoji、空白（含全形）、shortcode、膚色 shortcode 相連、ZWJ 組合、國旗、keycap、沒有變體選擇符的單一 emoji；拒絕空白、中英文、單獨數字、`<3`、標點、沒閉合的 `:abc`、`:中文:`、超過 20 個；ZWJ 組合和 shortcode 各算 1 個
+- [x] 2.2 實作 `isEmojiOnly`，讓 2.1 綠燈
 
 ## 3. Engine：房間與開局
 
