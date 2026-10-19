@@ -565,7 +565,7 @@ export class GameHost {
         return;
       case 'lobby': {
         const title = e.title ?? '狼人殺';
-        const rules = `${WIKI}/${encodeURI(`${title}-遊戲規則`)}`;
+        const rules = `${WIKI}/${encodeURI(`${title.replaceAll(' ', '-')}-遊戲規則`)}`;
         const text = `${title}房間（房主 ${mention(e.host)}）\n玩家（${e.players.length}/${MAX_PLAYERS}）：${e.players.map(mention).join(' ')}\n📖 第一次玩？先看 <${rules}|${title}遊戲規則>`;
         const blocks: unknown[] = [{ type: 'section', text: { type: 'mrkdwn', text } }];
         if (e.open) {

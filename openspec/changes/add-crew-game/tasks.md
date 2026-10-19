@@ -48,11 +48,11 @@
 - [x] 9.1 先寫失敗的測試（放在 `test/crew.test.ts`，直接測 GameDef 的 parse／button）：指令解析（new、start、cancel、addbot、level、level <n>、reset、help 與不認識的子指令）；按鈕路由（hand、play、comm、commCard、pick、assign、answer、solo、sick、transfer、transferTo、resetConfirm、join／leave／start／rematch）
 - [x] 9.2 先寫失敗的測試（`test/slack.test.ts`）：`crew` 的 `new` 帶入 `CrewStore` 的 `unlocked`（沒有 store 時是 1）；收到 `crewProgress` 時寫進 `CrewStore`；`result` 照合作遊戲記錄 score
 - [x] 9.3 實作 `src/games/crew.ts`（`GameDef`：kind `crew`、emoji 🚀、name 星際探險隊、players 3～5 人、category `coop`、`noBots`、help、apply、parse、button）；`src/engine.ts` 加 `crewProgress` GameEvent；`src/slack.ts` 的 `HostOptions.crew`、`dispatchGame` 帶入、`send` 寫入；`src/index.ts` 建立 `CrewStore(statsFile)`，讓 9.1～9.2 綠燈
-- [ ] 9.4 （主控整合時做）先寫失敗的測試：`KINDS` 加 `crew`；遊戲清單和大廳 🤝 合作分類有 🚀 星際探險隊（`crew`）3～5 人（不支援 bot）；`GAMES` 加一行讓它綠燈
-- [ ] 9.5 （主控整合時做）`test/characterization.test.ts` 的 KINDS 加 `crew`，確認 snapshot 只多出星際探險隊的文字後更新
+- [x] 9.4 （主控整合時做）先寫失敗的測試：`KINDS` 加 `crew`；遊戲清單和大廳 🤝 合作分類有 🚀 星際探險隊（`crew`）3～5 人（不支援 bot）；`GAMES` 加一行讓它綠燈
+- [x] 9.5 （主控整合時做）`test/characterization.test.ts` 的 KINDS 加 `crew`，確認 snapshot 只多出星際探險隊的文字後更新
 
 ## 10. 文件與驗證
 
-- [ ] 10.1 README：遊戲列表、wiki 連結、manifest description／usage_hint
+- [x] 10.1 README：遊戲列表、wiki 連結、manifest description／usage_hint
 - [x] 10.2 wiki 三頁草稿：星際探險隊、星際探險隊-遊戲規則（含關卡表、不要討論手牌的提醒）、星際探險隊-指令（由主控 push）
 - [x] 10.3 跑全部測試和 typecheck

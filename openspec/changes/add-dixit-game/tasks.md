@@ -33,11 +33,11 @@
 - [x] 6.1 先寫失敗的測試（放在 `test/dixit.test.ts`，直接測 GameDef 的 parse／button／modals）：指令解析（new、start、cancel、addbot、`clue <編號> <提示>`、help 與不認識的子指令）；按鈕路由（`hand`、`pick:<seq>:<i>`、`play:<seq>:<i>`、`vote:<seq>:<i>`、join／leave／start／rematch）；`dixitClue` 視窗送出交給 engine，fallback 提示 `/game dixit clue <編號> <提示>`
 - [x] 6.2 先寫失敗的測試（`test/slack.test.ts`）：`dixit` 的 `start` 帶入這個頻道的投稿梗圖（`custom`），其他頻道的不會帶入
 - [x] 6.3 實作 `src/games/dixit.ts`（`GameDef`：kind `dixit`、emoji 🎨、name 妙語說書人、players 3～8 人、category `bluff`、`noBots`、help、apply、parse、button、modals），`src/slack.ts` 的開局帶入 `custom` 加上 `dixit`，讓 6.1～6.2 綠燈
-- [ ] 6.4 （主控整合時做）先寫失敗的測試：`KINDS` 加 `dixit`；遊戲清單和大廳 🎲 心理戰分類有 🎨 妙語說書人（`dixit`）3～8 人（不支援 bot）；`GAMES` 加一行讓它綠燈
-- [ ] 6.5 （主控整合時做）`test/characterization.test.ts` 的 KINDS 加 `dixit`，確認 snapshot 只多出妙語說書人的文字後更新
+- [x] 6.4 （主控整合時做）先寫失敗的測試：`KINDS` 加 `dixit`；遊戲清單和大廳 🎲 心理戰分類有 🎨 妙語說書人（`dixit`）3～8 人（不支援 bot）；`GAMES` 加一行讓它綠燈
+- [x] 6.5 （主控整合時做）`test/characterization.test.ts` 的 KINDS 加 `dixit`，確認 snapshot 只多出妙語說書人的文字後更新
 
 ## 7. 文件與驗證
 
-- [ ] 7.1 README：遊戲列表、wiki 連結、manifest description／usage_hint
+- [x] 7.1 README：遊戲列表、wiki 連結、manifest description／usage_hint
 - [x] 7.2 wiki 三頁草稿：妙語說書人、妙語說書人-遊戲規則、妙語說書人-指令（由主控 push）
 - [x] 7.3 跑全部測試和 typecheck

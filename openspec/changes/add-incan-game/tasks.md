@@ -35,12 +35,12 @@
 ## 6. Slack 設定（src/games/incan.ts）
 
 - [x] 6.1 先寫失敗的測試（放在 `test/incan.test.ts`，直接測 GameDef 的 parse／button）：指令解析（new、start、cancel、addbot、removebot、help、不認識的子指令顯示說明）；按鈕路由（join、leave、start、rematch、`incan` 的 `go:<seq>`／`camp:<seq>`）
-- [ ] 6.2 （主控整合時做）先寫失敗的測試（`test/slack.test.ts`）：`KINDS` 加 `incan`；遊戲清單和大廳 🎲 心理戰分類有 💎 印加寶藏（`incan`）3～8 人和開房按鈕；`/game incan help` 列出指令
-- [ ] 6.3 實作 `src/games/incan.ts` 匯出 `GameDef`（`kind: 'incan'`、`emoji: '💎'`、`name: '印加寶藏'`、`players: '3～8 人'`、`category: 'bluff'`、desc、help、apply、parse、button），讓 6.1 綠燈；（主控整合時做）`src/games/index.ts` 的 `GAMES` 加一行，讓 6.2 綠燈
-- [ ] 6.4 （主控整合時做）`test/characterization.test.ts` 的 KINDS 加 `'incan'`，更新 snapshot，確認差異只有多一款遊戲的文字
+- [x] 6.2 （主控整合時做）先寫失敗的測試（`test/slack.test.ts`）：`KINDS` 加 `incan`；遊戲清單和大廳 🎲 心理戰分類有 💎 印加寶藏（`incan`）3～8 人和開房按鈕；`/game incan help` 列出指令
+- [x] 6.3 實作 `src/games/incan.ts` 匯出 `GameDef`（`kind: 'incan'`、`emoji: '💎'`、`name: '印加寶藏'`、`players: '3～8 人'`、`category: 'bluff'`、desc、help、apply、parse、button），讓 6.1 綠燈；（主控整合時做）`src/games/index.ts` 的 `GAMES` 加一行，讓 6.2 綠燈
+- [x] 6.4 （主控整合時做）`test/characterization.test.ts` 的 KINDS 加 `'incan'`，更新 snapshot，確認差異只有多一款遊戲的文字
 
 ## 7. 文件與驗證
 
-- [ ] 7.1 （主控整合時做）README：遊戲列表、wiki 連結、manifest `description`／`usage_hint`
+- [x] 7.1 （主控整合時做）README：遊戲列表、wiki 連結、manifest `description`／`usage_hint`
 - [ ] 7.2 （主控整合時做）wiki 草稿「印加寶藏」「印加寶藏-遊戲規則」「印加寶藏-指令」三頁（由主控處理 push）
 - [x] 7.3 跑全部測試和 typecheck，確認綠燈

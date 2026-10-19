@@ -24,6 +24,11 @@ import { herd } from './herd.js';
 import { kittens } from './kittens.js';
 import { criminal } from './criminal.js';
 import { wager } from './wager.js';
+import { incan } from './incan.js';
+import { dixit } from './dixit.js';
+import { citadels } from './citadels.js';
+import { emoji } from './emoji.js';
+import { crew } from './crew.js';
 
 export const GAMES = [
   undercover,
@@ -51,6 +56,11 @@ export const GAMES = [
   kittens,
   criminal,
   wager,
+  incan,
+  dixit,
+  citadels,
+  emoji,
+  crew,
 ] as const;
 
 export type GameKind = (typeof GAMES)[number]['kind'];
