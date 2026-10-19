@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { botLine, knightReveal, randomBotName, seerClaim, witchReveal } from '../src/botLines.js';
-import { applyAction, checkWinner, chooseSeerTarget, dealRoles, isBot, isWolf as isWolfRole, mention, ROLE_NAME, ROLE_TABLE, type Action, type GameEvent, type GameState, type Role } from '../src/engine.js';
+import { applyAction, checkWinner, chooseSeerTarget, dealRoles, isBot, isWolf as isWolfRole, mention, quiet, ROLE_NAME, ROLE_TABLE, type Action, type GameEvent, type GameState, type Role } from '../src/engine.js';
 
 const rng = () => 0.99999; // Fisher-Yates 不交換，角色照配置表順序發
 
@@ -955,6 +955,11 @@ describe('bot-players: 加入與移除 bot', () => {
 });
 
 describe('bot-players: bot 的顯示方式', () => {
+  it('不通知的名字：真人用名字標記，bot 和 mention 一樣', () => {
+    expect(quiet('U123')).toBe('{{name:U123}}');
+    expect(quiet('bot:1:Sam')).toBe('🤖Sam');
+  });
+
   it('bot 顯示成 🤖<名字>，真人還是 <@id>', () => {
     expect(mention('bot:1:Sam')).toBe('🤖Sam');
     expect(mention('U123')).toBe('<@U123>');

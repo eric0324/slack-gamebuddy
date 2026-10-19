@@ -1,5 +1,5 @@
 // 富饒之城（Citadels 經典版）遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyCitadels(state, action, rng) → { state, events }。
-import { isBot, mention, type GameEvent, type Rng } from './engine.js';
+import { isBot, mention, quiet, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
 import { CHARS, COLORS, DECK, DISTRICTS, districtInfo, districtLabel, RANKS, type Rank } from './citadelsCards.js';
 
@@ -116,6 +116,9 @@ const buildable = (p: CPlayer) => p.hand.filter((card, i) => p.hand.indexOf(card
 const taxAmount = (p: CPlayer) => p.city.filter((x) => DISTRICTS[x.card].color === CHARS[p.char!].tax || x.card === 'schoolOfMagic').length;
 const handText = (hand: string[]) => (hand.length ? hand.map(districtInfo).join('\n') : '（沒有手牌）');
 const cityText = (p: CPlayer) => (p.city.length ? p.city.map((x) => districtLabel(x.card)).join('、') : '（還沒有建築）');
+// 場上一覽：每人金幣、手牌數、棟數，只顯示名字不 @
+const overview = (s: CState) => ['👥 場上：', ...s.players.map((p) => `• ${quiet(p.id)}：💰 ${p.gold} 金｜🃏 ${p.hand.length} 張｜🏘️ ${p.city.length} 棟`)].join('\n');
+const myCity = (p: CPlayer) => `🏘️ 你的城市（${p.city.length} 棟）：${cityText(p)}`;
 
 const RULES = [
   '🏛️ 富饒之城規則：每輪先祕密選一個角色，再依角色編號 1→8 叫號行動。輪到你時先「💰 拿 2 金」或「🃏 抽 2 張留 1 張」，再可以用角色能力、建 1 棟建築（付等於費用的金幣；不能蓋同名建築）。',
@@ -131,6 +134,7 @@ function status(c: Ctx, user: string): boolean {
     `🏘️ 城市（${me.city.length} 棟）：${cityText(me)}`,
     `🃏 手牌（${me.hand.length} 張）：`,
     handText(me.hand),
+    overview(c.s),
   ];
   return reply(c, user, lines.join('\n'));
 }
@@ -304,18 +308,19 @@ function endRound(c: Ctx) {
   startRound(c);
 }
 
-const playerLine = (p: CPlayer) => `• ${mention(p.id)}：💰 ${p.gold} 金｜🃏 ${p.hand.length} 張｜🏘️ ${p.city.length} 棟${p.city.length ? `：${cityText(p)}` : ''}`;
+const playerLine = (p: CPlayer) => `• ${quiet(p.id)}：💰 ${p.gold} 金｜🃏 ${p.hand.length} 張｜🏘️ ${p.city.length} 棟${p.city.length ? `：${cityText(p)}` : ''}`;
 
+// 牌桌訊息：只有第一行 @ 輪到的人，其他人只顯示名字，避免每回合通知所有人
 function board(s: CState, ended = false): GameEvent {
   const me = current(s);
-  const head = `🏰 第 ${s.round} 輪｜${me.char} 號 ${CHARS[me.char!].name} ${mention(me.id)}`;
+  const role = `${me.char} 號 ${CHARS[me.char!].name}`;
   const lines = ended
-    ? [`${head} 的回合結束`]
+    ? [`✅ 第 ${s.round} 輪 ${role} ${quiet(me.id)} 的回合結束`]
     : [
-        `${head}（${TURN_MS / 1000} 秒）`,
+        `*👉 現在輪到：${mention(me.id)}（${role}）⏳ ${TURN_MS / 1000} 秒*`,
+        `🏰 第 ${s.round} 輪｜👑 王冠：${quiet(s.players[s.crown].id)}｜已翻開：${s.revealed.map((r) => `${CHARS[r].name} ${quiet(s.players[holder(s, r)].id)}`).join('、')}`,
         ...s.notes.map((n) => `（${n}）`),
-        `👑 王冠：${mention(s.players[s.crown].id)}｜已翻開：${s.revealed.map((r) => `${CHARS[r].name} ${mention(s.players[holder(s, r)].id)}`).join('、')}`,
-        ...s.players.map(playerLine),
+        ...s.players.map((p) => (p === me ? `👉 ${playerLine(p)}` : playerLine(p))),
       ];
   return {
     type: 'prompt',
@@ -348,7 +353,7 @@ function turnMenu(c: Ctx, user: string, seq: number, sub?: Sub): boolean {
     return false;
   }
   if (!t.gathered) {
-    menu(c, user, '🏰 先收集資源：', [o('gather', '💰 拿 2 金'), o('gather', '🃏 抽牌')].map((x, i) => ({ ...x, value: `${x.value}:${i ? 'draw' : 'gold'}` })));
+    menu(c, user, `🏰 先收集資源：\n${myCity(me)}\n${overview(s)}`, [o('gather', '💰 拿 2 金'), o('gather', '🃏 抽牌')].map((x, i) => ({ ...x, value: `${x.value}:${i ? 'draw' : 'gold'}` })));
     return false;
   }
   if (sub === 'lab') {
@@ -360,7 +365,7 @@ function turnMenu(c: Ctx, user: string, seq: number, sub?: Sub): boolean {
   if (sub === 'build') {
     const cards = t.builds < maxBuilds(me) ? buildable(me) : [];
     if (!cards.length) return reply(c, user, '現在沒有可以建造的建築。');
-    menu(c, user, ['🔨 要建哪一棟？', ...cards.map(districtInfo)].join('\n'), cards.map((card) => ({ value: `build:${seq}:${card}`, label: districtLabel(card) })));
+    menu(c, user, [myCity(me), '🔨 要建哪一棟？', ...cards.map(districtInfo)].join('\n'), cards.map((card) => ({ value: `build:${seq}:${card}`, label: districtLabel(card) })));
     return false;
   }
   const options = [
@@ -371,7 +376,7 @@ function turnMenu(c: Ctx, user: string, seq: number, sub?: Sub): boolean {
     ...(canSmithy(s) ? [o('smithy', '⚒️ 鐵匠鋪')] : []),
     o('end', '✅ 結束回合'),
   ];
-  menu(c, user, `🏰 你的回合（${CHARS[me.char!].name}）｜💰 ${me.gold} 金｜🃏 ${me.hand.length} 張`, options);
+  menu(c, user, `🏰 你的回合（${CHARS[me.char!].name}）｜💰 ${me.gold} 金｜🃏 ${me.hand.length} 張\n${myCity(me)}\n${overview(s)}`, options);
   return false;
 }
 

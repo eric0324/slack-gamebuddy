@@ -76,7 +76,7 @@ TBD - created by archiving change add-citadels-game. Update Purpose after archiv
 - **THEN** 同一則牌桌訊息更新：B 的城市多了酒館、金幣少 1，沒有多一則新的牌桌訊息
 
 ### Requirement: 我的狀態
-這局的玩家任何時候按「📜 我的狀態」，系統 SHALL 只讓他看到：自己的手牌（名稱、顏色、費用，紫卡附效果說明）、金幣、這輪自己選的角色（選了才有）、城市。不在這局的人按 SHALL 只讓他看到「你不在這局遊戲裡」。按這個按鈕 SHALL NOT 改變遊戲狀態，也 SHALL NOT 重設計時器。
+這局的玩家任何時候按「📜 我的狀態」，系統 SHALL 只讓他看到：自己的手牌（名稱、顏色、費用，紫卡附效果說明）、金幣、這輪自己選的角色（選了才有）、城市，以及「👥 場上：」一覽，每位玩家一行「<名字>：💰 N 金｜🃏 N 張｜🏘️ N 棟」（依座位順序、包括自己），只顯示名字、不 @ 人，不列建築名稱。不在這局的人按 SHALL 只讓他看到「你不在這局遊戲裡」。按這個按鈕 SHALL NOT 改變遊戲狀態，也 SHALL NOT 重設計時器。
 
 #### Scenario: 看狀態
 - **WHEN** A 這輪選了盜賊，按「📜 我的狀態」
@@ -85,6 +85,10 @@ TBD - created by archiving change add-citadels-game. Update Purpose after archiv
 #### Scenario: 局外人
 - **WHEN** 不在這局的 Z 按「📜 我的狀態」
 - **THEN** 只有 Z 看到「你不在這局遊戲裡」
+
+#### Scenario: 狀態列出場上一覽
+- **WHEN** 沒輪到 A 時，A 按「📜 我的狀態」，C 有 7 金
+- **THEN** A 看到的文字有「👥 場上：」，C 那一行是「• C：💰 7 金｜…」
 
 ### Requirement: 遊戲清單與指令說明
 `/game` 的遊戲清單和遊戲大廳 SHALL 列出富饒之城的名稱（🏛️ 富饒之城）、代號 `citadels`、人數（4～7 人）和開房方式 `/game citadels new`，大廳分類是「🎲 心理戰」。輸入 `/game citadels help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到富饒之城的條列式指令說明（new、addbot、removebot、start、cancel，以及遊戲中「🎭 選角色」「🏰 我的回合」「📜 我的狀態」按鈕的用法）。

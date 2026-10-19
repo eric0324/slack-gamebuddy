@@ -448,8 +448,13 @@ export class GameHost {
       .join(' ');
   }
 
+  // 不通知的名字 {{name:id}} 換成顯示名稱；不知道名字就退回 @
+  private quietNames(text: string) {
+    return text.replace(/\{\{name:([^}]+)\}\}/g, (_, id: string) => this.names.get(id) ?? `<@${id}>`);
+  }
+
   private async send(channel: string, event: GameEvent, kind: Kind, triggerId?: string) {
-    const e = 'text' in event && typeof event.text === 'string' ? ({ ...event, text: slackText(event.text) } as GameEvent) : event;
+    const e = 'text' in event && typeof event.text === 'string' ? ({ ...event, text: slackText(this.quietNames(event.text)) } as GameEvent) : event;
     const chat = this.client.chat;
     switch (e.type) {
       case 'gameRecord':

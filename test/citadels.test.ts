@@ -178,6 +178,15 @@ describe('citadels/setup: 我的狀態', () => {
     expect(events.every((e) => e.type === 'ephemeral' && e.to === 'p1')).toBe(true);
   });
 
+  it('狀態列出場上一覽：每人金幣、手牌數、棟數，不 @ 人', () => {
+    const s = structuredClone(started(4).state);
+    Object.assign(s.players[2], { gold: 7, hand: ['castle'], city: [{ card: 'tavern', round: 1 }] });
+    const text = ephemeralTo(run([{ type: 'status', user: 'p1' }], s).events, 'p1')[0];
+    expect(text).toContain('👥 場上：\n• {{name:p1}}：');
+    expect(text).toContain('• {{name:p3}}：💰 7 金｜🃏 1 張｜🏘️ 1 棟');
+    expect(text).not.toContain('<@');
+  });
+
   it('局外人被拒', () => {
     const { events } = run([{ type: 'status', user: 'Z' }], started(4).state);
     expect(ephemeralTo(events, 'Z')).toEqual(['你不在這局遊戲裡。']);
@@ -329,7 +338,8 @@ describe('citadels/turns: 叫號', () => {
     const board = boards(first.events).at(-1)!;
     expect(board.ref).toBe(`citadels:${first.state.seq}`);
     expect(board.text).toContain('第 1 輪');
-    expect(board.text).toContain('🦹 盜賊 <@p1>');
+    expect(board.text.split('\n')[0]).toBe('*👉 現在輪到：<@p1>（2 號 🦹 盜賊）⏳ 90 秒*');
+    expect(board.text).toContain('已翻開：🦹 盜賊 {{name:p1}}');
     expect(board.text).toContain('沒有人是 1 號 🗡️ 刺客');
     expect(board.options).toEqual([
       { value: `turnMenu:${first.state.seq}`, label: '🏰 我的回合' },
@@ -354,18 +364,25 @@ describe('citadels/turns: 叫號', () => {
   it('牌桌訊息：王冠、已翻開的角色、每人金幣手牌城市，不透露手牌內容', () => {
     const { events } = calling([2, 4, 6, 7], { hands: [['castle'], [], [], []], cities: [[], ['tavern'], [], []], crown: 1 });
     const text = boards(events).at(-1)!.text;
-    expect(text).toContain('👑 王冠：<@p2>');
-    expect(text).toContain('<@p1>：💰 2 金｜🃏 1 張｜🏘️ 0 棟');
-    expect(text).toContain('<@p2>：💰 2 金｜🃏 0 張｜🏘️ 1 棟：🟢 酒館（1）');
+    expect(text).toContain('👑 王冠：{{name:p2}}');
+    expect(text).toContain('👉 • {{name:p1}}：💰 2 金｜🃏 1 張｜🏘️ 0 棟');
+    expect(text).toContain('\n• {{name:p2}}：💰 2 金｜🃏 0 張｜🏘️ 1 棟：🟢 酒館（1）');
     expect(text).not.toContain('城堡');
     expect(text).not.toMatch(/國王|商人|建築師/);
+  });
+
+  it('牌桌訊息只有第一行 @ 輪到的人，其他人只顯示名字', () => {
+    const { events } = calling([2, 4, 6, 7], { crown: 1 });
+    const text = boards(events).at(-1)!.text;
+    expect(text.match(/<@/g)).toHaveLength(1);
+    for (const p of ['p1', 'p2', 'p3', 'p4']) expect(text).toContain(`{{name:${p}}}`);
   });
 
   it('回合結束：牌桌訊息改成回合結束、沒有按鈕，下一則用新的 ref', () => {
     const s = gatherGold(calling([2, 4, 6, 7]).state).state;
     const { state, events } = run([{ type: 'end', user: 'p1', seq: s.seq }], s);
     const old = boards(events).find((b) => b.ref === `citadels:${s.seq}`)!;
-    expect(old.text).toContain('回合結束');
+    expect(old.text).toBe('✅ 第 1 輪 2 號 🦹 盜賊 {{name:p1}} 的回合結束');
     expect(old.options).toEqual([]);
     expect(boards(events).at(-1)!.ref).toBe(`citadels:${state.seq}`);
     expect(state.seq).toBe(s.seq + 1);
@@ -386,6 +403,34 @@ describe('citadels/turns: 回合選單', () => {
     const s = gatherGold(calling([4, 5, 6, 7], { hands: [['tavern'], [], [], []] }).state).state;
     const { events } = run([{ type: 'turnMenu', user: 'p1', seq: s.seq }], s);
     expect(labels(events, 'p1')).toEqual(['🔨 建造', '💰 收稅', '✅ 結束回合']);
+  });
+
+  it('選單列出自己的城市：收集前、收集後、沒有建築時', () => {
+    const s = calling([2, 4, 6, 7], { cities: [['castle', 'market'], [], [], []] }).state;
+    const city = '🏘️ 你的城市（2 棟）：🟡 城堡（4）、🟢 市集（2）';
+    expect(menuOf(run([{ type: 'turnMenu', user: 'p1', seq: s.seq }], s).events, 'p1')!.text).toContain(city);
+    const g = gatherGold(s).state;
+    expect(menuOf(run([{ type: 'turnMenu', user: 'p1', seq: g.seq }], g).events, 'p1')!.text).toContain(city);
+    const empty = calling([2, 4, 6, 7]).state;
+    expect(menuOf(run([{ type: 'turnMenu', user: 'p1', seq: empty.seq }], empty).events, 'p1')!.text).toContain('🏘️ 你的城市（0 棟）：（還沒有建築）');
+  });
+
+  it('選單列出場上一覽，不 @ 人', () => {
+    const s = calling([2, 4, 6, 7], { cities: [[], ['tavern', 'market'], [], []], hands: [[], ['castle', 'temple', 'manor'], [], []] }).state;
+    s.players[1].gold = 5;
+    for (const st of [s, gatherGold(s).state]) {
+      const text = menuOf(run([{ type: 'turnMenu', user: 'p1', seq: st.seq }], st).events, 'p1')!.text;
+      expect(text).toContain('👥 場上：');
+      expect(text).toContain('• {{name:p2}}：💰 5 金｜🃏 3 張｜🏘️ 2 棟');
+      expect(text).not.toContain('<@');
+    }
+  });
+
+  it('建造清單也列出自己的城市', () => {
+    const s = gatherGold(calling([2, 4, 6, 7], { cities: [['market'], [], [], []], hands: [['tavern'], [], [], []] }).state).state;
+    const text = menuOf(run([{ type: 'turnMenu', user: 'p1', seq: s.seq, sub: 'build' }], s).events, 'p1')!.text;
+    expect(text).toContain('🏘️ 你的城市（1 棟）：🟢 市集（2）');
+    expect(text).toContain('🔨 要建哪一棟？');
   });
 
   it('不是輪到的人被拒；過期選單被拒', () => {
