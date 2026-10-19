@@ -135,11 +135,12 @@ export type GameEvent =
   | { type: 'dm'; to: string; text: string }
   | { type: 'wolfChat'; wolves: string[]; text: string }
   | { type: 'lobby'; host: string; players: string[]; open: boolean; title?: string } // title 沒寫就是狼人殺
-  | { type: 'prompt'; kind: string; audience: 'channel' | 'wolves' | 'user' | 'ephemeral'; user?: string; text: string; options: Option[]; perRow?: number; ref?: string } // ref：頻道 prompt 帶同一個 ref 時更新同一則訊息
+  | { type: 'prompt'; kind: string; audience: 'channel' | 'wolves' | 'user' | 'ephemeral'; user?: string; text: string; options: Option[]; perRow?: number; ref?: string; images?: { url: string; title: string }[] } // ref：頻道 prompt 帶同一個 ref 時更新同一則訊息；images：文字和按鈕之間的圖片
   | { type: 'modal'; to: string; kind: string; title: string; label: string; fields?: string[] } // 按鈕開的 Slack 視窗，送出後變成遊戲 action；fields 是多個輸入欄的標籤
   | { type: 'startTimer'; id: number; ms: number }
   | { type: 'gameRecord'; winner: 'good' | 'wolves'; players: { id: string; role: Role }[] }
   | { type: 'result'; players: string[]; winners: string[]; score?: number } // 狼人殺以外的遊戲正常結束：誰參加、誰贏；合作遊戲帶分數、沒有勝者
+  | { type: 'crewProgress'; unlocked: number } // 星際探險隊：把頻道已解鎖的最高關卡寫進檔案
 
 export type Rng = () => number;
 

@@ -3,6 +3,7 @@ import { applyAction, isBot, MAX_PLAYERS, mention, RULES_URL, type Action, type 
 import { GIFS } from './gifs.js';
 import { checkImage, LIBRARY_COMMANDS, memeLibraryCommand } from './memeLibrary.js';
 import type { MemeStore } from './memeStore.js';
+import type { CrewStore } from './crewStore.js';
 import { formatLeaderboard, formatStats, formatSummary, type StatsStore } from './stats.js';
 import { GAMES, type GameKind, type StateOf } from './games/index.js';
 import { WIKI, type GameDef } from './games/types.js';
@@ -35,6 +36,7 @@ export interface HostOptions {
   setTimer?: (fn: () => void, ms: number) => void;
   respond?: (url: string, payload: object) => Promise<void>; // 用按鈕的 response_url 換掉 ephemeral 訊息
   memes?: MemeStore; // 梗圖大亂鬥的頻道梗圖庫
+  crew?: CrewStore; // 星際探險隊的頻道戰役進度
   checkImage?: (url: string) => Promise<boolean>; // 投稿梗圖時確認網址是圖片
 }
 
@@ -188,6 +190,7 @@ export class GameHost {
   private gifs: Partial<Record<GifKey, string[]>>;
   private stats?: StatsStore;
   private memes?: MemeStore;
+  private crew?: CrewStore;
   private checkImage: (url: string) => Promise<boolean>;
   private setTimer: (fn: () => void, ms: number) => void;
   private respond: (url: string, payload: object) => Promise<void>;
@@ -200,6 +203,7 @@ export class GameHost {
     this.gifs = opts.gifs ?? GIFS;
     this.stats = opts.stats;
     this.memes = opts.memes;
+    this.crew = opts.crew;
     this.checkImage = opts.checkImage ?? checkImage;
     this.setTimer = opts.setTimer ?? ((fn, ms) => void setTimeout(fn, ms));
     this.respond = opts.respond ?? postJson;
@@ -299,7 +303,8 @@ export class GameHost {
 
   dispatchGame(kind: OtherKind, channel: string, action: { type: string }, triggerId?: string): Promise<void> {
     const def = DEFS[kind];
-    if (kind === 'meme' && action.type === 'start') action = { ...action, custom: this.memes?.list(channel) ?? [] } as typeof action; // 開局時帶入頻道的投稿梗圖
+    if (['meme', 'dixit'].includes(kind) && action.type === 'start') action = { ...action, custom: this.memes?.list(channel) ?? [] } as typeof action; // 開局時帶入頻道的投稿梗圖
+    if (kind === 'crew' && (action.type === 'new' || action.type === 'level')) action = { ...action, unlocked: this.crew?.get(channel) ?? 1 } as typeof action; // 帶入頻道已解鎖的關卡
     const states = this.states.get(kind)!;
     const prev = states.get(channel);
     const { state, events } = def.apply(prev, action, this.rng);
@@ -449,6 +454,9 @@ export class GameHost {
       case 'gameRecord':
         this.stats?.record(channel, e.winner, e.players);
         return;
+      case 'crewProgress':
+        this.crew?.set(channel, e.unlocked);
+        return;
       case 'result':
         // 有 bot 參加的局不記錄
         if (kind !== 'werewolf' && !e.players.some(isBot)) this.stats?.recordMatch(channel, kind, e.players, e.winners, e.score);
@@ -474,10 +482,23 @@ export class GameHost {
         const elements = e.options.map((o, i) => button(e.kind, i, this.label(o.label), channel, o.value));
         const size = e.perRow ?? elements.length;
         const rows = Array.from({ length: Math.ceil(elements.length / size) }, (_, r) => elements.slice(r * size, r * size + size));
-        const blocks = [{ type: 'section', text: { type: 'mrkdwn', text: e.text } }, ...rows.map((row) => ({ type: 'actions', elements: row }))];
+        const actions = rows.map((row) => ({ type: 'actions', elements: row }));
+        const images = (e.images ?? []).map((img) => ({ type: 'image', image_url: img.url, alt_text: img.title, title: { type: 'plain_text', text: img.title } }));
+        const blocks = [{ type: 'section', text: { type: 'mrkdwn', text: e.text } }, ...images, ...actions];
+        // 圖片壞掉時 Slack 會拒絕整則訊息：改發文字版，依編號附上圖片網址，按鈕照常
+        const withImages = async (send: (text: string, blocks: unknown[]) => Promise<any>) => {
+          if (!images.length) return send(e.text, blocks);
+          try {
+            return await send(e.text, blocks);
+          } catch (err) {
+            console.error('[werewolf] image prompt failed', err);
+            const text = [e.text, ...e.images!.map((img) => `${img.title}. ${img.url}`)].join('\n');
+            return send(text, [{ type: 'section', text: { type: 'mrkdwn', text } }, ...actions]);
+          }
+        };
         // 只讓某人看到的按鈕選單（例如花火的給提示）
         if (e.audience === 'ephemeral') {
-          await chat.postEphemeral({ channel, user: e.user!, text: e.text, blocks });
+          await withImages((text, blocks) => chat.postEphemeral({ channel, user: e.user!, text, blocks }));
           return;
         }
         const target =
@@ -485,10 +506,10 @@ export class GameHost {
         if (!target) return;
         const saved = e.audience === 'channel' && e.ref ? this.promptTs.get(channel) : undefined;
         if (saved && saved.ref === e.ref) {
-          await chat.update({ channel, ts: saved.ts, text: e.text, blocks });
+          await withImages((text, blocks) => chat.update({ channel, ts: saved.ts, text, blocks }));
           return;
         }
-        const res = await chat.postMessage({ channel: target, text: e.text, blocks });
+        const res = await withImages((text, blocks) => chat.postMessage({ channel: target, text, blocks }));
         if (e.audience === 'channel' && e.ref) this.promptTs.set(channel, { ref: e.ref, ts: res.ts });
         return;
       }
@@ -544,7 +565,7 @@ export class GameHost {
         return;
       case 'lobby': {
         const title = e.title ?? '狼人殺';
-        const rules = `${WIKI}/${encodeURI(`${title}-遊戲規則`)}`;
+        const rules = `${WIKI}/${encodeURI(`${title.replaceAll(' ', '-')}-遊戲規則`)}`;
         const text = `${title}房間（房主 ${mention(e.host)}）\n玩家（${e.players.length}/${MAX_PLAYERS}）：${e.players.map(mention).join(' ')}\n📖 第一次玩？先看 <${rules}|${title}遊戲規則>`;
         const blocks: unknown[] = [{ type: 'section', text: { type: 'mrkdwn', text } }];
         if (e.open) {

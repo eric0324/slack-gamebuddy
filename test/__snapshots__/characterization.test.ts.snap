@@ -428,6 +428,23 @@ exports[`重構安全網 > 大廳四個分類 1`] = `
       "type": "section",
     },
     {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:30",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|crew",
+      },
+      "text": {
+        "text": "🚀 *星際探險隊* （ \`crew\` ）3～5 人
+合作吃墩：不能討論手牌，靠出牌和一次通訊讓指定的人吃下任務牌，一關一關往第九行星前進",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
       "elements": [
         {
           "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
@@ -675,6 +692,74 @@ exports[`重構安全網 > 大廳四個分類 1`] = `
       "type": "section",
     },
     {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:26",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|incan",
+      },
+      "text": {
+        "text": "💎 *印加寶藏* （ \`incan\` ）3～8 人
+一張張翻探險卡，大家同時決定繼續挖寶還是帶寶石回營地，同種危險出現兩次就泡湯，5 座神殿後寶石最多的人贏",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:27",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|dixit",
+      },
+      "text": {
+        "text": "🎨 *妙語說書人* （ \`dixit\` ）3～8 人
+說書人看自己的梗圖給一句提示，大家出牌混淆，再猜哪張是說書人的",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:28",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|citadels",
+      },
+      "text": {
+        "text": "🏛️ *富饒之城* （ \`citadels\` ）4～7 人
+每輪祕密選角色，刺殺、偷竊、破壞，拚先蓋好 8 棟建築的城市",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:29",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|emoji",
+      },
+      "text": {
+        "text": "🔗 *Emoji 傳話* （ \`emoji\` ）4～10 人
+文字用 emoji 演、emoji 用文字猜，傳一圈看題目怎麼走鐘，再投票選最佳作品",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
       "elements": [
         {
           "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
@@ -708,6 +793,16 @@ exports[`重構安全網 > 每款遊戲的指令說明 1`] = `
 • \`/game chameleon cancel\` ：取消遊戲（房主）
 投票抓變色龍用頻道按鈕；每一步都是 2 分鐘
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "citadels": "*富饒之城指令*
+• \`/game citadels new\` ：開房（任何人）
+• \`/game citadels addbot [數量]\` ：加入 bot 補人數（房主，開始前）
+• \`/game citadels removebot [數量]\` ：移除 bot（房主，開始前）
+• \`/game citadels start\` ：開始遊戲，需要 4～7 人（房主）
+• \`/game citadels cancel\` ：取消遊戲（房主）
+• 「🎭 選角色」：輪到你選角時按，私下選這輪的角色（45 秒）
+• 「🏰 我的回合」：叫到你的角色時按，收集資源、用能力、建造、結束回合（90 秒）
+• 「📜 我的狀態」：隨時私下看自己的手牌、金幣、角色和城市
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
   "cockroach": "*蟑螂撲克指令*
 • \`/game cockroach new\` ：開房（任何人）
 • \`/game cockroach addbot [數量]\` ：加入 bot 補人數（房主，開始前）
@@ -732,6 +827,17 @@ exports[`重構安全網 > 每款遊戲的指令說明 1`] = `
 • \`/game coup cancel\` ：取消遊戲（房主）
 行動、選目標、質疑、阻擋都用頻道按鈕；翻牌和大使交換用私訊按鈕
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "crew": "*星際探險隊指令*
+• \`/game crew new\` ：開房（任何人），預設打這個頻道已解鎖的最高關
+• \`/game crew start\` ：開始遊戲，需要 3～5 人（房主），不支援 bot
+• \`/game crew level\` ：查看這個頻道已解鎖的關卡（任何人）
+• \`/game crew level <n>\` ：改打第 n 關，只能選已解鎖的（房主，開始前）
+• \`/game crew reset\` ：重設這個頻道的進度，要再按一次確認（房主，開始前）
+• \`/game crew cancel\` ：取消遊戲（房主）
+• 出牌：按牌桌訊息的「🃏 手牌」，輪到你時選一張合法的牌；每墩開始前 10 秒是通訊時間，不能出牌
+• 通訊：每人每關一次，在這墩第一張牌打出前按「📡 通訊」公開一張某色最大、最小或唯一的牌（火箭不行）
+🤫 請不要在頻道討論手牌，只靠出牌和通訊溝通
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki/%E6%98%9F%E9%9A%9B%E6%8E%A2%E9%9A%AA%E9%9A%8A-%E6%8C%87%E4%BB%A4|指令>、<https://github.com/eric0324/slack-gamebuddy/wiki/%E6%98%9F%E9%9A%9B%E6%8E%A2%E9%9A%AA%E9%9A%8A-%E9%81%8A%E6%88%B2%E8%A6%8F%E5%89%87|遊戲規則>",
   "criminal": "*犯人在跳舞指令*
 • \`/game criminal new\` ：開房（任何人）
 • \`/game criminal addbot [數量]\` ：加入 bot 補人數（房主，開始前）
@@ -749,6 +855,23 @@ exports[`重構安全網 > 每款遊戲的指令說明 1`] = `
 • \`/game decrypto cancel\` ：取消遊戲（房主）
 解碼、攔截、提示紀錄都用頻道按鈕
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "dixit": "*妙語說書人指令*
+• \`/game dixit new\` ：開房（任何人）
+• \`/game dixit start\` ：開始遊戲，需要 3～8 位真人（房主）
+• \`/game dixit clue <編號> <提示>\` ：說書人用手牌第幾張給提示（1～50 字），和在「🃏 我的手牌」選牌再輸入提示一樣
+• \`/game dixit cancel\` ：取消遊戲（房主）
+按「🃏 我的手牌」看自己的牌（只有自己看得到）：說書人在這裡選牌給提示，其他人在這裡出牌
+說書人給一句提示，其他人出一張最符合的牌混進去，大家匿名猜哪張是說書人的；全部猜對或全部沒猜對時說書人 0 分，有人到 20 分或牌庫不夠補牌時結束
+牌來自梗圖大亂鬥的梗圖庫，可以用 \`/game meme add <圖片網址>\` 投稿到這個頻道
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "emoji": "*Emoji 傳話指令*
+• \`/game emoji new\` ：開房（任何人）
+• \`/game emoji start\` ：開始遊戲，需要 4～10 位真人（房主）
+• \`/game emoji send <內容>\` ：作答，和按「✍️ 作答」一樣；🎨 emoji 步只能用 emoji（可以貼 emoji 或打 \`:shortcode:\` ，可以有空白，最多 20 個），🧠 猜測步寫 1～30 字；截止前可以重送
+• \`/game emoji cancel\` ：取消遊戲（房主）
+• \`/game emoji help\` ：看這份說明
+每人拿一個題目當鏈的起點，文字用 emoji 演、emoji 用文字猜，傳一圈後公布每條鏈；接著投「🎨 最佳 emoji」和「🧠 最神猜測」，每得 1 票 +1 分，總分最高的人獲勝
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
   "hanabi": "*花火指令*
 • \`/game hanabi new\` ：開房（任何人）
 • \`/game hanabi start\` ：開始遊戲，需要 2～5 位真人（房主）
@@ -765,6 +888,14 @@ exports[`重構安全網 > 每款遊戲的指令說明 1`] = `
 • \`/game herd done\` ：合併完成，開始計分（房主）
 • \`/game herd cancel\` ：取消遊戲（房主）
 跟最多人一樣的那組每人 +1；唯一一個單獨答案的人拿到 🐮 粉紅牛。先到 8 分且沒有粉紅牛的人獲勝，最多 15 題
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "incan": "*印加寶藏指令*
+• \`/game incan new\` ：開房（任何人）
+• \`/game incan addbot [數量]\` ：加入 bot 補人數（房主，開始前）
+• \`/game incan removebot [數量]\` ：移除 bot（房主，開始前）
+• \`/game incan start\` ：開始遊戲，需要 3～8 人（房主）
+• \`/game incan cancel\` ：取消遊戲（房主）
+每一步按步驟訊息上的「🔦 繼續探險」或「⛺ 回營地」（30 秒，揭曉前可以改；沒選視為回營地）
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
   "insider": "*圈內人指令*
 • \`/game insider new\` ：開房（任何人）
@@ -935,6 +1066,11 @@ exports[`重構安全網 > 遊戲清單文字和預設大廳 1`] = `
 • 💣 *炸彈貓* （ \`kittens\` ）：2～5 人，開房 \`/game kittens new\`
 • 🕺 *犯人在跳舞* （ \`criminal\` ）：3～8 人，開房 \`/game criminal new\`
 • 💰 *猜猜看* （ \`wager\` ）：3～10 人（不支援 bot），開房 \`/game wager new\`
+• 💎 *印加寶藏* （ \`incan\` ）：3～8 人，開房 \`/game incan new\`
+• 🎨 *妙語說書人* （ \`dixit\` ）：3～8 人（不支援 bot），開房 \`/game dixit new\`
+• 🏛️ *富饒之城* （ \`citadels\` ）：4～7 人，開房 \`/game citadels new\`
+• 🔗 *Emoji 傳話* （ \`emoji\` ）：4～10 人（不支援 bot），開房 \`/game emoji new\`
+• 🚀 *星際探險隊* （ \`crew\` ）：3～5 人（不支援 bot），開房 \`/game crew new\`
 各遊戲的指令： \`/game <遊戲代號> help\` ，例如 \`/game liarsdice help\`
 📊 戰績： \`/game stats [@某人]\` ；排行榜： \`/game rank [遊戲代號]\`
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>"
