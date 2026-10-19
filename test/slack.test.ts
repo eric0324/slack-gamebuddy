@@ -101,7 +101,7 @@ describe('Slack：指令與房間', () => {
     expect(post.args.channel).toBe('C1');
     expect(post.args.text).toContain('<@U1>');
     const ids = buttonsOf(post).map((b: any) => b.action_id);
-    expect(ids).toEqual(['ww:join:0', 'ww:leave:1', 'ww:start:2']);
+    expect(ids).toEqual(['ww:join:0', 'ww:leave:1', 'ww:start:2', 'ww:addbot:3', 'ww:removebot:4']);
   });
 
   it('按「加入」會更新同一則房間公告', async () => {
@@ -385,7 +385,7 @@ describe('Slack：再來一局', () => {
     expect(host.games.get('C1')).toMatchObject({ phase: 'lobby', host: 'U1' });
     const lobby = calls.at(-1)!;
     expect(lobby.method).toBe('chat.postMessage');
-    expect(buttonsOf(lobby).map((b: any) => b.action_id)).toEqual(['ww:join:0', 'ww:leave:1', 'ww:start:2']);
+    expect(buttonsOf(lobby).map((b: any) => b.action_id)).toEqual(['ww:join:0', 'ww:leave:1', 'ww:start:2', 'ww:addbot:3', 'ww:removebot:4']);
   });
 });
 
@@ -2364,5 +2364,66 @@ describe('game-lobby: 名稱有空格的遊戲', () => {
     await host.game('C1', 'U1', 'alice', 'emoji new');
     const lobby = calls.find((c) => c.method === 'chat.postMessage' && c.args.text?.includes('Emoji 傳話房間'))!;
     expect(lobby.args.text).toContain(encodeURI('Emoji-傳話-遊戲規則'));
+  });
+});
+
+describe('game-lobby: 房間公告的人數上限與 bot 按鈕', () => {
+  const lobbyOf = (calls: Call[]) => calls.filter((c) => (c.method === 'chat.postMessage' || c.method === 'chat.update') && c.args.text?.includes('房間（房主')).at(-1)!;
+  const labels = (calls: Call[]) => buttonsOf(lobbyOf(calls)).map((b: any) => b.text.text);
+  const press = (host: GameHost, what: string, user = 'U1') => host.button(`ww:${what}:3`, `C1|${what}`, user, user === 'U1' ? 'alice' : 'bob');
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+
+  it('人數上限用這款遊戲自己的上限', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', 'incan new');
+    expect(lobbyOf(calls).args.text).toContain('玩家（1/8）');
+    const w = setup();
+    await w.host.command('C1', 'U1', 'alice', 'new');
+    expect(lobbyOf(w.calls).args.text).toContain('玩家（1/12）');
+  });
+
+  it('支援 bot 的遊戲（含狼人殺）有「🤖 +」「🤖 -」，不支援的沒有', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', 'incan new');
+    expect(labels(calls)).toEqual(['加入', '離開', '開始遊戲', '🤖 +', '🤖 -']);
+    const w = setup();
+    await w.host.command('C1', 'U1', 'alice', 'new');
+    expect(labels(w.calls)).toEqual(['加入', '離開', '開始遊戲', '🤖 +', '🤖 -']);
+    const g = setup();
+    await g.host.game('C1', 'U1', 'alice', 'wager new');
+    expect(labels(g.calls)).toEqual(['加入', '離開', '開始遊戲']);
+  });
+
+  it('房主按 🤖 + 加一個 bot、按 🤖 - 移除最後加入的 bot，公告跟著更新', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', 'incan new');
+    await press(host, 'addbot');
+    await press(host, 'addbot');
+    const bots = host.state('incan', 'C1')!.players.map((p: any) => p.id).filter((id: string) => id.startsWith('bot:'));
+    expect(bots).toHaveLength(2);
+    expect(lobbyOf(calls).args.text).toContain('玩家（3/8）');
+    await press(host, 'removebot');
+    expect(host.state('incan', 'C1')!.players.map((p: any) => p.id)).toEqual(['U1', bots[0]]);
+  });
+
+  it('狼人殺的 bot 按鈕也能用', async () => {
+    const { host, calls } = setup();
+    await host.command('C1', 'U1', 'alice', 'new');
+    await press(host, 'addbot');
+    expect(lobbyOf(calls).args.text).toContain('玩家（2/12）');
+  });
+
+  it('非房主被拒；房間已滿、沒有 bot 沿用指令的提示', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', 'incan new');
+    await host.button('ww:join:0', 'C1|join', 'U2', 'bob');
+    await press(host, 'addbot', 'U2');
+    expect(lastEph(calls)).toMatchObject({ user: 'U2', text: '只有房主可以加入 bot。' });
+    await press(host, 'removebot');
+    expect(lastEph(calls)).toMatchObject({ user: 'U1', text: '房間裡沒有 bot。' });
+    await host.game('C1', 'U1', 'alice', 'incan addbot 6');
+    await press(host, 'addbot');
+    expect(lastEph(calls)).toMatchObject({ user: 'U1', text: '房間已滿。' });
+    expect(host.state('incan', 'C1')!.players).toHaveLength(8);
   });
 });

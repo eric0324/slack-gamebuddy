@@ -338,6 +338,7 @@ export class GameHost {
       return this.isOther(game) ? this.play(game, channel, user, 'new') : Promise.resolve();
     }
     const last = this.lastKind.get(channel);
+    if (kind === 'addbot' || kind === 'removebot') return this.isOther(last) ? this.play(last, channel, user, kind) : this.command(channel, user, userName, kind); // 房間公告的 bot 按鈕等同輸入指令
     if (this.isOther(last)) {
       const action = DEFS[last].button(kind, value.slice(sep + 1), user, channel);
       return action ? this.dispatchGame(last, channel, action, triggerId) : Promise.resolve();
@@ -566,13 +567,16 @@ export class GameHost {
       case 'lobby': {
         const title = e.title ?? '狼人殺';
         const rules = `${WIKI}/${encodeURI(`${title.replaceAll(' ', '-')}-遊戲規則`)}`;
-        const text = `${title}房間（房主 ${mention(e.host)}）\n玩家（${e.players.length}/${MAX_PLAYERS}）：${e.players.map(mention).join(' ')}\n📖 第一次玩？先看 <${rules}|${title}遊戲規則>`;
+        const def = kind === 'werewolf' ? undefined : DEFS[kind];
+        const max = def ? Number(def.players.match(/(\d+) 人/)![1]) : MAX_PLAYERS; // 遊戲清單人數範圍的最大值
+        const text = `${title}房間（房主 ${mention(e.host)}）\n玩家（${e.players.length}/${max}）：${e.players.map(mention).join(' ')}\n📖 第一次玩？先看 <${rules}|${title}遊戲規則>`;
         const blocks: unknown[] = [{ type: 'section', text: { type: 'mrkdwn', text } }];
         if (e.open) {
           const elements = [
             button('join', 0, '加入', channel, 'join'),
             button('leave', 1, '離開', channel, 'leave'),
             { ...button('start', 2, '開始遊戲', channel, 'start'), style: 'primary' },
+            ...(def?.noBots ? [] : [button('addbot', 3, '🤖 +', channel, 'addbot'), button('removebot', 4, '🤖 -', channel, 'removebot')]),
           ];
           blocks.push({ type: 'actions', elements });
         }
