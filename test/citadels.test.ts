@@ -670,7 +670,7 @@ describe('citadels/turns: 魔術師', () => {
     const text = announces(events).join();
     expect(text).toContain('<@p1> 和 <@p2> 交換手牌');
     expect(text).not.toMatch(/酒館|城堡/);
-    expect(ephemeralTo(events, 'p1').join()).toContain('城堡');
+    expect(menuOf(events, 'p1')!.text).toContain('🔄 交換後你的手牌：\n🟡 城堡');
     expect(ephemeralTo(events, 'p2').join()).toContain('酒館');
     expect(labels(run([{ type: 'turnMenu', user: 'p1', seq: s.seq }], state).events, 'p1')).toEqual(['🔨 建造', '✅ 結束回合']);
   });
@@ -745,7 +745,7 @@ describe('citadels/turns: 商人與建築師', () => {
     const s = until(calling([2, 4, 6, 7], { deck: ['castle', 'tavern', 'manor', 'palace', 'temple'], gold: [2, 2, 2, 20] }).state, 'p4');
     const drew = run([{ type: 'gather', user: 'p4', seq: s.seq, kind: 'draw' }, { type: 'keep', user: 'p4', seq: s.seq, card: 'castle' }], s);
     expect(P(drew.state, 'p4').hand).toEqual(['castle', 'manor', 'palace']);
-    expect(ephemeralTo(drew.events, 'p4').join()).toContain('🟡 莊園（3）');
+    expect(menuOf(drew.events, 'p4')!.text).toContain('📐 你多抽到 🟡 莊園（3）');
     let st = run([{ type: 'gather', user: 'p4', seq: s.seq, kind: 'draw' }, { type: 'keep', user: 'p4', seq: s.seq, card: 'castle' }], s).state;
     for (const card of ['castle', 'manor', 'palace']) st = run([{ type: 'build', user: 'p4', seq: s.seq, card }], st).state;
     expect(P(st, 'p4').city).toHaveLength(3);
@@ -1243,5 +1243,61 @@ describe('citadels/setup: 遊戲清單與指令說明（GameDef）', () => {
     expect(b('citadels', 'build:3:spaceship')).toBeNull();
     expect(b('citadels', 'turnMenu:3:fly')).toBeNull();
     expect(b('coup', 'status')).toBeNull();
+  });
+});
+
+describe('citadels/turns: 回合面板', () => {
+  const ephs = (events: GameEvent[], user: string) => events.filter((e) => e.type === 'ephemeral' && e.to === user) as Extract<GameEvent, { type: 'ephemeral' }>[];
+
+  it('拿金後面板自動換成回合選單，取代原面板，不另外發私下文字', () => {
+    const s = calling([2, 4, 6, 7]).state;
+    const { events } = run([{ type: 'gather', user: 'p1', seq: s.seq, kind: 'gold' }], s);
+    const m = menuOf(events, 'p1')!;
+    expect(m.options.map((o) => o.label)).toEqual(['🦹 偷竊', '✅ 結束回合']);
+    expect(m.replace).toBe(true);
+    expect(ephs(events, 'p1')).toEqual([]);
+  });
+
+  it('選偷竊目標：面板換成目標清單，偷完換回沒有偷竊的回合選單', () => {
+    const s = gatherGold(calling([2, 4, 6, 7]).state).state;
+    const targets = menuOf(run([{ type: 'turnMenu', user: 'p1', seq: s.seq, sub: 'rob' }], s).events, 'p1')!;
+    expect(targets.replace).toBe(true);
+    expect(targets.options.map((o) => o.label)).toContain('5 ⛪ 主教');
+    const { events } = run([{ type: 'rob', user: 'p1', seq: s.seq, rank: 5 }], s);
+    expect(labels(events, 'p1')).toEqual(['✅ 結束回合']);
+  });
+
+  it('私下資訊併進選單開頭：建築師多抽到的牌', () => {
+    const s = until(calling([2, 4, 6, 7], { deck: ['castle', 'tavern'] }).state, 'p4');
+    const { events } = run([{ type: 'gather', user: 'p4', seq: s.seq, kind: 'gold' }], s);
+    expect(menuOf(events, 'p4')!.text.startsWith('📐 你多抽到 🟡 城堡（4）、🟢 酒館（1）。\n')).toBe(true);
+    expect(ephs(events, 'p4')).toEqual([]);
+  });
+
+  it('逾時時私下資訊照常另外告訴本人', () => {
+    const s = until(calling([2, 4, 6, 7], { deck: ['castle', 'tavern'] }).state, 'p4');
+    expect(ephemeralTo(fire(s).events, 'p4').join()).toContain('📐 你多抽到 🟡 城堡（4）、🟢 酒館（1）。');
+  });
+
+  it('結束回合：面板變成「✅ 你的回合結束了」', () => {
+    const s = gatherGold(calling([2, 4, 6, 7]).state).state;
+    const { events } = run([{ type: 'end', user: 'p1', seq: s.seq }], s);
+    expect(ephs(events, 'p1')).toEqual([{ type: 'ephemeral', to: 'p1', text: '✅ 你的回合結束了', replace: true }]);
+  });
+
+  it('錯誤訊息也取代面板', () => {
+    const s = gatherGold(calling([2, 4, 6, 7]).state).state;
+    expect(ephs(run([{ type: 'gather', user: 'p1', seq: s.seq, kind: 'gold' }], s).events, 'p1')).toEqual([{ type: 'ephemeral', to: 'p1', text: STALE, replace: true }]);
+  });
+
+  it('等墓地主人決定時，面板顯示等待訊息', () => {
+    const s = warlordOf({ cities: [[], ['castle'], ['graveyard'], []], gold: [2, 2, 2, 8] });
+    const { events } = run([{ type: 'destroy', user: 'p4', seq: s.seq, target: 'p2', card: 'castle' }], s);
+    expect(ephs(events, 'p4')).toEqual([{ type: 'ephemeral', to: 'p4', text: '⚰️ 正在等 {{name:p3}} 決定要不要用墓地，決定後再按牌桌的「🏰 我的回合」繼續', replace: true }]);
+  });
+
+  it('選角後「你選了」取代選角選單', () => {
+    const { events } = run([{ type: 'pick', user: 'p4', rank: 7 }], started(4).state);
+    expect(ephs(events, 'p4')).toEqual([{ type: 'ephemeral', to: 'p4', text: '你選了 📐 建築師。', replace: true }]);
   });
 });

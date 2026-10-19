@@ -1,6 +1,6 @@
 // 富饒之城（Citadels 經典版）遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyCitadels(state, action, rng) → { state, events }。
 import { isBot, mention, quiet, type GameEvent, type Rng } from './engine.js';
-import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
+import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, runGame, shuffle, startTimer } from './common.js';
 import { CHARS, COLORS, DECK, DISTRICTS, districtInfo, districtLabel, RANKS, type Rank } from './citadelsCards.js';
 
 export const MIN_CITADELS_PLAYERS = 4;
@@ -92,20 +92,28 @@ export type CAction =
 
 type GameAction = Exclude<CAction, { type: 'new' } | { type: 'rematch' }>;
 type Result = { state: CState; events: GameEvent[] };
-type Ctx = { s: CState; events: GameEvent[]; rng: Rng };
+type Ctx = { s: CState; events: GameEvent[]; rng: Rng; notice?: { to: string; text: string }[] }; // notice：要併進下一步選單的私下資訊
 
 const NOT_PLAYER = '你不在這局遊戲裡。';
 const NOT_YET = '還沒輪到你。';
 const STALE = '這個選單已經過期，請重新按「🏰 我的回合」。';
 
 const find = (s: CState, id: string) => s.players.find((p) => p.id === id);
-// 只對真人送私下訊息（bot 不需要）
+// 只對真人送私下訊息（bot 不需要）；replace：在私下選單上按的，回應取代那則選單
 const tell = (c: Ctx, to: string, text: string) => {
-  if (!isBot(to)) c.events.push({ type: 'ephemeral', to, text });
+  if (!isBot(to)) c.events.push({ type: 'ephemeral', to, text, replace: true });
 };
+const reply = (c: Ctx, to: string, text: string) => (tell(c, to, text), false);
 const menu = (c: Ctx, user: string, text: string, options: { value: string; label: string }[]) => {
-  if (!isBot(user)) c.events.push({ type: 'prompt', kind: 'citadels', audience: 'ephemeral', user, text, options, perRow: 4 });
+  if (!isBot(user)) c.events.push({ type: 'prompt', kind: 'citadels', audience: 'ephemeral', user, text, options, perRow: 4, replace: true });
 };
+// 只讓本人知道的資訊：先存起來，放在下一步選單的開頭
+const note = (c: Ctx, to: string, text: string) => void (c.notice ??= []).push({ to, text });
+function takeNotice(c: Ctx, user: string) {
+  const mine = (c.notice ?? []).filter((n) => n.to === user);
+  c.notice = (c.notice ?? []).filter((n) => n.to !== user);
+  return mine.map((n) => n.text);
+}
 const current = (s: CState) => s.players[s.turn!.player];
 const holder = (s: CState, r: Rank) => s.players.findIndex((p) => p.char === r);
 const has = (p: CPlayer, card: string) => p.city.some((x) => x.card === card);
@@ -376,7 +384,7 @@ function turnMenu(c: Ctx, user: string, seq: number, sub?: Sub): boolean {
     ...(canSmithy(s) ? [o('smithy', '⚒️ 鐵匠鋪')] : []),
     o('end', '✅ 結束回合'),
   ];
-  menu(c, user, `🏰 你的回合（${CHARS[me.char!].name}）｜💰 ${me.gold} 金｜🃏 ${me.hand.length} 張\n${myCity(me)}\n${overview(s)}`, options);
+  menu(c, user, [...takeNotice(c, user), `🏰 你的回合（${CHARS[me.char!].name}）｜💰 ${me.gold} 金｜🃏 ${me.hand.length} 張`, myCity(me), overview(s)].join('\n'), options);
   return false;
 }
 
@@ -404,7 +412,7 @@ function gather(c: Ctx, user: string, seq: number, kind: 'gold' | 'draw'): boole
     c.events.push({ type: 'announce', text: `🃏 ${mention(me.id)} 抽了牌` });
     if (drawn.length <= keep) {
       me.hand.push(...drawn);
-      tell(c, me.id, drawn.length ? `🃏 你拿到 ${drawn.map(districtLabel).join('、')}。` : '🃏 牌堆沒有牌了。');
+      note(c, me.id, drawn.length ? `🃏 你拿到 ${drawn.map(districtLabel).join('、')}。` : '🃏 牌堆沒有牌了。');
       afterGather(c);
     } else {
       t.drawn = drawn;
@@ -449,7 +457,7 @@ function afterGather(c: Ctx) {
     const extra = s.deck.splice(0, 2);
     me.hand.push(...extra);
     c.events.push({ type: 'announce', text: `📐 建築師 ${mention(me.id)} 多抽了 ${extra.length} 張` });
-    tell(c, me.id, `📐 你多抽到 ${extra.map(districtLabel).join('、') || '（牌堆沒有牌了）'}。`);
+    note(c, me.id, `📐 你多抽到 ${extra.map(districtLabel).join('、') || '（牌堆沒有牌了）'}。`);
   }
 }
 
@@ -583,7 +591,8 @@ function swap(c: Ctx, user: string, seq: number, target: string): boolean {
   [me.hand, other.hand] = [other.hand, me.hand];
   s.turn!.ability = true;
   c.events.push({ type: 'announce', text: `🔄 ${mention(me.id)} 和 ${mention(other.id)} 交換手牌（${mention(me.id)} 拿到 ${me.hand.length} 張、${mention(other.id)} 拿到 ${other.hand.length} 張）` });
-  for (const p of [me, other]) tell(c, p.id, `🔄 交換後你的手牌：\n${handText(p.hand)}`);
+  note(c, me.id, `🔄 交換後你的手牌：\n${handText(me.hand)}`);
+  tell(c, other.id, `🔄 交換後你的手牌：\n${handText(other.hand)}`);
   c.events.push(board(s));
   return true;
 }
@@ -601,7 +610,7 @@ function redraw(c: Ctx, user: string, seq: number, picked: number[]): boolean {
   me.hand.push(...drawn);
   s.turn!.ability = true;
   c.events.push({ type: 'announce', text: `♻️ ${mention(me.id)} 棄了 ${out.length} 張手牌重抽` });
-  tell(c, me.id, `♻️ 你抽到 ${drawn.map(districtLabel).join('、')}。`);
+  note(c, me.id, `♻️ 你抽到 ${drawn.map(districtLabel).join('、')}。`);
   c.events.push(board(s));
   return true;
 }
@@ -695,7 +704,7 @@ function smithy(c: Ctx, user: string, seq: number): boolean {
   me.hand.push(...drawn);
   s.turn!.smithy = true;
   c.events.push({ type: 'announce', text: `⚒️ ${mention(me.id)} 用鐵匠鋪付 2 金抽了 ${drawn.length} 張` });
-  tell(c, me.id, `⚒️ 你抽到 ${drawn.map(districtLabel).join('、') || '（牌堆沒有牌了）'}。`);
+  note(c, me.id, `⚒️ 你抽到 ${drawn.map(districtLabel).join('、') || '（牌堆沒有牌了）'}。`);
   c.events.push(board(s));
   return true;
 }
@@ -722,6 +731,7 @@ function end(c: Ctx, user: string, seq: number): boolean {
   const err = turnCheck(c.s, user, seq);
   if (err) return reply(c, user, err);
   if (!c.s.turn!.gathered) return reply(c, user, '請先收集資源。');
+  tell(c, user, '✅ 你的回合結束了');
   finishTurn(c);
   return true;
 }
@@ -886,7 +896,24 @@ function runBots(c: Ctx) {
   for (let i = 0; i < 500 && c.s.phase !== 'ended' && botStep(c); i++);
 }
 
+// 回合面板：這些動作完成後自動送下一步；沒用到的私下資訊（例如逾時）另外告訴本人
+const PANEL_ACTIONS = new Set(['gather', 'keep', 'build', 'tax', 'kill', 'rob', 'swap', 'redraw', 'destroy', 'lab', 'smithy']);
+
 function handle(c: Ctx, action: GameAction): boolean {
+  const changed = act(c, action);
+  if (changed && PANEL_ACTIONS.has(action.type)) nextPanel(c, (action as { user: string }).user);
+  for (const n of c.notice ?? []) tell(c, n.to, n.text);
+  c.notice = [];
+  return changed;
+}
+
+function nextPanel(c: Ctx, user: string) {
+  const s = c.s;
+  if (s.phase === 'graveyard') return tell(c, user, `⚰️ 正在等 ${quiet(s.graveyard!.owner)} 決定要不要用墓地，決定後再按牌桌的「🏰 我的回合」繼續`);
+  if (s.phase === 'turn' && current(s).id === user && !s.turn!.drawn) turnMenu(c, user, s.seq);
+}
+
+function act(c: Ctx, action: GameAction): boolean {
   switch (action.type) {
     case 'join':
       return joinRoom(c, TITLE, action.user, MAX_CITADELS_PLAYERS, newPlayer);
