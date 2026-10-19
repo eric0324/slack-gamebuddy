@@ -339,3 +339,225 @@ describe('emoji/rounds: 沒交與跳過', () => {
     expect(events).toEqual([]);
   });
 });
+
+// 4 人全部交完：emoji 步 A 🅰️、B 🐝、C 🌊、D 🐶；猜測步「<玩家>猜<步>」
+const EMO: Record<string, string> = { A: '🅰️', B: '🐝', C: '🌊', D: '🐶' };
+function played(skip: Record<number, string[]> = {}) {
+  let s = started(4).state;
+  const events: GameEvent[] = [];
+  while (s.phase === 'play') {
+    const step = s.step;
+    const texts = Object.fromEntries(ids(s).map((u) => [u, skip[step]?.includes(u) ? null : step % 2 ? EMO[u] : `${u}猜${step}`]));
+    const actions = ids(s)
+      .filter((u) => texts[u] !== null)
+      .map((u) => send(u, texts[u]!));
+    const r = runAll(actions, s);
+    events.push(...r.events);
+    s = r.state;
+    if (s.step === step && s.phase === 'play') {
+      const t = run([timeout(s)], s);
+      events.push(...t.events);
+      s = t.state;
+    }
+  }
+  return { state: s, events };
+}
+const voteMenu = (user: string, cat: 'emoji' | 'guess'): EAction => ({ type: 'voteMenu', user, cat });
+const vote = (s: EState, user: string, cat: 'emoji' | 'guess', tag: string): EAction => ({ type: 'vote', user, seq: s.seq, cat, tag });
+const chainPosts = (events: GameEvent[]) => announces(events).filter((t) => t.startsWith('🔗 第'));
+const menuOf = (events: GameEvent[], user: string) => prompts(events).find((p) => p.audience === 'ephemeral' && p.user === user);
+
+describe('emoji/rounds: 公布鏈', () => {
+  it('依序公布每條鏈：主人、題目、編號、類型、作者、內容', () => {
+    const { state, events } = played();
+    expect(announces(events).join('\n')).toContain('傳話結束');
+    const posts = chainPosts(events);
+    expect(posts).toHaveLength(4);
+    const second = posts[1];
+    expect(second).toContain('第 2 條鏈');
+    expect(second).toContain(`<@B> 的題目：${promptOf(state, 'B')}`);
+    for (const line of ['`2-1` 🎨 <@B>：🐝', '`2-2` 🧠 <@C>：C猜2', '`2-3` 🎨 <@D>：🐶', '`2-4` 🧠 <@A>：A猜4']) expect(second).toContain(line);
+    expect(second.indexOf('2-1')).toBeLessThan(second.indexOf('2-4'));
+  });
+
+  it('沒交的步驟顯示「⌛ 沒交」，沒有編號', () => {
+    const posts = chainPosts(played({ 3: ['C'] }).events);
+    expect(posts[0]).toContain('⌛ <@C> 沒交');
+    expect(posts[0]).not.toContain('1-3');
+  });
+
+  it('跳過的步驟不顯示', () => {
+    const posts = chainPosts(played({ 1: ['A'] }).events);
+    expect(posts[0]).toContain('⌛ <@A> 沒交');
+    expect(posts[0]).not.toContain('1-2');
+    expect(posts[0]).not.toContain('<@B>');
+    expect(posts[0]).toContain('`1-3` 🎨 <@C>：🌊');
+  });
+});
+
+describe('emoji/rounds: 投票', () => {
+  it('投票訊息：兩顆按鈕、已投完 0/4、90 秒', () => {
+    const { state, events } = played();
+    expect(state.phase).toBe('vote');
+    const board = boards(events).at(-1)!;
+    expect(board.text).toMatch(/90 秒[\s\S]*已投完 0\/4/);
+    expect(board.options.map((o) => o.value)).toEqual(['voteMenu:emoji', 'voteMenu:guess']);
+    expect(board.options.map((o) => o.label)).toEqual(['🎨 投最佳 emoji', '🧠 投最神猜測']);
+  });
+
+  it('私下選單列出該類作品，不列自己的', () => {
+    const s = played().state;
+    const a = menuOf(run([voteMenu('A', 'emoji')], s).events, 'A')!;
+    expect(a.options.map((o) => o.label)).toEqual(['2-1', '3-1', '4-1', '1-3', '2-3', '4-3'].sort());
+    expect(a.options[0].value).toBe(`vote:${s.seq}:emoji:1-3`);
+    expect(a.perRow).toBe(5);
+    const b = menuOf(run([voteMenu('B', 'guess')], s).events, 'B')!;
+    expect(b.options.map((o) => o.label)).not.toContain('1-2');
+    expect(b.options.map((o) => o.label)).not.toContain('3-4');
+    expect(b.options).toHaveLength(6);
+  });
+
+  it('投最佳 emoji：只有本人看到，頻道不顯示誰投了誰', () => {
+    const s = played().state;
+    const { state, events } = run([vote(s, 'A', 'emoji', '2-3')], s);
+    expect(ephemeralTo(events, 'A')[0]).toContain('你投了 `2-3`');
+    expect(state.votes.A).toEqual({ emoji: '2-3' });
+    expect(channelText(events)).not.toContain('2-3');
+  });
+
+  it('投自己被拒', () => {
+    const s = played().state;
+    const { state, events } = run([vote(s, 'B', 'emoji', '2-1')], s);
+    expect(state).toBe(s);
+    expect(ephemeralTo(events, 'B')[0]).toContain('不能投自己');
+  });
+
+  it('改票：票改成新的，進度不變', () => {
+    const s = played().state;
+    const r = runAll([vote(s, 'A', 'emoji', '2-3'), vote(s, 'A', 'guess', '2-2')], s);
+    expect(boards(r.events).at(-1)!.text).toContain('已投完 1/4');
+    const { state, events } = run([vote(s, 'A', 'emoji', '3-1')], r.state);
+    expect(state.votes.A).toEqual({ emoji: '3-1', guess: '2-2' });
+    expect(boards(events)).toHaveLength(0);
+  });
+
+  it('沒有可以投的作品：這一類視為已投', () => {
+    // emoji 作品只有 A 的 1-1 和 3-3
+    const s = played({ 1: ['B', 'C', 'D'], 3: ['B', 'C', 'D'] }).state;
+    expect(ephemeralTo(run([voteMenu('A', 'emoji')], s).events, 'A')[0]).toContain('沒有可以投的作品');
+    const { events } = run([vote(s, 'A', 'guess', '1-4')], s);
+    expect(boards(events).at(-1)!.text).toContain('已投完 1/4');
+  });
+
+  it('全員投完提前揭曉', () => {
+    const s = played().state;
+    const votes = [
+      ['A', '2-3', '2-2'],
+      ['B', '2-3', '2-4'],
+      ['C', '2-3', '2-4'],
+      ['D', '2-1', '1-2'],
+    ].flatMap(([u, e, g]) => [vote(s, u, 'emoji', e), vote(s, u, 'guess', g)]);
+    expect(runAll(votes, s).state.phase).toBe('ended');
+  });
+
+  it('90 秒到揭曉，沒投的票作廢', () => {
+    const s = played().state;
+    const r = runAll([vote(s, 'A', 'emoji', '2-3')], s);
+    const { state } = run([timeout(r.state)], r.state);
+    expect(state.phase).toBe('ended');
+    expect(state.players.find((p) => p.id === 'D')!.score).toBe(1);
+  });
+
+  it('舊按鈕、不是玩家、不在投票時間被拒', () => {
+    const s = played().state;
+    expect(ephemeralTo(run([{ ...vote(s, 'A', 'emoji', '2-3'), seq: s.seq - 1 } as EAction], s).events, 'A')[0]).toContain('投票已經結束');
+    expect(ephemeralTo(run([vote(s, 'Z', 'emoji', '2-3')], s).events, 'Z')[0]).toContain('你不在這局遊戲裡');
+    expect(ephemeralTo(run([voteMenu('Z', 'emoji')], s).events, 'Z')[0]).toContain('你不在這局遊戲裡');
+    const playing = started(4).state;
+    expect(ephemeralTo(run([voteMenu('A', 'emoji')], playing).events, 'A')[0]).toContain('現在不是投票的時間');
+  });
+});
+
+describe('emoji/rounds: 揭曉與勝負', () => {
+  const finish = (votes: [string, string, string][]) => {
+    const s = played().state;
+    return runAll(
+      votes.flatMap(([u, e, g]) => [vote(s, u, 'emoji', e), vote(s, u, 'guess', g)]),
+      s,
+    );
+  };
+  const score = (s: EState, id: string) => s.players.find((p) => p.id === id)!.score;
+
+  it('每票 +1；公告最佳 emoji、最神猜測和總分排名；最高分獲勝', () => {
+    const { state, events } = finish([
+      ['A', '2-3', '1-2'],
+      ['B', '2-3', '2-4'],
+      ['C', '2-3', '2-4'],
+      ['D', '2-1', '2-2'],
+    ]);
+    expect([score(state, 'A'), score(state, 'B'), score(state, 'C'), score(state, 'D')]).toEqual([2, 2, 1, 3]);
+    const text = announces(events).join('\n');
+    expect(text).toMatch(/🎨 最佳 emoji[\s\S]*`2-3` <@D>：🐶（3 票）/);
+    expect(text).toMatch(/🧠 最神猜測[\s\S]*`2-4` <@A>：A猜4（2 票）/);
+    expect(text).toMatch(/<@D> 3 分[\s\S]*<@C> 1 分/);
+    expect(text).toContain('<@D> 獲勝');
+    expect(state.winners).toEqual(['D']);
+    expect(events).toContainEqual({ type: 'result', players: ['A', 'B', 'C', 'D'], winners: ['D'] });
+    expect(prompts(events).some((p) => p.kind === 'rematch')).toBe(true);
+    expect(boards(events).find((b) => b.ref === `emoji:${state.seq}` && b.options.length === 0)).toBeDefined();
+  });
+
+  it('同票全列；同分並列獲勝', () => {
+    const { state, events } = finish([
+      ['A', '2-3', '1-2'],
+      ['B', '2-3', '2-4'],
+      ['C', '1-1', '2-4'],
+      ['D', '1-1', '2-4'],
+    ]);
+    const text = announces(events).join('\n');
+    expect(text).toMatch(/🎨 最佳 emoji[\s\S]*`1-1` <@A>[\s\S]*`2-3` <@D>/);
+    expect(state.winners).toEqual(['A']);
+    const tie = finish([
+      ['A', '2-3', '1-2'],
+      ['B', '2-3', '2-4'],
+      ['C', '2-3', '2-4'],
+      ['D', '2-1', '2-4'],
+    ]).state;
+    expect(tie.winners).toEqual(['A', 'D']);
+  });
+
+  it('沒有人投票：不列最佳作品，全員 0 分並列獲勝', () => {
+    const s = played().state;
+    const { state, events } = run([timeout(s)], s);
+    const text = announces(events).join('\n');
+    expect(text).not.toContain('🎨 最佳 emoji');
+    expect(text).not.toContain('🧠 最神猜測');
+    expect(state.winners).toEqual(['A', 'B', 'C', 'D']);
+    expect(events).toContainEqual({ type: 'result', players: ['A', 'B', 'C', 'D'], winners: ['A', 'B', 'C', 'D'] });
+  });
+
+  it('再來一局：上一局玩家才能按，新房主是按的人，題目接續', () => {
+    const ended = run([timeout(played().state)], played().state).state;
+    const outsider = run([{ type: 'rematch', user: 'Z', channel: 'C1' }], ended);
+    expect(ephemeralTo(outsider.events, 'Z')[0]).toContain('只有上一局的玩家');
+    const again = run([{ type: 'rematch', user: 'C', channel: 'C1' }], ended);
+    expect(again.state).toMatchObject({ phase: 'lobby', host: 'C', players: [{ id: 'C', score: 0 }], deck: ended.deck });
+  });
+
+  it('房主取消：公告已取消，沒有 result 也沒有再來一局', () => {
+    for (const s of [started(4).state, played().state]) {
+      const { state, events } = run([{ type: 'cancel', user: 'A' }], s);
+      expect(state.phase).toBe('ended');
+      expect(announces(events).join('\n')).toContain('取消');
+      expect(events.some((e) => e.type === 'result')).toBe(false);
+      expect(prompts(events).some((p) => p.kind === 'rematch')).toBe(false);
+    }
+  });
+
+  it('非房主取消被拒', () => {
+    const s = started(4).state;
+    const { state, events } = run([{ type: 'cancel', user: 'B' }], s);
+    expect(state).toBe(s);
+    expect(ephemeralTo(events, 'B')[0]).toContain('只有房主');
+  });
+});

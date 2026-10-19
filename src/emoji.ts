@@ -10,6 +10,7 @@ export const MAX_EMOJI = 20;
 const TITLE = 'Emoji 傳話';
 const EMOJI_MS = 90_000;
 const GUESS_MS = 60_000;
+const VOTE_MS = 90_000;
 
 // 一個 emoji：Slack shortcode、RGI emoji（ZWJ 組合、膚色、國旗、keycap），或單一 pictographic 字元（可接 U+FE0F）
 const TOKEN = new RegExp(String.raw`:[a-z0-9_+'\-]+:|\p{RGI_Emoji}|\p{Extended_Pictographic}️?`, 'yv');
@@ -137,7 +138,126 @@ function endStep(c: Ctx) {
   }
   for (const by of need) chainOf(s, by).entries.push({ step: s.step, by, kind: kindOf(s.step), ...(by in s.pending ? { text: s.pending[by] } : {}) });
   if (s.step < s.steps) nextStep(c);
-  else s.phase = 'vote';
+  else showChains(c);
+}
+
+const ICON: Record<Kind, string> = { emoji: '🎨', guess: '🧠' };
+const CAT: Record<Kind, string> = { emoji: '🎨 最佳 emoji', guess: '🧠 最神猜測' };
+type Work = { tag: string; kind: Kind; by: string; text: string };
+
+// 有交的作品，依鏈、步驟排序；tag 是 `鏈-步`
+const works = (s: EState): Work[] =>
+  s.chains.flatMap((ch, i) => ch.entries.flatMap((e) => (e.text === undefined ? [] : [{ tag: `${i + 1}-${e.step}`, kind: e.kind, by: e.by, text: e.text }])));
+const votable = (s: EState, user: string, cat: Kind) => works(s).filter((w) => w.kind === cat && w.by !== user);
+// 兩類都投了（沒有可以投的作品的那一類視為已投）
+const doneVoting = (s: EState, user: string) => (['emoji', 'guess'] as const).every((cat) => s.votes[user]?.[cat] || !votable(s, user, cat).length);
+
+function voteBoard(s: EState, ended = false): GameEvent {
+  const done = s.players.filter((p) => doneVoting(s, p.id)).length;
+  return {
+    type: 'prompt',
+    kind: 'emoji',
+    audience: 'channel',
+    ref: `emoji:${s.seq}`,
+    text: ended
+      ? '🗳️ 投票：已結束'
+      : [`🗳️ 投票：${CAT.emoji}和${CAT.guess}各投 1 票（用編號投，不能投自己，${VOTE_MS / 1000} 秒內可以改票）`, `已投完 ${done}/${s.players.length}`].join('\n'),
+    options: ended
+      ? []
+      : [
+          { value: 'voteMenu:emoji', label: '🎨 投最佳 emoji' },
+          { value: 'voteMenu:guess', label: '🧠 投最神猜測' },
+        ],
+  };
+}
+
+// 最後一步結束：依序公布每條鏈，接著投票
+function showChains(c: Ctx) {
+  const s = c.s;
+  c.events.push({ type: 'announce', text: '🔗 傳話結束，來看看大家怎麼走鐘！' });
+  s.chains.forEach((ch, i) => {
+    const lines = ch.entries.map((e) => (e.text === undefined ? `⌛ ${mention(e.by)} 沒交` : `\`${i + 1}-${e.step}\` ${ICON[e.kind]} ${mention(e.by)}：${e.text}`));
+    c.events.push({ type: 'announce', text: [`🔗 第 ${i + 1} 條鏈`, `📝 ${mention(ch.owner)} 的題目：${EMOJI_PROMPTS[ch.prompt]}`, ...lines].join('\n') });
+  });
+  s.phase = 'vote';
+  s.seq++;
+  s.votes = {};
+  c.events.push(voteBoard(s));
+  startTimer(c, VOTE_MS);
+}
+
+function canVote(c: Ctx, user: string): boolean {
+  if (!isPlayer(c.s, user)) return reply(c, user, '你不在這局遊戲裡。');
+  if (c.s.phase !== 'vote') return reply(c, user, '現在不是投票的時間。');
+  return true;
+}
+
+function voteMenu(c: Ctx, user: string, cat: Kind): boolean {
+  if (!canVote(c, user)) return false;
+  const s = c.s;
+  const list = votable(s, user, cat);
+  if (!list.length) return reply(c, user, `${CAT[cat]}沒有可以投的作品。`);
+  const mine = s.votes[user]?.[cat];
+  c.events.push({
+    type: 'prompt',
+    kind: 'emoji',
+    audience: 'ephemeral',
+    user,
+    text: `${CAT[cat]}：按編號投 1 票，截止前可以改${mine ? `（目前投給 \`${mine}\`）` : ''}`,
+    options: list.map((w) => ({ value: `vote:${s.seq}:${cat}:${w.tag}`, label: w.tag })),
+    perRow: 5,
+  });
+  return false;
+}
+
+function vote(c: Ctx, user: string, seq: number, cat: Kind, tag: string): boolean {
+  if (!isPlayer(c.s, user)) return reply(c, user, '你不在這局遊戲裡。');
+  const s = c.s;
+  if (s.phase !== 'vote' || seq !== s.seq) return reply(c, user, '這次投票已經結束了。');
+  const w = works(s).find((x) => x.tag === tag && x.kind === cat);
+  if (!w) return reply(c, user, '沒有這個作品。');
+  if (w.by === user) return reply(c, user, '不能投自己。');
+  const was = doneVoting(s, user);
+  (s.votes[user] ??= {})[cat] = tag;
+  c.events.push({ type: 'ephemeral', to: user, text: `你投了 \`${tag}\`（${CAT[cat]}）` });
+  if (s.players.every((p) => doneVoting(s, p.id))) reveal(c);
+  else if (!was && doneVoting(s, user)) c.events.push(voteBoard(s));
+  return true;
+}
+
+// 揭曉：每票 +1 給作者，公布各類最高票（同票全列、0 票不列）
+function reveal(c: Ctx) {
+  const s = c.s;
+  c.events.push(voteBoard(s, true));
+  const all = works(s);
+  const count = (w: Work) => Object.values(s.votes).filter((v) => v[w.kind] === w.tag).length;
+  for (const w of all) s.players.find((p) => p.id === w.by)!.score += count(w);
+  const best = (['emoji', 'guess'] as const).flatMap((cat) => {
+    const list = all.filter((w) => w.kind === cat);
+    const top = Math.max(0, ...list.map(count));
+    if (!top) return [];
+    return [`${CAT[cat]}：`, ...list.filter((w) => count(w) === top).map((w) => `\`${w.tag}\` ${mention(w.by)}：${w.text}（${top} 票）`)];
+  });
+  c.events.push({ type: 'announce', text: ['🎉 投票揭曉！', ...best].join('\n') });
+  endGame(c);
+}
+
+function endGame(c: Ctx) {
+  const s = c.s;
+  s.phase = 'ended';
+  s.timers = {};
+  const top = Math.max(...s.players.map((p) => p.score));
+  s.winners = s.players.filter((p) => p.score === top).map((p) => p.id);
+  c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: s.winners });
+  const ranking = [...s.players].sort((a, b) => b.score - a.score);
+  c.events.push(
+    {
+      type: 'announce',
+      text: [`🏆 遊戲結束，${s.winners.map(mention).join('、')} 獲勝！`, ...ranking.map((p, i) => `${i + 1}. ${mention(p.id)} ${p.score} 分${p.score === top ? ' 🏆' : ''}`)].join('\n'),
+      gif: 'goodWin',
+    },
+    { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },
+  );
 }
 
 // 作答時間的共同檢查；回傳拿到的內容，不行時回傳 null（已經回覆原因）
@@ -225,9 +345,14 @@ function handle(c: Ctx, action: GameAction): boolean {
       return openSend(c, action.user);
     case 'send':
       return send(c, action.user, action.text);
+    case 'voteMenu':
+      return voteMenu(c, action.user, action.cat);
+    case 'vote':
+      return vote(c, action.user, action.seq, action.cat, action.tag);
     case 'timeout':
       if (action.id !== c.s.timers.phase) return false;
       if (c.s.phase === 'play') endStep(c);
+      else if (c.s.phase === 'vote') reveal(c);
       else return false;
       return true;
     default:
