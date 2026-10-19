@@ -8,6 +8,7 @@ export const MAX_CITADELS_PLAYERS = 7;
 const TITLE = '富饒之城';
 export const DRAFT_MS = 45_000;
 export const TURN_MS = 90_000;
+export const GRAVE_MS = 20_000;
 const FACE_UP: Record<number, number> = { 4: 2, 5: 1 };
 
 export interface CPlayer {
@@ -35,6 +36,7 @@ export interface CState {
   killed?: Rank; // 這輪被刺殺的角色
   robbed?: Rank; // 這輪盜賊要偷的角色
   robber?: string;
+  graveyard?: { owner: string; card: string }; // phase 'graveyard'：等墓地主人決定要不要收回
   seq: number;
   winners?: string[];
   timerSeq: number;
@@ -54,7 +56,7 @@ export interface Turn {
   smithy: boolean;
 }
 
-export type Sub = 'build' | 'kill' | 'rob' | 'swap' | 'redraw' | 'destroy';
+export type Sub = 'build' | 'kill' | 'rob' | 'swap' | 'redraw' | 'destroy' | 'lab';
 
 export type CAction =
   | { type: 'new'; user: string; channel: string }
@@ -79,6 +81,9 @@ export type CAction =
   | { type: 'redrawToggle'; user: string; seq: number; picked: number[] }
   | { type: 'redraw'; user: string; seq: number; picked: number[] }
   | { type: 'destroy'; user: string; seq: number; target: string; card: string }
+  | { type: 'lab'; user: string; seq: number; card: string }
+  | { type: 'smithy'; user: string; seq: number }
+  | { type: 'grave'; user: string; yes: boolean }
   | { type: 'timeout'; id: number }
   | { type: 'rematch'; user: string; channel: string };
 
@@ -104,7 +109,8 @@ const has = (p: CPlayer, card: string) => p.city.some((x) => x.card === card);
 const maxBuilds = (p: CPlayer) => (p.char === 7 ? 3 : 1);
 // 手上付得起、城市裡沒有同名的建築（同名的只列一次）
 const buildable = (p: CPlayer) => p.hand.filter((card, i) => p.hand.indexOf(card) === i && !has(p, card) && DISTRICTS[card].cost <= p.gold);
-const taxAmount = (p: CPlayer) => p.city.filter((x) => DISTRICTS[x.card].color === CHARS[p.char!].tax).length;
+// 魔法學校收稅時算成該角色的顏色
+const taxAmount = (p: CPlayer) => p.city.filter((x) => DISTRICTS[x.card].color === CHARS[p.char!].tax || x.card === 'schoolOfMagic').length;
 const handText = (hand: string[]) => (hand.length ? hand.map(districtInfo).join('\n') : '（沒有手牌）');
 const cityText = (p: CPlayer) => (p.city.length ? p.city.map((x) => districtLabel(x.card)).join('、') : '（還沒有建築）');
 
@@ -337,6 +343,11 @@ function turnMenu(c: Ctx, user: string, seq: number, sub?: Sub): boolean {
     menu(c, user, '🏰 先收集資源：', [o('gather', '💰 拿 2 金'), o('gather', '🃏 抽牌')].map((x, i) => ({ ...x, value: `${x.value}:${i ? 'draw' : 'gold'}` })));
     return false;
   }
+  if (sub === 'lab') {
+    if (!canLab(s)) return reply(c, user, STALE);
+    menu(c, user, '🧪 要棄哪一張手牌換 1 金？', me.hand.map((card) => ({ value: `lab:${seq}:${card}`, label: districtLabel(card) })));
+    return false;
+  }
   if (sub && sub !== 'build') return abilityMenu(c, sub), false;
   if (sub === 'build') {
     const cards = t.builds < maxBuilds(me) ? buildable(me) : [];
@@ -348,6 +359,8 @@ function turnMenu(c: Ctx, user: string, seq: number, sub?: Sub): boolean {
     ...(t.ability ? [] : abilityButtons(s).map((b) => ({ value: `turnMenu:${seq}:${b.sub}`, label: b.label }))),
     ...(t.builds < maxBuilds(me) && buildable(me).length ? [{ value: `turnMenu:${seq}:build`, label: '🔨 建造' }] : []),
     ...(CHARS[me.char!].tax && !t.taxed ? [o('tax', '💰 收稅')] : []),
+    ...(canLab(s) ? [{ value: `turnMenu:${seq}:lab`, label: '🧪 實驗室' }] : []),
+    ...(canSmithy(s) ? [o('smithy', '⚒️ 鐵匠鋪')] : []),
     o('end', '✅ 結束回合'),
   ];
   menu(c, user, `🏰 你的回合（${CHARS[me.char!].name}）｜💰 ${me.gold} 金｜🃏 ${me.hand.length} 張`, options);
@@ -372,8 +385,9 @@ function gather(c: Ctx, user: string, seq: number, kind: 'gold' | 'draw'): boole
     c.events.push({ type: 'announce', text: `💰 ${mention(me.id)} 拿了 2 金` });
     afterGather(c);
   } else {
-    const drawn = s.deck.splice(0, 2);
-    const keep = 1;
+    // 天文台抽 3 張；圖書館留 2 張
+    const drawn = s.deck.splice(0, has(me, 'observatory') ? 3 : 2);
+    const keep = has(me, 'library') ? 2 : 1;
     c.events.push({ type: 'announce', text: `🃏 ${mention(me.id)} 抽了牌` });
     if (drawn.length <= keep) {
       me.hand.push(...drawn);
@@ -446,13 +460,17 @@ function build(c: Ctx, user: string, seq: number, card: string): boolean {
 // ===== 角色能力 =====
 const killTargets = (s: CState) => RANKS.filter((r) => r >= 2 && !s.draft!.faceUp.includes(r));
 const robTargets = (s: CState) => RANKS.filter((r) => r >= 3 && !s.draft!.faceUp.includes(r) && r !== s.killed);
-const destroyCost = (owner: CPlayer, card: string) => Math.max(0, DISTRICTS[card].cost - 1);
+// 城牆讓其他建築的破壞費用 +1
+const destroyCost = (owner: CPlayer, card: string) => Math.max(0, DISTRICTS[card].cost - 1) + (card !== 'greatWall' && has(owner, 'greatWall') ? 1 : 0);
 // 軍閥可以破壞的建築：建滿 8 棟的城市、沒被刺殺的主教、付不起的都不列
 function destroyTargets(s: CState): { owner: CPlayer; card: string; cost: number }[] {
   const me = current(s);
   return s.players.flatMap((owner) => {
     if (owner.city.length >= 8 || (owner.char === 5 && s.killed !== 5)) return [];
-    return owner.city.map((x) => ({ owner, card: x.card, cost: destroyCost(owner, x.card) })).filter((x) => x.cost <= me.gold);
+    return owner.city
+      .filter((x) => x.card !== 'keep')
+      .map((x) => ({ owner, card: x.card, cost: destroyCost(owner, x.card) }))
+      .filter((x) => x.cost <= me.gold);
   });
 }
 
@@ -580,7 +598,86 @@ function destroy(c: Ctx, user: string, seq: number, target: string, card: string
   x.owner.city.splice(x.owner.city.findIndex((d) => d.card === card), 1);
   s.turn!.ability = true;
   c.events.push({ type: 'announce', text: `💥 軍閥 ${mention(me.id)} 花 ${x.cost} 金破壞了 ${mention(target)} 的 ${districtLabel(card)}` });
+  // 墓地主人（不是軍閥、至少 1 金）可以付 1 金收回；墓地本身被破壞時已經不在城市裡
+  const owner = s.players.find((p) => p !== me && has(p, 'graveyard') && p.gold >= 1);
+  if (!owner) {
+    s.deck.push(card);
+    c.events.push(board(s));
+    return true;
+  }
+  s.phase = 'graveyard';
+  s.graveyard = { owner: owner.id, card };
+  c.events.push({ type: 'announce', text: `⚰️ 等 ${mention(owner.id)} 決定要不要用墓地收回 ${districtLabel(card)}（${GRAVE_MS / 1000} 秒）` });
+  if (!isBot(owner.id)) {
+    c.events.push({
+      type: 'prompt',
+      kind: 'citadels',
+      audience: 'user',
+      user: owner.id,
+      text: `⚰️ 軍閥破壞了 ${mention(target)} 的 ${districtLabel(card)}，要不要付 1 金把 ${districtLabel(card)} 收回手上？`,
+      options: [{ value: 'grave:yes', label: '付 1 金收回' }, { value: 'grave:no', label: '不用' }],
+    });
+  }
+  c.events.push(board(s));
+  startTimer(c, GRAVE_MS);
+  return true;
+}
+
+function grave(c: Ctx, user: string, yes: boolean): boolean {
+  if (c.s.phase !== 'graveyard' || c.s.graveyard!.owner !== user) return reply(c, user, '現在不用決定。');
+  resolveGrave(c, yes);
+  return true;
+}
+
+function resolveGrave(c: Ctx, yes: boolean) {
+  const s = c.s;
+  const { owner, card } = s.graveyard!;
+  const p = find(s, owner)!;
+  if (yes) {
+    p.gold--;
+    p.hand.push(card);
+    c.events.push({ type: 'announce', text: `⚰️ ${mention(owner)} 付 1 金用墓地收回了 ${districtLabel(card)}` });
+  } else {
+    s.deck.push(card);
+    c.events.push({ type: 'announce', text: `⚰️ ${mention(owner)} 沒有用墓地收回 ${districtLabel(card)}` });
+  }
+  s.phase = 'turn';
+  s.graveyard = undefined;
+  c.events.push(board(s));
+  startTimer(c, TURN_MS);
+}
+
+// ===== 紫色建築：實驗室、鐵匠鋪 =====
+const canLab = (s: CState) => s.turn!.gathered && !s.turn!.lab && has(current(s), 'laboratory') && current(s).hand.length > 0;
+const canSmithy = (s: CState) => s.turn!.gathered && !s.turn!.smithy && has(current(s), 'smithy') && current(s).gold >= 2;
+
+function lab(c: Ctx, user: string, seq: number, card: string): boolean {
+  const s = c.s;
+  const err = turnCheck(s, user, seq);
+  if (err) return reply(c, user, err);
+  const me = current(s);
+  if (!canLab(s) || !me.hand.includes(card)) return reply(c, user, STALE);
+  me.hand.splice(me.hand.indexOf(card), 1);
   s.deck.push(card);
+  me.gold++;
+  s.turn!.lab = true;
+  c.events.push({ type: 'announce', text: `🧪 ${mention(me.id)} 用實驗室棄了 1 張手牌，拿 1 金` });
+  c.events.push(board(s));
+  return true;
+}
+
+function smithy(c: Ctx, user: string, seq: number): boolean {
+  const s = c.s;
+  const err = turnCheck(s, user, seq);
+  if (err) return reply(c, user, err);
+  const me = current(s);
+  if (!canSmithy(s)) return reply(c, user, STALE);
+  me.gold -= 2;
+  const drawn = s.deck.splice(0, 3);
+  me.hand.push(...drawn);
+  s.turn!.smithy = true;
+  c.events.push({ type: 'announce', text: `⚒️ ${mention(me.id)} 用鐵匠鋪付 2 金抽了 ${drawn.length} 張` });
+  tell(c, me.id, `⚒️ 你抽到 ${drawn.map(districtLabel).join('、') || '（牌堆沒有牌了）'}。`);
   c.events.push(board(s));
   return true;
 }
@@ -638,6 +735,7 @@ function timeout(c: Ctx) {
     tell(c, drafter(s).id, `⏰ 時間到，系統替你選了 ${CHARS[rank].name}。`);
     pick(c, drafter(s).id, rank);
   } else if (s.phase === 'turn') turnTimeout(c);
+  else if (s.phase === 'graveyard') resolveGrave(c, false);
 }
 
 function handle(c: Ctx, action: GameAction): boolean {
@@ -688,6 +786,12 @@ function handle(c: Ctx, action: GameAction): boolean {
       return redraw(c, action.user, action.seq, action.picked);
     case 'destroy':
       return destroy(c, action.user, action.seq, action.target, action.card);
+    case 'lab':
+      return lab(c, action.user, action.seq, action.card);
+    case 'smithy':
+      return smithy(c, action.user, action.seq);
+    case 'grave':
+      return grave(c, action.user, action.yes);
     case 'timeout':
       if (action.id !== c.s.timers.phase) return false;
       timeout(c);

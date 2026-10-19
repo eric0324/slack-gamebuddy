@@ -745,3 +745,141 @@ describe('citadels/turns: 軍閥', () => {
     expect(values(sub(w, 'p4', 'destroy').events, 'p4')).toEqual([`destroy:${w.seq}:temple:p2`]);
   });
 });
+
+const mainMenu = (s: CState) => labels(run([{ type: 'turnMenu', user: cur(s), seq: s.seq }], s).events, cur(s));
+const warlordOf = (o: Setup, chars: Rank[] = [2, 4, 6, 8]) => gatherGold(until(calling(chars, o).state, 'p4')).state;
+
+describe('citadels/districts: 要塞與城牆', () => {
+  it('要塞不能被破壞', () => {
+    const s = warlordOf({ cities: [['keep', 'tavern'], [], [], []], gold: [2, 2, 2, 8] });
+    expect(values(sub(s, 'p4', 'destroy').events, 'p4')).toEqual([`destroy:${s.seq}:tavern:p1`]);
+  });
+
+  it('城牆讓其他建築的破壞費用 +1，城牆本身照一般費用', () => {
+    const s = warlordOf({ cities: [['greatWall', 'market'], [], [], []], gold: [2, 2, 2, 8] });
+    expect(labels(sub(s, 'p4', 'destroy').events, 'p4')).toEqual(['p1 的 🟣 城牆（6）：5 金', 'p1 的 🟢 市集（2）：2 金']);
+  });
+});
+
+describe('citadels/districts: 實驗室與鐵匠鋪', () => {
+  it('實驗室：棄 1 張手牌到牌堆底、拿 1 金，每回合一次', () => {
+    const s = gatherGold(calling([2, 4, 6, 7], { cities: [['laboratory'], [], [], []], hands: [['tavern', 'palace'], [], [], []], gold: [0, 2, 2, 2] }).state).state;
+    expect(mainMenu(s)).toContain('🧪 實驗室');
+    expect(values(sub(s, 'p1', 'lab').events, 'p1')).toEqual([`lab:${s.seq}:tavern`, `lab:${s.seq}:palace`]);
+    const { state, events } = run([{ type: 'lab', user: 'p1', seq: s.seq, card: 'tavern' }], s);
+    expect(P(state, 'p1').gold).toBe(3);
+    expect(P(state, 'p1').hand).toEqual(['palace']);
+    expect(state.deck.at(-1)).toBe('tavern');
+    expect(announces(events).join()).toContain('🧪');
+    expect(mainMenu(state)).not.toContain('🧪 實驗室');
+    expect(run([{ type: 'lab', user: 'p1', seq: s.seq, card: 'palace' }], state).state).toBe(state);
+  });
+
+  it('鐵匠鋪：付 2 金抽 3 張；金幣不到 2 沒有按鈕', () => {
+    const s = gatherGold(calling([2, 4, 6, 7], { cities: [['smithy'], [], [], []], gold: [1, 2, 2, 2], deck: ['castle', 'tavern', 'manor', 'palace'] }).state).state;
+    expect(mainMenu(s)).toContain('⚒️ 鐵匠鋪');
+    const { state } = run([{ type: 'smithy', user: 'p1', seq: s.seq }], s);
+    expect(P(state, 'p1').gold).toBe(1);
+    expect(P(state, 'p1').hand).toEqual(['castle', 'tavern', 'manor']);
+    expect(mainMenu(state)).not.toContain('⚒️ 鐵匠鋪');
+    const poor = gatherGold(calling([2, 4, 6, 7], { cities: [['smithy'], [], [], []], gold: [-1, 2, 2, 2] }).state).state;
+    expect(mainMenu(poor)).not.toContain('⚒️ 鐵匠鋪');
+    expect(run([{ type: 'smithy', user: 'p1', seq: poor.seq }], poor).state).toBe(poor);
+  });
+});
+
+describe('citadels/districts: 天文台與圖書館', () => {
+  const deck = ['castle', 'tavern', 'manor', 'palace'];
+  const drawWith = (city: string[]) => {
+    const s = calling([2, 4, 6, 7], { cities: [city, [], [], []], deck }).state;
+    return run([{ type: 'gather', user: 'p1', seq: s.seq, kind: 'draw' }], s);
+  };
+
+  it('天文台：看 3 張留 1 張，另外 2 張到牌堆底', () => {
+    const drew = drawWith(['observatory']);
+    expect(values(drew.events, 'p1')).toHaveLength(3);
+    const { state } = run([{ type: 'keep', user: 'p1', seq: drew.state.seq, card: 'manor' }], drew.state);
+    expect(P(state, 'p1').hand).toEqual(['manor']);
+    expect(state.deck).toEqual(['palace', 'castle', 'tavern']);
+  });
+
+  it('圖書館：抽 2 張全部留下', () => {
+    const { state } = drawWith(['library']);
+    expect(P(state, 'p1').hand).toEqual(['castle', 'tavern']);
+    expect(state.turn!.gathered).toBe(true);
+  });
+
+  it('兩棟都有：看 3 張留 2 張', () => {
+    const drew = drawWith(['observatory', 'library']);
+    expect(values(drew.events, 'p1')).toHaveLength(3);
+    const one = run([{ type: 'keep', user: 'p1', seq: drew.state.seq, card: 'tavern' }], drew.state);
+    expect(one.state.turn!.gathered).toBe(false);
+    expect(values(one.events, 'p1')).toHaveLength(2);
+    const { state } = run([{ type: 'keep', user: 'p1', seq: drew.state.seq, card: 'manor' }], one.state);
+    expect(P(state, 'p1').hand).toEqual(['tavern', 'manor']);
+    expect(state.deck).toEqual(['palace', 'castle']);
+    expect(state.turn!.gathered).toBe(true);
+  });
+});
+
+describe('citadels/districts: 魔法學校', () => {
+  it('收稅時算成該角色的顏色', () => {
+    const s = gatherGold(until(calling([2, 4, 6, 7], { cities: [[], [], ['tavern', 'market', 'schoolOfMagic'], []] }).state, 'p3')).state;
+    const { state } = run([{ type: 'tax', user: 'p3', seq: s.seq }], s);
+    expect(P(state, 'p3').gold).toBe(P(s, 'p3').gold + 3);
+  });
+});
+
+describe('citadels/districts: 墓地', () => {
+  const destroyWith = (cities: string[][], gold = [2, 2, 2, 8], target = 'p2', card = 'castle') => {
+    const s = warlordOf({ cities, gold });
+    return { before: s, ...run([{ type: 'destroy', user: 'p4', seq: s.seq, target, card }], s) };
+  };
+
+  it('詢問墓地主人；付 1 金收回，軍閥的回合繼續', () => {
+    const asked = destroyWith([[], ['castle'], ['graveyard'], []]);
+    expect(asked.state.phase).toBe('graveyard');
+    const dm = prompts(asked.events).find((p) => p.audience === 'user' && p.user === 'p3')!;
+    expect(dm.text).toContain('要不要付 1 金把 🟡 城堡（4） 收回手上');
+    expect(dm.options).toEqual([{ value: 'grave:yes', label: '付 1 金收回' }, { value: 'grave:no', label: '不用' }]);
+    expect(timers(asked.events).at(-1)!.ms).toBe(20_000);
+    expect(run([{ type: 'end', user: 'p4', seq: asked.before.seq }], asked.state).state).toBe(asked.state);
+    expect(run([{ type: 'grave', user: 'p2', yes: true }], asked.state).state).toBe(asked.state);
+    const { state, events } = run([{ type: 'grave', user: 'p3', yes: true }], asked.state);
+    expect(P(state, 'p3').gold).toBe(P(asked.state, 'p3').gold - 1);
+    expect(P(state, 'p3').hand).toContain('castle');
+    expect(state.deck).not.toContain('castle');
+    expect(state.phase).toBe('turn');
+    expect(timers(events).at(-1)!.ms).toBe(90_000);
+    expect(announces(events).join()).toContain('墓地');
+    expect(cur(state)).toBe('p4');
+  });
+
+  it('被破壞的人自己有墓地也會被詢問', () => {
+    const { state } = destroyWith([[], [], ['graveyard', 'market'], []], undefined, 'p3', 'market');
+    expect(state.phase).toBe('graveyard');
+    expect(state.graveyard).toMatchObject({ owner: 'p3', card: 'market' });
+  });
+
+  it('不用或 20 秒逾時：牌放到牌堆底，軍閥的回合繼續', () => {
+    const asked = destroyWith([[], ['castle'], ['graveyard'], []]);
+    const no = run([{ type: 'grave', user: 'p3', yes: false }], asked.state).state;
+    expect(no.deck.at(-1)).toBe('castle');
+    expect(no.phase).toBe('turn');
+    const timedOut = fire(asked.state).state;
+    expect(timedOut.deck.at(-1)).toBe('castle');
+    expect(P(timedOut, 'p3').hand).not.toContain('castle');
+    expect(timedOut.phase).toBe('turn');
+    expect(cur(timedOut)).toBe('p4');
+  });
+
+  it('軍閥自己有墓地、墓地本身被破壞、主人沒有金幣：都不詢問', () => {
+    expect(destroyWith([[], ['castle'], [], ['graveyard']]).state.phase).toBe('turn');
+    const self = destroyWith([[], ['graveyard'], [], []], undefined, 'p2', 'graveyard').state;
+    expect(self.phase).toBe('turn');
+    expect(self.deck.at(-1)).toBe('graveyard');
+    const s = warlordOf({ cities: [[], ['castle'], ['graveyard'], []], gold: [2, 2, 2, 8] });
+    s.players[2].gold = 0;
+    expect(run([{ type: 'destroy', user: 'p4', seq: s.seq, target: 'p2', card: 'castle' }], s).state.phase).toBe('turn');
+  });
+});
