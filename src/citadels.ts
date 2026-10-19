@@ -1,7 +1,7 @@
 // 富饒之城（Citadels 經典版）遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyCitadels(state, action, rng) → { state, events }。
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
-import { CHARS, DECK, DISTRICTS, districtInfo, districtLabel, RANKS, type Rank } from './citadelsCards.js';
+import { CHARS, COLORS, DECK, DISTRICTS, districtInfo, districtLabel, RANKS, type Rank } from './citadelsCards.js';
 
 export const MIN_CITADELS_PLAYERS = 4;
 export const MAX_CITADELS_PLAYERS = 7;
@@ -9,6 +9,7 @@ const TITLE = '富饒之城';
 export const DRAFT_MS = 45_000;
 export const TURN_MS = 90_000;
 export const GRAVE_MS = 20_000;
+export const MAX_ROUNDS = 20; // 安全上限：第 20 輪結束還沒人建滿就直接計分
 const FACE_UP: Record<number, number> = { 4: 2, 5: 1 };
 
 export interface CPlayer {
@@ -36,6 +37,8 @@ export interface CState {
   killed?: Rank; // 這輪被刺殺的角色
   robbed?: Rank; // 這輪盜賊要偷的角色
   robber?: string;
+  firstComplete?: string; // 第一個建滿 8 棟的人
+  lastRound?: number; // 觸發結束的那一輪
   graveyard?: { owner: string; card: string }; // phase 'graveyard'：等墓地主人決定要不要收回
   seq: number;
   winners?: string[];
@@ -293,6 +296,11 @@ function endRound(c: Ctx) {
     c.events.push({ type: 'announce', text: `👑 ${mention(s.players[king].id)} 是國王的繼承人，拿到王冠` });
   }
   s.killed = s.robbed = s.robber = undefined;
+  if (s.lastRound) return endGame(c);
+  if (s.round >= MAX_ROUNDS) {
+    c.events.push({ type: 'announce', text: `⌛ 已達 ${MAX_ROUNDS} 輪上限，直接計分。` });
+    return endGame(c);
+  }
   startRound(c);
 }
 
@@ -453,6 +461,11 @@ function build(c: Ctx, user: string, seq: number, card: string): boolean {
   me.city.push({ card, round: s.round });
   t.builds++;
   c.events.push({ type: 'announce', text: `🔨 ${mention(me.id)} 建了 ${districtLabel(card)}` });
+  if (me.city.length === 8) {
+    s.firstComplete ??= me.id;
+    s.lastRound ??= s.round;
+    c.events.push({ type: 'announce', text: `🏁 ${mention(me.id)} 建滿 8 棟！這一輪結束後遊戲結束` });
+  }
   c.events.push(board(s));
   return true;
 }
@@ -738,6 +751,61 @@ function timeout(c: Ctx) {
   else if (s.phase === 'graveyard') resolveGrave(c, false);
 }
 
+// ===== 計分 =====
+const costOf = (p: CPlayer) => p.city.reduce((sum, x) => sum + DISTRICTS[x.card].cost, 0);
+
+export function scoreOf(s: CState, p: CPlayer) {
+  const cost = costOf(p);
+  const bonus = 2 * p.city.filter((x) => x.card === 'university' || x.card === 'dragonGate').length;
+  // 鬼城（不是最後一輪建的）可以補任何一種顏色；魔法學校只算紫色
+  const ghost = p.city.find((x) => x.card === 'hauntedCity');
+  const wild = !!ghost && ghost.round !== s.lastRound;
+  const colors = new Set(p.city.filter((x) => !(wild && x === ghost)).map((x) => DISTRICTS[x.card].color));
+  const five = colors.size === COLORS.length || (wild && colors.size === COLORS.length - 1) ? 3 : 0;
+  const complete = p.city.length >= 8 ? (s.firstComplete === p.id ? 4 : 2) : 0;
+  return { cost, bonus, five, complete, total: cost + bonus + five + complete };
+}
+
+// 依總分、建築費用（大學、龍門算 8）、金幣排序
+function ranking(s: CState) {
+  const key = (p: CPlayer) => {
+    const sc = scoreOf(s, p);
+    return [sc.total, sc.cost + sc.bonus, p.gold];
+  };
+  const cmp = (a: CPlayer, b: CPlayer) => {
+    const [x, y] = [key(a), key(b)];
+    return y[0] - x[0] || y[1] - x[1] || y[2] - x[2];
+  };
+  return { sorted: [...s.players].sort(cmp), cmp };
+}
+
+export function winnersOf(s: CState): string[] {
+  const { sorted, cmp } = ranking(s);
+  return sorted.filter((p) => cmp(p, sorted[0]) === 0).map((p) => p.id);
+}
+
+function endGame(c: Ctx) {
+  const s = c.s;
+  s.phase = 'ended';
+  s.timers = {};
+  s.winners = winnersOf(s);
+  const { sorted, cmp } = ranking(s);
+  const lines = sorted.map((p) => {
+    const sc = scoreOf(s, p);
+    const place = sorted.findIndex((q) => cmp(p, q) === 0) + 1;
+    const purple = p.city.filter((x) => DISTRICTS[x.card].desc).map((x) => districtInfo(x.card));
+    return [
+      `${place}. ${mention(p.id)}${s.winners!.includes(p.id) ? ' 🏆' : ''}：建築 ${sc.cost}${sc.bonus ? `｜紫卡 +${sc.bonus}` : ''}${sc.five ? `｜五色 +${sc.five}` : ''}${sc.complete ? `｜建滿 +${sc.complete}` : ''}｜總分 ${sc.total}（${p.city.length} 棟、${p.gold} 金）`,
+      ...purple.map((x) => `　　${x}`),
+    ].join('\n');
+  });
+  c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: s.winners });
+  c.events.push(
+    { type: 'announce', text: [`🏆 遊戲結束！獲勝：${s.winners.map(mention).join('、')}`, ...lines].join('\n'), gif: 'goodWin' },
+    { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },
+  );
+}
+
 function handle(c: Ctx, action: GameAction): boolean {
   switch (action.type) {
     case 'join':
@@ -751,7 +819,7 @@ function handle(c: Ctx, action: GameAction): boolean {
     case 'start':
       return start(c, action.user);
     case 'cancel':
-      return cancelGame(c, action.user);
+      return cancelGame(c, action.user, c.s.phase === 'lobby' ? '' : `目前建築費用：${c.s.players.map((p) => `${mention(p.id)} ${costOf(p)}`).join('、')}`);
     case 'status':
       return status(c, action.user);
     case 'pickMenu':

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isBot, type GameEvent } from '../src/engine.js';
-import { applyCitadels, type CAction, type CState } from '../src/citadels.js';
+import { applyCitadels, scoreOf, winnersOf, type CAction, type CState } from '../src/citadels.js';
 import type { Rank } from '../src/citadelsCards.js';
 
 const rng = () => 0.99999; // 洗牌不動；王冠給最後一位
@@ -881,5 +881,125 @@ describe('citadels/districts: 墓地', () => {
     const s = warlordOf({ cities: [[], ['castle'], ['graveyard'], []], gold: [2, 2, 2, 8] });
     s.players[2].gold = 0;
     expect(run([{ type: 'destroy', user: 'p4', seq: s.seq, target: 'p2', card: 'castle' }], s).state.phase).toBe('turn');
+  });
+});
+
+const SEVEN = ['manor', 'castle', 'palace', 'temple', 'church', 'tavern', 'market'];
+const results = (events: GameEvent[]) => events.filter((e) => e.type === 'result') as { players: string[]; winners: string[] }[];
+
+describe('citadels/turns: 遊戲結束的觸發', () => {
+  it('建滿 8 棟：公告、記錄第一個建滿的人，這一輪打完後計分、不再選角', () => {
+    const s = gatherGold(until(calling([2, 4, 6, 7], { cities: [[], SEVEN, [], []], hands: [[], ['docks'], [], []] }).state, 'p2')).state;
+    const built = run([{ type: 'build', user: 'p2', seq: s.seq, card: 'docks' }], s);
+    expect(announces(built.events).join()).toContain('<@p2> 建滿 8 棟！這一輪結束後遊戲結束');
+    expect(built.state.firstComplete).toBe('p2');
+    expect(built.state.lastRound).toBe(1);
+    const p3 = run([{ type: 'end', user: 'p2', seq: s.seq }], built.state).state;
+    expect(cur(p3)).toBe('p3');
+    const p4 = passTurn(p3).state;
+    expect(cur(p4)).toBe('p4');
+    const { state, events } = passTurn(p4);
+    expect(state.phase).toBe('ended');
+    expect(results(events)).toHaveLength(1);
+    expect(draftMsgs(events)).toHaveLength(0);
+  });
+
+  it('第 20 輪結束時沒人建滿：公告上限，直接計分', () => {
+    const { state, texts } = finishRound(calling([2, 4, 6, 7], { round: 20 }).state);
+    expect(state.phase).toBe('ended');
+    expect(texts.join()).toContain('已達 20 輪上限');
+    const not20 = finishRound(calling([2, 4, 6, 7], { round: 19 }).state).state;
+    expect(not20.phase).toBe('draft');
+  });
+});
+
+describe('citadels/scoring: 計分', () => {
+  const FIVE24 = ['manor', 'castle', 'palace', 'temple', 'cathedral', 'market', 'watchtower', 'keep'];
+  const NOFIVE28 = ['university', 'manor', 'castle', 'palace', 'temple', 'church', 'monastery', 'market'];
+  const ended = (cities: string[][], o: { first?: string; lastRound?: number; rounds?: number[][]; gold?: number[] } = {}) => {
+    const s = structuredClone(started(cities.length).state);
+    s.players.forEach((p, i) => {
+      p.city = cities[i].map((card, j) => ({ card, round: o.rounds?.[i]?.[j] ?? 1 }));
+      p.gold = o.gold?.[i] ?? 0;
+    });
+    s.firstComplete = o.first;
+    s.lastRound = o.lastRound;
+    return s;
+  };
+
+  it('第一個建滿 8 棟：費用 24 + 五色 3 + 4 = 31；其他建滿、有大學：28 + 2 = 30；沒建滿 20', () => {
+    const s = ended([FIVE24, NOFIVE28, ['palace', 'cathedral', 'townHall', 'fortress'], []], { first: 'p1' });
+    expect(scoreOf(s, s.players[0])).toMatchObject({ cost: 24, bonus: 0, five: 3, complete: 4, total: 31 });
+    expect(scoreOf(s, s.players[1])).toMatchObject({ cost: 26, bonus: 2, five: 0, complete: 2, total: 30 });
+    expect(scoreOf(s, s.players[2]).total).toBe(20);
+  });
+
+  it('鬼城補顏色；最後一輪建的不能補；魔法學校不補五色', () => {
+    const ghost = ['manor', 'temple', 'tavern', 'keep', 'hauntedCity'];
+    const early = ended([ghost, [], [], []], { lastRound: 6, rounds: [[1, 1, 1, 1, 3]] });
+    expect(scoreOf(early, early.players[0]).five).toBe(3);
+    const late = ended([ghost, [], [], []], { lastRound: 6, rounds: [[1, 1, 1, 1, 6]] });
+    expect(scoreOf(late, late.players[0]).five).toBe(0);
+    const school = ended([['manor', 'temple', 'tavern', 'schoolOfMagic', 'keep'], [], [], []]);
+    expect(scoreOf(school, school.players[0]).five).toBe(0);
+    const onlyGhost = ended([['manor', 'temple', 'tavern', 'hauntedCity'], [], [], []]);
+    expect(scoreOf(onlyGhost, onlyGhost.players[0]).five).toBe(0);
+  });
+
+  it('最高分獲勝；同分比建築費用、再比金幣、完全相同並列', () => {
+    const FIVE23 = ['manor', 'castle', 'palace', 'temple', 'cathedral', 'tavern', 'watchtower', 'keep'];
+    expect(winnersOf(ended([FIVE23, NOFIVE28, [], []], { first: 'p1' }))).toEqual(['p2']);
+    expect(winnersOf(ended([['palace'], ['palace'], [], []], { gold: [3, 1, 0, 0] }))).toEqual(['p1']);
+    expect(winnersOf(ended([['palace'], ['palace'], [], []], { gold: [2, 2, 0, 0] }))).toEqual(['p1', 'p2']);
+    expect(winnersOf(ended([FIVE24, NOFIVE28, [], []], { first: 'p1' }))).toEqual(['p1']);
+  });
+});
+
+describe('citadels/scoring: 結束公告、再來一局、取消', () => {
+  const finished = () => {
+    const s = gatherGold(until(calling([2, 4, 6, 7], { cities: [['university'], SEVEN, [], []], hands: [[], ['docks'], [], []] }).state, 'p2')).state;
+    const built = run([{ type: 'build', user: 'p2', seq: s.seq, card: 'docks' }, { type: 'end', user: 'p2', seq: s.seq }], s).state;
+    return finishRound(built).state;
+  };
+
+  it('公告分數明細和名次，result 的 players／winners，貼再來一局', () => {
+    const s = gatherGold(until(calling([2, 4, 6, 7], { cities: [['university'], SEVEN, [], []], hands: [[], ['docks'], [], []] }).state, 'p2')).state;
+    let st = run([{ type: 'build', user: 'p2', seq: s.seq, card: 'docks' }, { type: 'end', user: 'p2', seq: s.seq }], s).state;
+    let events: GameEvent[] = [];
+    while (st.phase !== 'ended') ({ state: st, events } = passTurn(st));
+    expect(results(events)).toEqual([{ type: 'result', players: ['p1', 'p2', 'p3', 'p4'], winners: ['p2'] }]);
+    expect(st.winners).toEqual(['p2']);
+    const text = announces(events).find((t) => t.includes('遊戲結束'))!;
+    expect(text).toContain('1. <@p2>');
+    expect(text).toContain('總分 25');
+    expect(text).toContain('建滿 +4');
+    expect(text).toContain('紫卡 +2');
+    expect(text).toContain('計分算 8 分');
+    expect(prompts(events).some((p) => p.kind === 'rematch')).toBe(true);
+  });
+
+  it('結束後舊按鈕和計時器被忽略；再來一局只有上一局玩家，按的人是新房主', () => {
+    const s = finished();
+    expect(s.phase).toBe('ended');
+    expect(run([{ type: 'status', user: 'p1' }], s).events).toEqual([]);
+    expect(run([{ type: 'timeout', id: s.timerSeq }], s).state).toBe(s);
+    expect(ephemeralTo(run([{ type: 'rematch', user: 'Z', channel: 'C1' }], s).events, 'Z')[0]).toContain('只有上一局的玩家');
+    const again = run([{ type: 'rematch', user: 'p3', channel: 'C1' }], s).state;
+    expect(again).toMatchObject({ phase: 'lobby', host: 'p3' });
+    expect(again.players.map((p) => p.id)).toEqual(['p3']);
+  });
+
+  it('房主取消：公告目前建築費用，沒有 result、沒有再來一局；非房主被拒', () => {
+    const s = calling([2, 4, 6, 7], { cities: [['palace'], [], [], []] }).state;
+    const denied = run([{ type: 'cancel', user: 'p2' }], s);
+    expect(denied.state).toBe(s);
+    expect(ephemeralTo(denied.events, 'p2')).toEqual(['只有房主可以取消遊戲。']);
+    const { state, events } = run([{ type: 'cancel', user: 'p1' }], s);
+    expect(state.phase).toBe('ended');
+    expect(announces(events).join()).toContain('取消');
+    expect(announces(events).join()).toContain('<@p1> 5');
+    expect(results(events)).toEqual([]);
+    expect(prompts(events).some((p) => p.kind === 'rematch')).toBe(false);
+    expect(run([{ type: 'rematch', user: 'p1', channel: 'C1' }], state).events).toEqual([]);
   });
 });
