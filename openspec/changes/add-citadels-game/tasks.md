@@ -1,7 +1,7 @@
 ## 1. 牌組（src/citadelsCards.ts）
 
-- [ ] 1.1 先寫失敗的測試（`test/citadelsCards.test.ts`）：8 個角色編號 1～8 和名稱；建築牌 66 張（貴族 12、宗教 11、商業 20、軍事 11、特殊 12）；每種建築的費用和張數和 design 的表一致；大學、龍門計分 8；每張紫卡有效果說明
-- [ ] 1.2 新增 `src/citadelsCards.ts`（角色、建築、紫卡說明），讓 1.1 綠燈
+- [x] 1.1 先寫失敗的測試（`test/citadelsCards.test.ts`）：8 個角色編號 1～8 和名稱；建築牌 66 張（貴族 12、宗教 11、商業 20、軍事 11、特殊 12）；每種建築的費用和張數和 design 的表一致；大學、龍門計分 8；每張紫卡有效果說明
+- [x] 1.2 新增 `src/citadelsCards.ts`（角色、建築、紫卡說明），讓 1.1 綠燈
 
 ## 2. Engine：房間、bot 加減、開局（src/citadels.ts）
 
