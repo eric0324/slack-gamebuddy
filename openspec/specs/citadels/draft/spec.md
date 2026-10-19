@@ -45,3 +45,10 @@ TBD - created by archiving change add-citadels-game. Update Purpose after archiv
 #### Scenario: 7 人局最後一位
 - **WHEN** 7 人局輪到第 7 位，剩下的是魔術師，面朝下棄掉的是商人
 - **THEN** 只有第 7 位看到「🔮 魔術師」「💰 商人（面朝下的棄牌）」兩個按鈕，選了其中一張，另一張面朝下棄掉
+
+### Requirement: 選角選單原地更新
+在私下的選角選單按角色後，「你選了 <角色>」SHALL 取代這則選角選單，SHALL NOT 另外發新訊息；按到不能選的角色時，錯誤訊息也 SHALL 取代選單。從頻道選角訊息按「🎭 選角色」照常發一則新的選角選單。
+
+#### Scenario: 選角後取代選單
+- **WHEN** 輪到 A，A 在選角選單按「📐 建築師」
+- **THEN** 同一則選單變成「你選了 📐 建築師。」，沒有多一則私下訊息
