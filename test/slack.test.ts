@@ -2427,3 +2427,12 @@ describe('game-lobby: 房間公告的人數上限與 bot 按鈕', () => {
     expect(host.state('incan', 'C1')!.players).toHaveLength(8);
   });
 });
+
+describe('citadels/turns: 牌桌訊息的名字不通知', () => {
+  it('記得名字時換成名字；不知道名字時退回 @', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U2', 'bob', 'citadels help');
+    await (host as any).send('C1', { type: 'announce', text: '👑 王冠：{{name:U2}}｜{{name:U9}}' }, 'citadels');
+    expect(calls.at(-1)!.args.text).toBe('👑 王冠：bob｜<@U9>');
+  });
+});

@@ -1,5 +1,5 @@
 // 富饒之城（Citadels 經典版）遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyCitadels(state, action, rng) → { state, events }。
-import { isBot, mention, type GameEvent, type Rng } from './engine.js';
+import { isBot, mention, quiet, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
 import { CHARS, COLORS, DECK, DISTRICTS, districtInfo, districtLabel, RANKS, type Rank } from './citadelsCards.js';
 
@@ -304,18 +304,19 @@ function endRound(c: Ctx) {
   startRound(c);
 }
 
-const playerLine = (p: CPlayer) => `• ${mention(p.id)}：💰 ${p.gold} 金｜🃏 ${p.hand.length} 張｜🏘️ ${p.city.length} 棟${p.city.length ? `：${cityText(p)}` : ''}`;
+const playerLine = (p: CPlayer) => `• ${quiet(p.id)}：💰 ${p.gold} 金｜🃏 ${p.hand.length} 張｜🏘️ ${p.city.length} 棟${p.city.length ? `：${cityText(p)}` : ''}`;
 
+// 牌桌訊息：只有第一行 @ 輪到的人，其他人只顯示名字，避免每回合通知所有人
 function board(s: CState, ended = false): GameEvent {
   const me = current(s);
-  const head = `🏰 第 ${s.round} 輪｜${me.char} 號 ${CHARS[me.char!].name} ${mention(me.id)}`;
+  const role = `${me.char} 號 ${CHARS[me.char!].name}`;
   const lines = ended
-    ? [`${head} 的回合結束`]
+    ? [`✅ 第 ${s.round} 輪 ${role} ${quiet(me.id)} 的回合結束`]
     : [
-        `${head}（${TURN_MS / 1000} 秒）`,
+        `*👉 現在輪到：${mention(me.id)}（${role}）⏳ ${TURN_MS / 1000} 秒*`,
+        `🏰 第 ${s.round} 輪｜👑 王冠：${quiet(s.players[s.crown].id)}｜已翻開：${s.revealed.map((r) => `${CHARS[r].name} ${quiet(s.players[holder(s, r)].id)}`).join('、')}`,
         ...s.notes.map((n) => `（${n}）`),
-        `👑 王冠：${mention(s.players[s.crown].id)}｜已翻開：${s.revealed.map((r) => `${CHARS[r].name} ${mention(s.players[holder(s, r)].id)}`).join('、')}`,
-        ...s.players.map(playerLine),
+        ...s.players.map((p) => (p === me ? `👉 ${playerLine(p)}` : playerLine(p))),
       ];
   return {
     type: 'prompt',

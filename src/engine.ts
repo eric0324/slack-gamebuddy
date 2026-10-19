@@ -42,6 +42,9 @@ const ROLE_HELP: Record<Role, string> = {
 
 // bot 玩家的 id 是 `bot:<編號>:<名字>`，沒有 Slack 帳號，所以不能用 <@id>，改顯示成 🤖<名字>
 export const isBot = (id: string) => id.startsWith('bot:');
+// 不通知的名字：真人由 adapter 換成顯示名稱，bot 本來就不會通知
+export const quiet = (id: string) => (isBot(id) ? mention(id) : `{{name:${id}}}`);
+
 export const mention = (id: string) => {
   if (!isBot(id)) return `<@${id}>`;
   const [, n, name] = id.split(':');

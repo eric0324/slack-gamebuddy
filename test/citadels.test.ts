@@ -329,7 +329,8 @@ describe('citadels/turns: 叫號', () => {
     const board = boards(first.events).at(-1)!;
     expect(board.ref).toBe(`citadels:${first.state.seq}`);
     expect(board.text).toContain('第 1 輪');
-    expect(board.text).toContain('🦹 盜賊 <@p1>');
+    expect(board.text.split('\n')[0]).toBe('*👉 現在輪到：<@p1>（2 號 🦹 盜賊）⏳ 90 秒*');
+    expect(board.text).toContain('已翻開：🦹 盜賊 {{name:p1}}');
     expect(board.text).toContain('沒有人是 1 號 🗡️ 刺客');
     expect(board.options).toEqual([
       { value: `turnMenu:${first.state.seq}`, label: '🏰 我的回合' },
@@ -354,18 +355,25 @@ describe('citadels/turns: 叫號', () => {
   it('牌桌訊息：王冠、已翻開的角色、每人金幣手牌城市，不透露手牌內容', () => {
     const { events } = calling([2, 4, 6, 7], { hands: [['castle'], [], [], []], cities: [[], ['tavern'], [], []], crown: 1 });
     const text = boards(events).at(-1)!.text;
-    expect(text).toContain('👑 王冠：<@p2>');
-    expect(text).toContain('<@p1>：💰 2 金｜🃏 1 張｜🏘️ 0 棟');
-    expect(text).toContain('<@p2>：💰 2 金｜🃏 0 張｜🏘️ 1 棟：🟢 酒館（1）');
+    expect(text).toContain('👑 王冠：{{name:p2}}');
+    expect(text).toContain('👉 • {{name:p1}}：💰 2 金｜🃏 1 張｜🏘️ 0 棟');
+    expect(text).toContain('\n• {{name:p2}}：💰 2 金｜🃏 0 張｜🏘️ 1 棟：🟢 酒館（1）');
     expect(text).not.toContain('城堡');
     expect(text).not.toMatch(/國王|商人|建築師/);
+  });
+
+  it('牌桌訊息只有第一行 @ 輪到的人，其他人只顯示名字', () => {
+    const { events } = calling([2, 4, 6, 7], { crown: 1 });
+    const text = boards(events).at(-1)!.text;
+    expect(text.match(/<@/g)).toHaveLength(1);
+    for (const p of ['p1', 'p2', 'p3', 'p4']) expect(text).toContain(`{{name:${p}}}`);
   });
 
   it('回合結束：牌桌訊息改成回合結束、沒有按鈕，下一則用新的 ref', () => {
     const s = gatherGold(calling([2, 4, 6, 7]).state).state;
     const { state, events } = run([{ type: 'end', user: 'p1', seq: s.seq }], s);
     const old = boards(events).find((b) => b.ref === `citadels:${s.seq}`)!;
-    expect(old.text).toContain('回合結束');
+    expect(old.text).toBe('✅ 第 1 輪 2 號 🦹 盜賊 {{name:p1}} 的回合結束');
     expect(old.options).toEqual([]);
     expect(boards(events).at(-1)!.ref).toBe(`citadels:${state.seq}`);
     expect(state.seq).toBe(s.seq + 1);
