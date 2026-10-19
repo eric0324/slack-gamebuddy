@@ -6,6 +6,7 @@
 
 - 牌桌訊息第一行改成粗體的「👉 現在輪到：@玩家（X 號 角色）⏳ 90 秒」，這是牌桌上唯一會 @ 的地方
 - 牌桌其他地方（王冠、已翻開、玩家清單、回合結束那行）只顯示玩家名字，不 @、不通知
+- 「🏰 我的回合」選單和「🔨 建造」清單列出自己的城市（玩家反映不知道自己場上有哪些建築）
 - Slack 端把「不通知的名字」換成玩家的顯示名稱；不知道名字（例如 bot 重開後還沒操作過）時退回 @，確保至少看得出是誰
 
 ## Capabilities
@@ -16,11 +17,11 @@
 
 ### Modified Capabilities
 
-- `citadels/turns`：新增「牌桌訊息」requirement，規定牌桌的版面、哪一行 @ 人、其他地方只顯示名字
+- `citadels/turns`：新增「牌桌訊息」requirement，規定牌桌的版面、哪一行 @ 人、其他地方只顯示名字；修改「回合選單」，選單文字列出自己的城市
 
 ## Impact
 
-- `src/citadels.ts`：`board()` 的文字
+- `src/citadels.ts`：`board()` 的文字、`turnMenu()` 的選單文字
 - `src/engine.ts`：新增產生「不通知的名字」標記的 helper
 - `src/slack.ts`：送出文字前把標記換成顯示名稱
 - 測試：`test/citadels.test.ts`、`test/slack.test.ts`

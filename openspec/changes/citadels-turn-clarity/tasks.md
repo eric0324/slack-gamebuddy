@@ -16,3 +16,8 @@
 ## 4. 整合
 
 - [x] 4.1 `npx vitest run` 與 `npx tsc --noEmit` 全部通過
+
+## 5. 回合選單列出自己的城市
+
+- [x] 5.1 先寫 `test/citadels.test.ts` 測試，對應「回合選單」新增的兩個 scenario（收集前後的選單、建造清單都有「🏘️ 你的城市」），確認紅燈
+- [x] 5.2 改 `src/citadels.ts` 的 `turnMenu()`，`npx vitest run` 全綠

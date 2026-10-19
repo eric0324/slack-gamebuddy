@@ -396,6 +396,23 @@ describe('citadels/turns: 回合選單', () => {
     expect(labels(events, 'p1')).toEqual(['🔨 建造', '💰 收稅', '✅ 結束回合']);
   });
 
+  it('選單列出自己的城市：收集前、收集後、沒有建築時', () => {
+    const s = calling([2, 4, 6, 7], { cities: [['castle', 'market'], [], [], []] }).state;
+    const city = '🏘️ 你的城市（2 棟）：🟡 城堡（4）、🟢 市集（2）';
+    expect(menuOf(run([{ type: 'turnMenu', user: 'p1', seq: s.seq }], s).events, 'p1')!.text).toContain(city);
+    const g = gatherGold(s).state;
+    expect(menuOf(run([{ type: 'turnMenu', user: 'p1', seq: g.seq }], g).events, 'p1')!.text).toContain(city);
+    const empty = calling([2, 4, 6, 7]).state;
+    expect(menuOf(run([{ type: 'turnMenu', user: 'p1', seq: empty.seq }], empty).events, 'p1')!.text).toContain('🏘️ 你的城市（0 棟）：（還沒有建築）');
+  });
+
+  it('建造清單也列出自己的城市', () => {
+    const s = gatherGold(calling([2, 4, 6, 7], { cities: [['market'], [], [], []], hands: [['tavern'], [], [], []] }).state).state;
+    const text = menuOf(run([{ type: 'turnMenu', user: 'p1', seq: s.seq, sub: 'build' }], s).events, 'p1')!.text;
+    expect(text).toContain('🏘️ 你的城市（1 棟）：🟢 市集（2）');
+    expect(text).toContain('🔨 要建哪一棟？');
+  });
+
   it('不是輪到的人被拒；過期選單被拒', () => {
     const s = calling([2, 4, 6, 7]).state;
     expect(ephemeralTo(run([{ type: 'turnMenu', user: 'p2', seq: s.seq }], s).events, 'p2')).toEqual(['還沒輪到你。']);

@@ -116,6 +116,7 @@ const buildable = (p: CPlayer) => p.hand.filter((card, i) => p.hand.indexOf(card
 const taxAmount = (p: CPlayer) => p.city.filter((x) => DISTRICTS[x.card].color === CHARS[p.char!].tax || x.card === 'schoolOfMagic').length;
 const handText = (hand: string[]) => (hand.length ? hand.map(districtInfo).join('\n') : '（沒有手牌）');
 const cityText = (p: CPlayer) => (p.city.length ? p.city.map((x) => districtLabel(x.card)).join('、') : '（還沒有建築）');
+const myCity = (p: CPlayer) => `🏘️ 你的城市（${p.city.length} 棟）：${cityText(p)}`;
 
 const RULES = [
   '🏛️ 富饒之城規則：每輪先祕密選一個角色，再依角色編號 1→8 叫號行動。輪到你時先「💰 拿 2 金」或「🃏 抽 2 張留 1 張」，再可以用角色能力、建 1 棟建築（付等於費用的金幣；不能蓋同名建築）。',
@@ -349,7 +350,7 @@ function turnMenu(c: Ctx, user: string, seq: number, sub?: Sub): boolean {
     return false;
   }
   if (!t.gathered) {
-    menu(c, user, '🏰 先收集資源：', [o('gather', '💰 拿 2 金'), o('gather', '🃏 抽牌')].map((x, i) => ({ ...x, value: `${x.value}:${i ? 'draw' : 'gold'}` })));
+    menu(c, user, `🏰 先收集資源：\n${myCity(me)}`, [o('gather', '💰 拿 2 金'), o('gather', '🃏 抽牌')].map((x, i) => ({ ...x, value: `${x.value}:${i ? 'draw' : 'gold'}` })));
     return false;
   }
   if (sub === 'lab') {
@@ -361,7 +362,7 @@ function turnMenu(c: Ctx, user: string, seq: number, sub?: Sub): boolean {
   if (sub === 'build') {
     const cards = t.builds < maxBuilds(me) ? buildable(me) : [];
     if (!cards.length) return reply(c, user, '現在沒有可以建造的建築。');
-    menu(c, user, ['🔨 要建哪一棟？', ...cards.map(districtInfo)].join('\n'), cards.map((card) => ({ value: `build:${seq}:${card}`, label: districtLabel(card) })));
+    menu(c, user, [myCity(me), '🔨 要建哪一棟？', ...cards.map(districtInfo)].join('\n'), cards.map((card) => ({ value: `build:${seq}:${card}`, label: districtLabel(card) })));
     return false;
   }
   const options = [
@@ -372,7 +373,7 @@ function turnMenu(c: Ctx, user: string, seq: number, sub?: Sub): boolean {
     ...(canSmithy(s) ? [o('smithy', '⚒️ 鐵匠鋪')] : []),
     o('end', '✅ 結束回合'),
   ];
-  menu(c, user, `🏰 你的回合（${CHARS[me.char!].name}）｜💰 ${me.gold} 金｜🃏 ${me.hand.length} 張`, options);
+  menu(c, user, `🏰 你的回合（${CHARS[me.char!].name}）｜💰 ${me.gold} 金｜🃏 ${me.hand.length} 張\n${myCity(me)}`, options);
   return false;
 }
 
