@@ -32,6 +32,9 @@ export interface CState {
   turn?: Turn;
   notes: string[]; // 沒人拿的角色，附註在下一則牌桌訊息
   revealed: Rank[]; // 這輪已經翻開的角色
+  killed?: Rank; // 這輪被刺殺的角色
+  robbed?: Rank; // 這輪盜賊要偷的角色
+  robber?: string;
   seq: number;
   winners?: string[];
   timerSeq: number;
@@ -51,7 +54,7 @@ export interface Turn {
   smithy: boolean;
 }
 
-export type Sub = 'build';
+export type Sub = 'build' | 'kill' | 'rob' | 'swap' | 'redraw' | 'destroy';
 
 export type CAction =
   | { type: 'new'; user: string; channel: string }
@@ -70,6 +73,12 @@ export type CAction =
   | { type: 'build'; user: string; seq: number; card: string }
   | { type: 'tax'; user: string; seq: number }
   | { type: 'end'; user: string; seq: number }
+  | { type: 'kill'; user: string; seq: number; rank: Rank }
+  | { type: 'rob'; user: string; seq: number; rank: Rank }
+  | { type: 'swap'; user: string; seq: number; target: string }
+  | { type: 'redrawToggle'; user: string; seq: number; picked: number[] }
+  | { type: 'redraw'; user: string; seq: number; picked: number[] }
+  | { type: 'destroy'; user: string; seq: number; target: string; card: string }
   | { type: 'timeout'; id: number }
   | { type: 'rematch'; user: string; channel: string };
 
@@ -235,6 +244,10 @@ function nextCall(c: Ctx) {
   while (++s.calling <= 8) {
     const r = s.calling as Rank;
     const i = holder(s, r);
+    if (s.killed === r) {
+      c.events.push({ type: 'announce', text: `🗡️ ${r} 號 ${CHARS[r].name} 被刺殺了，跳過` });
+      continue;
+    }
     if (i < 0) {
       s.notes.push(`沒有人是 ${r} 號 ${CHARS[r].name}`);
       continue;
@@ -249,6 +262,16 @@ function reveal(c: Ctx, i: number, r: Rank) {
   const me = s.players[i];
   s.revealed.push(r);
   c.events.push({ type: 'announce', text: `🎭 ${r} 號 ${CHARS[r].name} 是 ${mention(me.id)}` });
+  if (r === 4) {
+    s.crown = i;
+    c.events.push({ type: 'announce', text: `👑 ${mention(me.id)} 拿到王冠，下一輪由他先選角` });
+  }
+  if (s.robbed === r && s.robber) {
+    const amount = me.gold;
+    me.gold = 0;
+    find(s, s.robber)!.gold += amount;
+    c.events.push({ type: 'announce', text: `🦹 盜賊 ${mention(s.robber)} 偷走了 ${mention(me.id)} 的 ${amount} 金` });
+  }
   s.seq++;
   s.turn = { player: i, gathered: false, ability: false, taxed: false, builds: 0, lab: false, smithy: false };
   c.events.push(board(s));
@@ -258,6 +281,12 @@ function reveal(c: Ctx, i: number, r: Rank) {
 function endRound(c: Ctx) {
   const s = c.s;
   if (s.notes.length) c.events.push({ type: 'announce', text: s.notes.map((n) => `（${n}）`).join('\n') });
+  const king = holder(s, 4);
+  if (s.killed === 4 && king >= 0) {
+    s.crown = king;
+    c.events.push({ type: 'announce', text: `👑 ${mention(s.players[king].id)} 是國王的繼承人，拿到王冠` });
+  }
+  s.killed = s.robbed = s.robber = undefined;
   startRound(c);
 }
 
@@ -308,6 +337,7 @@ function turnMenu(c: Ctx, user: string, seq: number, sub?: Sub): boolean {
     menu(c, user, '🏰 先收集資源：', [o('gather', '💰 拿 2 金'), o('gather', '🃏 抽牌')].map((x, i) => ({ ...x, value: `${x.value}:${i ? 'draw' : 'gold'}` })));
     return false;
   }
+  if (sub && sub !== 'build') return abilityMenu(c, sub), false;
   if (sub === 'build') {
     const cards = t.builds < maxBuilds(me) ? buildable(me) : [];
     if (!cards.length) return reply(c, user, '現在沒有可以建造的建築。');
@@ -315,6 +345,7 @@ function turnMenu(c: Ctx, user: string, seq: number, sub?: Sub): boolean {
     return false;
   }
   const options = [
+    ...(t.ability ? [] : abilityButtons(s).map((b) => ({ value: `turnMenu:${seq}:${b.sub}`, label: b.label }))),
     ...(t.builds < maxBuilds(me) && buildable(me).length ? [{ value: `turnMenu:${seq}:build`, label: '🔨 建造' }] : []),
     ...(CHARS[me.char!].tax && !t.taxed ? [o('tax', '💰 收稅')] : []),
     o('end', '✅ 結束回合'),
@@ -380,7 +411,19 @@ function keep(c: Ctx, user: string, seq: number, card: string): boolean {
 
 // 收集資源完成
 function afterGather(c: Ctx) {
-  c.s.turn!.gathered = true;
+  const s = c.s;
+  const me = current(s);
+  s.turn!.gathered = true;
+  if (me.char === 6) {
+    me.gold++;
+    c.events.push({ type: 'announce', text: `💰 商人 ${mention(me.id)} 多拿 1 金` });
+  }
+  if (me.char === 7) {
+    const extra = s.deck.splice(0, 2);
+    me.hand.push(...extra);
+    c.events.push({ type: 'announce', text: `📐 建築師 ${mention(me.id)} 多抽了 ${extra.length} 張` });
+    tell(c, me.id, `📐 你多抽到 ${extra.map(districtLabel).join('、') || '（牌堆沒有牌了）'}。`);
+  }
 }
 
 function build(c: Ctx, user: string, seq: number, card: string): boolean {
@@ -396,6 +439,148 @@ function build(c: Ctx, user: string, seq: number, card: string): boolean {
   me.city.push({ card, round: s.round });
   t.builds++;
   c.events.push({ type: 'announce', text: `🔨 ${mention(me.id)} 建了 ${districtLabel(card)}` });
+  c.events.push(board(s));
+  return true;
+}
+
+// ===== 角色能力 =====
+const killTargets = (s: CState) => RANKS.filter((r) => r >= 2 && !s.draft!.faceUp.includes(r));
+const robTargets = (s: CState) => RANKS.filter((r) => r >= 3 && !s.draft!.faceUp.includes(r) && r !== s.killed);
+const destroyCost = (owner: CPlayer, card: string) => Math.max(0, DISTRICTS[card].cost - 1);
+// 軍閥可以破壞的建築：建滿 8 棟的城市、沒被刺殺的主教、付不起的都不列
+function destroyTargets(s: CState): { owner: CPlayer; card: string; cost: number }[] {
+  const me = current(s);
+  return s.players.flatMap((owner) => {
+    if (owner.city.length >= 8 || (owner.char === 5 && s.killed !== 5)) return [];
+    return owner.city.map((x) => ({ owner, card: x.card, cost: destroyCost(owner, x.card) })).filter((x) => x.cost <= me.gold);
+  });
+}
+
+// 回合選單上的角色能力按鈕（還沒用過、有可用目標時）
+function abilityButtons(s: CState): { sub: Sub; label: string }[] {
+  const me = current(s);
+  switch (me.char) {
+    case 1:
+      return [{ sub: 'kill', label: '🗡️ 刺殺' }];
+    case 2:
+      return robTargets(s).length ? [{ sub: 'rob', label: '🦹 偷竊' }] : [];
+    case 3:
+      return [{ sub: 'swap', label: '🔄 換手牌' }, ...(me.hand.length ? [{ sub: 'redraw' as Sub, label: '♻️ 棄牌重抽' }] : [])];
+    case 8:
+      return destroyTargets(s).length ? [{ sub: 'destroy', label: '💥 破壞' }] : [];
+    default:
+      return [];
+  }
+}
+
+function abilityMenu(c: Ctx, sub: Sub) {
+  const s = c.s;
+  const me = current(s);
+  if (s.turn!.ability || !abilityButtons(s).some((b) => b.sub === sub)) return reply(c, me.id, STALE);
+  const seq = s.seq;
+  switch (sub) {
+    case 'kill':
+      return menu(c, me.id, '🗡️ 要刺殺哪個角色？', killTargets(s).map((r) => ({ value: `kill:${seq}:${r}`, label: `${r} ${CHARS[r].name}` })));
+    case 'rob':
+      return menu(c, me.id, '🦹 要偷哪個角色？', robTargets(s).map((r) => ({ value: `rob:${seq}:${r}`, label: `${r} ${CHARS[r].name}` })));
+    case 'swap':
+      return menu(c, me.id, '🔄 要和誰交換全部手牌？', s.players.filter((p) => p !== me).map((p) => ({ value: `swap:${seq}:${p.id}`, label: `${p.id} ：${p.hand.length} 張` })));
+    case 'redraw':
+      return redrawMenu(c, []);
+    case 'destroy':
+      return menu(c, me.id, `💥 要破壞哪一棟？（你有 ${me.gold} 金）`, destroyTargets(s).map((x) => ({ value: `destroy:${seq}:${x.card}:${x.owner.id}`, label: `${x.owner.id} 的 ${districtLabel(x.card)}：${x.cost} 金` })));
+  }
+}
+
+// 棄牌重抽：按手牌切換要不要棄，選好再按確認；選擇記在按鈕上，不改 state
+function redrawMenu(c: Ctx, picked: number[]) {
+  const s = c.s;
+  const me = current(s);
+  if (me.char !== 3 || !s.turn!.gathered || s.turn!.ability) return reply(c, me.id, STALE);
+  const seq = s.seq;
+  const toggle = (i: number) => (picked.includes(i) ? picked.filter((x) => x !== i) : [...picked, i].sort((a, b) => a - b));
+  const options = [
+    ...me.hand.map((card, i) => ({ value: `redrawToggle:${seq}:${toggle(i).join(',')}`, label: `${picked.includes(i) ? '✅ ' : ''}${districtLabel(card)}` })),
+    ...(picked.length ? [{ value: `redraw:${seq}:${picked.join(',')}`, label: `♻️ 確認重抽 ${picked.length} 張` }] : []),
+  ];
+  menu(c, me.id, '♻️ 選要棄掉的手牌（放到牌堆底，再抽同樣張數）：', options);
+}
+
+// 能力動作的共同檢查
+function abilityCheck(c: Ctx, user: string, seq: number, rank: Rank): boolean {
+  const err = turnCheck(c.s, user, seq);
+  const t = c.s.turn;
+  const msg = err ?? (current(c.s).char !== rank || !t!.gathered || t!.ability ? STALE : null);
+  if (msg) reply(c, user, msg);
+  return !msg;
+}
+
+function kill(c: Ctx, user: string, seq: number, rank: Rank): boolean {
+  const s = c.s;
+  if (!abilityCheck(c, user, seq, 1)) return false;
+  if (!killTargets(s).includes(rank)) return reply(c, user, '不能刺殺這個角色。');
+  s.killed = rank;
+  s.turn!.ability = true;
+  c.events.push({ type: 'announce', text: `🗡️ 刺客刺殺了 ${rank} 號 ${CHARS[rank].name}！` });
+  c.events.push(board(s));
+  return true;
+}
+
+function rob(c: Ctx, user: string, seq: number, rank: Rank): boolean {
+  const s = c.s;
+  if (!abilityCheck(c, user, seq, 2)) return false;
+  if (!robTargets(s).includes(rank)) return reply(c, user, '不能偷這個角色。');
+  s.robbed = rank;
+  s.robber = user;
+  s.turn!.ability = true;
+  c.events.push({ type: 'announce', text: `🦹 盜賊 ${mention(user)} 要偷 ${rank} 號 ${CHARS[rank].name}` });
+  c.events.push(board(s));
+  return true;
+}
+
+function swap(c: Ctx, user: string, seq: number, target: string): boolean {
+  const s = c.s;
+  if (!abilityCheck(c, user, seq, 3)) return false;
+  const me = current(s);
+  const other = find(s, target);
+  if (!other || other === me) return reply(c, user, '不能和這位玩家交換。');
+  [me.hand, other.hand] = [other.hand, me.hand];
+  s.turn!.ability = true;
+  c.events.push({ type: 'announce', text: `🔄 ${mention(me.id)} 和 ${mention(other.id)} 交換手牌（${mention(me.id)} 拿到 ${me.hand.length} 張、${mention(other.id)} 拿到 ${other.hand.length} 張）` });
+  for (const p of [me, other]) tell(c, p.id, `🔄 交換後你的手牌：\n${handText(p.hand)}`);
+  c.events.push(board(s));
+  return true;
+}
+
+function redraw(c: Ctx, user: string, seq: number, picked: number[]): boolean {
+  const s = c.s;
+  if (!abilityCheck(c, user, seq, 3)) return false;
+  const me = current(s);
+  const ok = picked.length > 0 && new Set(picked).size === picked.length && picked.every((i) => Number.isInteger(i) && i >= 0 && i < me.hand.length);
+  if (!ok) return reply(c, user, STALE);
+  const out = picked.map((i) => me.hand[i]);
+  me.hand = me.hand.filter((_, i) => !picked.includes(i));
+  s.deck.push(...out);
+  const drawn = s.deck.splice(0, out.length);
+  me.hand.push(...drawn);
+  s.turn!.ability = true;
+  c.events.push({ type: 'announce', text: `♻️ ${mention(me.id)} 棄了 ${out.length} 張手牌重抽` });
+  tell(c, me.id, `♻️ 你抽到 ${drawn.map(districtLabel).join('、')}。`);
+  c.events.push(board(s));
+  return true;
+}
+
+function destroy(c: Ctx, user: string, seq: number, target: string, card: string): boolean {
+  const s = c.s;
+  if (!abilityCheck(c, user, seq, 8)) return false;
+  const x = destroyTargets(s).find((d) => d.owner.id === target && d.card === card);
+  if (!x) return reply(c, user, '不能破壞這棟建築。');
+  const me = current(s);
+  me.gold -= x.cost;
+  x.owner.city.splice(x.owner.city.findIndex((d) => d.card === card), 1);
+  s.turn!.ability = true;
+  c.events.push({ type: 'announce', text: `💥 軍閥 ${mention(me.id)} 花 ${x.cost} 金破壞了 ${mention(target)} 的 ${districtLabel(card)}` });
+  s.deck.push(card);
   c.events.push(board(s));
   return true;
 }
@@ -487,6 +672,22 @@ function handle(c: Ctx, action: GameAction): boolean {
       return tax(c, action.user, action.seq);
     case 'end':
       return end(c, action.user, action.seq);
+    case 'kill':
+      return kill(c, action.user, action.seq, action.rank);
+    case 'rob':
+      return rob(c, action.user, action.seq, action.rank);
+    case 'swap':
+      return swap(c, action.user, action.seq, action.target);
+    case 'redrawToggle': {
+      const err = turnCheck(c.s, action.user, action.seq);
+      if (err) return reply(c, action.user, err);
+      redrawMenu(c, action.picked);
+      return false;
+    }
+    case 'redraw':
+      return redraw(c, action.user, action.seq, action.picked);
+    case 'destroy':
+      return destroy(c, action.user, action.seq, action.target, action.card);
     case 'timeout':
       if (action.id !== c.s.timers.phase) return false;
       timeout(c);
