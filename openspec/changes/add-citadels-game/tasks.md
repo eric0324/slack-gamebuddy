@@ -57,13 +57,13 @@
 
 ## 9. Slack 設定（src/games/citadels.ts）
 
-- [ ] 9.1 先寫失敗的測試（放在 `test/citadels.test.ts`，直接測 GameDef 的 parse／button）：指令解析（new、start、cancel、addbot、removebot、help、不認識的子指令顯示說明）；按鈕路由（join、leave、start、rematch、`status`、`pickMenu`、`pick`、`turnMenu`、`gather`、`keep`、`build`、`tax`、`kill`、`rob`、`swap`、`redrawToggle`、`redraw`、`destroy`、`lab`、`smithy`、`grave`、`end`）
+- [x] 9.1 先寫失敗的測試（放在 `test/citadels.test.ts`，直接測 GameDef 的 parse／button）：指令解析（new、start、cancel、addbot、removebot、help、不認識的子指令顯示說明）；按鈕路由（join、leave、start、rematch、`status`、`pickMenu`、`pick`、`turnMenu`、`gather`、`keep`、`build`、`tax`、`kill`、`rob`、`swap`、`redrawToggle`、`redraw`、`destroy`、`lab`、`smithy`、`grave`、`end`）
 - [ ] 9.2 （主控整合時做）先寫失敗的測試（`test/slack.test.ts`）：KINDS 加 `citadels`、遊戲清單有富饒之城、大廳「🎲 心理戰」有 🏰 富饒之城（`citadels`）4～7 人和開房按鈕；`/game citadels help` 列出指令
-- [ ] 9.3 實作 `src/games/citadels.ts` 匯出 `GameDef`（`kind: 'citadels'`、`emoji: '🏰'`、`name: '富饒之城'`、`players: '4～7 人'`、`category: 'bluff'`、help、apply、parse、button），讓 9.1 綠燈；（主控整合時做）`src/games/index.ts` 的 `GAMES` 加一行，讓 9.2 綠燈
+- [x] 9.3 實作 `src/games/citadels.ts` 匯出 `GameDef`（`kind: 'citadels'`、`emoji: '🏰'`、`name: '富饒之城'`、`players: '4～7 人'`、`category: 'bluff'`、help、apply、parse、button），讓 9.1 綠燈（已完成）；（主控整合時做，尚未做）`src/games/index.ts` 的 `GAMES` 加一行，讓 9.2 綠燈
 - [ ] 9.4 （主控整合時做）`test/characterization.test.ts` 的 KINDS 加 `'citadels'`，更新 snapshot，確認差異只有多一款遊戲的文字
 
 ## 10. 文件與驗證
 
 - [ ] 10.1 （主控整合時做）README：遊戲列表、wiki 連結、manifest `description`／`usage_hint`
-- [ ] 10.2 （主控整合時做）wiki 草稿「富饒之城」「富饒之城-遊戲規則」「富饒之城-指令」三頁（由主控處理 push）
-- [ ] 10.3 跑全部測試和 typecheck，確認綠燈
+- [x] 10.2 （主控整合時做）wiki 草稿「富饒之城」「富饒之城-遊戲規則」「富饒之城-指令」三頁（草稿已放在 `docs/wiki-drafts/`，由主控處理 push）
+- [x] 10.3 跑全部測試和 typecheck，確認綠燈

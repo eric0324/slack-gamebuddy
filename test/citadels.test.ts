@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { isBot, type GameEvent } from '../src/engine.js';
 import { applyCitadels, scoreOf, winnersOf, type CAction, type CState } from '../src/citadels.js';
 import type { Rank } from '../src/citadelsCards.js';
+import { citadels } from '../src/games/citadels.js';
 
 const rng = () => 0.99999; // 洗牌不動；王冠給最後一位
 
@@ -1146,5 +1147,56 @@ describe('citadels/bots: 一個人也能玩完整局', () => {
       expect(result.winners.length).toBeGreaterThan(0);
       all = [];
     }
+  });
+});
+
+describe('citadels/setup: 遊戲清單與指令說明（GameDef）', () => {
+  it('大廳資訊', () => {
+    expect(citadels).toMatchObject({ kind: 'citadels', emoji: '🏰', name: '富饒之城', players: '4～7 人', category: 'bluff' });
+    expect(citadels.desc.length).toBeGreaterThan(0);
+  });
+
+  it('help 列出指令和按鈕用法；不認識的子指令回傳 null（顯示說明）', () => {
+    for (const w of ['new', 'addbot', 'removebot', 'start', 'cancel', '🎭 選角色', '🏰 我的回合', '📜 我的狀態']) expect(citadels.help).toContain(w);
+    expect(citadels.parse('foo', 'U', 'C')).toBeNull();
+    expect(citadels.parse('help', 'U', 'C')).toBeNull();
+    expect(citadels.parse('new', 'U', 'C')).toEqual({ type: 'new', user: 'U', channel: 'C' });
+    expect(citadels.parse('start', 'U', 'C')).toEqual({ type: 'start', user: 'U' });
+    expect(citadels.parse('cancel', 'U', 'C')).toEqual({ type: 'cancel', user: 'U' });
+    expect(citadels.parse('addbot 2', 'U', 'C')).toEqual({ type: 'addBot', user: 'U', count: 2 });
+    expect(citadels.parse('removebot', 'U', 'C')).toEqual({ type: 'removeBot', user: 'U', count: 1 });
+  });
+
+  it('按鈕對應 action', () => {
+    const b = (kind: string, value: string) => citadels.button(kind, value, 'U', 'C');
+    expect(b('join', '')).toEqual({ type: 'join', user: 'U' });
+    expect(b('leave', '')).toEqual({ type: 'leave', user: 'U' });
+    expect(b('start', '')).toEqual({ type: 'start', user: 'U' });
+    expect(b('rematch', '')).toEqual({ type: 'rematch', user: 'U', channel: 'C' });
+    expect(b('citadels', 'status')).toEqual({ type: 'status', user: 'U' });
+    expect(b('citadels', 'pickMenu')).toEqual({ type: 'pickMenu', user: 'U' });
+    expect(b('citadels', 'pick:7')).toEqual({ type: 'pick', user: 'U', rank: 7 });
+    expect(b('citadels', 'turnMenu:3')).toEqual({ type: 'turnMenu', user: 'U', seq: 3 });
+    expect(b('citadels', 'turnMenu:3:build')).toEqual({ type: 'turnMenu', user: 'U', seq: 3, sub: 'build' });
+    expect(b('citadels', 'gather:3:draw')).toEqual({ type: 'gather', user: 'U', seq: 3, kind: 'draw' });
+    expect(b('citadels', 'keep:3:castle')).toEqual({ type: 'keep', user: 'U', seq: 3, card: 'castle' });
+    expect(b('citadels', 'build:3:castle')).toEqual({ type: 'build', user: 'U', seq: 3, card: 'castle' });
+    expect(b('citadels', 'tax:3')).toEqual({ type: 'tax', user: 'U', seq: 3 });
+    expect(b('citadels', 'kill:3:5')).toEqual({ type: 'kill', user: 'U', seq: 3, rank: 5 });
+    expect(b('citadels', 'rob:3:6')).toEqual({ type: 'rob', user: 'U', seq: 3, rank: 6 });
+    expect(b('citadels', 'swap:3:bot:2:小明')).toEqual({ type: 'swap', user: 'U', seq: 3, target: 'bot:2:小明' });
+    expect(b('citadels', 'redrawToggle:3:0,2')).toEqual({ type: 'redrawToggle', user: 'U', seq: 3, picked: [0, 2] });
+    expect(b('citadels', 'redrawToggle:3:')).toEqual({ type: 'redrawToggle', user: 'U', seq: 3, picked: [] });
+    expect(b('citadels', 'redraw:3:1')).toEqual({ type: 'redraw', user: 'U', seq: 3, picked: [1] });
+    expect(b('citadels', 'destroy:3:market:bot:1:阿華')).toEqual({ type: 'destroy', user: 'U', seq: 3, target: 'bot:1:阿華', card: 'market' });
+    expect(b('citadels', 'lab:3:tavern')).toEqual({ type: 'lab', user: 'U', seq: 3, card: 'tavern' });
+    expect(b('citadels', 'smithy:3')).toEqual({ type: 'smithy', user: 'U', seq: 3 });
+    expect(b('citadels', 'grave:yes')).toEqual({ type: 'grave', user: 'U', yes: true });
+    expect(b('citadels', 'grave:no')).toEqual({ type: 'grave', user: 'U', yes: false });
+    expect(b('citadels', 'end:3')).toEqual({ type: 'end', user: 'U', seq: 3 });
+    expect(b('citadels', 'pick:9')).toBeNull();
+    expect(b('citadels', 'build:3:spaceship')).toBeNull();
+    expect(b('citadels', 'turnMenu:3:fly')).toBeNull();
+    expect(b('coup', 'status')).toBeNull();
   });
 });
