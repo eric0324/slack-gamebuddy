@@ -182,3 +182,129 @@ describe('citadels/setup: 我的狀態', () => {
     expect(ephemeralTo(events, 'Z')).toEqual(['你不在這局遊戲裡。']);
   });
 });
+
+// 依目前的選角順序替每個人選角（ranks 依序）
+function pickAll(s: CState, ranks: Rank[]) {
+  let state = s;
+  for (const rank of ranks) state = run([{ type: 'pick', user: state.players[state.draft!.order[state.draft!.at]].id, rank }], state).state;
+  return state;
+}
+const roundAnnounce = (events: GameEvent[]) => announces(events).find((t) => t.includes('輪開始'))!;
+
+describe('citadels/draft: 選角前的棄牌', () => {
+  it('4 人：1 張面朝下、2 張面朝上，剩 5 張；公告面朝上的、不公開面朝下的', () => {
+    const { state, events } = started(4);
+    expect(state.draft).toMatchObject({ faceDown: 1, faceUp: [2, 3], pool: [4, 5, 6, 7, 8] });
+    const text = roundAnnounce(events);
+    expect(text).toContain('第 1 輪開始');
+    expect(text).toContain('🦹 盜賊');
+    expect(text).toContain('🔮 魔術師');
+    expect(text).not.toContain('刺客');
+    expect(text).toContain('<@p4> → <@p1> → <@p2> → <@p3>');
+  });
+
+  it('5 人：1 下 1 上，剩 6 張', () => {
+    const { state } = started(5);
+    expect(state.draft!.faceUp).toHaveLength(1);
+    expect(state.draft!.pool).toHaveLength(6);
+  });
+
+  it('6 人和 7 人：只有 1 張面朝下，剩 7 張', () => {
+    for (const n of [6, 7]) {
+      const { state } = started(n);
+      expect(state.draft!.faceUp).toEqual([]);
+      expect(state.draft!.pool).toHaveLength(7);
+    }
+  });
+
+  it('國王不會面朝上棄掉：改棄另一張', () => {
+    const { state } = started(4, () => 0); // 角色洗成 2,3,4,5,…：面朝下 2，面朝上翻到 3、4（國王）→ 改棄 5
+    expect(state.draft!.faceUp).toEqual([3, 5]);
+    expect(state.draft!.pool).toContain(4);
+  });
+});
+
+describe('citadels/draft: 祕密選角', () => {
+  it('選角訊息：提及輪到的人、已選 0/4、附「🎭 選角色」，45 秒', () => {
+    const { events } = started(4);
+    const msg = draftMsgs(events).at(-1)!;
+    expect(msg.ref).toBe('citadels:draft:1');
+    expect(msg.text).toContain('<@p4>');
+    expect(msg.text).toContain('已選 0/4');
+    expect(msg.options).toEqual([{ value: 'pickMenu', label: '🎭 選角色' }]);
+    expect(timers(events).at(-1)!.ms).toBe(45_000);
+  });
+
+  it('輪到的人打開選單：只列剩下的角色和面朝上的棄牌；不改 state', () => {
+    const s = started(4).state;
+    const { state, events } = run([{ type: 'pickMenu', user: 'p4' }], s);
+    expect(state).toBe(s);
+    expect(values(events, 'p4')).toEqual(['pick:4', 'pick:5', 'pick:6', 'pick:7', 'pick:8']);
+    expect(menuOf(events, 'p4')!.text).toContain('面朝上棄掉：🦹 盜賊、🔮 魔術師');
+  });
+
+  it('還沒輪到你', () => {
+    const s = started(4).state;
+    const menu = run([{ type: 'pickMenu', user: 'p1' }], s);
+    expect(ephemeralTo(menu.events, 'p1')).toEqual(['還沒輪到你。']);
+    const pick = run([{ type: 'pick', user: 'p1', rank: 4 }], s);
+    expect(pick.state).toBe(s);
+    expect(ephemeralTo(pick.events, 'p1')).toEqual(['還沒輪到你。']);
+    expect(ephemeralTo(run([{ type: 'pickMenu', user: 'Z' }], s).events, 'Z')).toEqual(['你不在這局遊戲裡。']);
+  });
+
+  it('選角：只讓本人知道，訊息更新已選 1/4 並提及下一位；選過的不能再選', () => {
+    const { state, events } = run([{ type: 'pick', user: 'p4', rank: 7 }], started(4).state);
+    expect(P(state, 'p4').char).toBe(7);
+    expect(ephemeralTo(events, 'p4')).toEqual(['你選了 📐 建築師。']);
+    expect(announces(events).join()).not.toContain('建築師');
+    const msg = draftMsgs(events).at(-1)!;
+    expect(msg.ref).toBe('citadels:draft:1');
+    expect(msg.text).toContain('已選 1/4');
+    expect(msg.text).toContain('<@p1>');
+    expect(msg.text).not.toContain('建築師');
+    expect(values(run([{ type: 'pickMenu', user: 'p1' }], state).events, 'p1')).not.toContain('pick:7');
+    const again = run([{ type: 'pick', user: 'p1', rank: 7 }], state);
+    expect(again.state).toBe(state);
+  });
+
+  it('45 秒逾時：隨機選一張，只告訴本人，輪到下一位；舊計時器被忽略', () => {
+    const s = started(4).state;
+    const { state, events } = fire(s);
+    expect(P(state, 'p4').char).toBe(8);
+    expect(ephemeralTo(events, 'p4')[0]).toContain('⚔️ 軍閥');
+    expect(state.draft!.at).toBe(1);
+    const stale = run([{ type: 'timeout', id: s.timers.phase! }], state);
+    expect(stale.state).toBe(state);
+  });
+
+  it('最後一位選完：剩下的面朝下棄掉，選角訊息改成選角完成', () => {
+    const s = pickAll(started(4).state, [4, 5, 6]);
+    const { state, events } = run([{ type: 'pick', user: 'p3', rank: 8 }], s);
+    expect(state.players.map((p) => p.char)).toEqual([5, 6, 8, 4]);
+    expect(state.phase).not.toBe('draft');
+    const msg = draftMsgs(events).find((m) => m.text.includes('選角完成'))!;
+    expect(msg.ref).toBe('citadels:draft:1');
+    expect(msg.options).toEqual([]);
+  });
+});
+
+describe('citadels/draft: 7 人局的最後一位', () => {
+  const lastOf7 = () => pickAll(started(7).state, [2, 4, 5, 6, 7, 8]); // 剩魔術師，面朝下是刺客
+
+  it('選單有剩下的那張和面朝下的棄牌，二選一；另一張不公開', () => {
+    const s = lastOf7();
+    expect(s.draft!.order[s.draft!.at]).toBe(5);
+    const { events } = run([{ type: 'pickMenu', user: 'p6' }], s);
+    expect(labels(events, 'p6')).toEqual(['🔮 魔術師', '🗡️ 刺客（面朝下的棄牌）']);
+    const picked = run([{ type: 'pick', user: 'p6', rank: 1 }], s);
+    expect(P(picked.state, 'p6').char).toBe(1);
+    expect(picked.state.players.some((p) => p.char === 3)).toBe(false);
+    expect(announces(picked.events).join()).not.toContain('魔術師');
+  });
+
+  it('逾時從兩張隨機選', () => {
+    const { state } = fire(lastOf7());
+    expect(P(state, 'p6').char).toBe(1);
+  });
+});
