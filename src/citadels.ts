@@ -1,12 +1,13 @@
 // 富饒之城（Citadels 經典版）遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyCitadels(state, action, rng) → { state, events }。
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
-import { CHARS, DECK, districtInfo, districtLabel, RANKS, type Rank } from './citadelsCards.js';
+import { CHARS, DECK, DISTRICTS, districtInfo, districtLabel, RANKS, type Rank } from './citadelsCards.js';
 
 export const MIN_CITADELS_PLAYERS = 4;
 export const MAX_CITADELS_PLAYERS = 7;
 const TITLE = '富饒之城';
 export const DRAFT_MS = 45_000;
+export const TURN_MS = 90_000;
 const FACE_UP: Record<number, number> = { 4: 2, 5: 1 };
 
 export interface CPlayer {
@@ -28,11 +29,29 @@ export interface CState {
   round: number;
   draft?: { pool: Rank[]; faceUp: Rank[]; faceDown: Rank; order: number[]; at: number };
   calling: number; // 目前叫到幾號（0 表示還沒開始叫號）
+  turn?: Turn;
+  notes: string[]; // 沒人拿的角色，附註在下一則牌桌訊息
+  revealed: Rank[]; // 這輪已經翻開的角色
   seq: number;
   winners?: string[];
   timerSeq: number;
   timers: { phase?: number };
 }
+
+// 一個角色回合的進度；drawn 是抽牌後還沒選完的牌，keep 是還要留幾張
+export interface Turn {
+  player: number;
+  gathered: boolean;
+  drawn?: string[];
+  keep?: number;
+  ability: boolean;
+  taxed: boolean;
+  builds: number;
+  lab: boolean;
+  smithy: boolean;
+}
+
+export type Sub = 'build';
 
 export type CAction =
   | { type: 'new'; user: string; channel: string }
@@ -45,6 +64,12 @@ export type CAction =
   | { type: 'status'; user: string }
   | { type: 'pickMenu'; user: string }
   | { type: 'pick'; user: string; rank: Rank }
+  | { type: 'turnMenu'; user: string; seq: number; sub?: Sub }
+  | { type: 'gather'; user: string; seq: number; kind: 'gold' | 'draw' }
+  | { type: 'keep'; user: string; seq: number; card: string }
+  | { type: 'build'; user: string; seq: number; card: string }
+  | { type: 'tax'; user: string; seq: number }
+  | { type: 'end'; user: string; seq: number }
   | { type: 'timeout'; id: number }
   | { type: 'rematch'; user: string; channel: string };
 
@@ -54,6 +79,7 @@ type Ctx = { s: CState; events: GameEvent[]; rng: Rng };
 
 const NOT_PLAYER = '你不在這局遊戲裡。';
 const NOT_YET = '還沒輪到你。';
+const STALE = '這個選單已經過期，請重新按「🏰 我的回合」。';
 
 const find = (s: CState, id: string) => s.players.find((p) => p.id === id);
 // 只對真人送私下訊息（bot 不需要）
@@ -63,6 +89,13 @@ const tell = (c: Ctx, to: string, text: string) => {
 const menu = (c: Ctx, user: string, text: string, options: { value: string; label: string }[]) => {
   if (!isBot(user)) c.events.push({ type: 'prompt', kind: 'citadels', audience: 'ephemeral', user, text, options, perRow: 4 });
 };
+const current = (s: CState) => s.players[s.turn!.player];
+const holder = (s: CState, r: Rank) => s.players.findIndex((p) => p.char === r);
+const has = (p: CPlayer, card: string) => p.city.some((x) => x.card === card);
+const maxBuilds = (p: CPlayer) => (p.char === 7 ? 3 : 1);
+// 手上付得起、城市裡沒有同名的建築（同名的只列一次）
+const buildable = (p: CPlayer) => p.hand.filter((card, i) => p.hand.indexOf(card) === i && !has(p, card) && DISTRICTS[card].cost <= p.gold);
+const taxAmount = (p: CPlayer) => p.city.filter((x) => DISTRICTS[x.card].color === CHARS[p.char!].tax).length;
 const handText = (hand: string[]) => (hand.length ? hand.map(districtInfo).join('\n') : '（沒有手牌）');
 const cityText = (p: CPlayer) => (p.city.length ? p.city.map((x) => districtLabel(x.card)).join('、') : '（還沒有建築）');
 
@@ -119,7 +152,7 @@ function startRound(c: Ctx) {
   for (const p of s.players) p.char = undefined;
   const pool = shuffle(RANKS, c.rng);
   const faceDown = pool.shift()!;
-  const faceUp = pool.filter((r) => r !== 4).slice(0, FACE_UP[n] ?? 0);
+  const faceUp: Rank[] = pool.filter((r) => r !== 4).slice(0, FACE_UP[n] ?? 0);
   s.draft = { pool: pool.filter((r) => !faceUp.includes(r)), faceUp, faceDown, order: s.players.map((_, i) => (s.crown + i) % n), at: 0 };
   c.events.push({
     type: 'announce',
@@ -186,7 +219,230 @@ function pick(c: Ctx, user: string, rank: Rank): boolean {
 }
 
 function startCalling(c: Ctx) {
-  c.s.phase = 'turn';
+  const s = c.s;
+  s.phase = 'turn';
+  s.calling = 0;
+  s.revealed = [];
+  s.notes = [];
+  nextCall(c);
+}
+
+// 叫下一號：沒人拿的跳過並記下附註；8 號叫完這一輪結束
+function nextCall(c: Ctx) {
+  const s = c.s;
+  s.turn = undefined;
+  s.notes = [];
+  while (++s.calling <= 8) {
+    const r = s.calling as Rank;
+    const i = holder(s, r);
+    if (i < 0) {
+      s.notes.push(`沒有人是 ${r} 號 ${CHARS[r].name}`);
+      continue;
+    }
+    return reveal(c, i, r);
+  }
+  endRound(c);
+}
+
+function reveal(c: Ctx, i: number, r: Rank) {
+  const s = c.s;
+  const me = s.players[i];
+  s.revealed.push(r);
+  c.events.push({ type: 'announce', text: `🎭 ${r} 號 ${CHARS[r].name} 是 ${mention(me.id)}` });
+  s.seq++;
+  s.turn = { player: i, gathered: false, ability: false, taxed: false, builds: 0, lab: false, smithy: false };
+  c.events.push(board(s));
+  startTimer(c, TURN_MS);
+}
+
+function endRound(c: Ctx) {
+  const s = c.s;
+  if (s.notes.length) c.events.push({ type: 'announce', text: s.notes.map((n) => `（${n}）`).join('\n') });
+  startRound(c);
+}
+
+const playerLine = (p: CPlayer) => `• ${mention(p.id)}：💰 ${p.gold} 金｜🃏 ${p.hand.length} 張｜🏘️ ${p.city.length} 棟${p.city.length ? `：${cityText(p)}` : ''}`;
+
+function board(s: CState, ended = false): GameEvent {
+  const me = current(s);
+  const head = `🏰 第 ${s.round} 輪｜${me.char} 號 ${CHARS[me.char!].name} ${mention(me.id)}`;
+  const lines = ended
+    ? [`${head} 的回合結束`]
+    : [
+        `${head}（${TURN_MS / 1000} 秒）`,
+        ...s.notes.map((n) => `（${n}）`),
+        `👑 王冠：${mention(s.players[s.crown].id)}｜已翻開：${s.revealed.map((r) => `${CHARS[r].name} ${mention(s.players[holder(s, r)].id)}`).join('、')}`,
+        ...s.players.map(playerLine),
+      ];
+  return {
+    type: 'prompt',
+    kind: 'citadels',
+    audience: 'channel',
+    ref: `citadels:${s.seq}`,
+    text: lines.join('\n'),
+    options: ended ? [] : [{ value: `turnMenu:${s.seq}`, label: '🏰 我的回合' }, { value: 'status', label: '📜 我的狀態' }],
+  };
+}
+
+// 輪到的人操作前的共同檢查；回傳錯誤訊息或 null
+function turnCheck(s: CState, user: string, seq: number): string | null {
+  if (!find(s, user)) return NOT_PLAYER;
+  if ((s.phase !== 'turn' && s.phase !== 'graveyard') || current(s).id !== user) return NOT_YET;
+  if (seq !== s.seq) return STALE;
+  if (s.phase === 'graveyard') return '正在等墓地主人決定，請稍候。';
+  return null;
+}
+
+function turnMenu(c: Ctx, user: string, seq: number, sub?: Sub): boolean {
+  const s = c.s;
+  const err = turnCheck(s, user, seq);
+  if (err) return reply(c, user, err);
+  const t = s.turn!;
+  const me = current(s);
+  const o = (act: string, label: string) => ({ value: `${act}:${seq}`, label });
+  if (t.drawn) {
+    keepMenu(c);
+    return false;
+  }
+  if (!t.gathered) {
+    menu(c, user, '🏰 先收集資源：', [o('gather', '💰 拿 2 金'), o('gather', '🃏 抽牌')].map((x, i) => ({ ...x, value: `${x.value}:${i ? 'draw' : 'gold'}` })));
+    return false;
+  }
+  if (sub === 'build') {
+    const cards = t.builds < maxBuilds(me) ? buildable(me) : [];
+    if (!cards.length) return reply(c, user, '現在沒有可以建造的建築。');
+    menu(c, user, ['🔨 要建哪一棟？', ...cards.map(districtInfo)].join('\n'), cards.map((card) => ({ value: `build:${seq}:${card}`, label: districtLabel(card) })));
+    return false;
+  }
+  const options = [
+    ...(t.builds < maxBuilds(me) && buildable(me).length ? [{ value: `turnMenu:${seq}:build`, label: '🔨 建造' }] : []),
+    ...(CHARS[me.char!].tax && !t.taxed ? [o('tax', '💰 收稅')] : []),
+    o('end', '✅ 結束回合'),
+  ];
+  menu(c, user, `🏰 你的回合（${CHARS[me.char!].name}）｜💰 ${me.gold} 金｜🃏 ${me.hand.length} 張`, options);
+  return false;
+}
+
+function keepMenu(c: Ctx) {
+  const s = c.s;
+  const t = s.turn!;
+  menu(c, current(s).id, `🃏 你抽到這些牌，選 ${t.keep} 張留下（其他放到牌堆底）：`, t.drawn!.map((card) => ({ value: `keep:${s.seq}:${card}`, label: districtLabel(card) })));
+}
+
+function gather(c: Ctx, user: string, seq: number, kind: 'gold' | 'draw'): boolean {
+  const s = c.s;
+  const err = turnCheck(s, user, seq);
+  if (err) return reply(c, user, err);
+  const t = s.turn!;
+  const me = current(s);
+  if (t.gathered || t.drawn) return reply(c, user, STALE);
+  if (kind === 'gold') {
+    me.gold += 2;
+    c.events.push({ type: 'announce', text: `💰 ${mention(me.id)} 拿了 2 金` });
+    afterGather(c);
+  } else {
+    const drawn = s.deck.splice(0, 2);
+    const keep = 1;
+    c.events.push({ type: 'announce', text: `🃏 ${mention(me.id)} 抽了牌` });
+    if (drawn.length <= keep) {
+      me.hand.push(...drawn);
+      tell(c, me.id, drawn.length ? `🃏 你拿到 ${drawn.map(districtLabel).join('、')}。` : '🃏 牌堆沒有牌了。');
+      afterGather(c);
+    } else {
+      t.drawn = drawn;
+      t.keep = keep;
+      keepMenu(c);
+    }
+  }
+  c.events.push(board(s));
+  return true;
+}
+
+function keep(c: Ctx, user: string, seq: number, card: string): boolean {
+  const s = c.s;
+  const err = turnCheck(s, user, seq);
+  if (err) return reply(c, user, err);
+  const t = s.turn!;
+  if (!t.drawn?.includes(card)) return reply(c, user, STALE);
+  t.drawn.splice(t.drawn.indexOf(card), 1);
+  current(s).hand.push(card);
+  t.keep!--;
+  if (t.keep! > 0 && t.drawn.length) keepMenu(c);
+  else {
+    s.deck.push(...t.drawn);
+    t.drawn = undefined;
+    t.keep = undefined;
+    afterGather(c);
+  }
+  c.events.push(board(s));
+  return true;
+}
+
+// 收集資源完成
+function afterGather(c: Ctx) {
+  c.s.turn!.gathered = true;
+}
+
+function build(c: Ctx, user: string, seq: number, card: string): boolean {
+  const s = c.s;
+  const err = turnCheck(s, user, seq);
+  if (err) return reply(c, user, err);
+  const t = s.turn!;
+  const me = current(s);
+  if (!t.gathered || t.builds >= maxBuilds(me)) return reply(c, user, STALE);
+  if (!buildable(me).includes(card)) return reply(c, user, '不能建這棟建築。');
+  me.gold -= DISTRICTS[card].cost;
+  me.hand.splice(me.hand.indexOf(card), 1);
+  me.city.push({ card, round: s.round });
+  t.builds++;
+  c.events.push({ type: 'announce', text: `🔨 ${mention(me.id)} 建了 ${districtLabel(card)}` });
+  c.events.push(board(s));
+  return true;
+}
+
+function collectTax(c: Ctx) {
+  const me = current(c.s);
+  const amount = taxAmount(me);
+  me.gold += amount;
+  c.s.turn!.taxed = true;
+  c.events.push({ type: 'announce', text: `💰 ${mention(me.id)} 收稅 ${amount} 金` });
+}
+
+function tax(c: Ctx, user: string, seq: number): boolean {
+  const s = c.s;
+  const err = turnCheck(s, user, seq);
+  if (err) return reply(c, user, err);
+  if (!s.turn!.gathered || !CHARS[current(s).char!].tax || s.turn!.taxed) return reply(c, user, STALE);
+  collectTax(c);
+  c.events.push(board(s));
+  return true;
+}
+
+function end(c: Ctx, user: string, seq: number): boolean {
+  const err = turnCheck(c.s, user, seq);
+  if (err) return reply(c, user, err);
+  if (!c.s.turn!.gathered) return reply(c, user, '請先收集資源。');
+  finishTurn(c);
+  return true;
+}
+
+// 結束回合：還沒收稅就自動收
+function finishTurn(c: Ctx) {
+  const s = c.s;
+  if (CHARS[current(s).char!].tax && !s.turn!.taxed) collectTax(c);
+  c.events.push(board(s, true));
+  nextCall(c);
+}
+
+// 回合逾時：還沒收集就拿 2 金、選牌中就留第一張，然後結束
+function turnTimeout(c: Ctx) {
+  const s = c.s;
+  const me = current(s);
+  const t = s.turn!;
+  c.events.push({ type: 'announce', text: `⏰ ${mention(me.id)} 時間到，自動完成回合。` });
+  while (t.drawn) keep(c, me.id, s.seq, t.drawn[0]);
+  if (!t.gathered) gather(c, me.id, s.seq, 'gold');
+  finishTurn(c);
 }
 
 function timeout(c: Ctx) {
@@ -196,7 +452,7 @@ function timeout(c: Ctx) {
     const rank = choices[Math.floor(c.rng() * choices.length)];
     tell(c, drafter(s).id, `⏰ 時間到，系統替你選了 ${CHARS[rank].name}。`);
     pick(c, drafter(s).id, rank);
-  }
+  } else if (s.phase === 'turn') turnTimeout(c);
 }
 
 function handle(c: Ctx, action: GameAction): boolean {
@@ -219,6 +475,18 @@ function handle(c: Ctx, action: GameAction): boolean {
       return pickMenu(c, action.user);
     case 'pick':
       return pick(c, action.user, action.rank);
+    case 'turnMenu':
+      return turnMenu(c, action.user, action.seq, action.sub);
+    case 'gather':
+      return gather(c, action.user, action.seq, action.kind);
+    case 'keep':
+      return keep(c, action.user, action.seq, action.card);
+    case 'build':
+      return build(c, action.user, action.seq, action.card);
+    case 'tax':
+      return tax(c, action.user, action.seq);
+    case 'end':
+      return end(c, action.user, action.seq);
     case 'timeout':
       if (action.id !== c.s.timers.phase) return false;
       timeout(c);
@@ -250,6 +518,8 @@ function createLobby(prev: CState | undefined, host: string, channel: string): R
     crown: 0,
     round: 0,
     calling: 0,
+    notes: [],
+    revealed: [],
     seq: prev?.seq ?? 0,
     timerSeq: prev?.timerSeq ?? 0,
     timers: {},
