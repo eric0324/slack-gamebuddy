@@ -3,7 +3,7 @@ import { GIFS } from '../src/gifs.js';
 import { MEME_IMAGES } from '../src/memeImages.js';
 import { MemeStore } from '../src/memeStore.js';
 import { StatsStore } from '../src/stats.js';
-import { mention } from '../src/engine.js';
+import { mention, type GameEvent } from '../src/engine.js';
 import { buttonAction, GameHost, slackText, parseCommand, type SlackClient } from '../src/slack.js';
 import { parseAvalonCommand } from '../src/games/avalon.js';
 import { parseCodenamesCommand } from '../src/games/codenames.js';
@@ -42,8 +42,14 @@ function fakeClient(opts: { viewsFail?: boolean; badImage?: string } = {}) {
         if (opts.badImage && (a.blocks ?? []).some((b: any) => b.image_url === opts.badImage)) throw new Error('invalid_blocks');
         return { ok: true, channel: a.channel, ts: String(++ts) };
       }),
-      update: record('chat.update', () => ({ ok: true })),
-      postEphemeral: record('chat.postEphemeral', () => ({ ok: true })),
+      update: record('chat.update', (a) => {
+        if (opts.badImage && (a.blocks ?? []).some((b: any) => b.image_url === opts.badImage)) throw new Error('invalid_blocks');
+        return { ok: true };
+      }),
+      postEphemeral: record('chat.postEphemeral', (a) => {
+        if (opts.badImage && (a.blocks ?? []).some((b: any) => b.image_url === opts.badImage)) throw new Error('invalid_blocks');
+        return { ok: true };
+      }),
     },
     conversations: {
       open: record('conversations.open', (a) => ({ ok: true, channel: { id: `D:${a.users}` } })),
@@ -2267,5 +2273,62 @@ describe('game-commands: 從眾心理、炸彈貓、犯人在跳舞、猜猜看'
     expect(calls.find((c) => c.method === 'views.open')!.args).toMatchObject({ trigger_id: 'T1', view: { callback_id: 'ww:wagerAnswer', private_metadata: 'C1' } });
     await host.modal('ww:wagerAnswer', 'C1', 'U2', 'bob', ['1,200']);
     expect(host.state('wager', 'C1')!.answers).toEqual({ U2: 1200 });
+  });
+});
+
+describe('dixit/rounds: 帶圖片的按鈕訊息', () => {
+  const imgs = [
+    { url: 'https://x.com/1.png', title: '1' },
+    { url: 'https://x.com/2.png', title: '2' },
+  ];
+  const opts = [
+    { value: 'vote:1:0', label: '1' },
+    { value: 'vote:1:1', label: '2' },
+  ];
+  const deliver = (host: GameHost, events: GameEvent[]) => (host as any).deliver('C1', events) as Promise<void>;
+  const types = (call: Call) => call.args.blocks.map((b: any) => b.type);
+
+  it('ephemeral：文字、每張一個 image block（title 是編號、alt_text 同 title）、按鈕', async () => {
+    const { client, calls } = fakeClient();
+    const host = new GameHost(client, { setTimer: () => undefined });
+    await deliver(host, [{ type: 'prompt', kind: 'dixit', audience: 'ephemeral', user: 'U1', text: '手牌', options: opts, images: imgs }]);
+    const call = calls.find((c) => c.method === 'chat.postEphemeral')!;
+    expect(types(call)).toEqual(['section', 'image', 'image', 'actions']);
+    expect(call.args.blocks[1]).toEqual({ type: 'image', image_url: 'https://x.com/1.png', alt_text: '1', title: { type: 'plain_text', text: '1' } });
+    expect(buttonsOf(call).map((b: any) => b.text.text)).toEqual(['1', '2']);
+  });
+
+  it('頻道 ref 更新同一則訊息時也帶圖片', async () => {
+    const { client, calls } = fakeClient();
+    const host = new GameHost(client, { setTimer: () => undefined });
+    const e = { type: 'prompt' as const, kind: 'dixit', audience: 'channel' as const, ref: 'dixit:1', text: '投票', options: opts, images: imgs };
+    await deliver(host, [e, { ...e, text: '投票：已結束', options: [] }]);
+    expect(types(calls.find((c) => c.method === 'chat.postMessage')!)).toEqual(['section', 'image', 'image', 'actions']);
+    expect(types(calls.find((c) => c.method === 'chat.update')!)).toEqual(['section', 'image', 'image']);
+  });
+
+  it('Slack 拒絕帶圖片的訊息時改發文字版：依編號列網址、按鈕照常', async () => {
+    const { client, calls } = fakeClient({ badImage: 'https://x.com/2.png' });
+    const host = new GameHost(client, { setTimer: () => undefined });
+    await deliver(host, [
+      { type: 'prompt', kind: 'dixit', audience: 'channel', ref: 'dixit:1', text: '投票', options: opts, images: imgs },
+      { type: 'prompt', kind: 'dixit', audience: 'ephemeral', user: 'U1', text: '手牌', options: opts, images: imgs },
+    ]);
+    const post = calls.filter((c) => c.method === 'chat.postMessage').at(-1)!;
+    expect(types(post)).toEqual(['section', 'actions']);
+    expect(post.args.text).toContain('1. https://x.com/1.png');
+    expect(post.args.text).toContain('2. https://x.com/2.png');
+    expect(buttonsOf(post).map((b: any) => b.value)).toEqual(['C1|vote:1:0', 'C1|vote:1:1']);
+    const eph = calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!;
+    expect(types(eph)).toEqual(['section', 'actions']);
+    expect(eph.args.text).toContain('2. https://x.com/2.png');
+  });
+
+  it('沒有 images 的 prompt 輸出不變', async () => {
+    const { client, calls } = fakeClient();
+    const host = new GameHost(client, { setTimer: () => undefined });
+    await deliver(host, [{ type: 'prompt', kind: 'x', audience: 'channel', text: 'hi', options: opts }]);
+    const call = calls.find((c) => c.method === 'chat.postMessage')!;
+    expect(call.args).toEqual({ channel: 'C1', text: 'hi', blocks: [{ type: 'section', text: { type: 'mrkdwn', text: 'hi' } }, { type: 'actions', elements: buttonsOf(call) }] });
   });
 });

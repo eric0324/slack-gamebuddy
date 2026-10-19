@@ -299,7 +299,7 @@ export class GameHost {
 
   dispatchGame(kind: OtherKind, channel: string, action: { type: string }, triggerId?: string): Promise<void> {
     const def = DEFS[kind];
-    if (kind === 'meme' && action.type === 'start') action = { ...action, custom: this.memes?.list(channel) ?? [] } as typeof action; // 開局時帶入頻道的投稿梗圖
+    if (['meme', 'dixit'].includes(kind) && action.type === 'start') action = { ...action, custom: this.memes?.list(channel) ?? [] } as typeof action; // 開局時帶入頻道的投稿梗圖
     const states = this.states.get(kind)!;
     const prev = states.get(channel);
     const { state, events } = def.apply(prev, action, this.rng);
@@ -474,10 +474,23 @@ export class GameHost {
         const elements = e.options.map((o, i) => button(e.kind, i, this.label(o.label), channel, o.value));
         const size = e.perRow ?? elements.length;
         const rows = Array.from({ length: Math.ceil(elements.length / size) }, (_, r) => elements.slice(r * size, r * size + size));
-        const blocks = [{ type: 'section', text: { type: 'mrkdwn', text: e.text } }, ...rows.map((row) => ({ type: 'actions', elements: row }))];
+        const actions = rows.map((row) => ({ type: 'actions', elements: row }));
+        const images = (e.images ?? []).map((img) => ({ type: 'image', image_url: img.url, alt_text: img.title, title: { type: 'plain_text', text: img.title } }));
+        const blocks = [{ type: 'section', text: { type: 'mrkdwn', text: e.text } }, ...images, ...actions];
+        // 圖片壞掉時 Slack 會拒絕整則訊息：改發文字版，依編號附上圖片網址，按鈕照常
+        const withImages = async (send: (text: string, blocks: unknown[]) => Promise<any>) => {
+          if (!images.length) return send(e.text, blocks);
+          try {
+            return await send(e.text, blocks);
+          } catch (err) {
+            console.error('[werewolf] image prompt failed', err);
+            const text = [e.text, ...e.images!.map((img) => `${img.title}. ${img.url}`)].join('\n');
+            return send(text, [{ type: 'section', text: { type: 'mrkdwn', text } }, ...actions]);
+          }
+        };
         // 只讓某人看到的按鈕選單（例如花火的給提示）
         if (e.audience === 'ephemeral') {
-          await chat.postEphemeral({ channel, user: e.user!, text: e.text, blocks });
+          await withImages((text, blocks) => chat.postEphemeral({ channel, user: e.user!, text, blocks }));
           return;
         }
         const target =
@@ -485,10 +498,10 @@ export class GameHost {
         if (!target) return;
         const saved = e.audience === 'channel' && e.ref ? this.promptTs.get(channel) : undefined;
         if (saved && saved.ref === e.ref) {
-          await chat.update({ channel, ts: saved.ts, text: e.text, blocks });
+          await withImages((text, blocks) => chat.update({ channel, ts: saved.ts, text, blocks }));
           return;
         }
-        const res = await chat.postMessage({ channel: target, text: e.text, blocks });
+        const res = await withImages((text, blocks) => chat.postMessage({ channel: target, text, blocks }));
         if (e.audience === 'channel' && e.ref) this.promptTs.set(channel, { ref: e.ref, ts: res.ts });
         return;
       }
