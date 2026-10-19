@@ -140,6 +140,7 @@ export type GameEvent =
   | { type: 'startTimer'; id: number; ms: number }
   | { type: 'gameRecord'; winner: 'good' | 'wolves'; players: { id: string; role: Role }[] }
   | { type: 'result'; players: string[]; winners: string[]; score?: number } // 狼人殺以外的遊戲正常結束：誰參加、誰贏；合作遊戲帶分數、沒有勝者
+  | { type: 'crewProgress'; unlocked: number } // 星際探險隊：把頻道已解鎖的最高關卡寫進檔案
 
 export type Rng = () => number;
 
