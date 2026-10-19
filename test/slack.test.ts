@@ -2436,3 +2436,51 @@ describe('citadels/turns: 牌桌訊息的名字不通知', () => {
     expect(calls.at(-1)!.args.text).toBe('👑 王冠：bob｜<@U9>');
   });
 });
+
+describe('citadels/turns: 回合面板原地更新（adapter）', () => {
+  const menu = (user: string, text: string, replace = true): GameEvent => ({ type: 'prompt', kind: 'citadels', audience: 'ephemeral', user, text, options: [{ value: 'end:1', label: '✅ 結束回合' }], replace });
+  const deliver = (host: GameHost, events: GameEvent[], panel?: { url: string; user: string }) => (host as any).deliver('C1', events, 'citadels', undefined, panel);
+
+  it('按鈕來自私下訊息：第一則帶 replace 的回應用 response_url 取代，其他照常發', async () => {
+    const { host, calls, responds } = setup();
+    await deliver(host, [menu('U1', '回合選單'), { type: 'ephemeral', to: 'U1', text: '第二則', replace: true }], { url: 'https://r', user: 'U1' });
+    expect(responds).toHaveLength(1);
+    expect(responds[0]).toMatchObject({ url: 'https://r', payload: { replace_original: true, text: '回合選單' } });
+    expect(responds[0].payload.blocks.some((b: any) => b.type === 'actions')).toBe(true);
+    expect(calls.filter((c) => c.method === 'chat.postEphemeral').map((c) => c.args.text)).toEqual(['第二則']);
+  });
+
+  it('私下文字也能取代，而且不帶按鈕', async () => {
+    const { host, calls, responds } = setup();
+    await deliver(host, [{ type: 'ephemeral', to: 'U1', text: '✅ 你的回合結束了', replace: true }], { url: 'https://r', user: 'U1' });
+    expect(responds[0].payload).toMatchObject({ replace_original: true, text: '✅ 你的回合結束了' });
+    expect(calls.some((c) => c.method === 'chat.postEphemeral')).toBe(false);
+  });
+
+  it('不是私下訊息按的、沒有 replace、或給別人的，照常 postEphemeral', async () => {
+    const { host, calls, responds } = setup();
+    await deliver(host, [menu('U1', 'A')]);
+    await deliver(host, [menu('U1', 'B', false)], { url: 'https://r', user: 'U1' });
+    await deliver(host, [menu('U2', 'C')], { url: 'https://r', user: 'U1' });
+    expect(responds).toHaveLength(0);
+    expect(calls.filter((c) => c.method === 'chat.postEphemeral').map((c) => c.args.text)).toEqual(['A', 'B', 'C']);
+  });
+
+  it('respond 失敗時退回 postEphemeral', async () => {
+    const { client, calls } = fakeClient();
+    const host = new GameHost(client, { rng: () => 0.5, setTimer: () => {}, respond: async () => { throw new Error('expired_url'); } });
+    await deliver(host, [menu('U1', '回合選單')], { url: 'https://r', user: 'U1' });
+    expect(calls.filter((c) => c.method === 'chat.postEphemeral').map((c) => c.args.text)).toEqual(['回合選單']);
+  });
+
+  it('button()：來自私下訊息才把 response_url 交給面板', async () => {
+    const { host } = setup();
+    const spy: any[] = [];
+    (host as any).deliver = (...args: any[]) => (spy.push(args), Promise.resolve());
+    await host.game('C1', 'U1', 'alice', 'citadels new');
+    await host.button('ww:citadels:0', 'C1|status', 'U1', 'alice', undefined, 'https://r', true);
+    expect(spy.at(-1)[4]).toEqual({ url: 'https://r', user: 'U1' });
+    await host.button('ww:citadels:0', 'C1|status', 'U1', 'alice', undefined, 'https://r', false);
+    expect(spy.at(-1)[4]).toBeUndefined();
+  });
+});

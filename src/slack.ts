@@ -9,6 +9,7 @@ import { GAMES, type GameKind, type StateOf } from './games/index.js';
 import { WIKI, type GameDef } from './games/types.js';
 
 type Kind = 'werewolf' | GameKind;
+type Panel = { url?: string; user: string }; // 這次按鈕所在的私下訊息：response_url 和按的人
 type OtherKind = GameKind;
 
 // 狼人殺以外的遊戲：代號 → 設定（engine、指令解析、按鈕對應、說明、大廳資訊）
@@ -301,7 +302,7 @@ export class GameHost {
     return this.deliver(channel, events);
   }
 
-  dispatchGame(kind: OtherKind, channel: string, action: { type: string }, triggerId?: string): Promise<void> {
+  dispatchGame(kind: OtherKind, channel: string, action: { type: string }, triggerId?: string, panel?: Panel): Promise<void> {
     const def = DEFS[kind];
     if (['meme', 'dixit'].includes(kind) && action.type === 'start') action = { ...action, custom: this.memes?.list(channel) ?? [] } as typeof action; // 開局時帶入頻道的投稿梗圖
     if (kind === 'crew' && (action.type === 'new' || action.type === 'level')) action = { ...action, unlocked: this.crew?.get(channel) ?? 1 } as typeof action; // 帶入頻道已解鎖的關卡
@@ -312,7 +313,7 @@ export class GameHost {
       states.set(channel, state);
       if (state !== prev && isCreation(action)) this.lastKind.set(channel, kind);
     }
-    return this.deliver(channel, events, kind, triggerId);
+    return this.deliver(channel, events, kind, triggerId, panel);
   }
 
   // 切換大廳分類：用 response_url 換掉原本那則大廳；失敗或沒有時改發一則新的
@@ -326,7 +327,8 @@ export class GameHost {
   }
 
   // triggerId：這次按鈕點擊的 trigger_id，engine 要開視窗時用（3 秒內有效）；responseUrl：換掉 ephemeral 訊息用
-  button(actionId: string, value: string, user: string, userName: string, triggerId?: string, responseUrl?: string): Promise<void> {
+  // fromEphemeral：按鈕在私下訊息上，回應可以取代那則訊息（牌桌上的按鈕不行，否則會把牌桌換掉）
+  button(actionId: string, value: string, user: string, userName: string, triggerId?: string, responseUrl?: string, fromEphemeral = false): Promise<void> {
     this.names.set(user, userName);
     const kind = actionId.split(':')[1];
     const sep = value.indexOf('|');
@@ -341,7 +343,8 @@ export class GameHost {
     if (kind === 'addbot' || kind === 'removebot') return this.isOther(last) ? this.play(last, channel, user, kind) : this.command(channel, user, userName, kind); // 房間公告的 bot 按鈕等同輸入指令
     if (this.isOther(last)) {
       const action = DEFS[last].button(kind, value.slice(sep + 1), user, channel);
-      return action ? this.dispatchGame(last, channel, action, triggerId) : Promise.resolve();
+      const panel = fromEphemeral && responseUrl ? { url: responseUrl, user } : undefined;
+      return action ? this.dispatchGame(last, channel, action, triggerId, panel) : Promise.resolve();
     }
     const action = buttonAction(kind, value.slice(sep + 1), user, channel);
     return action ? this.dispatch(channel, action) : Promise.resolve();
@@ -408,10 +411,11 @@ export class GameHost {
 
 
   // 依序送出，避免同一局的訊息順序錯亂
-  private deliver(channel: string, events: GameEvent[], kind: Kind = 'werewolf', triggerId?: string): Promise<void> {
+  private deliver(channel: string, events: GameEvent[], kind: Kind = 'werewolf', triggerId?: string, panel?: Panel): Promise<void> {
     this.queue = this.queue
       .then(async () => {
-        for (const e of events) await this.send(channel, e, kind, triggerId);
+        const left = panel && { ...panel }; // 只取代一次
+        for (const e of events) await this.send(channel, e, kind, triggerId, left);
       })
       .catch((err) => console.error('[werewolf] Slack API error', err));
     return this.queue;
@@ -453,7 +457,17 @@ export class GameHost {
     return text.replace(/\{\{name:([^}]+)\}\}/g, (_, id: string) => this.names.get(id) ?? `<@${id}>`);
   }
 
-  private async send(channel: string, event: GameEvent, kind: Kind, triggerId?: string) {
+  // 帶 replace 的私下回應：用按鈕的 response_url 取代原本那則私下訊息；用過或失敗就回傳 false 照常發
+  private async replacePanel(panel: Panel | undefined, e: { replace?: boolean }, to: string, text: string, blocks?: unknown[]) {
+    if (!panel?.url || !e.replace || panel.user !== to) return false;
+    const url = panel.url;
+    panel.url = undefined;
+    return this.respond(url, { replace_original: true, text, blocks: blocks ?? [{ type: 'section', text: { type: 'mrkdwn', text } }] })
+      .then(() => true)
+      .catch((err) => (console.error('[werewolf] response_url failed', err), false));
+  }
+
+  private async send(channel: string, event: GameEvent, kind: Kind, triggerId?: string, panel?: Panel) {
     const e = 'text' in event && typeof event.text === 'string' ? ({ ...event, text: slackText(this.quietNames(event.text)) } as GameEvent) : event;
     const chat = this.client.chat;
     switch (e.type) {
@@ -504,6 +518,7 @@ export class GameHost {
         };
         // 只讓某人看到的按鈕選單（例如花火的給提示）
         if (e.audience === 'ephemeral') {
+          if (await this.replacePanel(panel, e, e.user!, e.text, blocks)) return;
           await withImages((text, blocks) => chat.postEphemeral({ channel, user: e.user!, text, blocks }));
           return;
         }
@@ -567,6 +582,7 @@ export class GameHost {
         return;
       case 'ephemeral':
         if (isBot(e.to)) return;
+        if (await this.replacePanel(panel, e, e.to, e.text)) return;
         await chat.postEphemeral({ channel, user: e.to, text: e.text });
         return;
       case 'lobby': {
