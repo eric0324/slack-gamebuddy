@@ -29,7 +29,7 @@
 
 ## 6. Slack 設定（src/games/emoji.ts）
 
-- [ ] 6.1 先寫失敗的測試（放在 `test/emoji.test.ts`，直接測 GameDef 的 parse／button／modals）：指令解析（new、start、cancel、addbot、`send <內容>`（內容可以有空白）、help 與不認識的子指令）；按鈕路由（「✍️ 作答」→ `openSend`、`voteMenu:emoji`／`voteMenu:guess`、`vote:<seq>:<cat>:<鏈-步>`、join／leave／start／rematch）；視窗 `emojiSend` 送出交給 engine
+- [x] 6.1 先寫失敗的測試（放在 `test/emoji.test.ts`，直接測 GameDef 的 parse／button／modals）：指令解析（new、start、cancel、addbot、`send <內容>`（內容可以有空白）、help 與不認識的子指令）；按鈕路由（「✍️ 作答」→ `openSend`、`voteMenu:emoji`／`voteMenu:guess`、`vote:<seq>:<cat>:<鏈-步>`、join／leave／start／rematch）；視窗 `emojiSend` 送出交給 engine
 - [ ] 6.2 （主控整合時做）先寫失敗的測試：`KINDS` 加 `emoji`；遊戲清單和大廳 🎲 心理戰分類有 🔗 Emoji 傳話（`emoji`）4～10 人（不支援 bot）
 - [ ] 6.3 實作 `src/games/emoji.ts`（`GameDef`：kind `emoji`、emoji 🔗、name Emoji 傳話、players 4～10 人、category `bluff`、`noBots`、help、apply、parse、button、modals），讓 6.1 綠燈；`GAMES` 註冊（主控整合時做），讓 6.2 綠燈
 - [ ] 6.4 （主控整合時做）`test/characterization.test.ts` 的 KINDS 加 `emoji`，確認 snapshot 只多出 Emoji 傳話的文字後更新
@@ -37,5 +37,5 @@
 ## 7. 文件與驗證
 
 - [ ] 7.1 README：遊戲列表、wiki 連結、manifest description／usage_hint
-- [ ] 7.2 wiki 三頁草稿：Emoji 傳話、Emoji 傳話-遊戲規則、Emoji 傳話-指令（由主控 push）
-- [ ] 7.3 跑全部測試和 typecheck
+- [x] 7.2 wiki 三頁草稿：Emoji 傳話、Emoji 傳話-遊戲規則、Emoji 傳話-指令（由主控 push）
+- [x] 7.3 跑全部測試和 typecheck

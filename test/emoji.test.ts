@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { applyEmoji, emojiCount, isEmojiOnly, type EAction, type EState } from '../src/emoji.js';
 import { EMOJI_PROMPTS } from '../src/emojiPrompts.js';
 import { type GameEvent } from '../src/engine.js';
+import { emoji } from '../src/games/emoji.js';
 
 describe('emoji/rounds: Emoji 格式', () => {
   it.each([
@@ -559,5 +560,39 @@ describe('emoji/rounds: 揭曉與勝負', () => {
     const { state, events } = run([{ type: 'cancel', user: 'B' }], s);
     expect(state).toBe(s);
     expect(ephemeralTo(events, 'B')[0]).toContain('只有房主');
+  });
+});
+
+describe('emoji/setup: 指令與按鈕', () => {
+  it('子指令：send <內容>（可以有空白）、房間指令；help 和不認識的回傳 null', () => {
+    expect(emoji.parse('send 🧋 ⚫ ⚫', 'U1', 'C1')).toEqual({ type: 'send', user: 'U1', text: '🧋 ⚫ ⚫' });
+    expect(emoji.parse('send 黑糖 珍奶', 'U1', 'C1')).toEqual({ type: 'send', user: 'U1', text: '黑糖 珍奶' });
+    expect(emoji.parse('new', 'U1', 'C1')).toEqual({ type: 'new', user: 'U1', channel: 'C1' });
+    expect(emoji.parse('start', 'U1', 'C1')).toEqual({ type: 'start', user: 'U1' });
+    expect(emoji.parse('cancel', 'U1', 'C1')).toEqual({ type: 'cancel', user: 'U1' });
+    expect(emoji.parse('addbot', 'U1', 'C1')).toMatchObject({ type: 'addBot', user: 'U1' });
+    expect(emoji.parse('help', 'U1', 'C1')).toBeNull();
+    expect(emoji.parse('foo', 'U1', 'C1')).toBeNull();
+  });
+
+  it('按鈕：作答、投票選單、投票、房間按鈕', () => {
+    expect(emoji.button('emoji', 'send', 'U1', 'C1')).toEqual({ type: 'openSend', user: 'U1' });
+    expect(emoji.button('emoji', 'voteMenu:emoji', 'U1', 'C1')).toEqual({ type: 'voteMenu', user: 'U1', cat: 'emoji' });
+    expect(emoji.button('emoji', 'voteMenu:guess', 'U1', 'C1')).toEqual({ type: 'voteMenu', user: 'U1', cat: 'guess' });
+    expect(emoji.button('emoji', 'vote:7:guess:2-3', 'U1', 'C1')).toEqual({ type: 'vote', user: 'U1', seq: 7, cat: 'guess', tag: '2-3' });
+    for (const kind of ['join', 'leave', 'start'] as const) expect(emoji.button(kind, '', 'U1', 'C1')).toEqual({ type: kind, user: 'U1' });
+    expect(emoji.button('rematch', 'rematch', 'U1', 'C1')).toEqual({ type: 'rematch', user: 'U1', channel: 'C1' });
+    expect(emoji.button('emoji', 'xyz', 'U1', 'C1')).toBeNull();
+    expect(emoji.button('emoji', 'voteMenu:xyz', 'U1', 'C1')).toBeNull();
+  });
+
+  it('視窗 emojiSend 送出交給 engine', () => {
+    expect(emoji.modals.emojiSend.action('U1', ['🧋⚫'])).toEqual({ type: 'send', user: 'U1', text: '🧋⚫' });
+    expect(emoji.modals.emojiSend.fallback).toContain('/game emoji send');
+  });
+
+  it('大廳資訊：🔗 Emoji 傳話、4～10 人、心理戰、不支援 bot；help 條列所有指令', () => {
+    expect(emoji).toMatchObject({ kind: 'emoji', emoji: '🔗', name: 'Emoji 傳話', players: '4～10 人', category: 'bluff', noBots: true });
+    for (const cmd of ['new', 'start', 'send', 'cancel', 'help']) expect(emoji.help).toContain(`/game emoji ${cmd}`);
   });
 });
