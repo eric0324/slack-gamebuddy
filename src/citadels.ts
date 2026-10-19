@@ -806,6 +806,81 @@ function endGame(c: Ctx) {
   );
 }
 
+// ===== bot =====
+const BOT_ORDER: Rank[] = [6, 7, 4, 2, 8, 5, 3, 1];
+const TAX_RANKS: Rank[] = [4, 5, 6, 8];
+const cost = (card: string) => DISTRICTS[card].cost;
+// 費用最高的（一樣高取前面的）
+const priciest = (cards: string[]) => cards.reduce((best, x) => (cost(x) > cost(best) ? x : best));
+const randomOf = <T>(c: Ctx, items: T[]) => items[Math.floor(c.rng() * items.length)];
+
+// 選角：同色 2 棟以上就選對應的收稅角色（棟數最多、同樣多編號小的優先），否則照預設順序
+function botPick(s: CState, p: CPlayer): Rank {
+  const choices = pickChoices(s);
+  let best: Rank | undefined;
+  let most = 1;
+  for (const r of TAX_RANKS) {
+    const n = p.city.filter((x) => DISTRICTS[x.card].color === CHARS[r].tax).length;
+    if (n > most && choices.includes(r)) [best, most] = [r, n];
+  }
+  return best ?? BOT_ORDER.find((r) => choices.includes(r)) ?? choices[0];
+}
+
+// 抽牌時留下費用最高、城市裡沒有的
+const botKeep = (p: CPlayer, drawn: string[]) => {
+  const fresh = drawn.filter((card) => !has(p, card));
+  return priciest(fresh.length ? fresh : drawn);
+};
+
+// 魔術師：和手牌比自己多 2 張以上、手牌最多的人交換
+function swapTarget(s: CState): CPlayer | undefined {
+  const me = current(s);
+  const rich = s.players.filter((p) => p !== me && p.hand.length >= me.hand.length + 2);
+  return rich.reduce<CPlayer | undefined>((best, p) => (!best || p.hand.length > best.hand.length ? p : best), undefined);
+}
+
+// 軍閥：城市棟數最多的其他玩家，破壞費用最低、付得起的那棟
+function destroyChoice(s: CState) {
+  const me = current(s);
+  const others = s.players.filter((p) => p !== me);
+  const target = others.reduce((best, p) => (p.city.length > best.city.length ? p : best));
+  const options = destroyTargets(s).filter((x) => x.owner === target);
+  return options.reduce<(typeof options)[number] | undefined>((best, x) => (!best || x.cost < best.cost ? x : best), undefined);
+}
+
+function botStep(c: Ctx): boolean {
+  const s = c.s;
+  if (s.phase === 'draft') {
+    const p = drafter(s);
+    return isBot(p.id) && pick(c, p.id, botPick(s, p));
+  }
+  if (s.phase === 'graveyard') {
+    const owner = find(s, s.graveyard!.owner)!;
+    return isBot(owner.id) && grave(c, owner.id, owner.gold >= 1);
+  }
+  if (s.phase !== 'turn') return false;
+  const me = current(s);
+  if (!isBot(me.id)) return false;
+  const t = s.turn!;
+  const seq = s.seq;
+  if (t.drawn) return keep(c, me.id, seq, botKeep(me, t.drawn));
+  if (!t.gathered) return gather(c, me.id, seq, me.hand.some((card) => !has(me, card)) ? 'gold' : 'draw');
+  if (CHARS[me.char!].tax && !t.taxed) return tax(c, me.id, seq);
+  if (!t.ability && me.char === 1) return kill(c, me.id, seq, randomOf(c, killTargets(s)));
+  if (!t.ability && me.char === 2 && robTargets(s).length) return rob(c, me.id, seq, randomOf(c, robTargets(s)));
+  const other = !t.ability && me.char === 3 && !t.builds ? swapTarget(s) : undefined; // 只在建造前判斷一次
+  if (other) return swap(c, me.id, seq, other.id);
+  const cards = t.builds < maxBuilds(me) ? buildable(me) : [];
+  if (cards.length) return build(c, me.id, seq, priciest(cards));
+  const x = !t.ability && me.char === 8 ? destroyChoice(s) : undefined;
+  if (x) return destroy(c, me.id, seq, x.owner.id, x.card);
+  return end(c, me.id, seq);
+}
+
+function runBots(c: Ctx) {
+  for (let i = 0; i < 500 && c.s.phase !== 'ended' && botStep(c); i++);
+}
+
 function handle(c: Ctx, action: GameAction): boolean {
   switch (action.type) {
     case 'join':
@@ -877,6 +952,7 @@ export function applyCitadels(state: CState | undefined, action: CAction, rng: R
     isPlayer: (s, user) => s.players.some((p) => p.id === user),
     createLobby,
     handle,
+    afterChange: runBots,
   });
 }
 

@@ -1003,3 +1003,148 @@ describe('citadels/scoring: 結束公告、再來一局、取消', () => {
     expect(run([{ type: 'rematch', user: 'p1', channel: 'C1' }], state).events).toEqual([]);
   });
 });
+
+const BOT = (i: number) => `bot:${i}:B${i}`;
+// 把第 i 位（0 起）改成 bot
+function asBot(s: CState, i: number, city: string[] = []) {
+  const st = structuredClone(s);
+  st.players[i].id = BOT(i + 1);
+  st.players[i].city = city.map((card) => ({ card, round: 1 }));
+  return st;
+}
+// 自訂叫號局面，p1 是 bot、其他人是真人；回傳 bot 行動完之後的局面和所有事件
+function botCalling(chars: Rank[], o: Setup = {}, r: () => number = rng) {
+  const n = chars.length;
+  const s = structuredClone(started(n).state);
+  s.players.forEach((p, i) => {
+    p.gold = o.gold?.[i] ?? 2;
+    p.hand = [...(o.hands?.[i] ?? [])];
+    p.city = (o.cities?.[i] ?? []).map((card) => ({ card, round: 1 }));
+    p.char = i < n - 1 ? chars[i] : undefined;
+  });
+  s.players[0].id = BOT(1);
+  if (o.deck) s.deck = [...o.deck];
+  s.crown = 0;
+  s.round = 1;
+  const faceUp = o.faceUp ?? [];
+  const rest = ([1, 2, 3, 4, 5, 6, 7, 8] as Rank[]).filter((x) => !chars.includes(x) && !faceUp.includes(x));
+  s.draft = { pool: [chars[n - 1], ...rest.slice(1)], faceUp, faceDown: rest[0], order: chars.map((_, i) => i), at: n - 1 };
+  let res = run([{ type: 'pick', user: `p${n}`, rank: chars[n - 1] }], s, r);
+  const events = [...res.events];
+  // 編號比 bot 小的真人先拿金結束，bot 會接著自動行動
+  while (res.state.phase === 'turn' && !isBot(cur(res.state)) && current(res.state).char! < chars[0]) {
+    res = passTurn(res.state);
+    events.push(...res.events);
+  }
+  return { state: res.state, events };
+}
+const current = (s: CState) => s.players[s.turn!.player];
+const B1 = (s: CState) => P(s, BOT(1));
+
+describe('citadels/bots: bot 選角', () => {
+  it('城市有同色 2 棟：選對應的收稅角色', () => {
+    const s = asBot(started(4).state, 0, ['watchtower', 'prison']);
+    const { state } = run([{ type: 'pick', user: 'p4', rank: 4 }], s);
+    expect(P(state, BOT(1)).char).toBe(8);
+  });
+
+  it('棟數最多的顏色優先；一樣多依編號小的', () => {
+    const more = asBot(started(4).state, 0, ['watchtower', 'prison', 'tavern', 'market', 'docks']);
+    expect(P(run([{ type: 'pick', user: 'p4', rank: 7 }], more).state, BOT(1)).char).toBe(6);
+    const tie = asBot(started(4).state, 0, ['manor', 'castle', 'temple', 'church']);
+    expect(P(run([{ type: 'pick', user: 'p4', rank: 7 }], tie).state, BOT(1)).char).toBe(4);
+  });
+
+  it('預設順序：商人被選走就選建築師', () => {
+    const s = asBot(started(4).state, 0);
+    expect(P(run([{ type: 'pick', user: 'p4', rank: 6 }], s).state, BOT(1)).char).toBe(7);
+  });
+
+  it('7 人局最後一位是 bot：從兩張中照同樣規則選', () => {
+    const s = started(7, () => 0).state; // 面朝下是盜賊，王冠在 p1
+    const before = pickAll(s, [1, 3, 4, 5, 6]);
+    const { state } = run([{ type: 'pick', user: 'p6', rank: 7 }], asBot(before, 6));
+    expect(P(state, BOT(7)).char).toBe(2);
+  });
+});
+
+describe('citadels/bots: bot 的回合', () => {
+  it('bot 商人：拿 2 金、多 1 金、收稅，建最貴付得起的，結束回合', () => {
+    const { state, events } = botCalling([6, 2, 3, 7], { hands: [['castle', 'tavern'], [], [], []] });
+    expect(B1(state).city.map((x) => x.card)).toEqual(['castle']);
+    expect(B1(state).hand).toEqual(['tavern']);
+    expect(B1(state).gold).toBe(1);
+    const text = announces(events).join('\n');
+    expect(text).toContain('🤖B1 拿了 2 金');
+    expect(text).toContain('🤖B1 收稅 0 金');
+    expect(text).toContain('🤖B1 建了 🟡 城堡（4）');
+  });
+
+  it('沒有能蓋的牌就抽牌，留費用最高、不重複的', () => {
+    const none = botCalling([6, 2, 3, 7], { deck: ['tavern', 'palace', 'manor'] }).state;
+    expect(B1(none).hand.concat(B1(none).city.map((x) => x.card))).toContain('palace');
+    expect(none.deck).toContain('tavern');
+    const dup = botCalling([7, 2, 3, 8], { hands: [['market'], [], [], []], cities: [['market', 'palace'], [], [], []], deck: ['palace', 'temple', 'castle', 'manor'], gold: [0, 2, 2, 2] }).state;
+    expect(B1(dup).hand).toContain('temple');
+    expect(dup.deck).toContain('palace');
+  });
+
+  it('國王收稅；建築師建到 3 棟', () => {
+    const king = botCalling([4, 5, 6, 7], { hands: [['palace'], [], [], []], cities: [['manor', 'castle'], [], [], []], gold: [0, 2, 2, 2] }).state;
+    expect(B1(king).gold).toBe(4);
+    const arch = botCalling([7, 8, 6, 5], { hands: [['temple', 'tavern', 'watchtower', 'market'], [], [], []], gold: [10, 2, 2, 2], deck: [] }).state;
+    expect(B1(arch).city.map((x) => x.card)).toEqual(['market', 'temple', 'tavern']);
+  });
+
+  it('刺客、盜賊隨機選目標', () => {
+    const a = botCalling([1, 2, 6, 7], { faceUp: [3, 5] }).state;
+    expect(a.killed).toBe(8);
+    const t = botCalling([2, 4, 6, 7], {}, () => 0).state;
+    expect(t.robbed).toBe(3);
+  });
+
+  it('魔術師：有人手牌比自己多 2 張以上就和手牌最多的人換，否則不用', () => {
+    const hands = [['tavern'], ['castle', 'manor', 'palace'], ['temple', 'church', 'market'], []];
+    const swapped = botCalling([3, 4, 6, 7], { hands, gold: [0, 2, 2, 2] });
+    expect(P(swapped.state, 'p2').hand).toEqual(['tavern']);
+    expect(announces(swapped.events).join()).toContain('交換手牌');
+    const kept = botCalling([3, 4, 6, 7], { hands: [['tavern'], ['castle', 'manor'], [], []], gold: [0, 2, 2, 2] });
+    expect(announces(kept.events).join()).not.toContain('交換手牌');
+  });
+
+  it('軍閥建造之後，破壞城市棟數最多的其他玩家最便宜、付得起的建築', () => {
+    const s = botCalling([8, 4, 6, 7], { hands: [['castle'], [], [], []], cities: [[], ['tavern'], ['palace', 'market', 'temple'], ['castle', 'watchtower', 'manor']], gold: [3, 2, 2, 2] }).state;
+    expect(B1(s).city.map((x) => x.card)).toEqual(['castle']);
+    expect(P(s, 'p3').city.map((x) => x.card)).toEqual(['palace', 'market']);
+    expect(B1(s).gold).toBe(1);
+  });
+
+  it('bot 有墓地有金幣就收回', () => {
+    const s = warlordOf({ cities: [[], ['castle'], ['graveyard'], []], gold: [2, 2, 3, 8] });
+    const st = asBot(s, 2, ['graveyard']);
+    const { state } = run([{ type: 'destroy', user: 'p4', seq: st.seq, target: 'p2', card: 'castle' }], st);
+    expect(state.phase).toBe('turn');
+    expect(P(state, BOT(3)).hand).toContain('castle');
+    expect(P(state, BOT(3)).gold).toBe(P(st, BOT(3)).gold - 1);
+  });
+});
+
+describe('citadels/bots: 一個人也能玩完整局', () => {
+  it('1 位真人 + 3 個 bot、真人完全不操作：遊戲會結束並送出 result', () => {
+    for (const seed of [0.1, 0.5, 0.9]) {
+      let x = seed;
+      const r = () => (x = (x * 9301 + 0.49297) % 1);
+      let { state, events } = run([{ type: 'new', user: 'p1', channel: 'C1' }, { type: 'addBot', user: 'p1', count: 3 }, { type: 'start', user: 'p1' }], undefined, r);
+      let all = [...events];
+      for (let i = 0; i < 3000 && state.phase !== 'ended'; i++) {
+        ({ state, events } = run([{ type: 'timeout', id: state.timers.phase! }], state, r));
+        all.push(...events);
+      }
+      expect(state.phase).toBe('ended');
+      const result = all.find((e) => e.type === 'result') as { players: string[]; winners: string[] };
+      expect(result.players).toHaveLength(4);
+      expect(result.winners.length).toBeGreaterThan(0);
+      all = [];
+    }
+  });
+});
