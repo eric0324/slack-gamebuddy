@@ -304,7 +304,7 @@ export class GameHost {
   dispatchGame(kind: OtherKind, channel: string, action: { type: string }, triggerId?: string): Promise<void> {
     const def = DEFS[kind];
     if (['meme', 'dixit'].includes(kind) && action.type === 'start') action = { ...action, custom: this.memes?.list(channel) ?? [] } as typeof action; // 開局時帶入頻道的投稿梗圖
-    if ((kind as string) === 'crew' && (action.type === 'new' || action.type === 'level')) action = { ...action, unlocked: this.crew?.get(channel) ?? 1 } as typeof action; // 帶入頻道已解鎖的關卡
+    if (kind === 'crew' && (action.type === 'new' || action.type === 'level')) action = { ...action, unlocked: this.crew?.get(channel) ?? 1 } as typeof action; // 帶入頻道已解鎖的關卡
     const states = this.states.get(kind)!;
     const prev = states.get(channel);
     const { state, events } = def.apply(prev, action, this.rng);

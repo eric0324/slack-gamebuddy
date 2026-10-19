@@ -1,15 +1,9 @@
 // 星際探險隊接上 Slack adapter：頻道進度帶入與寫入、戰績。GAMES 還沒加 crew（主控整合時加），這裡先 mock 進去
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { applyCrew, type CAction, type CState } from '../src/crew.js';
 import { CrewStore } from '../src/crewStore.js';
 import { GameHost, type SlackClient } from '../src/slack.js';
 import { StatsStore } from '../src/stats.js';
-
-vi.mock('../src/games/index.js', async (importOriginal) => {
-  const mod = await importOriginal<typeof import('../src/games/index.js')>();
-  const { crew } = await import('../src/games/crew.js');
-  return { ...mod, GAMES: [...mod.GAMES, crew] };
-});
 
 type Call = { method: string; args: Record<string, any> };
 

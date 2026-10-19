@@ -1,13 +1,7 @@
 // 妙語說書人接上 Slack adapter：GAMES 還沒加 dixit（主控整合時才加），這裡先用 mock 把它放進去
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { MemeStore } from '../src/memeStore.js';
 import { GameHost, type SlackClient } from '../src/slack.js';
-
-vi.mock('../src/games/index.js', async (importOriginal) => {
-  const orig = await importOriginal<typeof import('../src/games/index.js')>();
-  const { dixit } = await import('../src/games/dixit.js');
-  return { ...orig, GAMES: orig.GAMES.some((g) => g.kind === ('dixit' as string)) ? orig.GAMES : [...orig.GAMES, dixit] };
-});
 
 function dixitHost(badImage?: string) {
   const calls: { method: string; args: any }[] = [];
