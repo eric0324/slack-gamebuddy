@@ -124,8 +124,8 @@ const buildable = (p: CPlayer) => p.hand.filter((card, i) => p.hand.indexOf(card
 const taxAmount = (p: CPlayer) => p.city.filter((x) => DISTRICTS[x.card].color === CHARS[p.char!].tax || x.card === 'schoolOfMagic').length;
 const handText = (hand: string[]) => (hand.length ? hand.map(districtInfo).join('\n') : '（沒有手牌）');
 const cityText = (p: CPlayer) => (p.city.length ? p.city.map((x) => districtLabel(x.card)).join('、') : '（還沒有建築）');
-// 場上一覽：每人金幣、手牌數、棟數，只顯示名字不 @
-const overview = (s: CState) => ['👥 場上：', ...s.players.map((p) => `• ${quiet(p.id)}：💰 ${p.gold} 金｜🃏 ${p.hand.length} 張｜🏘️ ${p.city.length} 棟`)].join('\n');
+// 場上一覽：每人金幣、手牌數、棟數
+const overview = (s: CState) => ['👥 場上：', ...s.players.map((p) => `• ${mention(p.id)}：💰 ${p.gold} 金｜🃏 ${p.hand.length} 張｜🏘️ ${p.city.length} 棟`)].join('\n');
 const myCity = (p: CPlayer) => `🏘️ 你的城市（${p.city.length} 棟）：${cityText(p)}`;
 
 const RULES = [
@@ -316,17 +316,17 @@ function endRound(c: Ctx) {
   startRound(c);
 }
 
-const playerLine = (p: CPlayer) => `• ${quiet(p.id)}：💰 ${p.gold} 金｜🃏 ${p.hand.length} 張｜🏘️ ${p.city.length} 棟${p.city.length ? `：${cityText(p)}` : ''}`;
+const playerLine = (p: CPlayer) => `• ${mention(p.id)}：💰 ${p.gold} 金｜🃏 ${p.hand.length} 張｜🏘️ ${p.city.length} 棟${p.city.length ? `：${cityText(p)}` : ''}`;
 
-// 牌桌訊息：只有第一行 @ 輪到的人，其他人只顯示名字，避免每回合通知所有人
+// 牌桌訊息：第一行標示輪到誰，其他行列出場上狀況
 function board(s: CState, ended = false): GameEvent {
   const me = current(s);
   const role = `${me.char} 號 ${CHARS[me.char!].name}`;
   const lines = ended
-    ? [`✅ 第 ${s.round} 輪 ${role} ${quiet(me.id)} 的回合結束`]
+    ? [`✅ 第 ${s.round} 輪 ${role} ${mention(me.id)} 的回合結束`]
     : [
         `*👉 現在輪到：${mention(me.id)}（${role}）⏳ ${TURN_MS / 1000} 秒*`,
-        `🏰 第 ${s.round} 輪｜👑 王冠：${quiet(s.players[s.crown].id)}｜已翻開：${s.revealed.map((r) => `${CHARS[r].name} ${quiet(s.players[holder(s, r)].id)}`).join('、')}`,
+        `🏰 第 ${s.round} 輪｜👑 王冠：${mention(s.players[s.crown].id)}｜已翻開：${s.revealed.map((r) => `${CHARS[r].name} ${mention(s.players[holder(s, r)].id)}`).join('、')}`,
         ...s.notes.map((n) => `（${n}）`),
         ...s.players.map((p) => (p === me ? `👉 ${playerLine(p)}` : playerLine(p))),
       ];
