@@ -736,7 +736,7 @@ exports[`重構安全網 > 大廳四個分類 1`] = `
         "value": "C1|citadels",
       },
       "text": {
-        "text": "🏰 *富饒之城* （ \`citadels\` ）4～7 人
+        "text": "🏛️ *富饒之城* （ \`citadels\` ）4～7 人
 每輪祕密選角色，刺殺、偷竊、破壞，拚先蓋好 8 棟建築的城市",
         "type": "mrkdwn",
       },
@@ -1068,7 +1068,7 @@ exports[`重構安全網 > 遊戲清單文字和預設大廳 1`] = `
 • 💰 *猜猜看* （ \`wager\` ）：3～10 人（不支援 bot），開房 \`/game wager new\`
 • 💎 *印加寶藏* （ \`incan\` ）：3～8 人，開房 \`/game incan new\`
 • 🎨 *妙語說書人* （ \`dixit\` ）：3～8 人（不支援 bot），開房 \`/game dixit new\`
-• 🏰 *富饒之城* （ \`citadels\` ）：4～7 人，開房 \`/game citadels new\`
+• 🏛️ *富饒之城* （ \`citadels\` ）：4～7 人，開房 \`/game citadels new\`
 • 🔗 *Emoji 傳話* （ \`emoji\` ）：4～10 人（不支援 bot），開房 \`/game emoji new\`
 • 🚀 *星際探險隊* （ \`crew\` ）：3～5 人（不支援 bot），開房 \`/game crew new\`
 各遊戲的指令： \`/game <遊戲代號> help\` ，例如 \`/game liarsdice help\`

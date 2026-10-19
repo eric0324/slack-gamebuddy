@@ -118,7 +118,7 @@ const handText = (hand: string[]) => (hand.length ? hand.map(districtInfo).join(
 const cityText = (p: CPlayer) => (p.city.length ? p.city.map((x) => districtLabel(x.card)).join('、') : '（還沒有建築）');
 
 const RULES = [
-  '🏰 富饒之城規則：每輪先祕密選一個角色，再依角色編號 1→8 叫號行動。輪到你時先「💰 拿 2 金」或「🃏 抽 2 張留 1 張」，再可以用角色能力、建 1 棟建築（付等於費用的金幣；不能蓋同名建築）。',
+  '🏛️ 富饒之城規則：每輪先祕密選一個角色，再依角色編號 1→8 叫號行動。輪到你時先「💰 拿 2 金」或「🃏 抽 2 張留 1 張」，再可以用角色能力、建 1 棟建築（付等於費用的金幣；不能蓋同名建築）。',
   '有人建滿 8 棟後，這一輪打完遊戲結束：建築費用總和 + 五色齊全 3 分 + 第一個建滿 4 分（其他建滿 2 分），分數最高者獲勝。',
   RANKS.map((r) => `${r} ${CHARS[r].name}：${CHARS[r].desc}`).join('\n'),
 ].join('\n');
@@ -149,7 +149,7 @@ function start(c: Ctx, user: string): boolean {
   c.events.push({
     type: 'announce',
     text: [
-      `🏰 富饒之城開始！座位：${s.players.map((p) => mention(p.id)).join(' → ')}`,
+      `🏛️ 富饒之城開始！座位：${s.players.map((p) => mention(p.id)).join(' → ')}`,
       `👑 王冠：${mention(s.players[s.crown].id)}｜每人 2 金、4 張建築牌`,
       '有人建滿 8 棟後，這一輪打完遊戲結束，分數最高者獲勝！',
       RANKS.map((r) => `${r} ${CHARS[r].name}：${CHARS[r].desc}`).join('\n'),

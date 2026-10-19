@@ -73,7 +73,7 @@ function citadelsButton(kind: string, value: string, user: string, channel: stri
 
 export const citadels = {
   kind: 'citadels' as const,
-  emoji: '🏰',
+  emoji: '🏛️',
   name: '富饒之城',
   players: '4～7 人',
   category: 'bluff',
