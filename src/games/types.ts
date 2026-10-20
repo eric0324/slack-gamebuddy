@@ -15,7 +15,7 @@ export interface GameDef<S extends { phase: string }, A extends { type: string }
   category: Category;
   desc: string; // 大廳的一句介紹
   noBots?: boolean; // 遊戲清單那一行加「(不支援 bot)」
-  locales?: Partial<Record<Lang, { name: string; players: string; desc: string }>>; // 有填的語系才算翻譯好；zh-TW 用上面的欄位
+  locales?: Partial<Record<Lang, { name: string; players: string; desc: string; help: string }>>; // 有填的語系才算翻譯好；zh-TW 用上面的欄位
   help: string; // `/game <遊戲> help` 的指令說明
   apply(state: S | undefined, action: A, rng: Rng): { state: S; events: GameEvent[] };
   parse(text: string, user: string, channel: string): A | null;

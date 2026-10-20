@@ -25,3 +25,8 @@ export const t = (lang: Lang | undefined, key: Key, params?: Params) => lookup(D
 export const parseLang = (code: string): Lang | undefined => LANGS.find((l) => l.code.toLowerCase() === code.toLowerCase())?.code;
 
 export const langName = (lang: Lang) => LANGS.find((l) => l.code === lang)!.name;
+
+// 每款遊戲的字典 (src/i18n/games/<代號>.ts)：其他語系有填就要和 zh-TW 的 key 完全相同，少翻 typecheck 會擋
+export function gameText<Z extends Record<string, string>>(dicts: { 'zh-TW': Z } & { [L in Exclude<Lang, 'zh-TW'>]?: Record<keyof Z, string> }) {
+  return (lang: Lang | undefined, key: keyof Z & string, params?: Params) => lookup(dicts as Dicts<keyof Z & string>, lang ?? 'zh-TW', key, params);
+}
