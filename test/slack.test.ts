@@ -1055,7 +1055,7 @@ describe('game-commands: 花火', () => {
 
 describe('game-commands: 遊戲大廳', () => {
   const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
-  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter', 'cockroach', 'chameleon', 'nothanks', 'taboo', 'sushigo', 'meme', 'herd', 'kittens', 'criminal', 'wager', 'incan', 'dixit', 'citadels', 'emoji', 'crew', 'saboteur', 'forsale', 'machikoro', 'splendor'];
+  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter', 'cockroach', 'chameleon', 'nothanks', 'taboo', 'sushigo', 'meme', 'herd', 'kittens', 'criminal', 'wager', 'incan', 'dixit', 'citadels', 'emoji', 'crew', 'saboteur', 'forsale', 'machikoro', 'splendor', 'deception'];
 
   const TABS = ['deduction', 'team', 'coop', 'bluff'];
   const openButtons = (blocks: any[]) => blocks.filter((b) => b.accessory).map((b) => b.accessory);
@@ -1073,7 +1073,7 @@ describe('game-commands: 遊戲大廳', () => {
       expect(tabs.map((b: any) => b.style)).toEqual(['primary', undefined, undefined, undefined]);
       expect(tabs.every((b: any) => b.action_id.startsWith('ww:lobbyTab:'))).toBe(true);
       const buttons = openButtons(eph.blocks);
-      expect(buttons.map((b) => b.value)).toEqual(['C1|werewolf', 'C1|undercover', 'C1|spyfall', 'C1|avalon', 'C1|insider', 'C1|loveletter', 'C1|chameleon', 'C1|criminal', 'C1|saboteur']);
+      expect(buttons.map((b) => b.value)).toEqual(['C1|werewolf', 'C1|undercover', 'C1|spyfall', 'C1|avalon', 'C1|insider', 'C1|loveletter', 'C1|chameleon', 'C1|criminal', 'C1|saboteur', 'C1|deception']);
       expect(buttons.every((b: any) => b.action_id.startsWith('ww:lobbyOpen:') && b.text.text === '開房')).toBe(true);
       const all = JSON.stringify(eph.blocks);
       for (const s of ['狼人殺', '6～12 人', 'wiki', '/game <代號> help']) expect(all).toContain(s);
@@ -2236,7 +2236,8 @@ describe('game-commands: 從眾心理、炸彈貓、犯人在跳舞、猜猜看'
 
   it('大廳：推理類最後是犯人在跳舞、矮人礦坑，心理戰依序有從眾心理、炸彈貓、猜猜看', async () => {
     const { host, responds } = setup();
-    expect((await tabGames(host, responds, 'deduction')).slice(-2)).toEqual(['criminal', 'saboteur']);
+    const deduction = await tabGames(host, responds, 'deduction');
+    expect(deduction.slice(deduction.indexOf('criminal'), deduction.indexOf('criminal') + 2)).toEqual(['criminal', 'saboteur']);
     const bluff = await tabGames(host, responds, 'bluff');
     expect(bluff.slice(bluff.indexOf('herd'), bluff.indexOf('herd') + 3)).toEqual(['herd', 'kittens', 'wager']);
   });
@@ -2412,6 +2413,21 @@ describe('game-commands: 璀璨寶石', () => {
     expect(calls.filter((c) => c.method === 'chat.postMessage').some((c) => c.args.text?.includes('璀璨寶石'))).toBe(true);
     await host.game('C1', 'U1', 'alice', 'splendor help');
     expect(lastEph(calls).text).toContain('/game splendor start');
+  });
+});
+
+describe('game-commands: 詭影神探', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+
+  it('遊戲清單標示不支援 bot；大廳推理分類有詭影神探；從大廳開房、help 列出指令', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', '');
+    expect(lastEph(calls).text).toContain('🔎 *詭影神探* （ `deception` ）：4～12 人（不支援 bot）');
+    expect(JSON.stringify(lastEph(calls).blocks)).toContain('🔎 *詭影神探* （ `deception` ）4～12 人');
+    await host.button('ww:lobbyOpen:0', 'C1|deception', 'U1', 'alice');
+    expect(calls.filter((c) => c.method === 'chat.postMessage').some((c) => c.args.text?.includes('詭影神探'))).toBe(true);
+    await host.game('C1', 'U1', 'alice', 'deception help');
+    expect(lastEph(calls).text).toContain('/game deception start');
   });
 });
 
