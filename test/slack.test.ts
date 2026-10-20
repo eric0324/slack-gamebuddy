@@ -1055,7 +1055,7 @@ describe('game-commands: 花火', () => {
 
 describe('game-commands: 遊戲大廳', () => {
   const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
-  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter', 'cockroach', 'chameleon', 'nothanks', 'taboo', 'sushigo', 'meme', 'herd', 'kittens', 'criminal', 'wager', 'incan', 'dixit', 'citadels', 'emoji', 'crew', 'saboteur'];
+  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter', 'cockroach', 'chameleon', 'nothanks', 'taboo', 'sushigo', 'meme', 'herd', 'kittens', 'criminal', 'wager', 'incan', 'dixit', 'citadels', 'emoji', 'crew', 'saboteur', 'forsale'];
 
   const TABS = ['deduction', 'team', 'coop', 'bluff'];
   const openButtons = (blocks: any[]) => blocks.filter((b) => b.accessory).map((b) => b.accessory);
@@ -1111,7 +1111,7 @@ describe('game-commands: 遊戲大廳', () => {
     const { client, calls } = fakeClient();
     const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, respond: async () => { throw new Error('expired'); } });
     await host.button('ww:lobbyTab:3', 'C1|bluff', 'U1', 'alice', undefined, 'https://hooks/x');
-    expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|liarsdice', 'C1|coup', 'C1|skull', 'C1|nimmt', 'C1|cockroach', 'C1|nothanks', 'C1|sushigo', 'C1|meme', 'C1|herd', 'C1|kittens', 'C1|wager', 'C1|incan', 'C1|dixit', 'C1|citadels', 'C1|emoji']);
+    expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|liarsdice', 'C1|coup', 'C1|skull', 'C1|nimmt', 'C1|cockroach', 'C1|nothanks', 'C1|sushigo', 'C1|meme', 'C1|herd', 'C1|kittens', 'C1|wager', 'C1|incan', 'C1|dixit', 'C1|citadels', 'C1|emoji', 'C1|forsale']);
     await host.button('ww:lobbyTab:1', 'C1|team', 'U1', 'alice');
     expect(lastEph(calls)).toMatchObject({ user: 'U1' });
     expect(openButtons(lastEph(calls).blocks).map((b: any) => b.value)).toEqual(['C1|codenames', 'C1|wavelength', 'C1|decrypto', 'C1|taboo']);
@@ -2341,9 +2341,10 @@ describe('game-commands: 印加寶藏、妙語說書人、富饒之城、Emoji �
     return responds.at(-1)!.payload.blocks.filter((b: any) => b.accessory).map((b: any) => b.accessory.value.split('|')[1]);
   };
 
-  it('大廳：心理戰最後是印加寶藏、妙語說書人、富饒之城、Emoji 傳話，合作最後是星際探險隊', async () => {
+  it('大廳：心理戰依序有印加寶藏、妙語說書人、富饒之城、Emoji 傳話，合作最後是星際探險隊', async () => {
     const { host, responds } = setup();
-    expect((await tabGames(host, responds, 'bluff')).slice(-4)).toEqual(['incan', 'dixit', 'citadels', 'emoji']);
+    const bluff = await tabGames(host, responds, 'bluff');
+    expect(bluff.slice(bluff.indexOf('incan'), bluff.indexOf('incan') + 4)).toEqual(['incan', 'dixit', 'citadels', 'emoji']);
     expect((await tabGames(host, responds, 'coop')).at(-1)).toBe('crew');
   });
 
@@ -2369,6 +2370,20 @@ describe('game-commands: 矮人礦坑', () => {
     expect(calls.filter((c) => c.method === 'chat.postMessage').some((c) => c.args.text?.includes('矮人礦坑'))).toBe(true);
     await host.game('C1', 'U1', 'alice', 'saboteur help');
     expect(lastEph(calls).text).toContain('/game saboteur start');
+  });
+});
+
+describe('game-commands: 地產大亨', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+
+  it('大廳心理戰分類有地產大亨；從大廳開房、help 列出指令', async () => {
+    const { host, calls, responds } = setup();
+    await host.button('ww:lobbyTab:0', 'C1|bluff', 'U1', 'alice', undefined, 'https://hooks/bluff');
+    expect(JSON.stringify(responds.at(-1)!.payload.blocks)).toContain('🏠 *地產大亨* （ `forsale` ）3～6 人');
+    await host.button('ww:lobbyOpen:0', 'C1|forsale', 'U1', 'alice');
+    expect(calls.filter((c) => c.method === 'chat.postMessage').some((c) => c.args.text?.includes('地產大亨'))).toBe(true);
+    await host.game('C1', 'U1', 'alice', 'forsale help');
+    expect(lastEph(calls).text).toContain('/game forsale start');
   });
 });
 
