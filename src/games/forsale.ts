@@ -16,6 +16,19 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*For Sale commands*',
+  '• `/game forsale new`: open a room (anyone)',
+  '• `/game forsale addbot [count]`: add bots to fill seats (host, before start)',
+  '• `/game forsale removebot [count]`: remove bots (host, before start)',
+  '• `/game forsale start`: start the game, needs 3-6 players (host)',
+  '• `/game forsale cancel`: cancel the game (host)',
+  '• Phase 1: on your turn, press "Bid $X (+1/+2/+5)" on the bidding board, "🔢 Other amount" to pick another amount, or "🙅 Pass" (30 seconds; no action counts as a pass)',
+  '• Phase 2: press "🏠 Choose property" to secretly pick a property to sell (45 seconds, you can change it before the reveal; if you don\'t pick, your lowest is played)',
+  '• "💰 My status": privately check your coins, properties and checks at any time',
+  `📖 Full guide: <${WIKI}/For-Sale|wiki>`,
+].join('\n');
+
 // 地產大亨只有房間指令，遊戲中都用按鈕
 export function parseForSaleCommand(text: string, user: string, channel: string): FAction | null {
   return parseRoomCommand(text, user, channel) as FAction | null;
@@ -50,6 +63,14 @@ export const forsale = {
   category: 'strategy',
   desc: '先輪流喊價買房產，放棄的人拿最小的那間、只賠一半；再同時私下出房產換支票，支票加剩下金幣最多的人贏',
   help: HELP,
+  locales: {
+    en: {
+      name: 'For Sale',
+      players: '3-6 players',
+      desc: 'Bid for properties (passing takes the cheapest one at half price), then secretly sell them for checks; most checks plus coins wins',
+      help: HELP_EN,
+    },
+  },
   apply: applyForSale,
   parse: parseForSaleCommand,
   button: forsaleButton,
