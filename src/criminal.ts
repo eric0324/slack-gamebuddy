@@ -1,6 +1,8 @@
 // 犯人在跳舞 (犯人は踊る) 遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyCriminal(state, action, rng) → { state, events }。
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
+import { t, type Lang } from './i18n/index.js';
+import { tx } from './i18n/games/criminal.js';
 
 export const MIN_CRIMINAL_PLAYERS = 3;
 export const MAX_CRIMINAL_PLAYERS = 8;
@@ -9,23 +11,24 @@ const CHOOSE_MS = 60_000;
 
 export type Card = 'first' | 'culprit' | 'detective' | 'alibi' | 'accomplice' | 'witness' | 'exchange' | 'trade' | 'rumor' | 'citizen' | 'boy' | 'dog';
 
-const CARDS: { card: Card; label: string; count: number; help: string }[] = [
-  { card: 'first', label: '🔎 第一發現者', count: 1, help: '開局時自動打出' },
-  { card: 'culprit', label: '🔪 犯人', count: 1, help: '手上只剩這張時才能出，打出就逃跑成功 (犯人和共犯贏)' },
-  { card: 'detective', label: '🕵️ 偵探', count: 4, help: '第 2 圈開始才能出；指認一人，他拿著犯人又沒有不在場證明就抓到' },
-  { card: 'alibi', label: '🛡️ 不在場證明', count: 5, help: '留在手上時，偵探指到你也不算抓到' },
-  { card: 'accomplice', label: '🤝 共犯', count: 2, help: '打出後加入犯人陣營' },
-  { card: 'witness', label: '👀 目擊者', count: 3, help: '偷看一人的整副手牌' },
-  { card: 'exchange', label: '🔄 情報交換', count: 3, help: '有牌的人各選一張傳給下一位' },
-  { card: 'trade', label: '💱 交易', count: 5, help: '和一人各選一張交換' },
-  { card: 'rumor', label: '🗣️ 謠言', count: 4, help: '有牌的人從上一位手上隨機抽一張' },
-  { card: 'citizen', label: '🧍 普通人', count: 2, help: '沒有效果' },
-  { card: 'boy', label: '👦 少年', count: 1, help: '知道現在誰拿著犯人' },
-  { card: 'dog', label: '🐕 神犬', count: 1, help: '從一人的手牌盲抽一張，抽到犯人就抓到；沒抽到神犬進他的手牌' },
+const CARDS: { card: Card; count: number }[] = [
+  { card: 'first', count: 1 },
+  { card: 'culprit', count: 1 },
+  { card: 'detective', count: 4 },
+  { card: 'alibi', count: 5 },
+  { card: 'accomplice', count: 2 },
+  { card: 'witness', count: 3 },
+  { card: 'exchange', count: 3 },
+  { card: 'trade', count: 5 },
+  { card: 'rumor', count: 4 },
+  { card: 'citizen', count: 2 },
+  { card: 'boy', count: 1 },
+  { card: 'dog', count: 1 },
 ];
-const LABEL = Object.fromEntries(CARDS.map((c) => [c.card, c.label])) as Record<Card, string>;
+const label = (lang: Lang | undefined, card: Card) => tx(lang, `card.${card}`);
 export const FULL_DECK: Card[] = CARDS.flatMap((c) => Array<Card>(c.count).fill(c.card));
-const HELP = CARDS.map((c) => `${c.label}×${c.count}：${c.help}`).join('\n');
+const cardHelp = (lang: Lang | undefined) =>
+  CARDS.map((c) => tx(lang, 'cardLine', { label: label(lang, c.card), count: c.count, help: tx(lang, `cardHelp.${c.card}`) })).join('\n');
 const TARGETED: Card[] = ['detective', 'witness', 'trade', 'dog'];
 
 // 官方人數表：必放的牌，其餘從剩下的牌隨機補滿
@@ -69,6 +72,7 @@ export interface CState {
   winners?: string[];
   timerSeq: number;
   timers: { phase?: number };
+  lang?: Lang;
 }
 
 export type CAction =
@@ -107,15 +111,15 @@ const say = (c: Ctx, text: string) => c.events.push({ type: 'announce', text });
 const dm = (c: Ctx, to: string, text: string) => {
   if (!isBot(to)) c.events.push({ type: 'dm', to, text });
 };
-const handText = (cards: Card[]) => (cards.length ? cards.map((x) => LABEL[x]).join('、') : '(沒有牌)');
+const handText = (lang: Lang | undefined, cards: Card[]) => (cards.length ? cards.map((x) => label(lang, x)).join(tx(lang, 'sep')) : tx(lang, 'noCards'));
 const holderOf = (s: CState) => s.players.find((p) => p.hand.includes('culprit'));
-const AUTO = '⏰ (超時自動)';
+const autoTag = (lang: Lang | undefined, auto: boolean) => (auto ? `${tx(lang, 'auto')} ` : '');
 
-// 每張牌能不能出；不能出時回傳原因
-function blocked(p: CPlayer, i: number, lap: number): string | undefined {
+// 每張牌能不能出；不能出時回傳原因的字典 key
+function blocked(p: CPlayer, i: number, lap: number): 'blockedCulprit' | 'blockedDetective' | undefined {
   const card = p.hand[i];
-  if (card === 'culprit' && p.hand.length > 1) return '手上只剩這張時才能出';
-  if (card === 'detective' && lap === 1 && !p.hand.every((x) => x === 'detective' || x === 'culprit')) return '第 2 圈開始才能出';
+  if (card === 'culprit' && p.hand.length > 1) return 'blockedCulprit';
+  if (card === 'detective' && lap === 1 && !p.hand.every((x) => x === 'detective' || x === 'culprit')) return 'blockedDetective';
   return undefined;
 }
 const playable = (p: CPlayer, lap: number) => p.hand.map((_, i) => i).filter((i) => !blocked(p, i, lap));
@@ -129,19 +133,15 @@ function start(c: Ctx) {
   s.players.forEach((p, i) => Object.assign(p, { hand: deck.slice(i * 4, i * 4 + 4), played: [], accomplice: false }));
   c.events.push({
     type: 'announce',
-    text: [
-      `🕺 犯人在跳舞開始！每人 4 張牌，座位順序：${s.players.map((p) => mention(p.id)).join(' → ')}`,
-      '犯人撐到手上最後一張打出就逃跑成功：犯人和共犯贏。',
-      '用偵探或神犬抓到犯人：只有出那張牌的人贏 (出牌的人是共犯時沒有人贏)。',
-    ].join('\n'),
+    text: [tx(s.lang, 'start1', { order: s.players.map((p) => mention(p.id)).join(' → ') }), tx(s.lang, 'start2'), tx(s.lang, 'start3')].join('\n'),
     gif: 'start',
   });
-  for (const p of s.players) dm(c, p.id, `🃏 你的手牌：${handText(p.hand)}\n\n${HELP}`);
+  for (const p of s.players) dm(c, p.id, tx(s.lang, 'dealt', { hand: handText(s.lang, p.hand), help: cardHelp(s.lang) }));
   s.first = s.players.findIndex((p) => p.hand.includes('first'));
   const holder = s.players[s.first];
   holder.hand.splice(holder.hand.indexOf('first'), 1);
   holder.played.push('first');
-  say(c, `🃏 ${mention(holder.id)} 打出 ${LABEL.first}，事件發生了！`);
+  say(c, tx(s.lang, 'firstPlayed', { who: mention(holder.id), card: label(s.lang, 'first') }));
   s.turn = s.first;
   s.lap = 1;
   advance(c);
@@ -167,31 +167,34 @@ function beginTurn(c: Ctx) {
   s.phase = 'turn';
   s.seq++;
   s.pending = undefined;
-  const lines = [`🕺 第 ${s.lap} 圈，輪到 ${mention(current(s).id)} 出牌 (${CHOOSE_MS / 1000} 秒)`];
+  const lines = [tx(s.lang, 'turnHead', { lap: s.lap, who: mention(current(s).id), sec: CHOOSE_MS / 1000 })];
   for (const p of s.players) {
-    const played = p.played.length ? p.played.map((x) => LABEL[x]).join('、') : '(還沒有)';
-    lines.push(`${mention(p.id)}：手牌 ${p.hand.length} 張，出過 ${played}${p.accomplice ? '｜🤝 共犯陣營' : ''}`);
+    const played = p.played.length ? p.played.map((x) => label(s.lang, x)).join(tx(s.lang, 'sep')) : tx(s.lang, 'playedNone');
+    lines.push(tx(s.lang, 'playerLine', { who: mention(p.id), n: p.hand.length, played, ally: p.accomplice ? tx(s.lang, 'allyTag') : '' }));
   }
-  c.events.push({ type: 'prompt', kind: 'criminal', audience: 'channel', text: lines.join('\n'), options: [{ value: 'hand', label: '🃏 我的手牌' }] });
+  c.events.push({ type: 'prompt', kind: 'criminal', audience: 'channel', text: lines.join('\n'), options: [{ value: 'hand', label: tx(s.lang, 'myHand') }] });
   startTimer(c, CHOOSE_MS);
 }
 
 function showHand(c: Ctx, user: string) {
   const s = c.s;
   const p = playerOf(s, user);
-  if (!p) return reply(c, user, '你不在這局遊戲裡。');
+  if (!p) return reply(c, user, tx(s.lang, 'notInGame'));
   if (s.phase === 'target' && current(s).id === user) return promptTargets(c);
   if (s.phase === 'choose' && s.choose!.picks[user] === null) return promptGive(c, p);
   if (s.phase === 'dog' && s.dog!.by === user) return promptDraw(c);
-  if (s.phase !== 'turn' || current(s).id !== user) return reply(c, user, `🃏 你的手牌：${handText(p.hand)}`);
-  const lines = p.hand.map((x, i) => `• ${LABEL[x]}${blocked(p, i, s.lap) ? ` (不能出：${blocked(p, i, s.lap)})` : ''}`);
+  if (s.phase !== 'turn' || current(s).id !== user) return reply(c, user, tx(s.lang, 'yourHand', { hand: handText(s.lang, p.hand) }));
+  const lines = p.hand.map((x, i) => {
+    const why = blocked(p, i, s.lap);
+    return `• ${label(s.lang, x)}${why ? tx(s.lang, 'cantPlay', { why: tx(s.lang, why) }) : ''}`;
+  });
   c.events.push({
     type: 'prompt',
     kind: 'criminal',
     audience: 'ephemeral',
     user,
-    text: `🃏 選一張牌打出\n${lines.join('\n')}`,
-    options: playable(p, s.lap).map((i) => ({ value: `play:${s.seq}:${i}`, label: LABEL[p.hand[i]] })),
+    text: tx(s.lang, 'pickPlay', { lines: lines.join('\n') }),
+    options: playable(p, s.lap).map((i) => ({ value: `play:${s.seq}:${i}`, label: label(s.lang, p.hand[i]) })),
   });
   return false;
 }
@@ -204,7 +207,7 @@ function promptTargets(c: Ctx) {
     kind: 'criminal',
     audience: 'ephemeral',
     user: p.id,
-    text: `🎯 選擇 ${LABEL[s.pending!.card]} 的對象`,
+    text: tx(s.lang, 'pickTarget', { card: label(s.lang, s.pending!.card) }),
     options: targetsFor(s, p).map((id) => ({ value: `target:${s.seq}:${id}`, label: id })),
   });
   return false;
@@ -212,14 +215,14 @@ function promptTargets(c: Ctx) {
 
 function promptGive(c: Ctx, p: CPlayer) {
   const s = c.s;
-  const what = s.choose!.kind === 'exchange' ? '傳給下一位' : '拿去交換';
+  const what = tx(s.lang, s.choose!.kind === 'exchange' ? 'giveExchange' : 'giveTrade');
   c.events.push({
     type: 'prompt',
     kind: 'criminal',
     audience: 'ephemeral',
     user: p.id,
-    text: `🤫 選一張牌${what} (只有你看得到)`,
-    options: p.hand.map((x, i) => ({ value: `give:${s.seq}:${i}`, label: LABEL[x] })),
+    text: tx(s.lang, 'pickGive', { what }),
+    options: p.hand.map((x, i) => ({ value: `give:${s.seq}:${i}`, label: label(s.lang, x) })),
   });
   return false;
 }
@@ -232,19 +235,19 @@ function promptDraw(c: Ctx) {
     kind: 'criminal',
     audience: 'ephemeral',
     user: by,
-    text: `🐕 從 ${mention(target)} 的手牌盲抽一張`,
-    options: order.map((_, slot) => ({ value: `draw:${s.seq}:${slot}`, label: `第 ${slot + 1} 張` })),
+    text: tx(s.lang, 'pickDraw', { who: mention(target) }),
+    options: order.map((_, slot) => ({ value: `draw:${s.seq}:${slot}`, label: tx(s.lang, 'slot', { n: slot + 1 }) })),
   });
   return false;
 }
 
 function playCard(c: Ctx, user: string, seq: number, index: number): boolean {
   const s = c.s;
-  if (!playerOf(s, user)) return reply(c, user, '你不在這局遊戲裡。');
-  if (s.phase !== 'turn' || current(s).id !== user) return reply(c, user, '還沒輪到你。');
-  if (seq !== s.seq) return reply(c, user, '這個選單已經過期了。');
+  if (!playerOf(s, user)) return reply(c, user, tx(s.lang, 'notInGame'));
+  if (s.phase !== 'turn' || current(s).id !== user) return reply(c, user, tx(s.lang, 'notYourTurn'));
+  if (seq !== s.seq) return reply(c, user, tx(s.lang, 'expired'));
   const p = current(s);
-  if (!playable(p, s.lap).includes(index)) return reply(c, user, '這張牌現在不能出。');
+  if (!playable(p, s.lap).includes(index)) return reply(c, user, tx(s.lang, 'cantPlayNow'));
   return choose(c, p, index);
 }
 
@@ -266,10 +269,10 @@ function choose(c: Ctx, p: CPlayer, index: number, auto = false): boolean {
 
 function chooseTarget(c: Ctx, user: string, seq: number, target: string): boolean {
   const s = c.s;
-  if (s.phase !== 'target' || current(s).id !== user) return reply(c, user, '還沒輪到你。');
-  if (seq !== s.seq) return reply(c, user, '這個選單已經過期了。');
+  if (s.phase !== 'target' || current(s).id !== user) return reply(c, user, tx(s.lang, 'notYourTurn'));
+  if (seq !== s.seq) return reply(c, user, tx(s.lang, 'expired'));
   const p = current(s);
-  if (!targetsFor(s, p).includes(target)) return reply(c, user, '不能選這個人。');
+  if (!targetsFor(s, p).includes(target)) return reply(c, user, tx(s.lang, 'badTarget'));
   return resolve(c, p, s.pending!.index, target);
 }
 
@@ -279,40 +282,42 @@ function resolve(c: Ctx, p: CPlayer, index: number, targetId?: string, auto = fa
   const card = p.hand.splice(index, 1)[0];
   p.played.push(card);
   const t = targetId ? playerOf(s, targetId) : undefined;
-  const head = `${auto ? `${AUTO} ` : ''}🃏 ${mention(p.id)} ${t ? `對 ${mention(t.id)} ` : ''}打出 ${LABEL[card]}`;
+  const L = s.lang;
+  const target = t ? tx(L, 'headTarget', { who: mention(t.id) }) : '';
+  const head = tx(L, 'head', { auto: autoTag(L, auto), who: mention(p.id), target, card: label(L, card) });
   if (TARGETED.includes(card) && !t) {
-    say(c, card === 'trade' ? `${head}，但手上沒有牌了，沒有效果。` : `${head}，但沒有可以選的對象，沒有效果。`);
+    say(c, tx(L, card === 'trade' ? 'noCardsLeft' : 'noTarget', { head }));
   } else if (card === 'culprit') {
-    say(c, `${head}！`);
+    say(c, tx(L, 'headBang', { head }));
     return endGame(c, { side: 'culprit', by: p.id, culprit: p.id });
   } else if (card === 'detective' && t) {
     if (t.hand.includes('culprit') && !t.hand.includes('alibi')) {
-      say(c, `${head}…`);
+      say(c, tx(L, 'headDots', { head }));
       return endGame(c, { side: 'detective', by: p.id, culprit: t.id });
     }
-    say(c, `${head}…${mention(t.id)} 不是犯人。`);
+    say(c, tx(L, 'notCulprit', { head, who: mention(t.id) }));
   } else if (card === 'accomplice') {
     p.accomplice = true;
-    say(c, `${head}，加入犯人陣營！`);
+    say(c, tx(L, 'joinCulprit', { head }));
   } else if (card === 'witness' && t) {
-    dm(c, p.id, `👀 ${mention(t.id)} 的手牌：${handText(t.hand)}`);
+    dm(c, p.id, tx(L, 'witnessDm', { who: mention(t.id), hand: handText(L, t.hand) }));
     if (t.hand.includes('culprit')) s.knows[p.id] = t.id;
-    say(c, `${head}。`);
+    say(c, tx(L, 'headDot', { head }));
   } else if (card === 'boy') {
     const holder = holderOf(s)!;
-    dm(c, p.id, `👦 現在拿著犯人的是 ${holder.id === p.id ? '你自己' : mention(holder.id)}`);
+    dm(c, p.id, tx(L, 'boyDm', { who: holder.id === p.id ? tx(L, 'yourself') : mention(holder.id) }));
     if (holder.id !== p.id) s.knows[p.id] = holder.id;
-    say(c, `${head}。`);
+    say(c, tx(L, 'headDot', { head }));
   } else if (card === 'rumor') {
-    say(c, `${head}，每個人從上一位手上抽一張牌。`);
+    say(c, tx(L, 'rumor', { head }));
     rumor(c);
   } else if (card === 'exchange' || (card === 'trade' && t)) {
-    say(c, `${head}。`);
+    say(c, tx(L, 'headDot', { head }));
     const pickers = card === 'exchange' ? s.players.filter((x) => x.hand.length).map((x) => x.id) : [p.id, t!.id];
     if (pickers.length >= 2) return startChoose(c, card as 'exchange' | 'trade', p.id, t?.id, pickers);
-    say(c, '只有一個人手上有牌，沒有效果。');
+    say(c, tx(L, 'onlyOne'));
   } else if (card === 'dog' && t) {
-    say(c, `${head}，從 ${mention(t.id)} 的手牌盲抽一張…`);
+    say(c, tx(L, 'dogPlay', { head, who: mention(t.id) }));
     s.phase = 'dog';
     s.dog = { by: p.id, target: t.id, order: shuffle(t.hand.map((_, i) => i), c.rng) };
     s.seq++;
@@ -321,7 +326,7 @@ function resolve(c: Ctx, p: CPlayer, index: number, targetId?: string, auto = fa
     startTimer(c, CHOOSE_MS);
     return true;
   } else {
-    say(c, `${head}。`);
+    say(c, tx(L, 'headDot', { head }));
   }
   advance(c);
   return true;
@@ -336,7 +341,7 @@ function rumor(c: Ctx) {
   ring.forEach((from, i) => {
     const to = ring[(i + 1) % ring.length];
     to.hand.push(taken[i]);
-    dm(c, to.id, `🗣️ 你從 ${mention(from.id)} 手上抽到 ${LABEL[taken[i]]}，手牌：${handText(to.hand)}`);
+    dm(c, to.id, tx(s.lang, 'rumorDm', { from: mention(from.id), card: label(s.lang, taken[i]), hand: handText(s.lang, to.hand) }));
   });
   s.knows = {};
 }
@@ -346,7 +351,7 @@ function startChoose(c: Ctx, kind: 'exchange' | 'trade', by: string, target: str
   s.phase = 'choose';
   s.choose = { kind, by, target, picks: Object.fromEntries(pickers.map((id) => [id, null])) };
   s.seq++;
-  say(c, `🤫 等 ${pickers.map(mention).join('、')} 私下選一張牌…`);
+  say(c, tx(s.lang, 'waitPick', { who: pickers.map(mention).join(tx(s.lang, 'sep')) }));
   for (const id of pickers) if (!isBot(id)) promptGive(c, playerOf(s, id)!);
   startTimer(c, CHOOSE_MS);
   return true;
@@ -354,9 +359,9 @@ function startChoose(c: Ctx, kind: 'exchange' | 'trade', by: string, target: str
 
 function give(c: Ctx, user: string, seq: number, index: number): boolean {
   const s = c.s;
-  if (s.phase !== 'choose' || !(user in s.choose!.picks)) return reply(c, user, '現在不需要你選牌。');
-  if (seq !== s.seq) return reply(c, user, '這個選單已經過期了。');
-  if (s.choose!.picks[user] !== null) return reply(c, user, '你已經選好了。');
+  if (s.phase !== 'choose' || !(user in s.choose!.picks)) return reply(c, user, tx(s.lang, 'noNeedPick'));
+  if (seq !== s.seq) return reply(c, user, tx(s.lang, 'expired'));
+  if (s.choose!.picks[user] !== null) return reply(c, user, tx(s.lang, 'alreadyPicked'));
   if (!playerOf(s, user)!.hand[index]) return false;
   s.choose!.picks[user] = index;
   if (Object.values(s.choose!.picks).every((v) => v !== null)) settle(c);
@@ -372,9 +377,9 @@ function settle(c: Ctx, auto = false) {
   ring.forEach((from, i) => {
     const to = ring[(i + 1) % ring.length];
     to.hand.push(out[i]);
-    dm(c, to.id, `🤫 你交出 ${LABEL[out[(i + 1) % ring.length]]}，拿到 ${LABEL[out[i]]}，手牌：${handText(to.hand)}`);
+    dm(c, to.id, tx(s.lang, 'swapDm', { out: label(s.lang, out[(i + 1) % ring.length]), got: label(s.lang, out[i]), hand: handText(s.lang, to.hand) }));
   });
-  say(c, `${auto ? `${AUTO} ` : ''}${s.choose!.kind === 'exchange' ? '🔄 情報交換完成。' : '💱 交易完成。'}`);
+  say(c, tx(s.lang, s.choose!.kind === 'exchange' ? 'exchangeDone' : 'tradeDone', { auto: autoTag(s.lang, auto) }));
   s.choose = undefined;
   s.knows = {};
   advance(c);
@@ -388,20 +393,20 @@ function draw(c: Ctx, slot: number, auto = false): boolean {
   s.dog = undefined;
   s.knows = {};
   if (card === 'culprit') {
-    say(c, `${auto ? `${AUTO} ` : ''}🐕 ${mention(by)} 從 ${mention(target)} 手上抽到 ${LABEL.culprit}！`);
+    say(c, tx(s.lang, 'dogHit', { auto: autoTag(s.lang, auto), by: mention(by), target: mention(target), card: label(s.lang, 'culprit') }));
     return endGame(c, { side: 'dog', by, culprit: target });
   }
   t.hand.push('dog');
-  say(c, `${auto ? `${AUTO} ` : ''}🐕 ${mention(by)} 從 ${mention(target)} 手上抽到 ${LABEL[card]}，放回去；神犬進了 ${mention(target)} 的手牌。`);
-  dm(c, target, `🐕 神犬進了你的手牌，手牌：${handText(t.hand)}`);
+  say(c, tx(s.lang, 'dogMiss', { auto: autoTag(s.lang, auto), by: mention(by), target: mention(target), card: label(s.lang, card) }));
+  dm(c, target, tx(s.lang, 'dogDm', { hand: handText(s.lang, t.hand) }));
   advance(c);
   return true;
 }
 
 function drawAction(c: Ctx, user: string, seq: number, slot: number): boolean {
   const s = c.s;
-  if (s.phase !== 'dog' || s.dog!.by !== user) return reply(c, user, '還沒輪到你。');
-  if (seq !== s.seq) return reply(c, user, '這個選單已經過期了。');
+  if (s.phase !== 'dog' || s.dog!.by !== user) return reply(c, user, tx(s.lang, 'notYourTurn'));
+  if (seq !== s.seq) return reply(c, user, tx(s.lang, 'expired'));
   if (!(slot in s.dog!.order)) return false;
   return draw(c, slot);
 }
@@ -415,17 +420,19 @@ function endGame(c: Ctx, outcome: NonNullable<CState['outcome']>): boolean {
   s.timers = {};
   s.outcome = outcome;
   s.winners = winners;
+  const L = s.lang;
+  const sep = tx(L, 'sep');
   const lines = [
-    outcome.side === 'culprit' ? `🏃 犯人 ${mention(outcome.culprit)} 逃跑成功！`
-    : `🚨 ${mention(outcome.by)} 抓到犯人 ${mention(outcome.culprit)}！(${outcome.side === 'detective' ? '偵探' : '神犬'})`,
-    winners.length ? `🏆 ${winners.map(mention).join('、')} 獲勝！` : `🤝 ${mention(outcome.by)} 是共犯，這局沒有人獲勝。`,
-    `🔪 犯人：${mention(outcome.culprit)}｜🤝 共犯：${allies.length ? allies.map(mention).join('、') : '沒有'}`,
-    ...s.players.map((p) => `${mention(p.id)} 最後的手牌：${handText(p.hand)}`),
+    outcome.side === 'culprit' ? tx(L, 'escaped', { who: mention(outcome.culprit) })
+    : tx(L, 'caught', { by: mention(outcome.by), who: mention(outcome.culprit), how: tx(L, outcome.side === 'detective' ? 'howDetective' : 'howDog') }),
+    winners.length ? tx(L, 'winners', { who: winners.map(mention).join(sep) }) : tx(L, 'noWinner', { who: mention(outcome.by) }),
+    tx(L, 'summary', { culprit: mention(outcome.culprit), allies: allies.length ? allies.map(mention).join(sep) : tx(L, 'none') }),
+    ...s.players.map((p) => tx(L, 'finalHand', { who: mention(p.id), hand: handText(L, p.hand) })),
   ];
   c.events.push(
     { type: 'result', players: s.players.map((p) => p.id), winners },
     { type: 'announce', text: lines.join('\n'), gif: outcome.side === 'culprit' ? 'wolvesWin' : 'goodWin' },
-    { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },
+    { type: 'prompt', kind: 'rematch', audience: 'channel', text: t(L, 'rematch.ask'), options: [{ value: 'rematch', label: t(L, 'rematch.button') }] },
   );
   return true;
 }
@@ -494,10 +501,10 @@ function handle(c: Ctx, action: GameAction): boolean {
     case 'removeBot':
       return removeBots(c, TITLE, action.user, action.count);
     case 'start': {
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以開始遊戲。');
+      if (action.user !== s.host) return reply(c, action.user, tx(s.lang, 'onlyHostStart'));
       if (s.phase !== 'lobby') return false;
       const n = s.players.length;
-      if (n < MIN_CRIMINAL_PLAYERS) return reply(c, action.user, `目前 ${n} 人，至少需要 ${MIN_CRIMINAL_PLAYERS} 人才能開始。`);
+      if (n < MIN_CRIMINAL_PLAYERS) return reply(c, action.user, tx(s.lang, 'needMore', { n, min: MIN_CRIMINAL_PLAYERS }));
       c.events.push(lobbyEvent(TITLE, { ...s, phase: 'turn' }));
       start(c);
       return true;

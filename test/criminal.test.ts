@@ -469,3 +469,56 @@ describe('criminal: Slack 設定', () => {
     expect(criminal.button('criminal', 'draw:5:2', 'A', 'C')).toEqual({ type: 'draw', user: 'A', seq: 5, slot: 2 });
   });
 });
+
+describe('criminal/en: 英文版', () => {
+  const zh = /[一-鿿]/;
+  const enLobby = (n: number) =>
+    run([{ type: 'new', user: 'p1', channel: 'C1', lang: 'en' } as CAction, ...Array.from({ length: n - 1 }, (_, i) => ({ type: 'join', user: `p${i + 2}` }) as CAction)]);
+  const enTable = (hands: Card[][], opts: Parameters<typeof table>[1] = {}): CState => ({ ...table(hands, opts), lang: 'en' });
+
+  it('英文局開始：公告、手牌私訊、牌桌 prompt 和按鈕都是英文', () => {
+    const { events } = run([{ type: 'start', user: 'p1' }], enLobby(3).state);
+    const all = announces(events).join('\n');
+    expect(all).toContain('🕺 Criminal Dance begins!');
+    expect(all).toContain('First Discoverer');
+    expect(all).not.toMatch(zh);
+    expect(dmTo(events, 'p1')[0]).toContain('🃏 Your hand:');
+    expect(dmTo(events, 'p1')[0]).not.toMatch(zh);
+    const board = prompts(events).filter((p) => p.audience === 'channel').at(-1)!;
+    expect(board.text).toMatch(/Round 1: <@p\d>'s turn to play/);
+    expect(board.text).not.toMatch(zh);
+    expect(board.options[0].label).toBe('🃏 My hand');
+  });
+
+  it('英文局：選牌選單和錯誤回覆是英文', () => {
+    const s = enTable([['culprit', 'alibi'], ['witness'], ['citizen']]);
+    const menu = menuOf(run([{ type: 'hand', user: 'p1' }], s).events, 'p1')!;
+    expect(menu.text).toContain('🃏 Pick a card to play');
+    expect(menu.text).toContain("can't play: only when it's your last card");
+    expect(menu.options.map((o) => o.label)).toEqual(['🛡️ Alibi']);
+    expect(ephemeralTo(run([play('p2', 0)], s).events, 'p2')[0]).toBe("It's not your turn yet.");
+  });
+
+  it('英文局：目擊者私訊和結束公告是英文', () => {
+    const s = enTable([['witness', 'citizen'], ['culprit'], ['alibi']]);
+    const r1 = run([play('p1', 0), { type: 'target', user: 'p1', seq: 2, target: 'p2' }], s);
+    expect(dmTo(r1.events, 'p1')[0]).toBe("👀 <@p2>'s hand: 🔪 Culprit");
+    const end = run([play('p2', 0, r1.state.seq)], r1.state);
+    const text = announces(end.events).join('\n');
+    expect(text).toContain('🏃 The culprit <@p2> got away!');
+    expect(text).not.toMatch(zh);
+    const again = prompts(end.events).find((p) => p.kind === 'rematch')!;
+    expect(again.text).toBe('Play again?');
+    expect(again.options[0].label).toBe('Play again');
+  });
+
+  it('GameDef 有英文名稱、人數、介紹和指令說明', () => {
+    const en = criminal.locales.en;
+    expect(en.name).toBe('Criminal Dance');
+    expect(en.players).toBe('3-8 players');
+    expect(en.desc).not.toMatch(zh);
+    expect(en.help).toContain('*Criminal Dance commands*');
+    expect(en.help).toContain('/game criminal start');
+    expect(en.help).not.toMatch(zh);
+  });
+});

@@ -16,6 +16,19 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Criminal Dance commands*',
+  '• `/game criminal new`: open a room (anyone)',
+  '• `/game criminal addbot [count]`: add bots to fill seats (host, before start)',
+  '• `/game criminal removebot [count]`: remove bots (host, before start)',
+  '• `/game criminal start`: start the game, needs 3-8 players (host)',
+  '• `/game criminal cancel`: cancel the game (host)',
+  'On your turn, press "🃏 My hand" on the table to pick a card and a target; Information Exchange, Trade and the Dog are also chosen there in private (only you can see it)',
+  '🔪 Culprit: play it as your last card to get away | 🕵️ Detective: name the culprit from round 2 | 🛡️ Alibi: blocks the Detective | 🤝 Accomplice: join the Culprit\'s side',
+  '👀 Witness: look at a hand | 👦 Boy: learn who holds the Culprit | 🔄 Information Exchange: everyone passes one to the next player | 🗣️ Rumor: draw one from the previous player | 💱 Trade: swap one with a player | 🐕 Dog: draw one blind from a player',
+  `📖 Full guide: <${WIKI}/Criminal-Dance|wiki>`,
+].join('\n');
+
 // 犯人在跳舞只有房間指令，出牌都用按鈕
 export function parseCriminalCommand(text: string, user: string, channel: string): CAction | null {
   return parseRoomCommand(text, user, channel) as CAction | null;
@@ -43,6 +56,14 @@ export const criminal = {
   category: 'bluff',
   desc: '每人 4 張牌輪流出，犯人想撐到最後一張逃走，偵探要把他抓出來',
   help: HELP,
+  locales: {
+    en: {
+      name: 'Criminal Dance',
+      players: '3-8 players',
+      desc: 'Play 4 cards in turn: the Culprit tries to hold out to the last card, the Detectives try to catch them',
+      help: HELP_EN,
+    },
+  },
   apply: applyCriminal,
   parse: parseCriminalCommand,
   button: criminalButton,
