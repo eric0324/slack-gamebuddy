@@ -1,6 +1,8 @@
 // 骷髏與玫瑰遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applySkull(state, action, rng) → { state, events }。
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, startTimer } from './common.js';
+import type { Lang } from './i18n/index.js';
+import { tx } from './i18n/games/skull.js';
 
 export const MIN_SKULL_PLAYERS = 3;
 export const MAX_SKULL_PLAYERS = 6;
@@ -8,7 +10,7 @@ const TITLE = '骷髏與玫瑰';
 const STEP_MS = 120_000;
 const WINS = 2;
 const ICON = { rose: '🌹', skull: '💀' } as const;
-const NAME = { rose: '一朵玫瑰', skull: '骷髏' } as const;
+const NAME = { rose: 'nameRose', skull: 'nameSkull' } as const;
 
 export type Disc = 'rose' | 'skull';
 export type SkPhase = 'lobby' | 'place' | 'turn' | 'bid' | 'flip' | 'ended';
@@ -37,10 +39,11 @@ export interface SkState {
   winner?: string;
   timerSeq: number;
   timers: { phase?: number };
+  lang?: Lang; // 開房時的頻道語系 (runGame 存進來)
 }
 
 export type SkAction =
-  | { type: 'new'; user: string; channel: string }
+  | { type: 'new'; user: string; channel: string; lang?: Lang }
   | { type: 'join'; user: string }
   | { type: 'leave'; user: string }
   | { type: 'start'; user: string }
@@ -55,7 +58,7 @@ export type SkAction =
   | { type: 'pass'; user: string; step: number }
   | { type: 'flip'; user: string; step: number; target: string }
   | { type: 'timeout'; id: number }
-  | { type: 'rematch'; user: string; channel: string };
+  | { type: 'rematch'; user: string; channel: string; lang?: Lang };
 
 type GameAction = Exclude<SkAction, { type: 'new' } | { type: 'rematch' }>;
 
@@ -77,13 +80,16 @@ const current = (s: SkState) => s.players[s.turn];
 const find = (s: SkState, id: string) => s.players.find((p) => p.id === id);
 const safeDisc = (p: SkPlayer): Disc => (p.hand.includes('rose') ? 'rose' : 'skull');
 const status = (s: SkState) =>
-  s.players.filter(alive).map((p) => `${mention(p.id)} 疊 ${p.stack.length} 張・手上 ${p.hand.length} 張`).join('｜');
+  s.players
+    .filter(alive)
+    .map((p) => tx(s.lang, 'statusItem', { who: mention(p.id), stack: p.stack.length, hand: p.hand.length }))
+    .join(tx(s.lang, 'statusSep'));
 
 const menu = (c: Ctx, user: string, text: string, options: { value: string; label: string }[], perRow?: number) => {
   c.events.push({ type: 'prompt', kind: 'skull', audience: 'ephemeral', user, text, options, ...(perRow ? { perRow } : {}) });
   return false;
 };
-const MINE = { value: 'mine', label: '👀 我的牌' };
+const mine = (s: SkState) => ({ value: 'mine', label: tx(s.lang, 'mineBtn') });
 
 // 下一位還沒出局 (而且不在 skip 裡) 的玩家
 function nextFrom(s: SkState, from: number, skip: string[] = []) {
@@ -113,14 +119,22 @@ function startRound(c: Ctx, starter: number) {
   c.events.push(
     {
       type: 'announce',
-      text: `🃏 第 ${s.round} 輪：${s.players.filter(alive).map((p) => `${mention(p.id)} ${p.hand.length} 張 (成功 ${p.wins})`).join('、')}\n大家同時蓋第一張牌，之後從 ${mention(s.players[starter].id)} 開始 (${STEP_MS / 60_000} 分鐘)`,
+      text: tx(s.lang, 'round', {
+        round: s.round,
+        list: s.players
+          .filter(alive)
+          .map((p) => tx(s.lang, 'roundItem', { who: mention(p.id), n: p.hand.length, wins: p.wins }))
+          .join(tx(s.lang, 'sep')),
+        who: mention(s.players[starter].id),
+        min: STEP_MS / 60_000,
+      }),
     },
     {
       type: 'prompt',
       kind: 'skull',
       audience: 'channel',
-      text: '按「🃏 蓋牌」選一張蓋下去 (只有你看得到選了什麼)',
-      options: [{ value: 'place', label: '🃏 蓋牌' }, MINE],
+      text: tx(s.lang, 'placePrompt'),
+      options: [{ value: 'place', label: tx(s.lang, 'placeBtn') }, mine(s)],
     },
   );
   startTimer(c, STEP_MS);
@@ -134,22 +148,22 @@ function put(c: Ctx, p: SkPlayer, disc: Disc) {
 function placeDisc(c: Ctx, user: string, disc: Disc): boolean {
   const s = c.s;
   const p = find(s, user);
-  if (!p || !alive(p)) return reply(c, user, '你不在這局遊戲裡。');
+  if (!p || !alive(p)) return reply(c, user, tx(s.lang, 'notInGame'));
   if (s.phase === 'place') {
-    if (p.stack.length) return reply(c, user, '你這輪已經蓋過第一張牌了。');
+    if (p.stack.length) return reply(c, user, tx(s.lang, 'alreadyPlaced'));
   } else if (s.phase !== 'turn' || current(s).id !== user) {
-    return reply(c, user, s.phase === 'turn' ? '還沒輪到你。' : '現在不能蓋牌。');
+    return reply(c, user, tx(s.lang, s.phase === 'turn' ? 'notYourTurn' : 'cannotPlace'));
   }
-  if (!p.hand.includes(disc)) return reply(c, user, '你手上沒有這種牌。');
+  if (!p.hand.includes(disc)) return reply(c, user, tx(s.lang, 'noSuchDisc'));
   put(c, p, disc);
   if (s.phase === 'turn') {
-    c.events.push({ type: 'announce', text: `🃏 ${mention(user)} 再蓋一張` });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'placedAnother', { who: mention(user) }) });
     s.turn = nextFrom(s, s.turn);
     promptTurn(c);
     return true;
   }
   const done = s.players.filter((x) => alive(x) && x.stack.length).length;
-  c.events.push({ type: 'announce', text: `🃏 ${mention(user)} 蓋了一張牌 (${done}/${aliveCount(s)})` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'placedFirst', { who: mention(user), done, total: aliveCount(s) }) });
   if (done === aliveCount(s)) promptTurn(c, true);
   return true;
 }
@@ -161,13 +175,17 @@ function promptTurn(c: Ctx, first = false) {
   s.step++;
   const p = current(s);
   c.events.push(
-    { type: 'announce', text: `${first ? '✅ 大家都蓋好了。' : ''}👉 輪到 ${mention(p.id)}：再蓋一張或開始挑戰 (${STEP_MS / 60_000} 分鐘)\n${status(s)}` },
+    { type: 'announce', text: tx(s.lang, 'turn', { first: first ? tx(s.lang, 'allPlaced') : '', who: mention(p.id), min: STEP_MS / 60_000, status: status(s) }) },
     {
       type: 'prompt',
       kind: 'skull',
       audience: 'channel',
-      text: `${mention(p.id)} 請選擇`,
-      options: [...(p.hand.length ? [{ value: 'place', label: '🃏 再蓋一張' }] : []), { value: 'challenge', label: '📢 開始挑戰' }, MINE],
+      text: tx(s.lang, 'choose', { who: mention(p.id) }),
+      options: [
+        ...(p.hand.length ? [{ value: 'place', label: tx(s.lang, 'placeMoreBtn') }] : []),
+        { value: 'challenge', label: tx(s.lang, 'challengeBtn') },
+        mine(s),
+      ],
     },
   );
   startTimer(c, STEP_MS);
@@ -179,13 +197,13 @@ function promptBid(c: Ctx) {
   const p = current(s);
   const nums = Array.from({ length: total(s) - s.bid!.n }, (_, i) => s.bid!.n + 1 + i);
   c.events.push(
-    { type: 'announce', text: `📢 目前最高 ${s.bid!.n} (${mention(s.bid!.by)})。輪到 ${mention(p.id)}：加注或放棄 (${STEP_MS / 60_000} 分鐘)` },
+    { type: 'announce', text: tx(s.lang, 'bidTurn', { n: s.bid!.n, by: mention(s.bid!.by), who: mention(p.id), min: STEP_MS / 60_000 }) },
     {
       type: 'prompt',
       kind: 'skull',
       audience: 'channel',
-      text: `${mention(p.id)} 要喊多少？(桌上共 ${total(s)} 張)`,
-      options: [...nums.map((n) => ({ value: `bid:${s.step}:${n}`, label: `${n}` })), { value: `pass:${s.step}`, label: '🙅 放棄' }, MINE],
+      text: tx(s.lang, 'bidPrompt', { who: mention(p.id), total: total(s) }),
+      options: [...nums.map((n) => ({ value: `bid:${s.step}:${n}`, label: `${n}` })), { value: `pass:${s.step}`, label: tx(s.lang, 'passBtn') }, mine(s)],
       perRow: 6,
     },
   );
@@ -194,11 +212,11 @@ function promptBid(c: Ctx) {
 
 function placeBid(c: Ctx, user: string, n: number): boolean {
   const s = c.s;
-  if ((s.phase !== 'turn' && s.phase !== 'bid') || current(s).id !== user) return reply(c, user, '還沒輪到你。');
+  if ((s.phase !== 'turn' && s.phase !== 'bid') || current(s).id !== user) return reply(c, user, tx(s.lang, 'notYourTurn'));
   const min = (s.bid?.n ?? 0) + 1;
-  if (!Number.isInteger(n) || n < min || n > total(s)) return reply(c, user, `要喊 ${min}～${total(s)}。`);
+  if (!Number.isInteger(n) || n < min || n > total(s)) return reply(c, user, tx(s.lang, 'bidRange', { min, max: total(s) }));
   s.bid = { n, by: user };
-  c.events.push({ type: 'announce', text: `📢 ${mention(user)} 喊 ${n}：能翻開 ${n} 朵玫瑰` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'bid', { who: mention(user), n }) });
   if (n === total(s)) return startFlip(c);
   s.phase = 'bid';
   s.turn = nextFrom(s, s.turn, s.passed);
@@ -208,9 +226,9 @@ function placeBid(c: Ctx, user: string, n: number): boolean {
 
 function passBid(c: Ctx, user: string): boolean {
   const s = c.s;
-  if (s.phase !== 'bid' || current(s).id !== user) return reply(c, user, '還沒輪到你。');
+  if (s.phase !== 'bid' || current(s).id !== user) return reply(c, user, tx(s.lang, 'notYourTurn'));
   s.passed.push(user);
-  c.events.push({ type: 'announce', text: `🙅 ${mention(user)} 放棄` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'passed', { who: mention(user) }) });
   if (s.players.filter((p) => alive(p) && !s.passed.includes(p.id)).length === 1) return startFlip(c);
   s.turn = nextFrom(s, s.turn, s.passed);
   promptBid(c);
@@ -228,12 +246,12 @@ function startFlip(c: Ctx): boolean {
     const d = me.stack[me.stack.length - 1 - me.flipped++];
     shown.push(ICON[d]);
     if (d === 'skull') {
-      c.events.push({ type: 'announce', text: `🔍 ${mention(me.id)} 先翻開自己的牌：${shown.join(' ')}` });
+      c.events.push({ type: 'announce', text: tx(s.lang, 'flipOwn', { who: mention(me.id), discs: shown.join(' ') }) });
       return fail(c, me.id);
     }
     s.revealed++;
   }
-  c.events.push({ type: 'announce', text: `🔍 ${mention(me.id)} 先翻開自己的牌：${shown.join(' ')}` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'flipOwn', { who: mention(me.id), discs: shown.join(' ') }) });
   if (s.revealed >= s.bid!.n) return success(c);
   promptFlip(c);
   return true;
@@ -248,19 +266,22 @@ function promptFlip(c: Ctx) {
     type: 'prompt',
     kind: 'skull',
     audience: 'channel',
-    text: `🔍 ${mention(s.bid!.by)} 已翻開 ${s.revealed}／${s.bid!.n} 朵玫瑰，選要翻誰的牌 (${STEP_MS / 60_000} 分鐘)`,
-    options: [...flipChoices(s).map((p) => ({ value: `flip:${s.step}:${p.id}`, label: `翻 ${p.id} (剩 ${p.stack.length - p.flipped} 張)` })), MINE],
+    text: tx(s.lang, 'flipPrompt', { who: mention(s.bid!.by), revealed: s.revealed, n: s.bid!.n, min: STEP_MS / 60_000 }),
+    options: [
+      ...flipChoices(s).map((p) => ({ value: `flip:${s.step}:${p.id}`, label: tx(s.lang, 'flipBtn', { id: p.id, left: p.stack.length - p.flipped }) })),
+      mine(s),
+    ],
   });
   startTimer(c, STEP_MS);
 }
 
 function flipOne(c: Ctx, user: string, target: string): boolean {
   const s = c.s;
-  if (s.phase !== 'flip' || s.bid!.by !== user) return reply(c, user, '只有挑戰者可以翻牌。');
+  if (s.phase !== 'flip' || s.bid!.by !== user) return reply(c, user, tx(s.lang, 'onlyChallenger'));
   const t = flipChoices(s).find((p) => p.id === target);
-  if (!t) return reply(c, user, '這個人沒有可以翻的牌了。');
+  if (!t) return reply(c, user, tx(s.lang, 'noDiscsLeft'));
   const d = t.stack[t.stack.length - 1 - t.flipped++];
-  c.events.push({ type: 'announce', text: `🔍 ${mention(user)} 翻開 ${mention(t.id)} 的牌：${ICON[d]}` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'flipped', { who: mention(user), target: mention(t.id), disc: ICON[d] }) });
   if (d === 'skull') return fail(c, t.id);
   s.revealed++;
   if (s.revealed >= s.bid!.n) return success(c);
@@ -272,7 +293,7 @@ function success(c: Ctx): boolean {
   const s = c.s;
   const me = find(s, s.bid!.by)!;
   me.wins++;
-  c.events.push({ type: 'announce', text: `🎉 ${mention(me.id)} 挑戰成功！(成功 ${me.wins} 次)` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'success', { who: mention(me.id), wins: me.wins }) });
   if (me.wins >= WINS) endGame(c, me.id);
   else startRound(c, s.players.indexOf(me));
   return true;
@@ -283,16 +304,16 @@ function fail(c: Ctx, owner: string): boolean {
   const s = c.s;
   const me = find(s, s.bid!.by)!;
   const idx = s.players.indexOf(me);
-  c.events.push({ type: 'announce', text: `💥 翻到${owner === me.id ? '自己' : ` ${mention(owner)} `}的骷髏，${mention(me.id)} 挑戰失敗！` });
+  c.events.push({ type: 'announce', text: tx(s.lang, owner === me.id ? 'failOwn' : 'failOther', { owner: mention(owner), who: mention(me.id) }) });
   me.hand = [...me.hand, ...me.stack];
   me.stack = [];
   const [lost] = me.hand.splice(Math.floor(c.rng() * me.hand.length), 1);
-  c.events.push({ type: 'announce', text: `🗑️ ${mention(me.id)} 失去一張牌，剩 ${me.hand.length} 張` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'lostOne', { who: mention(me.id), n: me.hand.length }) });
   if (!isBot(me.id)) {
-    const left = me.hand.length ? me.hand.map((d) => ICON[d]).join(' ') : '沒有牌了';
-    c.events.push({ type: 'dm', to: me.id, text: `🗑️ 你失去了${NAME[lost]}，剩下：${left}` });
+    const left = me.hand.length ? me.hand.map((d) => ICON[d]).join(' ') : tx(s.lang, 'noDiscs');
+    c.events.push({ type: 'dm', to: me.id, text: tx(s.lang, 'lostDm', { disc: tx(s.lang, NAME[lost]), left }) });
   }
-  if (!me.hand.length) c.events.push({ type: 'announce', text: `☠️ ${mention(me.id)} 出局 (沒有牌了)！` });
+  if (!me.hand.length) c.events.push({ type: 'announce', text: tx(s.lang, 'out', { who: mention(me.id) }) });
   const left = s.players.filter(alive);
   if (left.length === 1) {
     endGame(c, left[0].id);
@@ -308,10 +329,10 @@ function endGame(c: Ctx, winner: string) {
   s.phase = 'ended';
   s.timers = {};
   s.winner = winner;
-  const lines = s.players.map((p) => `${mention(p.id)}：成功 ${p.wins} 次、剩 ${p.hand.length + p.stack.length} 張`);
+  const lines = s.players.map((p) => tx(s.lang, 'endLine', { who: mention(p.id), wins: p.wins, n: p.hand.length + p.stack.length }));
   c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: [winner] });
   c.events.push(
-    { type: 'announce', text: `🏆 遊戲結束，${mention(winner)} 獲勝！\n${lines.join('\n')}`, gif: 'goodWin' },
+    { type: 'announce', text: tx(s.lang, 'win', { who: mention(winner), lines: lines.join('\n') }), gif: 'goodWin' },
     { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },
   );
 }
@@ -319,44 +340,40 @@ function endGame(c: Ctx, winner: string) {
 function placeMenu(c: Ctx, user: string): boolean {
   const s = c.s;
   const p = find(s, user);
-  if (!p || !alive(p)) return reply(c, user, '你不在這局遊戲裡。');
+  if (!p || !alive(p)) return reply(c, user, tx(s.lang, 'notInGame'));
   if (s.phase === 'place') {
-    if (p.stack.length) return reply(c, user, '你這輪已經蓋過第一張牌了。');
+    if (p.stack.length) return reply(c, user, tx(s.lang, 'alreadyPlaced'));
   } else if (s.phase !== 'turn' || current(s).id !== user) {
-    return reply(c, user, s.phase === 'turn' ? '還沒輪到你。' : '現在不能蓋牌。');
+    return reply(c, user, tx(s.lang, s.phase === 'turn' ? 'notYourTurn' : 'cannotPlace'));
   }
   const options = (['rose', 'skull'] as Disc[])
     .filter((d) => p.hand.includes(d))
-    .map((d) => ({ value: `disc:${s.step}:${d}`, label: d === 'rose' ? '🌹 蓋玫瑰' : '💀 蓋骷髏' }));
-  return menu(c, user, '選一張蓋下去 (只有你看得到)', options);
+    .map((d) => ({ value: `disc:${s.step}:${d}`, label: tx(s.lang, d === 'rose' ? 'placeRose' : 'placeSkull') }));
+  return menu(c, user, tx(s.lang, 'placeMenu'), options);
 }
 
 function challengeMenu(c: Ctx, user: string): boolean {
   const s = c.s;
-  if (s.phase !== 'turn' || current(s).id !== user) return reply(c, user, '還沒輪到你。');
+  if (s.phase !== 'turn' || current(s).id !== user) return reply(c, user, tx(s.lang, 'notYourTurn'));
   const options = Array.from({ length: total(s) }, (_, i) => ({ value: `bid:${s.step}:${i + 1}`, label: `${i + 1}` }));
-  return menu(c, user, `你能翻開幾朵玫瑰？(桌上共 ${total(s)} 張，只有你看得到)`, options, 6);
+  return menu(c, user, tx(s.lang, 'challengeMenu', { total: total(s) }), options, 6);
 }
 
 function showMine(c: Ctx, user: string): boolean {
   const s = c.s;
   const p = find(s, user);
-  if (!p || s.phase === 'lobby') return reply(c, user, '你不在這局遊戲裡。');
-  if (!alive(p)) return reply(c, user, '你已經出局了。');
+  if (!p || s.phase === 'lobby') return reply(c, user, tx(s.lang, 'notInGame'));
+  if (!alive(p)) return reply(c, user, tx(s.lang, 'eliminated'));
   const roses = p.hand.filter((d) => d === 'rose').length;
-  const skull = p.hand.includes('skull') ? '骷髏在手上' : '骷髏不在手上';
-  const stack = p.stack.length ? p.stack.map((d) => ICON[d]).join(' → ') : '(沒有)';
-  return reply(
-    c,
-    user,
-    `👀 你的牌：手上 ${roses} 朵玫瑰、${skull}\n牌疊 (由下到上)：${stack}\n共 ${p.hand.length + p.stack.length} 張，成功 ${p.wins} 次`,
-  );
+  const skull = tx(s.lang, p.hand.includes('skull') ? 'skullInHand' : 'skullNotInHand');
+  const stack = p.stack.length ? p.stack.map((d) => ICON[d]).join(' → ') : tx(s.lang, 'emptyStack');
+  return reply(c, user, tx(s.lang, 'mine', { roses, skull, stack, total: p.hand.length + p.stack.length, wins: p.wins }));
 }
 
 // 帶 step 的按鈕：step 不同就是過期的選單
 function stale(c: Ctx, user: string, step: number) {
   if (step === c.s.step) return false;
-  reply(c, user, '這個選單已經過期。');
+  reply(c, user, tx(c.s.lang, 'expired'));
   return true;
 }
 
@@ -366,7 +383,7 @@ function onTimeout(c: Ctx): boolean {
     case 'place': {
       for (const p of s.players.filter((x) => alive(x) && !x.stack.length)) {
         put(c, p, safeDisc(p));
-        c.events.push({ type: 'announce', text: `⏰ 時間到，系統替 ${mention(p.id)} 蓋了一張牌` });
+        c.events.push({ type: 'announce', text: tx(s.lang, 'autoPlaced', { who: mention(p.id) }) });
       }
       promptTurn(c, true);
       return true;
@@ -431,18 +448,18 @@ function handle(c: Ctx, action: GameAction): boolean {
     case 'removeBot':
       return removeBots(c, TITLE, action.user, action.count);
     case 'start': {
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以開始遊戲。');
+      if (action.user !== s.host) return reply(c, action.user, tx(s.lang, 'onlyHostStart'));
       if (s.phase !== 'lobby') return false;
       const n = s.players.length;
-      if (n < MIN_SKULL_PLAYERS) return reply(c, action.user, `目前 ${n} 人，至少需要 ${MIN_SKULL_PLAYERS} 人才能開始。`);
+      if (n < MIN_SKULL_PLAYERS) return reply(c, action.user, tx(s.lang, 'needPlayers', { n, min: MIN_SKULL_PLAYERS }));
       c.events.push(lobbyEvent(TITLE, { ...s, phase: 'place' }));
       for (const p of s.players) p.hand = ['rose', 'rose', 'rose', 'skull'];
       const starter = Math.floor(c.rng() * n);
       c.events.push({
         type: 'announce',
-        text: `💀 骷髏與玫瑰開始！每人 3 朵🌹玫瑰、1 個💀骷髏\n座位順序：${s.players.map((p) => mention(p.id)).join(' → ')}\n起始玩家：${mention(s.players[starter].id)}\n挑戰成功 ${WINS} 次，或最後一位還有牌的人獲勝`,
+        text: tx(s.lang, 'start', { order: s.players.map((p) => mention(p.id)).join(' → '), who: mention(s.players[starter].id), wins: WINS }),
       });
-      for (const p of s.players.filter((x) => !isBot(x.id))) c.events.push({ type: 'dm', to: p.id, text: RULES });
+      for (const p of s.players.filter((x) => !isBot(x.id))) c.events.push({ type: 'dm', to: p.id, text: tx(s.lang, 'rules') });
       startRound(c, starter);
       return true;
     }
@@ -466,15 +483,6 @@ function handle(c: Ctx, action: GameAction): boolean {
       return action.id === s.timers.phase ? onTimeout(c) : false;
   }
 }
-
-const RULES = [
-  '💀 *骷髏與玫瑰* 規則摘要',
-  '• 你有 3 朵🌹玫瑰、1 個💀骷髏，蓋了什麼只有你知道',
-  '• 每輪大家先同時蓋一張；之後輪流「再蓋一張」或「開始挑戰」喊一個數字',
-  '• 有人喊數後輪流加注或放棄，最高的人要翻開那麼多張牌，而且要先翻完自己的',
-  '• 全是玫瑰就挑戰成功，成功 2 次獲勝；翻到骷髏就隨機失去一張牌，沒牌就出局',
-  '• 隨時按「👀 我的牌」看自己的手牌和牌疊',
-].join('\n');
 
 const newPlayer = (id: string): SkPlayer => ({ id, hand: [], stack: [], flipped: 0, wins: 0 });
 
