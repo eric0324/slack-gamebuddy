@@ -5,18 +5,18 @@ import { parseRoomCommand } from './undercover.js';
 
 const HELP = [
   '*變色龍指令*',
-  '• `/game chameleon new`：開房（任何人）',
-  '• `/game chameleon start`：開始遊戲，需要 3～8 位真人（房主）',
-  '• 說詞：輪到你時按「✍️ 說詞」輸入一個和祕密詞有關的詞（不能是主題卡上的詞）；也可以打 `/game chameleon say <詞>`',
-  '• `/game chameleon next`：跳過目前的說詞者（房主）',
-  '• `/game chameleon vote`：討論中提早開始投票（房主）',
+  '• `/game chameleon new`：開房 (任何人)',
+  '• `/game chameleon start`：開始遊戲，需要 3～8 位真人 (房主)',
+  '• 說詞：輪到你時按「✍️ 說詞」輸入一個和祕密詞有關的詞 (不能是主題卡上的詞)；也可以打 `/game chameleon say <詞>`',
+  '• `/game chameleon next`：跳過目前的說詞者 (房主)',
+  '• `/game chameleon vote`：討論中提早開始投票 (房主)',
   '• `/game chameleon guess <詞或座標>`：被抓到的變色龍猜祕密詞，例如 `B3`；也可以按頻道按鈕',
-  '• `/game chameleon cancel`：取消遊戲（房主）',
+  '• `/game chameleon cancel`：取消遊戲 (房主)',
   '投票抓變色龍用頻道按鈕；每一步都是 2 分鐘',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
-// 變色龍的子指令：say <詞>、next（房主跳過）、vote（房主提早投票）、guess <詞或座標>
+// 變色龍的子指令：say <詞>、next (房主跳過)、vote (房主提早投票)、guess <詞或座標>
 export function parseChameleonCommand(text: string, user: string, channel: string): ChAction | null {
   const [sub, ...rest] = text.trim().split(/\s+/);
   if (sub === 'say') return rest.length ? { type: 'say', user, text: rest.join(' ') } : null;

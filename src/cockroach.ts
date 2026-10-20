@@ -34,7 +34,7 @@ export interface CrPlayer {
 export interface CrCard {
   bug: Bug;
   claim: Bug;
-  from: string; // 最後一位傳牌（宣稱）的人
+  from: string; // 最後一位傳牌 (宣稱) 的人
   to: string; // 現在拿著牌的人
   seen: string[]; // 看過這張牌的人
 }
@@ -91,7 +91,7 @@ const find = (s: CrState, id: string) => s.players.find((p) => p.id === id);
 const count = (bugs: Bug[], b: Bug) => bugs.filter((x) => x === b).length;
 const pickOne = <T>(rng: Rng, xs: T[]) => xs[Math.floor(rng() * xs.length)];
 const groups = (bugs: Bug[]) => BUGS.filter((b) => bugs.includes(b.bug)).map((b) => ({ bug: b.bug, n: count(bugs, b.bug) }));
-const longList = (bugs: Bug[]) => groups(bugs).map((g) => `${label(g.bug)} ×${g.n}`).join('、') || '（沒有）';
+const longList = (bugs: Bug[]) => groups(bugs).map((g) => `${label(g.bug)} ×${g.n}`).join('、') || '(沒有)';
 const shortList = (bugs: Bug[]) => groups(bugs).map((g) => `${info(g.bug).emoji}×${g.n}`).join(' ') || '—';
 const status = (s: CrState) => s.players.map((p) => `${mention(p.id)} 手牌 ${p.hand.length}｜面前 ${shortList(p.front)}`).join('\n');
 // 還沒看過這張牌、可以接手的人
@@ -109,7 +109,7 @@ function promptGive(c: Ctx) {
   s.step++;
   const p = s.players[s.turn];
   c.events.push(
-    { type: 'announce', text: `👉 輪到 ${mention(p.id)} 出牌（${STEP_MS / 60_000} 分鐘）\n${status(s)}` },
+    { type: 'announce', text: `👉 輪到 ${mention(p.id)} 出牌 (${STEP_MS / 60_000} 分鐘)\n${status(s)}` },
     {
       type: 'prompt',
       kind: 'cockroach',
@@ -131,7 +131,7 @@ function promptRespond(c: Ctx) {
     type: 'prompt',
     kind: 'cockroach',
     audience: 'channel',
-    text: `${mention(card.to)}：這是 ${label(card.claim)} 嗎？（${STEP_MS / 60_000} 分鐘）`,
+    text: `${mention(card.to)}：這是 ${label(card.claim)} 嗎？(${STEP_MS / 60_000} 分鐘)`,
     options: [
       { value: `yes:${s.step}`, label: `✅ 是 ${name}` },
       { value: `no:${s.step}`, label: `❌ 不是 ${name}` },
@@ -194,7 +194,7 @@ function peek(c: Ctx, user: string): boolean {
   s.phase = 'pass';
   s.step++;
   c.events.push(
-    { type: 'announce', text: `👀 ${mention(user)} 偷看了這張牌，準備傳下去（${STEP_MS / 60_000} 分鐘）` },
+    { type: 'announce', text: `👀 ${mention(user)} 偷看了這張牌，準備傳下去 (${STEP_MS / 60_000} 分鐘)` },
     { type: 'prompt', kind: 'cockroach', audience: 'channel', text: `${mention(user)} 要把牌傳給誰？`, options: [{ value: 'passmenu', label: '📨 傳下去' }, HAND] },
   );
   if (!isBot(user)) passMenu(c, user);
@@ -208,7 +208,7 @@ function passMenu(c: Ctx, user: string): boolean {
   return menu(
     c,
     user,
-    `這張牌是 ${label(s.card!.bug)}，要傳給誰？（只有你看得到）`,
+    `這張牌是 ${label(s.card!.bug)}，要傳給誰？(只有你看得到)`,
     unseen(s).map((id) => ({ value: `to:${s.step}:${id}`, label: id })),
   );
 }
@@ -241,7 +241,7 @@ function playMenu(c: Ctx, user: string): boolean {
   if (!find(s, user)) return reply(c, user, '你不在這局遊戲裡。');
   if (s.phase !== 'give' || s.players[s.turn].id !== user) return reply(c, user, '還沒輪到你。');
   const options = groups(s.players[s.turn].hand).map((g) => ({ value: `card:${s.step}:${g.bug}`, label: `${label(g.bug)} ×${g.n}` }));
-  return menu(c, user, '選一張要傳出去的牌（只有你看得到）', options);
+  return menu(c, user, '選一張要傳出去的牌 (只有你看得到)', options);
 }
 
 function targetMenu(c: Ctx, user: string, bug: Bug): boolean {
@@ -258,14 +258,14 @@ function claimMenu(c: Ctx, user: string, bug: Bug, target: string): boolean {
   const s = c.s;
   if (s.phase !== 'give' || s.players[s.turn].id !== user) return reply(c, user, '還沒輪到你。');
   if (target === user || !find(s, target)) return reply(c, user, '不能傳給這個人。');
-  return menu(c, user, `要跟 ${mention(target)} 說這是什麼？（可以說謊）`, claimOptions(`claim:${s.step}:${bug}`, target));
+  return menu(c, user, `要跟 ${mention(target)} 說這是什麼？(可以說謊)`, claimOptions(`claim:${s.step}:${bug}`, target));
 }
 
 function sayMenu(c: Ctx, user: string, target: string): boolean {
   const s = c.s;
   if (s.phase !== 'pass' || s.card!.to !== user) return reply(c, user, '現在不能傳牌。');
   if (!unseen(s).includes(target)) return reply(c, user, '只能傳給還沒看過這張牌的人。');
-  return menu(c, user, `要跟 ${mention(target)} 說這是什麼？（可以說謊）`, claimOptions(`say:${s.step}`, target));
+  return menu(c, user, `要跟 ${mention(target)} 說這是什麼？(可以說謊)`, claimOptions(`say:${s.step}`, target));
 }
 
 function showHand(c: Ctx, user: string): boolean {
@@ -301,7 +301,7 @@ function onTimeout(c: Ctx): boolean {
   return false;
 }
 
-// 從 ids 中選面前 bug 最多的人（同張數隨機）
+// 從 ids 中選面前 bug 最多的人 (同張數隨機)
 function mostFront(s: CrState, ids: string[], bug: Bug, rng: Rng) {
   const n = (id: string) => count(find(s, id)!.front, bug);
   const best = Math.max(...ids.map(n));
@@ -420,7 +420,7 @@ function handle(c: Ctx, action: GameAction): boolean {
 const RULES = [
   '🪳 *蟑螂撲克* 規則摘要',
   '• 8 種害蟲各 8 張，全部發完；手牌只有你知道',
-  '• 輪到你時選一張牌蓋著傳給別人，說「這是 X」（可以說謊）',
+  '• 輪到你時選一張牌蓋著傳給別人，說「這是 X」(可以說謊)',
   '• 收到牌的人回答「是」或「不是」；猜對，牌放在傳牌的人面前；猜錯，放在自己面前',
   '• 也可以偷看後傳給還沒看過的人，重新宣稱',
   `• 面前同一種害蟲 ${LOSE_AT} 張，或輪到你出牌時手上沒牌，你就輸了`,

@@ -6,7 +6,7 @@ TBD - created by archiving change add-dixit-game. Update Purpose after archive.
 ## Requirements
 
 ### Requirement: 妙語說書人的房間
-妙語說書人的房間 SHALL 和其他遊戲有相同的操作方式：`/game dixit new` 開房（開房者為房主並自動加入）、房間公告上有「加入」「離開」「開始遊戲」按鈕、`/game dixit start` 開始、`/game dixit cancel` 取消、房主開始前離開就取消房間。人數 SHALL 在 3～8 位真人之間；妙語說書人 SHALL NOT 支援 bot，房主輸入 `addbot` 時 SHALL 只讓房主看到「妙語說書人不支援 bot」。房間公告 SHALL 標示這是妙語說書人。一個頻道同時只能有一局遊戲（不分遊戲種類）。
+妙語說書人的房間 SHALL 和其他遊戲有相同的操作方式：`/game dixit new` 開房 (開房者為房主並自動加入)、房間公告上有「加入」「離開」「開始遊戲」按鈕、`/game dixit start` 開始、`/game dixit cancel` 取消、房主開始前離開就取消房間。人數 SHALL 在 3～8 位真人之間；妙語說書人 SHALL NOT 支援 bot，房主輸入 `addbot` 時 SHALL 只讓房主看到「妙語說書人不支援 bot」。房間公告 SHALL 標示這是妙語說書人。一個頻道同時只能有一局遊戲 (不分遊戲種類)。
 
 #### Scenario: 人數不足
 - **WHEN** 房間只有 2 人，房主按下開始
@@ -29,7 +29,7 @@ TBD - created by archiving change add-dixit-game. Update Purpose after archive.
 
 #### Scenario: 合併內建與投稿
 - **WHEN** 頻道有 3 張投稿，其中 1 張的網址和內建梗圖相同，開始一局
-- **THEN** 牌庫（含已發出的手牌）共有「內建張數 + 2」張，沒有重複的網址
+- **THEN** 牌庫 (含已發出的手牌) 共有「內建張數 + 2」張，沒有重複的網址
 
 #### Scenario: 沒有投稿
 - **WHEN** 頻道沒有投稿，開始一局
@@ -51,11 +51,11 @@ TBD - created by archiving change add-dixit-game. Update Purpose after archive.
 - **THEN** 每人手牌 7 張
 
 #### Scenario: 說書人輪替
-- **WHEN** 加入順序是 A（房主）、B、C，玩了 4 輪
+- **WHEN** 加入順序是 A (房主)、B、C，玩了 4 輪
 - **THEN** 說書人依序是 A、B、C、A
 
 ### Requirement: 開局
-遊戲開始時，頻道 SHALL 公告玩家、說書人順序和規則摘要（說書人選一張手牌給一句提示，其他人出最符合的牌混進去，大家猜哪張是說書人的；全部猜對或全部沒猜對時說書人 0 分、其他人 2 分，否則說書人和猜對的人 3 分，牌每被投 1 票 +1；有人到 20 分或牌庫不夠補牌時結束），3 人局 SHALL 另外說明每人每輪出 2 張，接著 SHALL 開始第 1 輪。
+遊戲開始時，頻道 SHALL 公告玩家、說書人順序和規則摘要 (說書人選一張手牌給一句提示，其他人出最符合的牌混進去，大家猜哪張是說書人的；全部猜對或全部沒猜對時說書人 0 分、其他人 2 分，否則說書人和猜對的人 3 分，牌每被投 1 票 +1；有人到 20 分或牌庫不夠補牌時結束)，3 人局 SHALL 另外說明每人每輪出 2 張，接著 SHALL 開始第 1 輪。
 
 #### Scenario: 開始遊戲
 - **WHEN** 4 人開始遊戲
@@ -66,7 +66,7 @@ TBD - created by archiving change add-dixit-game. Update Purpose after archive.
 - **THEN** 開局公告說明每人每輪出 2 張
 
 ### Requirement: 遊戲清單與指令說明
-`/game` 的遊戲清單和遊戲大廳 SHALL 列出妙語說書人的名稱（🎨 妙語說書人）、代號 `dixit`、人數（3～8 人）、「不支援 bot」和開房方式，大廳分類是 🎲 心理戰。輸入 `/game dixit help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到妙語說書人的條列式指令說明（new、start、cancel、clue，以及「🃏 我的手牌」按鈕的用法，並說明牌來自梗圖大亂鬥的梗圖庫，可以用 `/game meme add` 投稿）。
+`/game` 的遊戲清單和遊戲大廳 SHALL 列出妙語說書人的名稱 (🎨 妙語說書人)、代號 `dixit`、人數 (3～8 人)、「不支援 bot」和開房方式，大廳分類是 🎲 心理戰。輸入 `/game dixit help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到妙語說書人的條列式指令說明 (new、start、cancel、clue，以及「🃏 我的手牌」按鈕的用法，並說明牌來自梗圖大亂鬥的梗圖庫，可以用 `/game meme add` 投稿)。
 
 #### Scenario: 查看指令
 - **WHEN** 使用者輸入 `/game dixit help`
@@ -78,4 +78,4 @@ TBD - created by archiving change add-dixit-game. Update Purpose after archive.
 
 #### Scenario: 大廳心理戰分類
 - **WHEN** 使用者在大廳看 🎲 心理戰
-- **THEN** 列表有 🎨 妙語說書人（`dixit`）3～8 人（不支援 bot）和「開房」按鈕
+- **THEN** 列表有 🎨 妙語說書人 (`dixit`) 3～8 人 (不支援 bot) 和「開房」按鈕

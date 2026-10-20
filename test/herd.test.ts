@@ -34,7 +34,7 @@ const answer = (user: string, text: string): HerdAction => ({ type: 'answer', us
 // 依序作答：answers[i] 是 p(i+1) 的答案；undefined 表示不答
 const answerAll = (s: HerdState, answers: (string | undefined)[]) =>
   run(answers.flatMap((t, i) => (t === undefined ? [] : [answer(`p${i + 1}`, t)])), s);
-// 作答後直接完成（房主按完成或只有一組時自動計分）
+// 作答後直接完成 (房主按完成或只有一組時自動計分)
 const playQuestion = (s: HerdState, answers: string[]) => {
   const r = answerAll(s, answers);
   return r.state.phase === 'merge' ? run([{ type: 'done', user: 'p1' }], r.state) : r;
@@ -197,8 +197,8 @@ describe('herd/rounds: 自動分組', () => {
   it('公告每組編號、答案、作答者和人數，人數多的排前面', () => {
     const { events } = answerAll(started().state, ['臭豆腐', '雞排', '雞排', '雞排', '蚵仔煎']);
     const text = board(events)!.text;
-    expect(text).toContain('1. 雞排（3 人）：<@p2>、<@p3>、<@p4>');
-    expect(text).toContain('2. 臭豆腐（1 人）：<@p1>');
+    expect(text).toContain('1. 雞排 (3 人)：<@p2>、<@p3>、<@p4>');
+    expect(text).toContain('2. 臭豆腐 (1 人)：<@p1>');
   });
 });
 
@@ -219,7 +219,7 @@ describe('herd/rounds: 房主合併', () => {
     expect(lastTimer(events).ms).toBe(30_000);
   });
 
-  it('選兩組按合併：合成一組（顯示編號小的答案），分組公告更新', () => {
+  it('選兩組按合併：合成一組 (顯示編號小的答案)，分組公告更新', () => {
     const s = grouped().state;
     const { state, events } = run(
       [
@@ -231,7 +231,7 @@ describe('herd/rounds: 房主合併', () => {
     );
     expect(state.groups[0]).toEqual({ text: '珍珠奶茶', members: ['p1', 'p2', 'p3'] });
     expect(state.groups).toHaveLength(3);
-    expect(board(events)!.text).toContain('1. 珍珠奶茶（3 人）');
+    expect(board(events)!.text).toContain('1. 珍珠奶茶 (3 人)');
     expect(board(events)!.ref).toBe(board(grouped().events)!.ref);
     expect(state.phase).toBe('merge');
   });

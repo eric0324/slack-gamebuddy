@@ -5,11 +5,11 @@ import { parseRoomCommand } from './undercover.js';
 
 const HELP = [
   '*炸彈貓指令*',
-  '• `/game kittens new`：開房（任何人）',
-  '• `/game kittens addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/game kittens removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/game kittens start`：開始遊戲，需要 2～5 人（房主）',
-  '• `/game kittens cancel`：取消遊戲（房主）',
+  '• `/game kittens new`：開房 (任何人)',
+  '• `/game kittens addbot [數量]`：加入 bot 補人數 (房主，開始前)',
+  '• `/game kittens removebot [數量]`：移除 bot (房主，開始前)',
+  '• `/game kittens start`：開始遊戲，需要 2～5 人 (房主)',
+  '• `/game kittens cancel`：取消遊戲 (房主)',
   '輪到你時按牌桌訊息的「🃏 我的手牌」出功能牌，最後按「🂠 抽牌」結束回合；別人出牌後 5 秒內可以按「🚫 反對」讓它失效',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');

@@ -5,11 +5,11 @@ import { parseRoomCommand } from './undercover.js';
 
 const HELP = [
   '*不要謝謝指令*',
-  '• `/game nothanks new`：開房（任何人）',
-  '• `/game nothanks addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/game nothanks removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/game nothanks start`：開始遊戲，需要 3～7 人（房主）',
-  '• `/game nothanks cancel`：取消遊戲（房主）',
+  '• `/game nothanks new`：開房 (任何人)',
+  '• `/game nothanks addbot [數量]`：加入 bot 補人數 (房主，開始前)',
+  '• `/game nothanks removebot [數量]`：移除 bot (房主，開始前)',
+  '• `/game nothanks start`：開始遊戲，需要 3～7 人 (房主)',
+  '• `/game nothanks cancel`：取消遊戲 (房主)',
   '輪到你時按「🙅 不要謝謝」付 1 個籌碼跳過，或「✋ 收下」這張牌和牌上的籌碼；隨時按「👀 我的籌碼」看自己的籌碼和分數',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');

@@ -178,7 +178,7 @@ describe('decrypto/rounds: 寫提示', () => {
     const one = run([clues(['海', '火', '鐘'], 'p1')], started(4).state);
     const { state, events } = run([{ type: 'timeout', id: one.state.timers.phase! }], one.state);
     expect(state.phase).toBe('vote');
-    expect(announces(events).join('\n')).toContain('（沒有提示）');
+    expect(announces(events).join('\n')).toContain('(沒有提示)');
   });
 });
 
@@ -368,7 +368,7 @@ describe('decrypto/rounds: 勝負與結束', () => {
     expect(state.winner).toBe('black');
   });
 
-  it('兩隊同時達到條件：比（攔截 − 解錯）', () => {
+  it('兩隊同時達到條件：比 (攔截 − 解錯)', () => {
     const s = withTokens([1, 0], [1, 1]);
     const { state } = allCorrect(s, [
       { type: 'vote', user: 'p1', mode: 'intercept', round: 1, code: '123' },

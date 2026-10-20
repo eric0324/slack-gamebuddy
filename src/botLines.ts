@@ -1,8 +1,8 @@
 // bot 的台詞庫：隨機組合出一句話。台詞跟 bot 的真實身分無關，也不會出現任何角色名稱。
-// {t} 會換成被提到的玩家（例如 <@U123> 或 🤖Bot2）。句子裡不用「他／她」，一律用名字或省略主詞。
+// {t} 會換成被提到的玩家 (例如 <@U123> 或 🤖Bot2)。句子裡不用「他／她」，一律用名字或省略主詞。
 import type { Rng } from './engine.js';
 
-// 輪流發言：開場語 + 懷疑句 +（一半機率）理由 + 結尾語
+// 輪流發言：開場語 + 懷疑句 +(一半機率) 理由 + 結尾語
 const OPENERS = [
   '嗯……',
   '我先說一下，',
@@ -160,8 +160,8 @@ export function randomBotName(rng: Rng, taken: Set<string>): string {
   return pick(available.length ? available : BOT_NAMES, rng);
 }
 
-// ---- 身分台詞（bot 依身分發言時用；這裡會出現角色名稱） ----
-// target 等參數都是已經轉好的顯示文字（例如 <@U123> 或 🤖Sam）
+// ---- 身分台詞 (bot 依身分發言時用；這裡會出現角色名稱) ----
+// target 等參數都是已經轉好的顯示文字 (例如 <@U123> 或 🤖Sam)
 
 export interface CheckLine {
   night: number;

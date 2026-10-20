@@ -33,11 +33,11 @@ const timeout = (s: WCState) => run([{ type: 'timeout', id: s.timers.phase! }], 
 // rng 固定時不洗牌：出題順序是 p1、p2、p3…；目標是 10
 const started = (n: number) => run([{ type: 'start', user: 'p1' }], lobbyWith(n).state);
 
-describe('wavecoop/setup: 心電感應（合作）的房間', () => {
-  it('開房：公告標示心電感應（合作）', () => {
+describe('wavecoop/setup: 心電感應 (合作) 的房間', () => {
+  it('開房：公告標示心電感應 (合作)', () => {
     const { state, events } = run([{ type: 'new', user: 'A', channel: 'C1' }]);
     expect(state).toMatchObject({ game: 'wavecoop', host: 'A', phase: 'lobby' });
-    expect(events[0]).toMatchObject({ type: 'lobby', title: '心電感應（合作）', players: ['A'] });
+    expect(events[0]).toMatchObject({ type: 'lobby', title: '心電感應 (合作)', players: ['A'] });
   });
 
   it('人數不足：至少 2 人；2 人可以開始', () => {
@@ -55,7 +55,7 @@ describe('wavecoop/setup: 心電感應（合作）的房間', () => {
 
   it('不支援 bot', () => {
     const { events } = run([{ type: 'addBot', user: 'p1', count: 1 }], lobbyWith(2).state);
-    expect(ephemeralTo(events, 'p1')!.text).toBe('心電感應（合作）不支援 bot。');
+    expect(ephemeralTo(events, 'p1')!.text).toBe('心電感應 (合作) 不支援 bot。');
   });
 
   it('加入、離開、房主離開取消、房主取消；非房主不能開始；頻道已有遊戲', () => {
@@ -132,7 +132,7 @@ describe('wavecoop/rounds: 出題', () => {
   it('出題者按寫提示：跳出視窗；其他人被拒絕', () => {
     const s = started(3).state;
     expect(run([{ type: 'openClue', user: 'p1' }], s).events).toEqual([
-      { type: 'modal', to: 'p1', kind: 'wavecoopClue', title: '寫提示', label: '提示詞（1～30 字）' },
+      { type: 'modal', to: 'p1', kind: 'wavecoopClue', title: '寫提示', label: '提示詞 (1～30 字)' },
     ]);
     const other = run([{ type: 'openClue', user: 'p2' }], s);
     expect(other.events.some((e) => e.type === 'modal')).toBe(false);

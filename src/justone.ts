@@ -24,12 +24,12 @@ export interface JState {
   players: JPlayer[];
   deck: string[]; // 還沒翻的牌
   word?: string; // 這一輪的詞
-  card: number; // 第幾張（1 起算）
+  card: number; // 第幾張 (1 起算)
   guesser: number; // 猜詞的人在 players 裡的位置
   score: number;
   clues: Record<string, string>;
-  removed: string[]; // 這輪被刪掉的提示（回合結束時公開）
-  finished?: boolean; // 牌堆用完正常結束（取消的遊戲沒有）
+  removed: string[]; // 這輪被刪掉的提示 (回合結束時公開)
+  finished?: boolean; // 牌堆用完正常結束 (取消的遊戲沒有)
   timerSeq: number;
   timers: { phase?: number };
 }
@@ -72,7 +72,7 @@ function startRound(c: Ctx) {
   const guesser = s.players[s.guesser].id;
   c.events.push({
     type: 'announce',
-    text: `🃏 第 ${s.card} 張：${mention(guesser)} 猜詞\n其他人請看私訊的詞，用 \`/game justone clue <詞>\` 給一個提示（${CLUE_MS / 1000} 秒），重複的提示會被刪掉！`,
+    text: `🃏 第 ${s.card} 張：${mention(guesser)} 猜詞\n其他人請看私訊的詞，用 \`/game justone clue <詞>\` 給一個提示 (${CLUE_MS / 1000} 秒)，重複的提示會被刪掉！`,
   });
   for (const p of s.players.filter((x) => x.id !== guesser)) {
     c.events.push({ type: 'dm', to: p.id, text: `🃏 第 ${s.card} 張的詞是「${s.word}」，${mention(guesser)} 要猜。用 \`/game justone clue <詞>\` 給一個提示。` });
@@ -87,7 +87,7 @@ function giveClue(c: Ctx, user: string, word: string): boolean {
   if (!s.players.some((p) => p.id === user)) return false;
   if (s.phase !== 'clue' || !cluers(s).includes(user)) return reply(c, user, '你現在不能給提示。');
   const w = word.trim();
-  if (!w || /\s/.test(w)) return reply(c, user, '提示只能是一個詞（不能有空白）。');
+  if (!w || /\s/.test(w)) return reply(c, user, '提示只能是一個詞 (不能有空白)。');
   s.clues[user] = w;
   reply(c, user, `已收到你的提示「${w}」，在時間內可以重新輸入覆蓋。`);
   const done = Object.keys(s.clues).length;
@@ -112,18 +112,18 @@ function endClues(c: Ctx) {
   s.removed = entries.filter(([, w]) => !ok(w)).map(([id, w]) => `${mention(id)}「${w}」`);
   const guesser = s.players[s.guesser].id;
   const shown = kept.length ? kept.map(([id, w]) => `${mention(id)}「${w}」`).join('、') : '沒有留下任何提示 😱';
-  const removed = s.removed.length ? `\n（${s.removed.length} 個提示因為重複或和答案相同被刪掉）` : '';
+  const removed = s.removed.length ? `\n (${s.removed.length} 個提示因為重複或和答案相同被刪掉)` : '';
   c.events.push(
     {
       type: 'announce',
-      text: `💡 提示：${shown}${removed}\n${mention(guesser)} 請用 \`/game justone guess <詞>\` 猜一次，或按「跳過」（${GUESS_MS / 1000} 秒）`,
+      text: `💡 提示：${shown}${removed}\n${mention(guesser)} 請用 \`/game justone guess <詞>\` 猜一次，或按「跳過」(${GUESS_MS / 1000} 秒)`,
     },
     { type: 'prompt', kind: 'skipGuess', audience: 'channel', text: '沒把握的話可以跳過，只會丟掉這張牌', options: [{ value: guesser, label: '跳過' }] },
   );
   startTimer(c, GUESS_MS);
 }
 
-// 猜詞結果：猜對得分；跳過丟掉這張；猜錯再多丟一張（牌堆空了就丟一張得分的牌）
+// 猜詞結果：猜對得分；跳過丟掉這張；猜錯再多丟一張 (牌堆空了就丟一張得分的牌)
 function finishGuess(c: Ctx, result: 'right' | 'skip' | 'wrong') {
   const s = c.s;
   const lines = [

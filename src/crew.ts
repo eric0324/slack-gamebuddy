@@ -1,5 +1,5 @@
-// 星際探險隊（The Crew）遊戲引擎：合作吃墩，純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyCrew(state, action, rng, now) → { state, events }。
-// now 是現在的時間（毫秒），只用來顯示通訊時間還剩幾秒；計時本身靠 startTimer。
+// 星際探險隊 (The Crew) 遊戲引擎：合作吃墩，純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyCrew(state, action, rng, now) → { state, events }。
+// now 是現在的時間 (毫秒)，只用來顯示通訊時間還剩幾秒；計時本身靠 startTimer。
 import { mention, type GameEvent, type Rng } from './engine.js';
 import { cancelGame, joinRoom, leaveRoom, lobbyEvent, reply, runGame, shuffle, startTimer } from './common.js';
 import { CREW_MISSIONS, ruleLabel, type Rule, type Token } from './crewMissions.js';
@@ -53,11 +53,11 @@ export interface CState {
   turn: number;
   trick: { id: string; card: Card }[];
   ready: boolean; // 這墩的通訊時間結束，可以出牌了
-  commEnds?: number; // 通訊時間結束的時間（有 now 時才有）
+  commEnds?: number; // 通訊時間結束的時間 (有 now 時才有)
   transferUsed: boolean;
   outcome?: 'success' | 'fail';
   reason?: string;
-  ref: string; // 目前的牌桌（或分配）訊息
+  ref: string; // 目前的牌桌 (或分配) 訊息
   seq: number; // 擋掉舊按鈕
   timerSeq: number;
   timers: { phase?: number };
@@ -107,7 +107,7 @@ const numOf = (card: Card) => Number(card.split(':')[1]);
 export const cardText = (card: Card) => `${EMOJI[colorOf(card)]}${numOf(card)}`;
 const cardKey = (card: Card) => COLORS.indexOf(colorOf(card)) * 10 + numOf(card);
 export const sortHand = (hand: Card[]) => [...hand].sort((a, b) => cardKey(a) - cardKey(b));
-const handText = (hand: Card[]) => (hand.length ? hand.map(cardText).join(' ') : '（沒有）');
+const handText = (hand: Card[]) => (hand.length ? hand.map(cardText).join(' ') : '(沒有)');
 
 const missionOf = (s: CState) => CREW_MISSIONS[s.mission - 1];
 const hasRule = (s: CState, rule: Rule) => missionOf(s).rules.includes(rule);
@@ -122,7 +122,7 @@ function missionLine(n: number): string {
   return `第 ${n} 關「${m.name}」${m.tasks} 個任務${extras.length ? `，${extras.join('、')}` : ''}`;
 }
 
-// 房間公告下面的關卡資訊（改關時用同一個 ref 更新）
+// 房間公告下面的關卡資訊 (改關時用同一個 ref 更新)
 function lobbyInfo(s: CState): GameEvent {
   const m = missionOf(s);
   const done = s.unlocked > LAST_MISSION ? '\n🏆 這個頻道已經全破，可以選任何一關重玩' : '';
@@ -162,7 +162,7 @@ function startGame(c: Ctx) {
     text: [
       `🚀 星際探險隊 ${missionLine(s.mission)}`,
       `📖 ${m.story}`,
-      `👨‍🚀 ${mention(s.players[s.commander].id)} 是指揮官（持有 🚀4），先挑任務、領第一墩。總共 ${s.tricks} 墩。`,
+      `👨‍🚀 ${mention(s.players[s.commander].id)} 是指揮官 (持有 🚀4)，先挑任務、領第一墩。總共 ${s.tricks} 墩。`,
       '規則：要跟出領出的顏色，沒有才能墊別的顏色或出火箭；有火箭時最大的火箭贏，否則領出顏色最大的贏。擁有任務的人要親自吃下那張牌。每人每關可以通訊一次。',
       '🤫 請不要在頻道討論手牌，只靠出牌和通訊溝通。',
     ].join('\n'),
@@ -221,11 +221,11 @@ function assignPrompt(s: CState): GameEvent {
   let text: string;
   let options: { value: string; label: string }[];
   if (s.step === 'sick') {
-    text = `🤒 隊員失能：請指揮官 ${mention(cmd)} 指定一位隊員整關失能（不挑任務、整關不能贏任何一墩）（${ASSIGN_MS / 1000} 秒）`;
+    text = `🤒 隊員失能：請指揮官 ${mention(cmd)} 指定一位隊員整關失能 (不挑任務、整關不能贏任何一墩)(${ASSIGN_MS / 1000} 秒)`;
     options = [...others.map((p) => ({ value: `sick:${s.seq}:${p.id}`, label: p.id })), hand];
   } else if (s.step === 'solo') {
     const tokens = missionOf(s).tokens;
-    text = `🎯 單人任務：這關有 ${s.tasks.length} 張任務${tokens.length ? `（順序標記 ${tokens.join(' ')}）` : ''}，要由一個人包辦。看完手牌後回答能不能包辦，指揮官 ${mention(cmd)} 選一個人（不能選自己）（${ASSIGN_MS / 1000} 秒）${answers('🙋 可以', '🙅 不行')}`;
+    text = `🎯 單人任務：這關有 ${s.tasks.length} 張任務${tokens.length ? ` (順序標記 ${tokens.join(' ')})` : ''}，要由一個人包辦。看完手牌後回答能不能包辦，指揮官 ${mention(cmd)} 選一個人 (不能選自己)(${ASSIGN_MS / 1000} 秒)${answers('🙋 可以', '🙅 不行')}`;
     options = [
       { value: `answer:${s.seq}:yes`, label: '🙋 可以' },
       { value: `answer:${s.seq}:no`, label: '🙅 不行' },
@@ -234,7 +234,7 @@ function assignPrompt(s: CState): GameEvent {
     ];
   } else if (s.step === 'commander') {
     const t = s.tasks[s.picker];
-    text = `🎖️ 指揮官指派：第 ${s.picker + 1}/${s.tasks.length} 張任務：${cardText(t.card)}${t.token ? `（${t.token}）` : ''}\n大家按「🙋 要」或「🙅 不要」表態，指揮官 ${mention(cmd)} 指定給誰（任務要平均分配）（${ASSIGN_MS / 1000} 秒）${answers('🙋 要', '🙅 不要')}`;
+    text = `🎖️ 指揮官指派：第 ${s.picker + 1}/${s.tasks.length} 張任務：${cardText(t.card)}${t.token ? ` (${t.token})` : ''}\n大家按「🙋 要」或「🙅 不要」表態，指揮官 ${mention(cmd)} 指定給誰 (任務要平均分配)(${ASSIGN_MS / 1000} 秒)${answers('🙋 要', '🙅 不要')}`;
     options = [
       { value: `answer:${s.seq}:yes`, label: '🙋 要' },
       { value: `answer:${s.seq}:no`, label: '🙅 不要' },
@@ -242,15 +242,15 @@ function assignPrompt(s: CState): GameEvent {
       hand,
     ];
   } else {
-    text = `🎯 挑任務：輪到 ${mention(s.players[s.picker].id)} 挑任務（${PICK_MS / 1000} 秒）\n${tasksSummary(s)}`;
-    options = [...s.tasks.flatMap((t, i) => (t.owner ? [] : [{ value: `pick:${s.seq}:${i}`, label: cardText(t.card) + (t.token ? `（${t.token}）` : '') }])), hand];
+    text = `🎯 挑任務：輪到 ${mention(s.players[s.picker].id)} 挑任務 (${PICK_MS / 1000} 秒)\n${tasksSummary(s)}`;
+    options = [...s.tasks.flatMap((t, i) => (t.owner ? [] : [{ value: `pick:${s.seq}:${i}`, label: cardText(t.card) + (t.token ? ` (${t.token})` : '') }])), hand];
   }
   return { type: 'prompt', kind: 'crew', audience: 'channel', ref: s.ref, text, options, perRow: 5 };
 }
 
 // 每張任務和它的主人
 const tasksSummary = (s: CState) =>
-  s.tasks.map((t) => `${t.token ? `${cardText(t.card)}（${t.token}）` : cardText(t.card)}${t.owner ? ` → ${mention(t.owner)}` : ''}`).join('、');
+  s.tasks.map((t) => `${t.token ? `${cardText(t.card)} (${t.token})` : cardText(t.card)}${t.owner ? ` → ${mention(t.owner)}` : ''}`).join('、');
 
 function assignError(s: CState, user: string, seq: number, step: Step): string | undefined {
   if (!isPlayer(s, user)) return '你不在遊戲中。';
@@ -398,14 +398,14 @@ function tablePrompt(s: CState, done = false): GameEvent {
   const status = done
     ? '這墩結束'
     : s.ready
-      ? `輪到 ${mention(s.players[s.turn].id)} 出牌（${PLAY_MS / 60_000} 分鐘）`
+      ? `輪到 ${mention(s.players[s.turn].id)} 出牌 (${PLAY_MS / 60_000} 分鐘)`
       : `📡 通訊時間：${COMM_MS / 1000} 秒後才能出牌，${mention(s.players[s.turn].id)} 領出`;
   const played = s.trick.length ? s.trick.map((t) => `${mention(t.id)} ${cardText(t.card)}`).join('、') : '還沒有人出牌';
   const rows = s.players.map((p) => {
     const mine = s.tasks.filter((t) => t.owner === p.id);
-    const comm = p.comm ? `　📡 ${cardText(p.comm.card)}${hasRule(s, 'deadZone') ? '' : `（${posText(p.comm.pos)}）`}` : '';
+    const comm = p.comm ? `　📡 ${cardText(p.comm.card)}${hasRule(s, 'deadZone') ? '' : ` (${posText(p.comm.pos)})`}` : '';
     const sick = p.id === s.sick ? ' 🤒 失能' : '';
-    return `• ${mention(p.id)}${sick}（手牌 ${p.hand.length} 張）${mine.length ? `　任務 ${mine.map(taskText).join(' ')}` : ''}${comm}`;
+    return `• ${mention(p.id)}${sick} (手牌 ${p.hand.length} 張)${mine.length ? `　任務 ${mine.map(taskText).join(' ')}` : ''}${comm}`;
   });
   const options = done ? [] : [{ value: 'hand', label: '🃏 手牌' }, ...(hasRule(s, 'silence') ? [] : [{ value: 'comm', label: '📡 通訊' }]), ...transferOption(s)];
   return {
@@ -443,7 +443,7 @@ function transferMenu(c: Ctx, user: string): boolean {
     kind: 'crew',
     audience: 'ephemeral',
     user,
-    text: '🔁 選一張你的任務和要交給誰（每關限一次）：',
+    text: '🔁 選一張你的任務和要交給誰 (每關限一次)：',
     options: s.tasks.flatMap((t, i) => (t.owner === user ? targets.map((p) => ({ value: `transferTo:${s.seq}:${i}:${p.id}`, label: `${cardText(t.card)} → ${p.id}` })) : [])),
     perRow: 4,
   });
@@ -464,7 +464,7 @@ function transferTask(c: Ctx, user: string, seq: number, task: number, target: s
   return true;
 }
 
-// 可以通訊的牌：每種顏色（火箭除外）最小、最大或唯一的那張
+// 可以通訊的牌：每種顏色 (火箭除外) 最小、最大或唯一的那張
 function commChoices(hand: Card[]): { card: Card; pos: CommPos }[] {
   return COLORS.slice(0, 4).flatMap((color): { card: Card; pos: CommPos }[] => {
     const cards = sortHand(hand.filter((card) => colorOf(card) === color));
@@ -500,8 +500,8 @@ function commMenu(c: Ctx, user: string): boolean {
     kind: 'crew',
     audience: 'ephemeral',
     user,
-    text: '📡 選一張牌通訊（每關一次，火箭不能通訊）：',
-    options: choices.map((x) => ({ value: `commCard:${s.seq}:${x.card}`, label: `${cardText(x.card)}（${posText(x.pos)}）` })),
+    text: '📡 選一張牌通訊 (每關一次，火箭不能通訊)：',
+    options: choices.map((x) => ({ value: `commCard:${s.seq}:${x.card}`, label: `${cardText(x.card)} (${posText(x.pos)})` })),
     perRow: 4,
   });
   return false;
@@ -517,7 +517,7 @@ function communicate(c: Ctx, user: string, seq: number, card: Card): boolean {
   if (!choice) return reply(c, user, `${cardText(card)} 不能通訊：只能通訊某個顏色最大、最小或唯一的牌。`);
   me.comm = choice;
   me.commUsed = true;
-  const what = hasRule(s, 'deadZone') ? `${cardText(card)}（位置不公開）` : `${cardText(card)} 是我${COLOR_NAME[colorOf(card)]}${posText(choice.pos)}的`;
+  const what = hasRule(s, 'deadZone') ? `${cardText(card)} (位置不公開)` : `${cardText(card)} 是我${COLOR_NAME[colorOf(card)]}${posText(choice.pos)}的`;
   c.events.push({ type: 'announce', text: `📡 ${mention(user)} 通訊：${what}` }, tablePrompt(s));
   return true;
 }
@@ -538,7 +538,7 @@ function legalCards(s: CState, p: CPlayer): Card[] {
   return follow.length ? follow : p.hand;
 }
 
-// 逾時代出：彩色牌中數字最小的（同數依顏色順序），只剩火箭時出最小的火箭
+// 逾時代出：彩色牌中數字最小的 (同數依顏色順序)，只剩火箭時出最小的火箭
 function autoCard(cards: Card[]): Card {
   const colored = cards.filter((card) => colorOf(card) !== 'rocket');
   const pool = colored.length ? colored : cards;
@@ -557,7 +557,7 @@ function playCard(c: Ctx, user: string, seq: number, card: Card): boolean {
     return reply(c, user, `通訊時間，${left} 秒後才能出牌。`);
   }
   if (!me.hand.includes(card)) return reply(c, user, `你手上沒有 ${cardText(card)}。`);
-  if (!legalCards(s, me).includes(card)) return reply(c, user, `要跟出領出的顏色（${COLOR_NAME[colorOf(s.trick[0].card)]}）。`);
+  if (!legalCards(s, me).includes(card)) return reply(c, user, `要跟出領出的顏色 (${COLOR_NAME[colorOf(s.trick[0].card)]})。`);
   putCard(c, me, card);
   return true;
 }
@@ -603,7 +603,7 @@ function judge(s: CState, winner: string, won: CTask[]): string | undefined {
   if (winner === s.sick) return `${mention(winner)} 失能時不能贏墩。`;
   const before = s.tasks.filter((t) => t.done).length;
   const after = before + won.length;
-  const label = (t: CTask) => `${cardText(t.card)}（${t.token}）`;
+  const label = (t: CTask) => `${cardText(t.card)} (${t.token})`;
   for (const t of s.tasks.filter((x) => !x.done && x.token && /^\d$/.test(x.token))) {
     const n = Number(t.token);
     const now = won.includes(t);
@@ -645,7 +645,7 @@ function endGame(c: Ctx, outcome: 'success' | 'fail', reason?: string) {
     ].join('\n'),
     gif: win ? 'goodWin' : undefined,
   });
-  const label = !win ? `🔁 重打第 ${s.mission} 關` : allClear ? `🔁 再打第 ${LAST_MISSION} 關` : `🚀 下一關（第 ${s.mission + 1} 關）`;
+  const label = !win ? `🔁 重打第 ${s.mission} 關` : allClear ? `🔁 再打第 ${LAST_MISSION} 關` : `🚀 下一關 (第 ${s.mission + 1} 關)`;
   c.events.push({ type: 'prompt', kind: 'rematch', audience: 'channel', text: '要繼續嗎？', options: [{ value: 'rematch', label }] });
 }
 
@@ -720,14 +720,14 @@ function handMenu(c: Ctx, user: string): boolean {
     kind: 'crew',
     audience: 'ephemeral',
     user,
-    text: `🃏 你的手牌：${handText(me.hand)}\n🎯 你的任務：${mine.length ? mine.map(taskText).join(' ') : '（沒有）'}${myTurn ? '\n👉 輪到你出牌，選一張：' : ''}`,
+    text: `🃏 你的手牌：${handText(me.hand)}\n🎯 你的任務：${mine.length ? mine.map(taskText).join(' ') : '(沒有)'}${myTurn ? '\n👉 輪到你出牌，選一張：' : ''}`,
     options: myTurn ? sortHand(legalCards(s, me)).map((card) => ({ value: `play:${s.seq}:${card}`, label: cardText(card) })) : [],
     perRow: 5,
   });
   return false;
 }
 
-const taskText = (t: CTask) => `${t.done ? '✅' : '⬜'}${cardText(t.card)}${t.token ? `（${t.token}）` : ''}`;
+const taskText = (t: CTask) => `${t.done ? '✅' : '⬜'}${cardText(t.card)}${t.token ? ` (${t.token})` : ''}`;
 
 function handle(c: Ctx, action: GameAction): boolean {
   const s = c.s;
@@ -805,7 +805,7 @@ export function applyCrew(state: CState | undefined, action: CAction, rng: Rng, 
 function createLobby(prev: CState | undefined, host: string, channel: string, unlockedNow?: number): Result {
   const unlocked = unlockedNow ?? prev?.unlocked ?? 1;
   const seq = (prev?.seq ?? 0) + 1;
-  // 再來一局：成功打下一關（最多第 40 關）、失敗重打同一關；開新房：已解鎖的最高關
+  // 再來一局：成功打下一關 (最多第 40 關)、失敗重打同一關；開新房：已解鎖的最高關
   const rematch = unlockedNow === undefined && prev?.outcome;
   const mission = rematch ? Math.min(prev.mission + (prev.outcome === 'success' ? 1 : 0), LAST_MISSION) : Math.min(unlocked, LAST_MISSION);
   const created: CState = {

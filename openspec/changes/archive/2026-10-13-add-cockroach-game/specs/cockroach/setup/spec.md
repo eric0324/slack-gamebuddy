@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: 蟑螂撲克的房間
-蟑螂撲克的房間 SHALL 和其他遊戲有相同的操作方式：`/game cockroach new` 開房（開房者為房主並自動加入）、房間公告有「加入」「離開」「開始遊戲」按鈕、房主可以用 `addbot [數量]`、`removebot [數量]` 加減 bot、`/game cockroach start` 開始、`/game cockroach cancel` 取消、房主開始前離開就取消房間。人數 SHALL 在 2～6 人之間（bot 也算），房間公告 SHALL 標示這是蟑螂撲克。一個頻道同時只能有一局遊戲（不分遊戲種類）。
+蟑螂撲克的房間 SHALL 和其他遊戲有相同的操作方式：`/game cockroach new` 開房 (開房者為房主並自動加入)、房間公告有「加入」「離開」「開始遊戲」按鈕、房主可以用 `addbot [數量]`、`removebot [數量]` 加減 bot、`/game cockroach start` 開始、`/game cockroach cancel` 取消、房主開始前離開就取消房間。人數 SHALL 在 2～6 人之間 (bot 也算)，房間公告 SHALL 標示這是蟑螂撲克。一個頻道同時只能有一局遊戲 (不分遊戲種類)。
 
 #### Scenario: 人數不足
 - **WHEN** 房間只有 1 人，房主按下開始
@@ -28,7 +28,7 @@
 - **THEN** 系統拒絕，只讓這位使用者看到「這個頻道已經有遊戲了」
 
 ### Requirement: 牌堆與發牌
-牌堆 SHALL 是 64 張牌：8 種害蟲各 8 張——🪳 蟑螂、🐀 老鼠、🪰 蒼蠅、🦂 蠍子、🪲 臭蟲、🕷️ 蜘蛛、🐸 青蛙、🦇 蝙蝠。遊戲開始時系統 SHALL 洗牌並**全部發完**；張數除不盡時，座位順序前面的玩家各多 1 張。每位玩家面前一開始 SHALL 沒有牌。座位順序 SHALL 是加入房間的順序，第一位出牌的玩家 SHALL 隨機決定。系統 SHALL 私訊每位真人他的手牌（每種害蟲幾張）和規則摘要；bot 不收私訊。頻道 SHALL 公告遊戲開始、座位順序、每人手牌張數、第一位出牌的玩家和輸的條件（面前同一種害蟲 4 張，或輪到自己出牌時手上沒牌），SHALL NOT 透露任何人的手牌內容。
+牌堆 SHALL 是 64 張牌：8 種害蟲各 8 張——🪳 蟑螂、🐀 老鼠、🪰 蒼蠅、🦂 蠍子、🪲 臭蟲、🕷️ 蜘蛛、🐸 青蛙、🦇 蝙蝠。遊戲開始時系統 SHALL 洗牌並**全部發完**；張數除不盡時，座位順序前面的玩家各多 1 張。每位玩家面前一開始 SHALL 沒有牌。座位順序 SHALL 是加入房間的順序，第一位出牌的玩家 SHALL 隨機決定。系統 SHALL 私訊每位真人他的手牌 (每種害蟲幾張) 和規則摘要；bot 不收私訊。頻道 SHALL 公告遊戲開始、座位順序、每人手牌張數、第一位出牌的玩家和輸的條件 (面前同一種害蟲 4 張，或輪到自己出牌時手上沒牌)，SHALL NOT 透露任何人的手牌內容。
 
 #### Scenario: 牌堆內容
 - **WHEN** 檢查遊戲開始前的牌堆
@@ -58,7 +58,7 @@
 - **THEN** 系統拒絕，只讓 D 看到「你不在這局遊戲裡」，遊戲狀態不變
 
 ### Requirement: 遊戲清單與指令說明
-`/game` 的遊戲清單和遊戲大廳 SHALL 列出蟑螂撲克的名稱（🪳 蟑螂撲克）、代號 `cockroach`、人數（2～6 人）和開房方式 `/game cockroach new`。輸入 `/game cockroach help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到蟑螂撲克的條列式指令說明（new、addbot、removebot、start、cancel，以及遊戲中用按鈕操作的說明）。
+`/game` 的遊戲清單和遊戲大廳 SHALL 列出蟑螂撲克的名稱 (🪳 蟑螂撲克)、代號 `cockroach`、人數 (2～6 人) 和開房方式 `/game cockroach new`。輸入 `/game cockroach help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到蟑螂撲克的條列式指令說明 (new、addbot、removebot、start、cancel，以及遊戲中用按鈕操作的說明)。
 
 #### Scenario: 查看指令
 - **WHEN** 使用者輸入 `/game cockroach help`

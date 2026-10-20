@@ -65,7 +65,7 @@ describe('cockroach/setup: 房間', () => {
     expect(ephemeralTo(events, 'p1')!.text).toContain('至少需要 2 人');
   });
 
-  it('房間已滿（6 人）時拒絕加入', () => {
+  it('房間已滿 (6 人) 時拒絕加入', () => {
     const { state, events } = run([{ type: 'join', user: 'x' }], lobbyWith(6).state);
     expect(state.players).toHaveLength(6);
     expect(ephemeralTo(events, 'x')!.text).toContain('房間已滿');
@@ -104,7 +104,7 @@ describe('cockroach/setup: 牌堆與發牌', () => {
     for (const b of BUGS) expect(all.filter((x) => x === b.bug)).toHaveLength(8);
   });
 
-  it('4 人每人 16 張、面前 0 張；第一位出牌的是隨機（rng 最大時是最後一位）', () => {
+  it('4 人每人 16 張、面前 0 張；第一位出牌的是隨機 (rng 最大時是最後一位)', () => {
     const { state } = started(4);
     expect(state.players.map((p) => p.hand.length)).toEqual([16, 16, 16, 16]);
     expect(state.players.every((p) => p.front.length === 0)).toBe(true);
@@ -261,7 +261,7 @@ describe('cockroach/rounds: 偷看再傳', () => {
     for (const t of ['p1', 'p2']) expect(step(peeked, (x) => pass(x, 'p2', t, 'bat')).state).toBe(peeked);
   });
 
-  it('大家都看過（3 人局傳兩手）和 2 人局沒有偷看再傳，送出 peek 被拒', () => {
+  it('大家都看過 (3 人局傳兩手) 和 2 人局沒有偷看再傳，送出 peek 被拒', () => {
     let s = step(table([['bat'], ['fly'], ['spider']]), (x) => give(x, 'p1', 'bat', 'p2', 'bat')).state;
     s = step(s, (x) => peek(x, 'p2')).state;
     const r = step(s, (x) => pass(x, 'p2', 'p3', 'rat'));
@@ -357,7 +357,7 @@ describe('cockroach/rounds: 計時與過期選單', () => {
     expect(run([old], answered).state).toBe(answered);
   });
 
-  it('step 不同的選單（claim／yes／no／peek／say）被拒，state 不變', () => {
+  it('step 不同的選單 (claim／yes／no／peek／say) 被拒，state 不變', () => {
     const s = table([['bat', 'rat'], ['fly'], ['spider'], ['toad']]);
     const old = give(s, 'p1', 'bat', 'p2', 'bat');
     const after = step(s, timeout).state;
@@ -393,7 +393,7 @@ describe('cockroach/bots', () => {
     // 真人 p1 把 rat 照實傳給 bot:1 說老鼠；bot:1 回答後拿到牌的人出牌
     const r = step(s, (x) => give(x, 'p1', 'rat', 'bot:1:B1', 'rat'), () => 0.99999);
     const text = announces(r.events).join('\n');
-    // bot:1 rng 大：不偷看（0.99999 ≥ 0.3）、回答「不是」（0.99999 ≥ 0.5）→ 猜錯收下老鼠，接著 bot:1 出牌
+    // bot:1 rng 大：不偷看 (0.99999 ≥ 0.3)、回答「不是」(0.99999 ≥ 0.5)→ 猜錯收下老鼠，接著 bot:1 出牌
     expect(text).toContain('🤖B1 說「不是 🐀 老鼠」');
     expect(text).toContain('🤖B1 猜錯了，牌放在 🤖B1 面前');
     expect(text).toContain('🤖B1 傳了一張牌給 🤖B2：「這是 🦇 蝙蝠」');
@@ -418,7 +418,7 @@ describe('cockroach/bots', () => {
     expect(text).toContain('🤖B1 把牌傳給 🤖B2');
   });
 
-  it('rng 小時偷看再傳（30%），沒得傳時 rng 小回答「是」', () => {
+  it('rng 小時偷看再傳 (30%)，沒得傳時 rng 小回答「是」', () => {
     const s = withBots([['bat'], ['fly'], ['toad']], [[], [], []], 0);
     expect(announces(step(s, (x) => give(x, 'p1', 'bat', 'bot:1:B1', 'rat'), () => 0.1).events).join()).toContain('偷看了');
     const two = withBots([['bat'], ['fly']], [[], []], 0);

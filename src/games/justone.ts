@@ -5,12 +5,12 @@ import { parseRoomCommand } from './undercover.js';
 
 const HELP = [
   '*一字千金指令*',
-  '• `/game justone new`：開房（任何人）',
-  '• `/game justone start`：開始遊戲，需要 3～7 位真人（房主）',
-  '• `/game justone clue <詞>`：給一個提示（猜詞以外的人，其他人看不到你打的字）',
-  '• `/game justone guess <詞>`：猜詞（猜詞的人），沒把握可以按「跳過」',
-  '• `/game justone next`：跳過卡住的步驟（房主）',
-  '• `/game justone cancel`：取消遊戲（房主）',
+  '• `/game justone new`：開房 (任何人)',
+  '• `/game justone start`：開始遊戲，需要 3～7 位真人 (房主)',
+  '• `/game justone clue <詞>`：給一個提示 (猜詞以外的人，其他人看不到你打的字)',
+  '• `/game justone guess <詞>`：猜詞 (猜詞的人)，沒把握可以按「跳過」',
+  '• `/game justone next`：跳過卡住的步驟 (房主)',
+  '• `/game justone cancel`：取消遊戲 (房主)',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 

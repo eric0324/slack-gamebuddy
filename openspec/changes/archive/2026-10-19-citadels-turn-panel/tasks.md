@@ -1,6 +1,6 @@
 ## 1. 事件與 adapter
 
-- [x] 1.1 先寫 `test/slack.test.ts` 測試：按鈕來自私下訊息時，帶 `replace` 的第一則私下回應用 `response_url` 取代（`replace_original: true`）；不是私下訊息、或事件沒有 `replace` 時照常 `postEphemeral`；`respond` 失敗退回 `postEphemeral`。確認紅燈
+- [x] 1.1 先寫 `test/slack.test.ts` 測試：按鈕來自私下訊息時，帶 `replace` 的第一則私下回應用 `response_url` 取代 (`replace_original: true`)；不是私下訊息、或事件沒有 `replace` 時照常 `postEphemeral`；`respond` 失敗退回 `postEphemeral`。確認紅燈
 - [x] 1.2 `src/engine.ts` 的 `ephemeral`、`prompt` 事件加 `replace?`；`src/slack.ts` 的 `button()`/`deliver()`/`send()` 實作取代；`src/index.ts` 傳 `is_ephemeral`。確認 1.1 綠燈
 
 ## 2. 富饒之城回合面板

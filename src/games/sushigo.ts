@@ -5,12 +5,12 @@ import { parseRoomCommand } from './undercover.js';
 
 const HELP = [
   '*壽司派對指令*',
-  '• `/game sushigo new`：開房（任何人）',
-  '• `/game sushigo addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/game sushigo removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/game sushigo start`：開始遊戲，需要 2～5 人（房主）',
-  '• `/game sushigo cancel`：取消遊戲（房主）',
-  '每回合按牌桌訊息上的「🍣 我的手牌」選一張牌（揭曉前可以改）；桌上有筷子時，選完會問你要不要「🥢 用筷子再出一張」',
+  '• `/game sushigo new`：開房 (任何人)',
+  '• `/game sushigo addbot [數量]`：加入 bot 補人數 (房主，開始前)',
+  '• `/game sushigo removebot [數量]`：移除 bot (房主，開始前)',
+  '• `/game sushigo start`：開始遊戲，需要 2～5 人 (房主)',
+  '• `/game sushigo cancel`：取消遊戲 (房主)',
+  '每回合按牌桌訊息上的「🍣 我的手牌」選一張牌 (揭曉前可以改)；桌上有筷子時，選完會問你要不要「🥢 用筷子再出一張」',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 

@@ -6,11 +6,11 @@ TBD - created by archiving change add-dixit-game. Update Purpose after archive.
 ## Requirements
 
 ### Requirement: 查看手牌
-說書、出牌和投票階段，頻道訊息 SHALL 有「🃏 我的手牌」按鈕。玩家按下時 SHALL 只有自己看到一則訊息，裡面有自己每張手牌的圖片，依序標上編號 1、2、3…。說書階段的說書人、出牌階段還沒出完牌的非說書人，訊息下方 SHALL 有每張牌一顆編號按鈕；其他情況只顯示圖片、沒有按鈕。不是這局玩家的人按下 SHALL 被拒絕。舊選單的按鈕（不是這一輪、或牌已經不在手上）SHALL 被拒絕並提示重新按「🃏 我的手牌」。
+說書、出牌和投票階段，頻道訊息 SHALL 有「🃏 我的手牌」按鈕。玩家按下時 SHALL 只有自己看到一則訊息，裡面有自己每張手牌的圖片，依序標上編號 1、2、3…。說書階段的說書人、出牌階段還沒出完牌的非說書人，訊息下方 SHALL 有每張牌一顆編號按鈕；其他情況只顯示圖片、沒有按鈕。不是這局玩家的人按下 SHALL 被拒絕。舊選單的按鈕 (不是這一輪、或牌已經不在手上) SHALL 被拒絕並提示重新按「🃏 我的手牌」。
 
 #### Scenario: 說書人看手牌
 - **WHEN** 說書階段，說書人 A 按「🃏 我的手牌」
-- **THEN** 只有 A 看到 6 張手牌的圖片（編號 1～6）和 6 顆編號按鈕
+- **THEN** 只有 A 看到 6 張手牌的圖片 (編號 1～6) 和 6 顆編號按鈕
 
 #### Scenario: 非說書人在說書階段看手牌
 - **WHEN** 說書階段，B 按「🃏 我的手牌」
@@ -21,7 +21,7 @@ TBD - created by archiving change add-dixit-game. Update Purpose after archive.
 - **THEN** 系統拒絕，只讓 B 看到請重新按「🃏 我的手牌」
 
 ### Requirement: 說書
-每輪開始時，頻道 SHALL 公告「第 N 輪，說書人是 @X」和說書時間 120 秒。說書人 SHALL 在手牌選單按一張牌，接著打開視窗輸入提示；提示 SHALL 是 1～50 字（前後空白去掉），空白或超過 50 字 SHALL 被拒絕並只讓說書人看到字數限制。視窗打不開時 SHALL 提示改用 `/game dixit clue <編號> <提示>`，這個指令的效果和用視窗送出相同。送出前改按別張牌，SHALL 以最後選的牌為準；提示送出後 SHALL NOT 能改。不是說書人、或不在說書階段時給提示 SHALL 被拒絕。提示成立時，頻道 SHALL 公告說書人和提示（不顯示是哪張牌），接著進入出牌。
+每輪開始時，頻道 SHALL 公告「第 N 輪，說書人是 @X」和說書時間 120 秒。說書人 SHALL 在手牌選單按一張牌，接著打開視窗輸入提示；提示 SHALL 是 1～50 字 (前後空白去掉)，空白或超過 50 字 SHALL 被拒絕並只讓說書人看到字數限制。視窗打不開時 SHALL 提示改用 `/game dixit clue <編號> <提示>`，這個指令的效果和用視窗送出相同。送出前改按別張牌，SHALL 以最後選的牌為準；提示送出後 SHALL NOT 能改。不是說書人、或不在說書階段時給提示 SHALL 被拒絕。提示成立時，頻道 SHALL 公告說書人和提示 (不顯示是哪張牌)，接著進入出牌。
 
 #### Scenario: 用視窗給提示
 - **WHEN** 說書人 A 按手牌的「3」，在視窗輸入「週一早上」並送出
@@ -44,7 +44,7 @@ TBD - created by archiving change add-dixit-game. Update Purpose after archive.
 - **THEN** 系統拒絕，只讓說書人看到字數限制，還在說書階段
 
 ### Requirement: 說書逾時
-說書時間 120 秒到時說書人還沒送出提示（包括只選了牌），系統 SHALL 公告「⌛ @X 沒出提示，這輪跳過」，這輪不計分、手牌不變，換下一位說書人開始新的一輪。連續跳過的輪數達到玩家人數時（一整圈都沒有人出提示），遊戲 SHALL 自動結束：公告大家好像都不在了和目前分數，SHALL NOT 送出 `result`，也 SHALL NOT 貼「再來一局」。有說書人成功出提示時，連續跳過的輪數 SHALL 歸零。
+說書時間 120 秒到時說書人還沒送出提示 (包括只選了牌)，系統 SHALL 公告「⌛ @X 沒出提示，這輪跳過」，這輪不計分、手牌不變，換下一位說書人開始新的一輪。連續跳過的輪數達到玩家人數時 (一整圈都沒有人出提示)，遊戲 SHALL 自動結束：公告大家好像都不在了和目前分數，SHALL NOT 送出 `result`，也 SHALL NOT 貼「再來一局」。有說書人成功出提示時，連續跳過的輪數 SHALL 歸零。
 
 #### Scenario: 說書人沒出提示
 - **WHEN** 第 2 輪說書人 B 120 秒內沒送出提示
@@ -55,7 +55,7 @@ TBD - created by archiving change add-dixit-game. Update Purpose after archive.
 - **THEN** 遊戲結束，頻道公告目前分數，沒有 `result`，沒有「再來一局」
 
 ### Requirement: 出牌
-提示公告後，頻道 SHALL 貼出牌訊息：提示、出牌時間 90 秒、「🃏 我的手牌」按鈕和「已出 N/M」（M 是非說書人人數），並列出還沒出完的人。每位非說書人 SHALL 從手牌按一張最符合提示的牌出牌；3 人局每位非說書人 SHALL 出 2 張，出第一張後只讓本人看到「再出一張」。出牌後 SHALL NOT 能改，SHALL 只讓本人看到「✅ 已出牌」，出牌訊息的進度用同一則訊息更新。說書人、出完的人、不在遊戲中的人、出牌時間以外出牌 SHALL 被拒絕，只讓本人看到原因。所有非說書人都出完時 SHALL 立刻進入投票。
+提示公告後，頻道 SHALL 貼出牌訊息：提示、出牌時間 90 秒、「🃏 我的手牌」按鈕和「已出 N/M」(M 是非說書人人數)，並列出還沒出完的人。每位非說書人 SHALL 從手牌按一張最符合提示的牌出牌；3 人局每位非說書人 SHALL 出 2 張，出第一張後只讓本人看到「再出一張」。出牌後 SHALL NOT 能改，SHALL 只讓本人看到「✅ 已出牌」，出牌訊息的進度用同一則訊息更新。說書人、出完的人、不在遊戲中的人、出牌時間以外出牌 SHALL 被拒絕，只讓本人看到原因。所有非說書人都出完時 SHALL 立刻進入投票。
 
 #### Scenario: 出牌
 - **WHEN** 4 人局，B 在手牌選單按「4」
@@ -78,7 +78,7 @@ TBD - created by archiving change add-dixit-game. Update Purpose after archive.
 - **THEN** 立刻進入投票，不用等時間到
 
 ### Requirement: 出牌逾時
-出牌時間 90 秒到時，還沒出完的非說書人，系統 SHALL 從他的手牌隨機出牌補到應出的張數（3 人局 2 張、其他 1 張），頻道公告「⌛ @某人 沒出牌，系統幫他出了」，然後進入投票。
+出牌時間 90 秒到時，還沒出完的非說書人，系統 SHALL 從他的手牌隨機出牌補到應出的張數 (3 人局 2 張、其他 1 張)，頻道公告「⌛ @某人 沒出牌，系統幫他出了」，然後進入投票。
 
 #### Scenario: 時間到
 - **WHEN** 90 秒到時 C 還沒出牌
@@ -89,10 +89,10 @@ TBD - created by archiving change add-dixit-game. Update Purpose after archive.
 - **THEN** 系統從 B 的手牌再隨機出一張，B 共出 2 張
 
 ### Requirement: 匿名投票
-投票時，系統 SHALL 把說書人的牌和所有出的牌打亂順序，頻道 SHALL 貼一則投票訊息：提示、每張牌的圖片依序標上編號 1、2、3…、每張牌一顆編號按鈕、投票時間 60 秒和「已投 N/M」（M 是非說書人人數）。投票訊息 SHALL NOT 顯示每張牌是誰出的，也 SHALL NOT 顯示梗圖名稱。
+投票時，系統 SHALL 把說書人的牌和所有出的牌打亂順序，頻道 SHALL 貼一則投票訊息：提示、每張牌的圖片依序標上編號 1、2、3…、每張牌一顆編號按鈕、投票時間 60 秒和「已投 N/M」(M 是非說書人人數)。投票訊息 SHALL NOT 顯示每張牌是誰出的，也 SHALL NOT 顯示梗圖名稱。
 
 - 只有非說書人可以投票，每人投一票；說書人投票 SHALL 被拒絕。
-- SHALL NOT 能投自己出的牌（只讓本人看到「不能投自己的牌」）；3 人局自己出的 2 張都不能投。
+- SHALL NOT 能投自己出的牌 (只讓本人看到「不能投自己的牌」)；3 人局自己出的 2 張都不能投。
 - 投票結束前 SHALL 可以改票，改票不改進度。
 - SHALL 只讓本人看到「你投了 N」；投票訊息用同一則訊息更新進度，SHALL NOT 顯示誰投了誰。
 - 所有非說書人都投過票時 SHALL 立刻揭曉；60 秒到時沒投的人當作棄權。
@@ -128,15 +128,15 @@ TBD - created by archiving change add-dixit-game. Update Purpose after archive.
 ### Requirement: 揭曉與計分
 揭曉時系統 SHALL 計分：
 
-- 每位非說書人都投了說書人的牌（全部猜對），或沒有任何非說書人投說書人的牌（全部沒猜對，包括全員棄權）：說書人 SHALL 得 0 分，每位非說書人 SHALL 各得 2 分。
+- 每位非說書人都投了說書人的牌 (全部猜對)，或沒有任何非說書人投說書人的牌 (全部沒猜對，包括全員棄權)：說書人 SHALL 得 0 分，每位非說書人 SHALL 各得 2 分。
 - 其他情況：說書人和每位投了說書人牌的人 SHALL 各得 3 分。
-- 另外，非說書人出的每張牌每得 1 票，出牌的人 SHALL +1 分（3 人局兩張分開算）；說書人的牌得票 SHALL NOT 另外加分。
+- 另外，非說書人出的每張牌每得 1 票，出牌的人 SHALL +1 分 (3 人局兩張分開算)；說書人的牌得票 SHALL NOT 另外加分。
 
-投票訊息 SHALL 改成已結束（保留圖片，沒有按鈕）。頻道 SHALL 公告說書人的牌是第幾號、每張牌是誰出的和誰投了它、本輪每人得分，以及目前總分（由高到低）。
+投票訊息 SHALL 改成已結束 (保留圖片，沒有按鈕)。頻道 SHALL 公告說書人的牌是第幾號、每張牌是誰出的和誰投了它、本輪每人得分，以及目前總分 (由高到低)。
 
 #### Scenario: 部分猜對
 - **WHEN** 4 人局說書人 A，B 投了 A 的牌，C 和 D 投了 B 的牌
-- **THEN** A +3、B +3（猜對）+2（2 票）= 5、C 0、D 0
+- **THEN** A +3、B +3 (猜對)+2 (2 票)= 5、C 0、D 0
 
 #### Scenario: 全部猜對
 - **WHEN** 4 人局說書人 A，B、C、D 都投了 A 的牌
@@ -144,7 +144,7 @@ TBD - created by archiving change add-dixit-game. Update Purpose after archive.
 
 #### Scenario: 全部沒猜對
 - **WHEN** 4 人局說書人 A，B 投 C 的牌，C 和 D 投 B 的牌
-- **THEN** A 0 分；B +2 +2（2 票）= 4、C +2 +1（1 票）= 3、D +2
+- **THEN** A 0 分；B +2 +2 (2 票)= 4、C +2 +1 (1 票)= 3、D +2
 
 #### Scenario: 全員棄權
 - **WHEN** 投票時間到，沒有任何人投票
@@ -159,7 +159,7 @@ TBD - created by archiving change add-dixit-game. Update Purpose after archive.
 - **THEN** 頻道公告說書人的牌的編號、每張牌的出牌者與投票者、本輪得分和總分，投票訊息的按鈕消失
 
 ### Requirement: 補牌與下一輪
-揭曉後，如果有人總分達到 20 分以上，遊戲 SHALL 結束。否則每位玩家 SHALL 從牌庫補牌到手牌上限（4～8 人 6 張，3 人 7 張）；牌庫的牌不夠補滿所有人時，遊戲 SHALL 結束（不補牌）。都沒有結束時，SHALL 換下一位說書人開始新的一輪。
+揭曉後，如果有人總分達到 20 分以上，遊戲 SHALL 結束。否則每位玩家 SHALL 從牌庫補牌到手牌上限 (4～8 人 6 張，3 人 7 張)；牌庫的牌不夠補滿所有人時，遊戲 SHALL 結束 (不補牌)。都沒有結束時，SHALL 換下一位說書人開始新的一輪。
 
 #### Scenario: 補牌
 - **WHEN** 4 人局揭曉後沒有人到 20 分，牌庫還夠
@@ -174,7 +174,7 @@ TBD - created by archiving change add-dixit-game. Update Purpose after archive.
 - **THEN** 遊戲結束
 
 ### Requirement: 勝負與結束
-遊戲正常結束（有人達到 20 分或牌庫不夠補牌）時，總分最高的玩家 SHALL 獲勝，同分 SHALL 並列獲勝。頻道 SHALL 公告結束原因、最終排名和分數，送出 `result` 事件（`players` 是所有玩家，`winners` 是獲勝的玩家），並貼「再來一局」按鈕；只有上一局的玩家可以按，按的人成為新房主。房主在遊戲中取消時，頻道 SHALL 公告已取消和目前分數，SHALL NOT 送出 `result`，也 SHALL NOT 貼「再來一局」；非房主取消 SHALL 被拒絕。舊的計時器 SHALL 被忽略。
+遊戲正常結束 (有人達到 20 分或牌庫不夠補牌) 時，總分最高的玩家 SHALL 獲勝，同分 SHALL 並列獲勝。頻道 SHALL 公告結束原因、最終排名和分數，送出 `result` 事件 (`players` 是所有玩家，`winners` 是獲勝的玩家)，並貼「再來一局」按鈕；只有上一局的玩家可以按，按的人成為新房主。房主在遊戲中取消時，頻道 SHALL 公告已取消和目前分數，SHALL NOT 送出 `result`，也 SHALL NOT 貼「再來一局」；非房主取消 SHALL 被拒絕。舊的計時器 SHALL 被忽略。
 
 #### Scenario: 最高分獲勝
 - **WHEN** 遊戲結束時 A 21 分、B 17 分、C 15 分
@@ -197,7 +197,7 @@ TBD - created by archiving change add-dixit-game. Update Purpose after archive.
 
 #### Scenario: 顯示圖片
 - **WHEN** 8 人局進入投票
-- **THEN** 投票訊息依序有 8 張圖片（標題 1～8），下方 8 顆按鈕
+- **THEN** 投票訊息依序有 8 張圖片 (標題 1～8)，下方 8 顆按鈕
 
 #### Scenario: 圖片失效
 - **WHEN** 投票的其中一張圖片網址已經失效，Slack 拒絕帶圖片的訊息

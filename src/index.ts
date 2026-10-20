@@ -33,7 +33,7 @@ app.action<BlockAction<ButtonAction>>(/^ww:/, async ({ action, body, ack }) => {
   await host.button(action.action_id, action.value ?? '', body.user.id, body.user.username, body.trigger_id, body.response_url, !!body.container?.is_ephemeral);
 });
 
-// 按鈕開的 Slack 視窗送出時（例如心電感應、截碼戰的寫提示）：單一欄位是 `text`，多個欄位是 f0、f1…
+// 按鈕開的 Slack 視窗送出時 (例如心電感應、截碼戰的寫提示)：單一欄位是 `text`，多個欄位是 f0、f1…
 app.view(/^ww:/, async ({ view, body, ack }) => {
   await ack();
   const values = view.state.values;
@@ -42,7 +42,7 @@ app.view(/^ww:/, async ({ view, body, ack }) => {
   await host.modal(view.callback_id, view.private_metadata, body.user.id, body.user.name, texts);
 });
 
-// 頻道裡真人打的字（忽略 bot 的訊息、編輯和其他子類型）
+// 頻道裡真人打的字 (忽略 bot 的訊息、編輯和其他子類型)
 app.message(async ({ message }) => {
   if (message.subtype !== undefined || 'bot_id' in message) return;
   await host.chat(message.channel, message.user, message.text ?? '');

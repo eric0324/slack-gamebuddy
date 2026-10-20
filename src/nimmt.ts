@@ -1,4 +1,4 @@
-// 誰是牛頭王（6 Nimmt!）遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyNimmt(state, action, rng) → { state, events }。
+// 誰是牛頭王 (6 Nimmt!) 遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyNimmt(state, action, rng) → { state, events }。
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
 
@@ -17,7 +17,7 @@ export interface NPlayer {
   hand: number[];
   pick?: number;
   roundHeads: number; // 這一輪收的牛頭
-  total: number; // 累積牛頭（含這一輪）
+  total: number; // 累積牛頭 (含這一輪)
 }
 
 export interface NState {
@@ -28,7 +28,7 @@ export interface NState {
   players: NPlayer[];
   rows: number[][];
   round: number;
-  turn: number; // 這一輪的第幾回合（1～10）
+  turn: number; // 這一輪的第幾回合 (1～10)
   seq: number; // 全局回合序號，用來擋掉舊選單
   pending?: { order: { id: string; card: number; auto: boolean }[]; index: number; log: string[] }; // 揭曉後待擺的牌
   winners?: string[];
@@ -74,7 +74,7 @@ export function bullheads(card: number): number {
 
 const heads = (cards: number[]) => cards.reduce((n, c) => n + bullheads(c), 0);
 
-const tableText = (s: NState) => s.rows.map((r, i) => `第 ${i + 1} 列：${r.join(' ')}（🐮${heads(r)}）`).join('\n');
+const tableText = (s: NState) => s.rows.map((r, i) => `第 ${i + 1} 列：${r.join(' ')} (🐮${heads(r)})`).join('\n');
 const scoreText = (s: NState) => `🐮 累積：${s.players.map((p) => `${mention(p.id)} ${p.total}`).join('、')}`;
 
 // 新的一輪：重新洗牌，每人 10 張，翻 4 張當四列的開頭
@@ -91,11 +91,11 @@ function startRound(c: Ctx) {
   s.rows = deck.slice(used, used + 4).map((c) => [c]);
   c.events.push({
     type: 'announce',
-    text: `🐮 誰是牛頭王 第 ${s.round} 輪開始！每人 10 張手牌（已私訊），每回合大家同時出一張。\n${tableText(s)}\n${scoreText(s)}`,
+    text: `🐮 誰是牛頭王 第 ${s.round} 輪開始！每人 10 張手牌 (已私訊)，每回合大家同時出一張。\n${tableText(s)}\n${scoreText(s)}`,
   });
   for (const p of s.players) {
     if (isBot(p.id)) continue;
-    c.events.push({ type: 'dm', to: p.id, text: `🐮 第 ${s.round} 輪你的手牌：${p.hand.map((x) => `${x}（🐮${bullheads(x)}）`).join(' ')}` });
+    c.events.push({ type: 'dm', to: p.id, text: `🐮 第 ${s.round} 輪你的手牌：${p.hand.map((x) => `${x} (🐮${bullheads(x)})`).join(' ')}` });
   }
   startTurn(c);
 }
@@ -124,7 +124,7 @@ function handMenu(c: Ctx, user: string): boolean {
     kind: 'nimmt',
     audience: 'ephemeral',
     user,
-    text: `🃏 選一張牌（揭曉前可以改）${me.pick !== undefined ? `，目前選了 ${me.pick}` : ''}`,
+    text: `🃏 選一張牌 (揭曉前可以改)${me.pick !== undefined ? `，目前選了 ${me.pick}` : ''}`,
     options: [...me.hand].sort((a, b) => a - b).map((x) => ({ value: `pick:${s.seq}:${x}`, label: label(x) })),
     perRow: 5,
   });
@@ -141,7 +141,7 @@ function pickCard(c: Ctx, user: string, card: number, seq?: number): boolean {
   if (!me.hand.includes(card)) return reply(c, user, `你手上沒有 ${card}。`);
   const first = me.pick === undefined;
   me.pick = card;
-  c.events.push({ type: 'ephemeral', to: user, text: `你選了 ${card}（揭曉前可以改）` });
+  c.events.push({ type: 'ephemeral', to: user, text: `你選了 ${card} (揭曉前可以改)` });
   if (s.players.every((p) => p.pick !== undefined)) reveal(c);
   else if (first) c.events.push(pickPrompt(s));
   return true;
@@ -160,7 +160,7 @@ function reveal(c: Ctx) {
   order.sort((a, b) => a.card - b.card);
   c.events.push(
     { type: 'prompt', kind: 'nimmt', audience: 'channel', ref: `nimmt:${s.seq}`, text: `🃏 第 ${s.round} 輪第 ${s.turn}/${HAND} 回合：已揭曉`, options: [] },
-    { type: 'announce', text: `🃏 揭曉：${order.map((o) => `${mention(o.id)} ${o.card}${o.auto ? '（超時自動出牌）' : ''}`).join('、')}` },
+    { type: 'announce', text: `🃏 揭曉：${order.map((o) => `${mention(o.id)} ${o.card}${o.auto ? ' (超時自動出牌)' : ''}`).join('、')}` },
   );
   s.pending = { order, index: 0, log: [] };
   place(c);
@@ -180,7 +180,7 @@ export function cheapestRow(rows: number[][]): number {
   return rows.reduce((best, r, i) => (heads(r) < heads(rows[best]) ? i : best), 0);
 }
 
-// bot：依目前牌桌估風險（比所有列尾小 → 最便宜那列的牛頭；第 6 張 → 那列的牛頭；其他 0），出風險最低、同樣低出最小的
+// bot：依目前牌桌估風險 (比所有列尾小 → 最便宜那列的牛頭；第 6 張 → 那列的牛頭；其他 0)，出風險最低、同樣低出最小的
 export function botCard(hand: number[], rows: number[][]): number {
   const risk = (card: number) => {
     const t = targetRow(rows, card);
@@ -197,7 +197,7 @@ function takeRow(c: Ctx, id: string, row: number, card: number, why: string) {
   p.roundHeads += got;
   p.total += got;
   s.rows[row] = [card];
-  s.pending!.log.push(`🐮 ${mention(id)} 的 ${card} ${why}，收走第 ${row + 1} 列（🐮${got}）`);
+  s.pending!.log.push(`🐮 ${mention(id)} 的 ${card} ${why}，收走第 ${row + 1} 列 (🐮${got})`);
 }
 
 // 比所有列尾都小的那張牌收走指定的列
@@ -236,8 +236,8 @@ function place(c: Ctx) {
         type: 'prompt',
         kind: 'nimmt',
         audience: 'channel',
-        text: `👉 ${mention(o.id)} 的 ${o.card} 比所有列尾都小，請選一列收走（${ROW_MS / 1000} 秒，超時自動選牛頭最少的）`,
-        options: s.rows.map((r, i) => ({ value: `row:${s.seq}:${i}`, label: `第 ${i + 1} 列（${r.length} 張 🐮${heads(r)}）` })),
+        text: `👉 ${mention(o.id)} 的 ${o.card} 比所有列尾都小，請選一列收走 (${ROW_MS / 1000} 秒，超時自動選牛頭最少的)`,
+        options: s.rows.map((r, i) => ({ value: `row:${s.seq}:${i}`, label: `第 ${i + 1} 列 (${r.length} 張 🐮${heads(r)})` })),
       });
       startTimer(c, ROW_MS);
       return;
@@ -290,7 +290,7 @@ function pickPrompt(s: NState): GameEvent {
     kind: 'nimmt',
     audience: 'channel',
     ref: `nimmt:${s.seq}`,
-    text: `🃏 第 ${s.round} 輪第 ${s.turn}/${HAND} 回合：按「🃏 選牌」選一張牌（${PICK_MS / 60_000} 分鐘）\n${tableText(s)}\n已選 ${s.players.length - waiting.length}/${s.players.length}${waiting.length ? `，還沒選：${waiting.map((p) => mention(p.id)).join(' ')}` : ''}`,
+    text: `🃏 第 ${s.round} 輪第 ${s.turn}/${HAND} 回合：按「🃏 選牌」選一張牌 (${PICK_MS / 60_000} 分鐘)\n${tableText(s)}\n已選 ${s.players.length - waiting.length}/${s.players.length}${waiting.length ? `，還沒選：${waiting.map((p) => mention(p.id)).join(' ')}` : ''}`,
     options: [{ value: 'hand', label: '🃏 選牌' }],
   };
 }

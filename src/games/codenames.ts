@@ -5,11 +5,11 @@ import { parseUndercoverCommand } from './undercover.js';
 
 const HELP = [
   '*機密代號指令*',
-  '• `/game codenames new`：開房（任何人）',
-  '• `/game codenames start`：開始遊戲，需要 4～12 位真人（房主）',
+  '• `/game codenames new`：開房 (任何人)',
+  '• `/game codenames start`：開始遊戲，需要 4～12 位真人 (房主)',
   '• `/game codenames clue <詞> <數字>`：隊長給提示，數字 1～9',
-  '• `/game codenames next`：直接結束目前隊伍的回合（房主）',
-  '• `/game codenames cancel`：取消遊戲（房主）',
+  '• `/game codenames next`：直接結束目前隊伍的回合 (房主)',
+  '• `/game codenames cancel`：取消遊戲 (房主)',
   '翻牌、結束猜牌都用按鈕',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');

@@ -25,7 +25,7 @@ export interface CState {
   turn: number;
   said: Record<string, string>; // 玩家 → 說的詞
   votes: Record<string, string>; // 投票者 → 被投的人
-  finished?: boolean; // 正常結束（取消的沒有）→ 可以再來一局
+  finished?: boolean; // 正常結束 (取消的沒有)→ 可以再來一局
   timerSeq: number;
   timers: { phase?: number };
 }
@@ -90,7 +90,7 @@ function deal(c: Ctx) {
       grid(s),
       '```',
       `🗣️ 說詞順序：${s.order.map(mention).join(' → ')}`,
-      `每人輪流說一個和祕密詞有關的詞（每人 ${STEP_MS / 60_000} 分鐘，不能直接說主題卡上的詞），說完討論、投票抓變色龍。`,
+      `每人輪流說一個和祕密詞有關的詞 (每人 ${STEP_MS / 60_000} 分鐘，不能直接說主題卡上的詞)，說完討論、投票抓變色龍。`,
     ].join('\n'),
     gif: 'start',
   });
@@ -110,7 +110,7 @@ function promptSpeaker(c: Ctx) {
     type: 'prompt',
     kind: 'chameleon',
     audience: 'channel',
-    text: `🎤 輪到 ${mention(s.order[s.turn])} 說詞（${STEP_MS / 60_000} 分鐘）`,
+    text: `🎤 輪到 ${mention(s.order[s.turn])} 說詞 (${STEP_MS / 60_000} 分鐘)`,
     options: [{ value: 'say', label: '✍️ 說詞' }],
   });
   startTimer(c, STEP_MS);
@@ -144,14 +144,14 @@ function nextSpeaker(c: Ctx) {
       type: 'prompt',
       kind: 'chameleon',
       audience: 'channel',
-      text: `🔎 找出變色龍！討論誰不知道祕密詞（${STEP_MS / 60_000} 分鐘，房主可以提早投票）`,
+      text: `🔎 找出變色龍！討論誰不知道祕密詞 (${STEP_MS / 60_000} 分鐘，房主可以提早投票)`,
       options: [{ value: 'startVote', label: '🗳️ 開始投票' }],
     },
   );
   startTimer(c, STEP_MS);
 }
 
-const saidLines = (s: CState) => s.order.map((id) => `${mention(id)}：${s.said[id] ?? '（沒有說詞）'}`);
+const saidLines = (s: CState) => s.order.map((id) => `${mention(id)}：${s.said[id] ?? '(沒有說詞)'}`);
 
 function startVote(c: Ctx) {
   const s = c.s;
@@ -205,7 +205,7 @@ function endVote(c: Ctx) {
       type: 'prompt',
       kind: 'chameleon',
       audience: 'channel',
-      text: `🦎 ${mention(who)} 猜祕密詞（按按鈕，或用 \`/game chameleon guess <詞或座標>\`）`,
+      text: `🦎 ${mention(who)} 猜祕密詞 (按按鈕，或用 \`/game chameleon guess <詞或座標>\`)`,
       options: s.words!.map((w, i) => ({ value: `guess:${i}`, label: `${coord(i)} ${w}` })),
       perRow: 4,
     },
@@ -222,7 +222,7 @@ function guess(c: Ctx, user: string, cellIdx?: number, text?: string): boolean {
     const t = (text ?? '').trim();
     const m = /^([A-D])([1-4])$/i.exec(t);
     i = m ? 'ABCD'.indexOf(m[1].toUpperCase()) * 4 + Number(m[2]) - 1 : s.words!.findIndex((w) => norm(w) === norm(t));
-    if (i < 0) return reply(c, user, `主題卡上沒有「${t}」，請輸入主題卡上的詞或座標（例如 B3）。`);
+    if (i < 0) return reply(c, user, `主題卡上沒有「${t}」，請輸入主題卡上的詞或座標 (例如 B3)。`);
   }
   if (!Number.isInteger(i) || i < 0 || i > 15) return false;
   const result =
@@ -275,7 +275,7 @@ function handle(c: Ctx, action: GameAction): boolean {
     case 'openSay':
       if (s.phase !== 'speak') return reply(c, action.user, '現在不是說詞時間。');
       if (action.user !== s.order[s.turn]) return reply(c, action.user, '還沒輪到你。');
-      c.events.push({ type: 'modal', to: action.user, kind: 'chameleonWord', title: '說一個詞', label: `一個和祕密詞有關的詞（1～${MAX_WORD} 字）` });
+      c.events.push({ type: 'modal', to: action.user, kind: 'chameleonWord', title: '說一個詞', label: `一個和祕密詞有關的詞 (1～${MAX_WORD} 字)` });
       return false;
     case 'say':
       return speak(c, action.user, action.text);

@@ -1,4 +1,4 @@
-// 印加寶藏（Incan Gold）遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyIncan(state, action, rng) → { state, events }。
+// 印加寶藏 (Incan Gold) 遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyIncan(state, action, rng) → { state, events }。
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
 
@@ -15,7 +15,7 @@ export type Card = `gem:${number}` | Hazard | 'relic';
 const GEMS = [1, 2, 3, 4, 5, 5, 7, 7, 9, 11, 11, 13, 14, 15, 17];
 const HAZARD_NAME: Record<Hazard, string> = { spider: '🕷️ 蜘蛛', snake: '🐍 毒蛇', fire: '🔥 火焰', rock: '🪨 落石', mummy: '🧟 木乃伊' };
 
-// 探險卡 30 張（不含神器）：寶藏依寶石數、危險每種 3 張
+// 探險卡 30 張 (不含神器)：寶藏依寶石數、危險每種 3 張
 export const newDeck = (): Card[] => [...GEMS.map((n) => `gem:${n}` as Card), ...HAZARDS.flatMap((h) => [h, h, h])];
 
 const gemsOf = (card: Card) => (card.startsWith('gem:') ? Number(card.slice(4)) : 0);
@@ -25,7 +25,7 @@ export const cardName = (card: Card) => (card === 'relic' ? '🏺 神器' : isHa
 export interface IPlayer {
   id: string;
   tent: number; // 帳篷裡的寶石
-  relics: number[]; // 帶回的神器分數（5 或 10）
+  relics: number[]; // 帶回的神器分數 (5 或 10)
   carry: number; // 這座神殿拿到、還沒帶回的寶石
   inCave: boolean;
   choice?: 'go' | 'camp';
@@ -38,15 +38,15 @@ export interface IState {
   host: string;
   phase: 'lobby' | 'choose' | 'ended';
   players: IPlayer[];
-  temple: number; // 第幾座神殿（1～5）
+  temple: number; // 第幾座神殿 (1～5)
   step: number; // 這座神殿第幾步
   seq: number; // 全局步數：步驟訊息的 ref，也用來擋掉舊按鈕
   deck: Card[]; // deck[0] 是下一張
-  revealed: Card[]; // 這座神殿翻開的牌（路上的牌，依翻開順序）
+  revealed: Card[]; // 這座神殿翻開的牌 (路上的牌，依翻開順序)
   seen: Hazard[]; // 這座神殿出現過的危險
   path: number; // 路上剩餘寶石
   pathRelics: number; // 路上的神器數
-  relicsTaken: number; // 全局已被帶回營地的神器數（決定 5 或 10 分）
+  relicsTaken: number; // 全局已被帶回營地的神器數 (決定 5 或 10 分)
   winners?: string[];
   timerSeq: number;
   timers: { phase?: number };
@@ -81,12 +81,12 @@ function board(s: IState, revealed = false): GameEvent {
   const lines = [
     `💎 第 ${s.temple}/${TEMPLES} 座神殿第 ${s.step} 步：翻到 ${cardName(last)}`,
     `🛤️ 路上的牌：${s.revealed.map(cardName).join(' → ')}`,
-    `路上剩 ${s.path} 顆寶石、神器 ${s.pathRelics} 個｜已出現危險：${s.seen.map((h) => HAZARD_NAME[h]).join('、') || '（無）'}｜牌庫剩 ${s.deck.length} 張`,
+    `路上剩 ${s.path} 顆寶石、神器 ${s.pathRelics} 個｜已出現危險：${s.seen.map((h) => HAZARD_NAME[h]).join('、') || '(無)'}｜牌庫剩 ${s.deck.length} 張`,
     `🔦 洞裡：${cave.map((p) => `${mention(p.id)} ${p.carry} 顆`).join('、')}`,
-    `⛺ 營地：${camp.map((p) => mention(p.id)).join('、') || '（無）'}`,
+    `⛺ 營地：${camp.map((p) => mention(p.id)).join('、') || '(無)'}`,
     revealed
-      ? `揭曉：${cave.map((p) => `${mention(p.id)} ${CHOICE_NAME[p.choice!]}${p.auto ? '（逾時，自動回營）' : ''}`).join('、')}`
-      : `已選 ${cave.length - waiting.length}/${cave.length}${waiting.length ? `，還沒選：${waiting.map((p) => mention(p.id)).join(' ')}` : ''}（${CHOOSE_MS / 1000} 秒）`,
+      ? `揭曉：${cave.map((p) => `${mention(p.id)} ${CHOICE_NAME[p.choice!]}${p.auto ? ' (逾時，自動回營)' : ''}`).join('、')}`
+      : `已選 ${cave.length - waiting.length}/${cave.length}${waiting.length ? `，還沒選：${waiting.map((p) => mention(p.id)).join(' ')}` : ''} (${CHOOSE_MS / 1000} 秒)`,
   ];
   return {
     type: 'prompt',
@@ -169,7 +169,7 @@ function choose(c: Ctx, user: string, seq: number, choice: 'go' | 'camp'): boole
   if (seq !== s.seq) return reply(c, user, '這個按鈕已經過期了。');
   const first = !me.choice;
   me.choice = choice;
-  c.events.push({ type: 'ephemeral', to: user, text: `你選了 ${CHOICE_NAME[choice]}（揭曉前可以改）` });
+  c.events.push({ type: 'ephemeral', to: user, text: `你選了 ${CHOICE_NAME[choice]} (揭曉前可以改)` });
   if (inCave(s).every((p) => p.choice)) reveal(c);
   else if (first) c.events.push(board(s));
   return true;
@@ -189,24 +189,24 @@ function reveal(c: Ctx) {
   else endTemple(c);
 }
 
-// 回營：平分路上的寶石（餘數留在路上），連同這座神殿的寶石放進帳篷；恰好一人回營才拿走路上的神器
+// 回營：平分路上的寶石 (餘數留在路上)，連同這座神殿的寶石放進帳篷；恰好一人回營才拿走路上的神器
 function settle(c: Ctx, campers: IPlayer[]) {
   const s = c.s;
   if (!campers.length) return;
   const share = Math.floor(s.path / campers.length);
   s.path -= share * campers.length;
   for (const p of campers) Object.assign(p, { tent: p.tent + p.carry + share, carry: 0, inCave: false });
-  const lines = [`⛺ ${campers.map((p) => mention(p.id)).join('、')} 回營地，每人從路上分到 ${share} 顆寶石（路上剩 ${s.path} 顆）。`];
+  const lines = [`⛺ ${campers.map((p) => mention(p.id)).join('、')} 回營地，每人從路上分到 ${share} 顆寶石 (路上剩 ${s.path} 顆)。`];
   if (campers.length === 1 && s.pathRelics) {
     const got = Array.from({ length: s.pathRelics }, () => (s.relicsTaken++ < 3 ? 5 : 10));
     campers[0].relics.push(...got);
     s.pathRelics = 0;
-    lines.push(`🏺 ${mention(campers[0].id)} 一人回營，帶走 ${got.length} 個神器（${got.join('＋')} 分）！`);
+    lines.push(`🏺 ${mention(campers[0].id)} 一人回營，帶走 ${got.length} 個神器 (${got.join('＋')} 分)！`);
   } else if (s.pathRelics) lines.push(`🏺 不只一人回營，路上的 ${s.pathRelics} 個神器沒人拿。`);
   c.events.push({ type: 'announce', text: lines.join('\n') });
 }
 
-// 同種危險第二張：洞裡的人失去這座神殿的寶石，這張危險移出這局（不放回 revealed）
+// 同種危險第二張：洞裡的人失去這座神殿的寶石，這張危險移出這局 (不放回 revealed)
 function fail(c: Ctx, hazard: Hazard) {
   const cave = inCave(c.s);
   for (const p of cave) p.carry = 0;
@@ -246,7 +246,7 @@ function endGame(c: Ctx) {
       type: 'announce',
       text: [
         `🏆 遊戲結束，${s.winners.map(mention).join('、')} 獲勝！`,
-        ...ranking.map((p, i) => `${i + 1}. ${mention(p.id)} ${scoreOf(p)} 分（寶石 ${p.tent}、神器 ${p.relics.length} 個 ${relicPoints(p)} 分）${won(p) ? ' 🏆' : ''}`),
+        ...ranking.map((p, i) => `${i + 1}. ${mention(p.id)} ${scoreOf(p)} 分 (寶石 ${p.tent}、神器 ${p.relics.length} 個 ${relicPoints(p)} 分)${won(p) ? ' 🏆' : ''}`),
       ].join('\n'),
       gif: 'goodWin',
     },
@@ -255,10 +255,10 @@ function endGame(c: Ctx) {
 }
 
 const RULES = [
-  `共 ${TEMPLES} 座神殿。每一步翻一張探險卡，洞裡的人同時私下選「🔦 繼續探險」或「⛺ 回營地」（${CHOOSE_MS / 1000} 秒，沒選視為回營地）。`,
+  `共 ${TEMPLES} 座神殿。每一步翻一張探險卡，洞裡的人同時私下選「🔦 繼續探險」或「⛺ 回營地」(${CHOOSE_MS / 1000} 秒，沒選視為回營地)。`,
   '💎 寶藏：洞裡的人平分，餘數留在路上｜⛺ 回營的人平分路上剩下的寶石，連同這座神殿拿到的寶石放進帳篷；恰好一人回營才拿到路上的 🏺 神器',
   '⚠️ 同種危險出現第二張，洞裡的人失去這座神殿的寶石。',
-  `${TEMPLES} 座神殿後帳篷寶石加神器分數最高的人贏（神器：前 3 個各 5 分、第 4、5 個各 10 分），同分比神器多。`,
+  `${TEMPLES} 座神殿後帳篷寶石加神器分數最高的人贏 (神器：前 3 個各 5 分、第 4、5 個各 10 分)，同分比神器多。`,
 ].join('\n');
 
 function start(c: Ctx, user: string): boolean {

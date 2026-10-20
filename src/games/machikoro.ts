@@ -5,12 +5,12 @@ import { parseRoomCommand } from './undercover.js';
 
 const HELP = [
   '*骰子街指令*',
-  '• `/game machikoro new`：開房（任何人）',
-  '• `/game machikoro addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/game machikoro removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/game machikoro start`：開始遊戲，需要 2～5 人（房主）',
-  '• `/game machikoro cancel`：取消遊戲（房主）',
-  '• 「🏘️ 行動」：輪到你時按，擲骰、重擲、港口 +2、電視台、商業中心、買建築都在這裡（每回合 60 秒，逾時由系統代為完成、不買建築）',
+  '• `/game machikoro new`：開房 (任何人)',
+  '• `/game machikoro addbot [數量]`：加入 bot 補人數 (房主，開始前)',
+  '• `/game machikoro removebot [數量]`：移除 bot (房主，開始前)',
+  '• `/game machikoro start`：開始遊戲，需要 2～5 人 (房主)',
+  '• `/game machikoro cancel`：取消遊戲 (房主)',
+  '• 「🏘️ 行動」：輪到你時按，擲骰、重擲、港口 +2、電視台、商業中心、買建築都在這裡 (每回合 60 秒，逾時由系統代為完成、不買建築)',
   '• 「📋 城鎮一覽」：隨時私下看每個人的現金、建築和地標',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
@@ -30,7 +30,7 @@ function machikoroButton(kind: string, value: string, user: string, channel: str
   const parts = value.split(':');
   const [act, a = '', b = '', c = ''] = parts;
   const seq = Number(a);
-  // 玩家 id 放在最後，可能含有冒號（bot）
+  // 玩家 id 放在最後，可能含有冒號 (bot)
   const tail = (from: number) => parts.slice(from).join(':');
   switch (act) {
     case 'turnMenu':

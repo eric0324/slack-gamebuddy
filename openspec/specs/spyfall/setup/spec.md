@@ -6,11 +6,11 @@
 ## Requirements
 
 ### Requirement: 間諜危機的房間
-間諜危機的房間 SHALL 和誰是臥底的房間有相同的操作方式：`/game spyfall new` 開房（開房者為房主並自動加入）、房間公告上有「加入」「離開」「開始遊戲」按鈕、房主可以用 `/game spyfall addbot [數量]`、`removebot [數量]` 加減 bot、`/game spyfall start` 開始、`/game spyfall cancel` 取消、房主開始前離開就取消房間。人數 SHALL 在 4～10 人之間（bot 也算），房間公告 SHALL 標示這是間諜危機。一個頻道同時只能有一局遊戲（不分遊戲種類）。
+間諜危機的房間 SHALL 和誰是臥底的房間有相同的操作方式：`/game spyfall new` 開房 (開房者為房主並自動加入)、房間公告上有「加入」「離開」「開始遊戲」按鈕、房主可以用 `/game spyfall addbot [數量]`、`removebot [數量]` 加減 bot、`/game spyfall start` 開始、`/game spyfall cancel` 取消、房主開始前離開就取消房間。人數 SHALL 在 4～10 人之間 (bot 也算)，房間公告 SHALL 標示這是間諜危機。一個頻道同時只能有一局遊戲 (不分遊戲種類)。
 
 #### Scenario: 開間諜危機的房間
 - **WHEN** 使用者 A 輸入 `/game spyfall new`
-- **THEN** 頻道出現「間諜危機房間（房主 A）」的公告，名單只有 A，並有「加入」「離開」「開始遊戲」按鈕
+- **THEN** 頻道出現「間諜危機房間 (房主 A)」的公告，名單只有 A，並有「加入」「離開」「開始遊戲」按鈕
 
 #### Scenario: 人數不足
 - **WHEN** 房間只有 3 人，房主按「開始遊戲」
@@ -29,7 +29,7 @@
 
 #### Scenario: 平民收到地點和角色
 - **WHEN** 遊戲開始，抽到的地點是「醫院急診室」
-- **THEN** 每位平民收到「地點：醫院急診室」和一個急診室的角色（例如護理師）
+- **THEN** 每位平民收到「地點：醫院急診室」和一個急診室的角色 (例如護理師)
 
 #### Scenario: 間諜收到地點清單
 - **WHEN** 遊戲開始

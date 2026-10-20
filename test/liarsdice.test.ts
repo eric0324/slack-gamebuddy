@@ -38,7 +38,7 @@ describe('liarsdice/setup: 吹牛骰的房間', () => {
     expect(ephemeralTo(events, 'p1')).toMatchObject({ text: expect.stringContaining('至少需要 2 人') });
   });
 
-  it('房間已滿（8 人）時拒絕加入', () => {
+  it('房間已滿 (8 人) 時拒絕加入', () => {
     const { state, events } = run([{ type: 'join', user: 'x' }], lobbyWith(8).state);
     expect(state.players).toHaveLength(8);
     expect(ephemeralTo(events, 'x')).toMatchObject({ text: expect.stringContaining('房間已滿') });
@@ -112,7 +112,7 @@ describe('liarsdice/rounds: 喊數', () => {
     expect(p.options).toEqual([{ value: 'p1', label: '開！' }]);
   });
 
-  it('要喊得更大：數量更多，或數量相同點數更大（1 最大）', () => {
+  it('要喊得更大：數量更多，或數量相同點數更大 (1 最大)', () => {
     const s = bid('p3', 3, 5, started(3).state).state;
     for (const [q, f] of [[3, 4], [2, 6], [3, 5]]) {
       const res = bid('p1', q, f, s);

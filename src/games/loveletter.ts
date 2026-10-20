@@ -5,12 +5,12 @@ import { parseRoomCommand } from './undercover.js';
 
 const HELP = [
   '*情書指令*',
-  '• `/game loveletter new`：開房（任何人）',
-  '• `/game loveletter addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/game loveletter removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/game loveletter start`：開始遊戲，需要 2～6 人（房主）',
-  '• `/game loveletter cancel`：取消遊戲（房主）',
-  '輪到你時按「🃏 出牌」選牌、目標和（衛兵）猜的角色；「👀 我的手牌」「📜 棄牌紀錄」隨時可以按（只有你看得到）',
+  '• `/game loveletter new`：開房 (任何人)',
+  '• `/game loveletter addbot [數量]`：加入 bot 補人數 (房主，開始前)',
+  '• `/game loveletter removebot [數量]`：移除 bot (房主，開始前)',
+  '• `/game loveletter start`：開始遊戲，需要 2～6 人 (房主)',
+  '• `/game loveletter cancel`：取消遊戲 (房主)',
+  '輪到你時按「🃏 出牌」選牌、目標和 (衛兵) 猜的角色；「👀 我的手牌」「📜 棄牌紀錄」隨時可以按 (只有你看得到)',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
@@ -19,7 +19,7 @@ export function parseLoveLetterCommand(text: string, user: string, channel: stri
   return parseRoomCommand(text, user, channel) as LLAction | null;
 }
 
-// value：menu、hand、log、pick:<seq>:<i>、tgt:<seq>:<i>:<目標>、guess:<seq>:<i>:<角色>:<目標>、keep:<seq>:<i>（bot 的 id 有冒號，目標放最後）
+// value：menu、hand、log、pick:<seq>:<i>、tgt:<seq>:<i>:<目標>、guess:<seq>:<i>:<角色>:<目標>、keep:<seq>:<i> (bot 的 id 有冒號，目標放最後)
 function loveLetterButton(kind: string, value: string, user: string, channel: string): LLAction | null {
   if (kind === 'join' || kind === 'leave' || kind === 'start') return { type: kind, user };
   if (kind === 'rematch') return { type: 'rematch', user, channel };

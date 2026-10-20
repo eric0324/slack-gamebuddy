@@ -11,7 +11,7 @@
 
 ### New Capabilities
 
-（無）
+(無)
 
 ### Modified Capabilities
 
@@ -19,4 +19,4 @@
 
 ## Impact
 
-- 只有 spec；`test/saboteur.test.ts` 已經測過這個行為（「再來一局只有上一局玩家可以開」）
+- 只有 spec；`test/saboteur.test.ts` 已經測過這個行為 (「再來一局只有上一局玩家可以開」)

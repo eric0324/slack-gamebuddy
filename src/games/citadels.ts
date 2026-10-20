@@ -6,13 +6,13 @@ import { parseRoomCommand } from './undercover.js';
 
 const HELP = [
   '*富饒之城指令*',
-  '• `/game citadels new`：開房（任何人）',
-  '• `/game citadels addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/game citadels removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/game citadels start`：開始遊戲，需要 4～7 人（房主）',
-  '• `/game citadels cancel`：取消遊戲（房主）',
-  '• 「🎭 選角色」：輪到你選角時按，私下選這輪的角色（45 秒）',
-  '• 「🏰 行動」：叫到你的角色時按，收集資源、用能力、建造、結束回合（90 秒）',
+  '• `/game citadels new`：開房 (任何人)',
+  '• `/game citadels addbot [數量]`：加入 bot 補人數 (房主，開始前)',
+  '• `/game citadels removebot [數量]`：移除 bot (房主，開始前)',
+  '• `/game citadels start`：開始遊戲，需要 4～7 人 (房主)',
+  '• `/game citadels cancel`：取消遊戲 (房主)',
+  '• 「🎭 選角色」：輪到你選角時按，私下選這輪的角色 (45 秒)',
+  '• 「🏰 行動」：叫到你的角色時按，收集資源、用能力、建造、結束回合 (90 秒)',
   '• 「📜 我的狀態」：隨時私下看自己的手牌、金幣、角色和城市',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
@@ -33,7 +33,7 @@ function citadelsButton(kind: string, value: string, user: string, channel: stri
   if (kind !== 'citadels') return null;
   if (value === 'status' || value === 'pickMenu') return { type: value, user };
   const [act, a = '', b = ''] = value.split(':');
-  const rest = value.split(':').slice(2).join(':'); // 玩家 id 可能含有冒號（bot）
+  const rest = value.split(':').slice(2).join(':'); // 玩家 id 可能含有冒號 (bot)
   const seq = Number(a);
   const rank = rankOf(b);
   switch (act) {

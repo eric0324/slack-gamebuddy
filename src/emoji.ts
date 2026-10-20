@@ -1,4 +1,4 @@
-// Emoji 傳話（傳情畫意的 emoji 版）遊戲引擎：純邏輯，不碰任何 I/O。每人一條鏈，文字用 emoji 演、emoji 用文字猜，傳一圈後投票。
+// Emoji 傳話 (傳情畫意的 emoji 版) 遊戲引擎：純邏輯，不碰任何 I/O。每人一條鏈，文字用 emoji 演、emoji 用文字猜，傳一圈後投票。
 // 介面和其他遊戲一樣：applyEmoji(state, action, rng) → { state, events }。
 import { mention, type GameEvent, type Rng } from './engine.js';
 import { cancelGame, joinRoom, leaveRoom, lobbyEvent, reply, runGame, shuffle, startTimer } from './common.js';
@@ -12,7 +12,7 @@ const EMOJI_MS = 90_000;
 const GUESS_MS = 60_000;
 const VOTE_MS = 90_000;
 
-// 一個 emoji：Slack shortcode、RGI emoji（ZWJ 組合、膚色、國旗、keycap），或單一 pictographic 字元（可接 U+FE0F）
+// 一個 emoji：Slack shortcode、RGI emoji (ZWJ 組合、膚色、國旗、keycap)，或單一 pictographic 字元 (可接 U+FE0F)
 const TOKEN = new RegExp(String.raw`:[a-z0-9_+'\-]+:|\p{RGI_Emoji}|\p{Extended_Pictographic}️?`, 'yv');
 
 // 去掉所有空白後全部是 emoji 時回傳個數，否則回傳 null
@@ -43,11 +43,11 @@ export interface EState {
   host: string;
   phase: 'lobby' | 'play' | 'vote' | 'ended';
   players: { id: string; score: number }[]; // 順序＝傳遞順序
-  deck: number[]; // 還沒發的題目（EMOJI_PROMPTS 的 index），同一頻道跨局接續
+  deck: number[]; // 還沒發的題目 (EMOJI_PROMPTS 的 index)，同一頻道跨局接續
   chains: { owner: string; prompt: number; entries: Entry[] }[];
-  step: number; // 第幾步（1～steps）
+  step: number; // 第幾步 (1～steps)
   steps: number;
-  pending: Record<string, string>; // 這一步 user → 已交的內容（截止才寫進 entries）
+  pending: Record<string, string>; // 這一步 user → 已交的內容 (截止才寫進 entries)
   votes: Record<string, { emoji?: string; guess?: string }>; // user → 作品編號 `鏈-步`
   seq: number; // 步驟／投票訊息的 ref，也用來擋掉舊按鈕
   winners?: string[];
@@ -87,7 +87,7 @@ function chainOf(s: EState, user: string) {
   return s.chains[(((j - (s.step - 1)) % n) + n) % n];
 }
 
-// 這一步拿到的內容：emoji 步拿最近的文字（題目或猜測），猜測步拿最近的 emoji；沒有就是跳過（null）
+// 這一步拿到的內容：emoji 步拿最近的文字 (題目或猜測)，猜測步拿最近的 emoji；沒有就是跳過 (null)
 function inputOf(s: EState, user: string): string | null {
   const ch = chainOf(s, user);
   const want = kindOf(s.step) === 'emoji' ? 'guess' : 'emoji';
@@ -96,7 +96,7 @@ function inputOf(s: EState, user: string): string | null {
   return want === 'guess' ? EMOJI_PROMPTS[ch.prompt] : null;
 }
 
-// 這一步需要作答的玩家（跳過的不算）
+// 這一步需要作答的玩家 (跳過的不算)
 const needed = (s: EState) => s.players.filter((p) => inputOf(s, p.id) !== null).map((p) => p.id);
 
 function stepBoard(s: EState, ended = false): GameEvent {
@@ -108,7 +108,7 @@ function stepBoard(s: EState, ended = false): GameEvent {
     audience: 'channel',
     ref: `emoji:${s.seq}`,
     text: [
-      kindOf(s.step) === 'emoji' ? `${head}🎨 用 emoji 描述（${EMOJI_MS / 1000} 秒）` : `${head}🧠 猜猜這是什麼（${GUESS_MS / 1000} 秒）`,
+      kindOf(s.step) === 'emoji' ? `${head}🎨 用 emoji 描述 (${EMOJI_MS / 1000} 秒)` : `${head}🧠 猜猜這是什麼 (${GUESS_MS / 1000} 秒)`,
       ended ? '這一步結束' : '按「✍️ 作答」看你拿到的內容，也可以打 `/game emoji send <內容>`；截止前可以重送',
       `已交 ${need.filter((u) => u in s.pending).length}/${need.length}`,
     ].join('\n'),
@@ -125,7 +125,7 @@ function nextStep(c: Ctx) {
   startTimer(c, kindOf(s.step) === 'emoji' ? EMOJI_MS : GUESS_MS);
 }
 
-// 這一步結束：交的和沒交的寫進鏈（跳過的不記）；整步沒人交就中止
+// 這一步結束：交的和沒交的寫進鏈 (跳過的不記)；整步沒人交就中止
 function endStep(c: Ctx) {
   const s = c.s;
   c.events.push(stepBoard(s, true));
@@ -149,7 +149,7 @@ type Work = { tag: string; kind: Kind; by: string; text: string };
 const works = (s: EState): Work[] =>
   s.chains.flatMap((ch, i) => ch.entries.flatMap((e) => (e.text === undefined ? [] : [{ tag: `${i + 1}-${e.step}`, kind: e.kind, by: e.by, text: e.text }])));
 const votable = (s: EState, user: string, cat: Kind) => works(s).filter((w) => w.kind === cat && w.by !== user);
-// 兩類都投了（沒有可以投的作品的那一類視為已投）
+// 兩類都投了 (沒有可以投的作品的那一類視為已投)
 const doneVoting = (s: EState, user: string) => (['emoji', 'guess'] as const).every((cat) => s.votes[user]?.[cat] || !votable(s, user, cat).length);
 
 function voteBoard(s: EState, ended = false): GameEvent {
@@ -161,7 +161,7 @@ function voteBoard(s: EState, ended = false): GameEvent {
     ref: `emoji:${s.seq}`,
     text: ended
       ? '🗳️ 投票：已結束'
-      : [`🗳️ 投票：${CAT.emoji}和${CAT.guess}各投 1 票（用編號投，不能投自己，${VOTE_MS / 1000} 秒內可以改票）`, `已投完 ${done}/${s.players.length}`].join('\n'),
+      : [`🗳️ 投票：${CAT.emoji}和${CAT.guess}各投 1 票 (用編號投，不能投自己，${VOTE_MS / 1000} 秒內可以改票)`, `已投完 ${done}/${s.players.length}`].join('\n'),
     options: ended
       ? []
       : [
@@ -203,7 +203,7 @@ function voteMenu(c: Ctx, user: string, cat: Kind): boolean {
     kind: 'emoji',
     audience: 'ephemeral',
     user,
-    text: `${CAT[cat]}：按編號投 1 票，截止前可以改${mine ? `（目前投給 \`${mine}\`）` : ''}`,
+    text: `${CAT[cat]}：按編號投 1 票，截止前可以改${mine ? ` (目前投給 \`${mine}\`)` : ''}`,
     options: list.map((w) => ({ value: `vote:${s.seq}:${cat}:${w.tag}`, label: w.tag })),
     perRow: 5,
   });
@@ -219,13 +219,13 @@ function vote(c: Ctx, user: string, seq: number, cat: Kind, tag: string): boolea
   if (w.by === user) return reply(c, user, '不能投自己。');
   const was = doneVoting(s, user);
   (s.votes[user] ??= {})[cat] = tag;
-  c.events.push({ type: 'ephemeral', to: user, text: `你投了 \`${tag}\`（${CAT[cat]}）` });
+  c.events.push({ type: 'ephemeral', to: user, text: `你投了 \`${tag}\` (${CAT[cat]})` });
   if (s.players.every((p) => doneVoting(s, p.id))) reveal(c);
   else if (!was && doneVoting(s, user)) c.events.push(voteBoard(s));
   return true;
 }
 
-// 揭曉：每票 +1 給作者，公布各類最高票（同票全列、0 票不列）
+// 揭曉：每票 +1 給作者，公布各類最高票 (同票全列、0 票不列)
 function reveal(c: Ctx) {
   const s = c.s;
   c.events.push(voteBoard(s, true));
@@ -236,7 +236,7 @@ function reveal(c: Ctx) {
     const list = all.filter((w) => w.kind === cat);
     const top = Math.max(0, ...list.map(count));
     if (!top) return [];
-    return [`${CAT[cat]}：`, ...list.filter((w) => count(w) === top).map((w) => `\`${w.tag}\` ${mention(w.by)}：${w.text}（${top} 票）`)];
+    return [`${CAT[cat]}：`, ...list.filter((w) => count(w) === top).map((w) => `\`${w.tag}\` ${mention(w.by)}：${w.text} (${top} 票)`)];
   });
   c.events.push({ type: 'announce', text: ['🎉 投票揭曉！', ...best].join('\n') });
   endGame(c);
@@ -260,7 +260,7 @@ function endGame(c: Ctx) {
   );
 }
 
-// 作答時間的共同檢查；回傳拿到的內容，不行時回傳 null（已經回覆原因）
+// 作答時間的共同檢查；回傳拿到的內容，不行時回傳 null (已經回覆原因)
 function answerer(c: Ctx, user: string): string | null {
   if (!isPlayer(c.s, user)) return (reply(c, user, '你不在這局遊戲裡。'), null);
   if (c.s.phase !== 'play') return (reply(c, user, '現在不是作答的時間。'), null);
@@ -274,7 +274,7 @@ function openSend(c: Ctx, user: string): boolean {
   if (input === null) return false;
   const emoji = kindOf(c.s.step) === 'emoji';
   reply(c, user, `你拿到：${input}，${emoji ? '請只用 emoji 描述' : '請猜這是什麼'}`);
-  c.events.push({ type: 'modal', to: user, kind: 'emojiSend', title: '作答', label: emoji ? `只用 emoji 描述「${input}」（最多 ${MAX_EMOJI} 個）` : `猜猜 ${input} 是什麼（1～${MAX_GUESS} 字）` });
+  c.events.push({ type: 'modal', to: user, kind: 'emojiSend', title: '作答', label: emoji ? `只用 emoji 描述「${input}」(最多 ${MAX_EMOJI} 個)` : `猜猜 ${input} 是什麼 (1～${MAX_GUESS} 字)` });
   return false;
 }
 
@@ -293,7 +293,7 @@ function send(c: Ctx, user: string, raw: string): boolean {
   return true;
 }
 
-// 從 deck 依序發 n 題；不夠時先發完剩下的，再重洗全部題目（排除這局已發的）補足
+// 從 deck 依序發 n 題；不夠時先發完剩下的，再重洗全部題目 (排除這局已發的) 補足
 function deal(c: Ctx, n: number): number[] {
   const s = c.s;
   const dealt = s.deck.splice(0, n);
@@ -308,7 +308,7 @@ const RULES = (s: EState) =>
   [
     `🔗 Emoji 傳話開始！傳遞順序：${[...s.players, s.players[0]].map((p) => mention(p.id)).join(' → ')}，共 ${s.steps} 步。`,
     `每人私下拿到一個題目當作自己那條鏈的起點，每一步大家同時作答，做完交給下一位：`,
-    `🎨 奇數步看文字，只能用 emoji 描述（${EMOJI_MS / 1000} 秒）；🧠 偶數步看 emoji，用文字猜那是什麼（${GUESS_MS / 1000} 秒）。`,
+    `🎨 奇數步看文字，只能用 emoji 描述 (${EMOJI_MS / 1000} 秒)；🧠 偶數步看 emoji，用文字猜那是什麼 (${GUESS_MS / 1000} 秒)。`,
     `傳完一起看每條鏈怎麼走鐘，再投「🎨 最佳 emoji」和「🧠 最神猜測」，每得 1 票 +1 分，總分最高的人獲勝。`,
   ].join('\n');
 

@@ -115,7 +115,7 @@ describe('wavelength/rounds: 出題', () => {
   it('出題者按寫提示：跳出視窗；其他人被拒絕', () => {
     const s = started(4).state;
     expect(run([{ type: 'openClue', user: 'p2' }], s).events).toEqual([
-      { type: 'modal', to: 'p2', kind: 'wavelengthClue', title: '寫提示', label: '提示詞（1～30 字）' },
+      { type: 'modal', to: 'p2', kind: 'wavelengthClue', title: '寫提示', label: '提示詞 (1～30 字)' },
     ]);
     const other = run([{ type: 'openClue', user: 'p1' }], s);
     expect(other.events.some((e) => e.type === 'modal')).toBe(false);

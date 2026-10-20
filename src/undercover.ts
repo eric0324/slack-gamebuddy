@@ -147,7 +147,7 @@ function nextSpeaker(c: Ctx) {
       type: 'prompt',
       kind: 'endSpeech',
       audience: 'channel',
-      text: `🎤 輪到 ${mention(id)} 描述（${SPEECH_MS / 1000} 秒）`,
+      text: `🎤 輪到 ${mention(id)} 描述 (${SPEECH_MS / 1000} 秒)`,
       options: [{ value: id, label: '結束發言' }],
     });
     startTimer(c, SPEECH_MS);
@@ -165,7 +165,7 @@ function nextSpeaker(c: Ctx) {
 const pick = <T>(items: T[], rng: Rng): T => items[Math.floor(rng() * items.length)];
 const hintsOf = (word: string) => WORD_PAIRS.flatMap(({ a, b }) => [a, b]).find((w) => w.word === word)?.hints ?? [];
 
-// bot 描述：平民和臥底用自己詞的描述句（盡量不重複），白板用通用的模糊台詞
+// bot 描述：平民和臥底用自己詞的描述句 (盡量不重複)，白板用通用的模糊台詞
 function botDescribe(c: Ctx, id: string) {
   const s = c.s;
   const me = s.players.find((p) => p.id === id)!;
@@ -177,7 +177,7 @@ function botDescribe(c: Ctx, id: string) {
   c.events.push({ type: 'announce', text: `${mention(id)}：${line}` });
 }
 
-// 找出下一個輪到 bot 的行動：投票（不投自己、不棄票）或白板猜詞
+// 找出下一個輪到 bot 的行動：投票 (不投自己、不棄票) 或白板猜詞
 function nextBotAction(s: UState, rng: Rng): Exclude<UAction, { type: 'new' } | { type: 'rematch' }> | null {
   if (s.phase === 'vote' || s.phase === 'pkVote') {
     const voter = s.voters.find((v) => isBot(v) && !s.votes[v]);
@@ -215,7 +215,7 @@ function openVote(c: Ctx, phase: 'vote' | 'pkVote', candidates: string[], voters
     type: 'prompt',
     kind: phase === 'vote' ? 'dayVote' : 'pkVote',
     audience: 'channel',
-    text: phase === 'vote' ? '🗳️ 請投票選出臥底。' : '⚔️ PK 投票：請在平票的玩家中選一位（PK 中的玩家不能投票）。',
+    text: phase === 'vote' ? '🗳️ 請投票選出臥底。' : '⚔️ PK 投票：請在平票的玩家中選一位 (PK 中的玩家不能投票)。',
     options: [...candidates.map((id) => ({ value: id, label: id })), { value: 'abstain', label: '棄票' }],
   });
   startTimer(c, VOTE_MS);
@@ -294,7 +294,7 @@ function finishGuess(c: Ctx, word: string | undefined) {
   continueGame(c, 'guessWrong');
 }
 
-// 臥底全部出局 → 平民勝（白板活著也一樣）；臥底陣營（臥底＋白板）≥ 平民 → 臥底陣營勝
+// 臥底全部出局 → 平民勝 (白板活著也一樣)；臥底陣營 (臥底＋白板) ≥ 平民 → 臥底陣營勝
 export function checkUndercoverWinner(players: UPlayer[]): 'civilian' | 'undercover' | null {
   const living = players.filter((p) => p.alive);
   if (!living.some((p) => p.role === 'undercover')) return 'civilian';
@@ -303,7 +303,7 @@ export function checkUndercoverWinner(players: UPlayer[]): 'civilian' | 'underco
   return null;
 }
 
-// 放逐（或白板猜詞）之後：判斷勝負，沒結束就開始下一輪；gif 是這個時刻的 GIF，結束時改附在結束公告上
+// 放逐 (或白板猜詞) 之後：判斷勝負，沒結束就開始下一輪；gif 是這個時刻的 GIF，結束時改附在結束公告上
 function continueGame(c: Ctx, gif?: GifKey) {
   const winner = checkUndercoverWinner(c.s.players);
   if (winner) endGame(c, winner, gif);
@@ -317,7 +317,7 @@ function endGame(c: Ctx, winner: 'civilian' | 'undercover', gif?: GifKey) {
   s.winner = winner;
   const title = winner === 'civilian' ? '🎉 遊戲結束，平民獲勝！' : '🕵️ 遊戲結束，臥底陣營獲勝！';
   const roster = s.players
-    .map((p) => `${mention(p.id)}：${ROLE_NAME_U[p.role!]}${p.word ? `（${p.word}）` : ''}，${p.alive ? '存活' : '出局'}`)
+    .map((p) => `${mention(p.id)}：${ROLE_NAME_U[p.role!]}${p.word ? ` (${p.word})` : ''}，${p.alive ? '存活' : '出局'}`)
     .join('\n');
   c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: s.players.filter((p) => (p.role === 'civilian') === (winner === 'civilian')).map((p) => p.id) });
   c.events.push(

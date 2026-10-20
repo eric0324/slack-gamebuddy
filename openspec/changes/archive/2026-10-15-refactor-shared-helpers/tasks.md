@@ -5,9 +5,9 @@
 
 ## 2. 替換
 
-- [x] 2.1 18 個 engine 刪掉相同的 `reply`、`shuffle`、`startTimer`、`lobbyEvent`，改 import 共用版本（行為不同的照 proposal 保留）
+- [x] 2.1 18 個 engine 刪掉相同的 `reply`、`shuffle`、`startTimer`、`lobbyEvent`，改 import 共用版本 (行為不同的照 proposal 保留)
 - [x] 2.2 寫死時間的 `startTimer(c)` 改成 `startTimer(c, 常數)`
 
 ## 3. 驗證
 
-- [x] 3.1 跑全部測試、typecheck（含 `--noUnusedLocals`），snapshot 沒有變
+- [x] 3.1 跑全部測試、typecheck (含 `--noUnusedLocals`)，snapshot 沒有變

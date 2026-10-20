@@ -38,7 +38,7 @@ describe('avalon/setup: 阿瓦隆的房間', () => {
     expect(ephemeralTo(events, 'p1')).toMatchObject({ text: expect.stringContaining('至少需要 5 人') });
   });
 
-  it('房間已滿（10 人）時拒絕加入', () => {
+  it('房間已滿 (10 人) 時拒絕加入', () => {
     const { state, events } = run([{ type: 'join', user: 'x' }], lobbyWith(10).state);
     expect(state.players).toHaveLength(10);
     expect(ephemeralTo(events, 'x')).toMatchObject({ text: expect.stringContaining('房間已滿') });
@@ -62,7 +62,7 @@ describe('avalon/setup: 阿瓦隆的房間', () => {
   });
 });
 
-// rng 固定時不洗牌：身分依「好人（梅林、派西維爾、忠臣…）→ 壞人（刺客、莫甘娜、爪牙…）」照玩家順序發
+// rng 固定時不洗牌：身分依「好人 (梅林、派西維爾、忠臣…)→ 壞人 (刺客、莫甘娜、爪牙…)」照玩家順序發
 const started = (n: number, r: () => number = rng) => run([{ type: 'start', user: 'p1' }], lobbyWith(n).state, r);
 const roles = (s: AState) => s.players.map((p) => p.role);
 
@@ -149,7 +149,7 @@ describe('avalon/rounds: 隊長與輪流發言', () => {
     expect(text).toContain('連續否決：0／5');
     expect(state).toMatchObject({ phase: 'speech', speaker: 'p1' });
     const p = prompts(events, 'endSpeech').at(-1)!;
-    expect(p.text).toContain('輪到 <@p1> 發言（40 秒）');
+    expect(p.text).toContain('輪到 <@p1> 發言 (40 秒)');
     expect(values(p)).toEqual(['p1']);
     expect(lastTimer(events).ms).toBe(40_000);
   });
@@ -181,7 +181,7 @@ const pick = (targets: string[], s: AState, user = 'p5') =>
   run(targets.map((target) => ({ type: 'pickMember', user, target }) as AAction), s);
 
 describe('avalon/rounds: 隊長選人', () => {
-  it('隊長收到選隊員按鈕（所有玩家）和確認按鈕，90 秒', () => {
+  it('隊長收到選隊員按鈕 (所有玩家) 和確認按鈕，90 秒', () => {
     const { events } = picking();
     const p = prompts(events, 'pickMember').at(-1)!;
     expect(p.text).toContain('<@p5> 請選 2 位隊員');
@@ -255,7 +255,7 @@ describe('avalon/rounds: 組隊投票', () => {
     expect(teamVotes([['x', 'approve']], teamVoting().state).state.votes).toEqual({});
   });
 
-  it('沒過半（含平手）就否決：否決次數加 1，換下一位隊長重新組隊', () => {
+  it('沒過半 (含平手) 就否決：否決次數加 1，換下一位隊長重新組隊', () => {
     const { state, events } = teamVotes([['p1', 'approve'], ['p2', 'approve'], ['p3', 'reject'], ['p4', 'reject'], ['p5', 'reject']], teamVoting().state);
     expect(announces(events).join('\n')).toContain('隊伍被否決');
     expect(state).toMatchObject({ phase: 'speech', rejects: 1, quest: 0 });
@@ -276,7 +276,7 @@ describe('avalon/rounds: 組隊投票', () => {
 });
 
 const approveAll = (s: AState) => teamVotes(s.players.map((p) => [p.id, 'approve'] as [string, 'approve']), s);
-// 5 人局：p1（梅林）和 p4（刺客）出任務
+// 5 人局：p1 (梅林) 和 p4 (刺客) 出任務
 const questing = () => approveAll(run([{ type: 'confirmTeam', user: 'p5' }], pick(['p1', 'p4'], picking().state).state).state);
 const cards = (pairs: [string, 'success' | 'fail'][], s: AState) =>
   run(pairs.map(([user, card]) => ({ type: 'quest', user, card }) as AAction), s);
@@ -297,7 +297,7 @@ describe('avalon/rounds: 出任務', () => {
     expect(s.phase).toBe('quest');
     const { state, events } = cards([['p1', 'success']], s);
     const result = announces(events).find((t) => t.includes('任務 1'))!;
-    expect(result).toContain('任務 1 失敗（1 張失敗票）');
+    expect(result).toContain('任務 1 失敗 (1 張失敗票)');
     expect(result).not.toContain('<@p4>');
     expect(state).toMatchObject({ results: ['fail'], quest: 1, phase: 'speech' });
     expect(announces(events).join('\n')).toContain('隊長 <@p1>');
@@ -324,9 +324,9 @@ describe('avalon/rounds: 出任務', () => {
     const atFour = { ...s, quest: 3, results: ['success', 'fail', 'success'] as ('success' | 'fail')[] };
     const q = approveAll(run([{ type: 'confirmTeam', user: 'p7' }], pick(['p1', 'p2', 'p5', 'p6'], atFour, 'p7').state).state).state;
     const one = cards([['p1', 'success'], ['p2', 'success'], ['p5', 'fail'], ['p6', 'success']], q);
-    expect(announces(one.events).join('\n')).toContain('任務 4 成功（1 張失敗票）');
+    expect(announces(one.events).join('\n')).toContain('任務 4 成功 (1 張失敗票)');
     const two = cards([['p1', 'success'], ['p2', 'success'], ['p5', 'fail'], ['p6', 'fail']], q);
-    expect(announces(two.events).join('\n')).toContain('任務 4 失敗（2 張失敗票）');
+    expect(announces(two.events).join('\n')).toContain('任務 4 失敗 (2 張失敗票)');
   });
 });
 
@@ -479,7 +479,7 @@ describe('avalon/bots: bot 的行動', () => {
     const team = pick([evilBot.id, goodBot.id], picking1, 'p1').state;
     const voting1 = run([{ type: 'confirmTeam', user: 'p1' }], team, () => 0).state;
     const { events } = run([{ type: 'teamVote', user: 'p1', vote: 'approve' }], voting1, () => 0);
-    expect(announces(events).join('\n')).toContain('任務 1 失敗（1 張失敗票）');
+    expect(announces(events).join('\n')).toContain('任務 1 失敗 (1 張失敗票)');
   });
 
   it('1 位真人加 bot、真人什麼都不做，遊戲一定會結束', () => {

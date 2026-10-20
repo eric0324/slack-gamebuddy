@@ -57,7 +57,7 @@ export interface AState {
   phase: APhase;
   players: APlayer[];
   leader: number; // 隊長在 players 裡的位置
-  quest: number; // 目前是第幾個任務（0 起算）
+  quest: number; // 目前是第幾個任務 (0 起算)
   results: ('success' | 'fail')[];
   rejects: number; // 這個任務連續被否決幾次
   team: string[];
@@ -106,12 +106,12 @@ const pick = <T>(items: T[], rng: Rng): T => items[Math.floor(rng() * items.leng
 const list = (ids: string[]) => ids.map(mention).join('、');
 
 const ROLE_INTRO: Record<ARole, string> = {
-  merlin: '🧙 你是梅林（好人）。',
-  percival: '🛡️ 你是派西維爾（好人）。',
-  loyal: '⚔️ 你是忠臣（好人）。\n幫助好人完成 3 個任務。',
-  assassin: '🗡️ 你是刺客（壞人）。',
-  morgana: '🔮 你是莫甘娜（壞人）。',
-  minion: '😈 你是爪牙（壞人）。',
+  merlin: '🧙 你是梅林 (好人)。',
+  percival: '🛡️ 你是派西維爾 (好人)。',
+  loyal: '⚔️ 你是忠臣 (好人)。\n幫助好人完成 3 個任務。',
+  assassin: '🗡️ 你是刺客 (壞人)。',
+  morgana: '🔮 你是莫甘娜 (壞人)。',
+  minion: '😈 你是爪牙 (壞人)。',
 };
 
 // 發身分：依人數組出身分清單後洗牌，私訊每個人自己的身分和能看到的資訊
@@ -157,7 +157,7 @@ function startRound(c: Ctx) {
   const s = c.s;
   const n = s.players.length;
   const leader = s.players[s.leader].id;
-  const twoFails = n >= 7 && s.quest === 3 ? '（需要 2 張失敗票才算失敗）' : '';
+  const twoFails = n >= 7 && s.quest === 3 ? ' (需要 2 張失敗票才算失敗)' : '';
   c.events.push({
     type: 'announce',
     text: `📜 任務 ${s.quest + 1}／5：隊伍 ${teamSize(s)} 人${twoFails}，隊長 ${mention(leader)}\n任務進度：${progress(s)}　連續否決：${s.rejects}／${MAX_REJECTS}`,
@@ -183,7 +183,7 @@ function nextSpeaker(c: Ctx) {
     type: 'prompt',
     kind: 'endSpeech',
     audience: 'channel',
-    text: `🎤 輪到 ${mention(id)} 發言（${SPEECH_MS / 1000} 秒）`,
+    text: `🎤 輪到 ${mention(id)} 發言 (${SPEECH_MS / 1000} 秒)`,
     options: [{ value: id, label: '結束發言' }],
   });
   startTimer(c, SPEECH_MS);
@@ -200,7 +200,7 @@ function startPick(c: Ctx) {
       type: 'prompt',
       kind: 'pickMember',
       audience: 'channel',
-      text: `👑 ${mention(leaderOf(s))} 請選 ${teamSize(s)} 位隊員（${PICK_MS / 1000} 秒）：按一下加入、再按一下移除`,
+      text: `👑 ${mention(leaderOf(s))} 請選 ${teamSize(s)} 位隊員 (${PICK_MS / 1000} 秒)：按一下加入、再按一下移除`,
       options: s.players.map((p) => ({ value: p.id, label: p.id })),
     },
     { type: 'prompt', kind: 'confirmTeam', audience: 'channel', text: '選好後按「確認隊伍」', options: [{ value: 'confirm', label: '確認隊伍' }] },
@@ -218,7 +218,7 @@ function submitTeam(c: Ctx) {
     type: 'prompt',
     kind: 'teamVote',
     audience: 'channel',
-    text: `🗳️ 同意這支隊伍出任務嗎？所有人都要投（${VOTE_MS / 1000} 秒，沒投的算贊成）`,
+    text: `🗳️ 同意這支隊伍出任務嗎？所有人都要投 (${VOTE_MS / 1000} 秒，沒投的算贊成)`,
     options: [
       { value: 'approve', label: '👍 贊成' },
       { value: 'reject', label: '👎 反對' },
@@ -238,7 +238,7 @@ function endTeamVote(c: Ctx) {
     s.rejects = 0;
     c.events.push({
       type: 'announce',
-      text: `✅ 隊伍通過（${approvals} 票贊成），${list(s.team)} 出任務！請到私訊選擇任務結果。`,
+      text: `✅ 隊伍通過 (${approvals} 票贊成)，${list(s.team)} 出任務！請到私訊選擇任務結果。`,
       gif: 'teamApproved',
     });
     startQuest(c);
@@ -248,7 +248,7 @@ function endTeamVote(c: Ctx) {
   const ending = s.rejects >= MAX_REJECTS;
   c.events.push({
     type: 'announce',
-    text: `❌ 隊伍被否決（${approvals} 票贊成），連續否決 ${s.rejects}／${MAX_REJECTS}。`,
+    text: `❌ 隊伍被否決 (${approvals} 票贊成)，連續否決 ${s.rejects}／${MAX_REJECTS}。`,
     ...(ending ? {} : { gif: 'teamRejected' as const }),
   });
   if (ending) {
@@ -271,7 +271,7 @@ function startQuest(c: Ctx) {
       kind: 'quest',
       audience: 'user',
       user: id,
-      text: `⚔️ 任務 ${s.quest + 1}：請選擇任務結果（${QUEST_MS / 1000} 秒，沒選的算成功）`,
+      text: `⚔️ 任務 ${s.quest + 1}：請選擇任務結果 (${QUEST_MS / 1000} 秒，沒選的算成功)`,
       options: [{ value: 'success', label: '✅ 成功' }, ...(evil ? [{ value: 'fail', label: '❌ 失敗' }] : [])],
     });
   }
@@ -286,11 +286,11 @@ function endQuest(c: Ctx) {
   const result = fails >= needed ? 'fail' : 'success';
   s.results.push(result);
   const count = (r: string) => s.results.filter((x) => x === r).length;
-  // 第 3 個成功（接著進入刺殺）或第 3 個失敗（遊戲結束）時，GIF 留給下一則公告
+  // 第 3 個成功 (接著進入刺殺) 或第 3 個失敗 (遊戲結束) 時，GIF 留給下一則公告
   const decisive = count(result) >= 3;
   c.events.push({
     type: 'announce',
-    text: `${result === 'success' ? '🎉' : '💥'} 任務 ${s.quest + 1} ${result === 'success' ? '成功' : '失敗'}（${fails} 張失敗票）`,
+    text: `${result === 'success' ? '🎉' : '💥'} 任務 ${s.quest + 1} ${result === 'success' ? '成功' : '失敗'} (${fails} 張失敗票)`,
     ...(decisive ? {} : { gif: result === 'success' ? ('questSuccess' as const) : ('questFail' as const) }),
   });
   s.quest++;
@@ -314,7 +314,7 @@ function startAssassination(c: Ctx) {
     type: 'prompt',
     kind: 'assassinate',
     audience: 'wolves',
-    text: `🗡️ ${mention(roleHolder(s, 'assassin'))} 請選擇要刺殺的人（${ASSASSIN_MS / 1000} 秒），大家可以先在這裡討論誰是梅林`,
+    text: `🗡️ ${mention(roleHolder(s, 'assassin'))} 請選擇要刺殺的人 (${ASSASSIN_MS / 1000} 秒)，大家可以先在這裡討論誰是梅林`,
     options: goodIds(s).map((id) => ({ value: id, label: id })),
   });
   startTimer(c, ASSASSIN_MS);
@@ -438,9 +438,9 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (action.user !== leaderOf(s)) return reply(c, action.user, '只有隊長可以選隊員。');
       if (!s.players.some((p) => p.id === action.target)) return false;
       if (s.team.includes(action.target)) s.team = s.team.filter((id) => id !== action.target);
-      else if (s.team.length >= teamSize(s)) return reply(c, action.user, `隊伍已經滿了（${teamSize(s)} 人），要換人請先移除。`);
+      else if (s.team.length >= teamSize(s)) return reply(c, action.user, `隊伍已經滿了 (${teamSize(s)} 人)，要換人請先移除。`);
       else s.team.push(action.target);
-      reply(c, action.user, `目前隊伍（${s.team.length}／${teamSize(s)}）：${s.team.length ? list(s.team) : '還沒有人'}`);
+      reply(c, action.user, `目前隊伍 (${s.team.length}／${teamSize(s)})：${s.team.length ? list(s.team) : '還沒有人'}`);
       return true;
     }
     case 'confirmTeam': {

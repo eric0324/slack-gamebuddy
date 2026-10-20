@@ -5,13 +5,13 @@ import { parseRoomCommand } from './undercover.js';
 
 const HELP = [
   '*地產大亨指令*',
-  '• `/game forsale new`：開房（任何人）',
-  '• `/game forsale addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/game forsale removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/game forsale start`：開始遊戲，需要 3～6 人（房主）',
-  '• `/game forsale cancel`：取消遊戲（房主）',
-  '• 第一階段：輪到你時按喊價面板上的「出 $X（+1／+2／+5）」出價、「🔢 其他金額」挑別的金額，或「🙅 放棄」（30 秒，沒動作視為放棄）',
-  '• 第二階段：按「🏠 選房產」私下選一間房產出售（45 秒，揭曉前可以改；沒選自動出最小的）',
+  '• `/game forsale new`：開房 (任何人)',
+  '• `/game forsale addbot [數量]`：加入 bot 補人數 (房主，開始前)',
+  '• `/game forsale removebot [數量]`：移除 bot (房主，開始前)',
+  '• `/game forsale start`：開始遊戲，需要 3～6 人 (房主)',
+  '• `/game forsale cancel`：取消遊戲 (房主)',
+  '• 第一階段：輪到你時按喊價面板上的「出 $X (+1／+2／+5)」出價、「🔢 其他金額」挑別的金額，或「🙅 放棄」(30 秒，沒動作視為放棄)',
+  '• 第二階段：按「🏠 選房產」私下選一間房產出售 (45 秒，揭曉前可以改；沒選自動出最小的)',
   '• 「💰 我的狀態」：隨時私下看自己的金幣、房產和支票',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');

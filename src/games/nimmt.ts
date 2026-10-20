@@ -5,12 +5,12 @@ import { parseRoomCommand } from './undercover.js';
 
 const HELP = [
   '*誰是牛頭王指令*',
-  '• `/game nimmt new`：開房（任何人）',
-  '• `/game nimmt addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/game nimmt removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/game nimmt start`：開始遊戲，需要 2～10 人（房主）',
-  '• 選牌：每回合按「🃏 選牌」從手牌選一張（只有你看得到，揭曉前可以改）；也可以打 `/game nimmt play <牌號>`',
-  '• `/game nimmt cancel`：取消遊戲（房主）',
+  '• `/game nimmt new`：開房 (任何人)',
+  '• `/game nimmt addbot [數量]`：加入 bot 補人數 (房主，開始前)',
+  '• `/game nimmt removebot [數量]`：移除 bot (房主，開始前)',
+  '• `/game nimmt start`：開始遊戲，需要 2～10 人 (房主)',
+  '• 選牌：每回合按「🃏 選牌」從手牌選一張 (只有你看得到，揭曉前可以改)；也可以打 `/game nimmt play <牌號>`',
+  '• `/game nimmt cancel`：取消遊戲 (房主)',
   '出的牌比四列都小時，用頻道按鈕選一列收走；有人累積 66 個牛頭時，打完這一輪就結束，最少的人獲勝',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');

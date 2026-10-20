@@ -14,7 +14,7 @@ describe('spyfall/setup: 地點庫', () => {
     for (const l of LOCATIONS) for (const h of l.hints) expect(h, `${l.name}：${h}`).not.toContain(l.name);
   });
 
-  it('地點名稱不重複，也不包含空白（方便用指令猜）', () => {
+  it('地點名稱不重複，也不包含空白 (方便用指令猜)', () => {
     const names = LOCATIONS.map((l) => l.name);
     expect(new Set(names).size).toBe(names.length);
     for (const n of names) expect(n).not.toMatch(/\s/);

@@ -54,7 +54,7 @@ describe('game-lobby: 加入與離開房間', () => {
     expect(ephemeralTo(events, 'p2')).toBeDefined();
   });
 
-  it('房間已滿（12 人）時拒絕加入', () => {
+  it('房間已滿 (12 人) 時拒絕加入', () => {
     const { state } = lobbyWith(12);
     const { state: after, events } = run([{ type: 'join', user: 'x' }], state);
     expect(after.players).toHaveLength(12);
@@ -509,7 +509,7 @@ describe('win-condition: 屠邊勝負規則', () => {
   });
 });
 
-// 6 人局（p1、p2 狼人，p3 預言家，p4 女巫，p5、p6 村民）。預言家已死，狼人今晚刀女巫 → 神職全滅，狼人獲勝
+// 6 人局 (p1、p2 狼人，p3 預言家，p4 女巫，p5、p6 村民)。預言家已死，狼人今晚刀女巫 → 神職全滅，狼人獲勝
 function wolvesWinTonight() {
   const s = started(6).state;
   const seerDead: GameState = {
@@ -610,12 +610,12 @@ const lastPerWitch = (rng: () => number) => {
 
 // fullNight('p7', 'skip') 之後：存活 p1~p6、p8，rng 固定時從最後一位 p8 開始
 describe('day-phase: 輪流發言', () => {
-  it('公告發言順序（跳過死亡的 p7），輪到第一位發言 40 秒', () => {
+  it('公告發言順序 (跳過死亡的 p7)，輪到第一位發言 40 秒', () => {
     const { state, events } = dawned('p7', 'skip');
     expect(state).toMatchObject({ phase: 'speech', speaker: 'p8' });
     expect(announces(events)).toContainEqual(expect.stringContaining('<@p8> → <@p1> → <@p2> → <@p3> → <@p4> → <@p5> → <@p6>'));
     const p = speechPrompt(events)!;
-    expect(p).toMatchObject({ audience: 'channel', text: expect.stringContaining('輪到 <@p8> 發言（40 秒）') });
+    expect(p).toMatchObject({ audience: 'channel', text: expect.stringContaining('輪到 <@p8> 發言 (40 秒)') });
     expect(values(p)).toEqual(['p8']);
     expect(lastTimer(events).ms).toBe(40_000);
   });
@@ -675,9 +675,9 @@ describe('day-phase: 輪流發言', () => {
   });
 });
 
-// 第一夜 p7 死亡，存活 p1~p6、p8（狼人 p1~p3）。房主結束討論，進入投票
+// 第一夜 p7 死亡，存活 p1~p6、p8 (狼人 p1~p3)。房主結束討論，進入投票
 const voting = () => run([{ type: 'endDiscussion', user: 'p1' }], dawned('p7', 'skip').state);
-// 同上，但狼人 p3 已經死亡（2 狼對 4 好人），放逐一位好人後遊戲還不會因為狼人追上好人而結束
+// 同上，但狼人 p3 已經死亡 (2 狼對 4 好人)，放逐一位好人後遊戲還不會因為狼人追上好人而結束
 const votingP3Dead = () => run([{ type: 'endDiscussion', user: 'p1' }], kill(dawned('p7', 'skip').state, 'p3'));
 const votes = (pairs: [string, string][]) => pairs.map(([user, target]) => ({ type: 'dayVote', user, target }) as Action);
 
@@ -779,7 +779,7 @@ describe('day-phase: 平票 PK', () => {
     const pk = announces(events).find((t) => t.includes('PK'))!;
     expect(pk).toContain('<@p1>');
     expect(pk).toContain('<@p4>');
-    expect(speechPrompt(events)!.text).toContain('輪到 <@p1> 發言（40 秒）');
+    expect(speechPrompt(events)!.text).toContain('輪到 <@p1> 發言 (40 秒)');
     expect(lastTimer(events).ms).toBe(40_000);
 
     const p4 = run([{ type: 'endSpeech', user: 'p1' }], state);
@@ -1013,7 +1013,7 @@ describe('bot-players: 整局測試', () => {
   // 簡單的 LCG，讓每個種子的結果都固定
   const seeded = (seed: number) => () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
 
-  it('1 位真人 + 11 個 bot（有騎士、狼王），遊戲一定會跑到結束', () => {
+  it('1 位真人 + 11 個 bot (有騎士、狼王)，遊戲一定會跑到結束', () => {
     for (let seed = 1; seed <= 20; seed++) {
       const r = seeded(seed);
       let s = applyAction(undefined, { type: 'new', user: 'p1', channel: 'C1' }, r).state;
@@ -1104,7 +1104,7 @@ describe('day-phase: 遺言', () => {
   it('第一夜死者講遺言 30 秒，結束後才開始輪流發言', () => {
     const { state, events } = fullNight('p7', 'skip');
     expect(state).toMatchObject({ phase: 'lastWords', speaker: 'p7' });
-    expect(lastWordsPrompt(events).text).toContain('🕯️ <@p7> 的遺言（30 秒）');
+    expect(lastWordsPrompt(events).text).toContain('🕯️ <@p7> 的遺言 (30 秒)');
     expect(values(lastWordsPrompt(events))).toEqual(['p7']);
     expect(lastTimer(events).ms).toBe(30_000);
     expect(run([{ type: 'endSpeech', user: 'p7' }], state).state.phase).toBe('speech');
@@ -1149,7 +1149,7 @@ describe('day-phase: 遺言', () => {
       votingP3Dead().state,
     );
     expect(exiled.state).toMatchObject({ phase: 'lastWords', speaker: 'p4' });
-    expect(lastWordsPrompt(exiled.events).text).toContain('🕯️ <@p4> 的遺言（30 秒）');
+    expect(lastWordsPrompt(exiled.events).text).toContain('🕯️ <@p4> 的遺言 (30 秒)');
     expect(run([{ type: 'endSpeech', user: 'p4' }], exiled.state).state).toMatchObject({ phase: 'night', day: 2 });
   });
 
@@ -1174,7 +1174,7 @@ describe('day-phase: 遺言', () => {
     const day = run([{ type: 'wolfVote', user: 'p1', target: dead }], state);
     const words = announces(day.events).find((t) => t.startsWith(`${mention(dead)}：`))!;
     expect(words).toBeDefined();
-    expect(words).not.toContain('（沒有遺言）');
+    expect(words).not.toContain('(沒有遺言)');
   });
 });
 
@@ -1279,7 +1279,7 @@ describe('win-condition: 再來一局', () => {
     expect(p.options).toEqual([{ value: 'rematch', label: '再來一局' }]);
   });
 
-  it('上一局的玩家（死亡也可以）開新的一局：空房間，按的人當房主', () => {
+  it('上一局的玩家 (死亡也可以) 開新的一局：空房間，按的人當房主', () => {
     const { state, events } = run([{ type: 'rematch', user: 'p3', channel: 'C1' }], wolvesWinTonight().state);
     expect(state).toMatchObject({ phase: 'lobby', host: 'p3' });
     expect(ids(state)).toEqual(['p3']);
@@ -1400,7 +1400,7 @@ describe('role-assignment: 狼王', () => {
   it('狼人對話列出狼王並標出來', () => {
     const chat = started(10).events.find((e) => e.type === 'wolfChat') as { wolves: string[]; text: string };
     expect(chat.wolves).toEqual(['p1', 'p2', 'p3']);
-    expect(chat.text).toContain('<@p3>（狼王）');
+    expect(chat.text).toContain('<@p3> (狼王)');
   });
 
   it('狼王和其他狼人一起擊殺', () => {
@@ -1429,7 +1429,7 @@ const night10 = (kill: string, witch: string) =>
     ],
     started(10).state,
   );
-// 第一夜 p8 死亡後進入白天，房主直接進入投票，p3（狼王）被放逐並講完遺言
+// 第一夜 p8 死亡後進入白天，房主直接進入投票，p3 (狼王) 被放逐並講完遺言
 const kingExiled = () => {
   const vote = run([{ type: 'endDiscussion', user: 'p1' }], skipLastWords(night10('p8', 'skip')).state).state;
   const exiled = run(
@@ -1472,7 +1472,7 @@ describe('day-phase: 狼王開槍', () => {
   });
 });
 
-describe('player-stats: 記錄遊戲結果（engine）', () => {
+describe('player-stats: 記錄遊戲結果 (engine)', () => {
   const record = (events: GameEvent[]) => events.find((e) => e.type === 'gameRecord');
 
   it('全真人的遊戲分出勝負時送出紀錄：獲勝陣營和每位玩家的角色', () => {
@@ -1550,7 +1550,7 @@ describe('bot-players: bot 的發言台詞', () => {
   });
 
   it('bot 的 PK 發言替自己辯護並提到另一位平票的玩家', () => {
-    // 7 位真人 + 1 個 bot（bot 是村民）
+    // 7 位真人 + 1 個 bot (bot 是村民)
     const game = run([{ type: 'addBot', user: 'p1', count: 1 }, { type: 'start', user: 'p1' }], lobbyWith(7).state).state;
     const bot = botId(game, 1);
     const day = skipLastWords(
@@ -1628,7 +1628,7 @@ describe('bot-players: 台詞有足夠的變化', () => {
   });
 });
 
-describe('bot-players: bot 的顯示方式（隨機名字）', () => {
+describe('bot-players: bot 的顯示方式 (隨機名字)', () => {
   it('加入 bot 時取一個名字，名單顯示 🤖<名字>', () => {
     const { state } = run([{ type: 'addBot', user: 'p1', count: 1 }], lobbyWith(1).state);
     const name = mention(botId(state, 1));
@@ -1664,7 +1664,7 @@ describe('bot-players: bot 的顯示方式（隨機名字）', () => {
   });
 });
 
-describe('bot-players: bot 需要的資訊（31.1）', () => {
+describe('bot-players: bot 需要的資訊 (31.1)', () => {
   it('記錄預言家的查驗結果', () => {
     const { state } = run(
       [
@@ -1772,7 +1772,7 @@ describe('bot-players: bot 依身分發言', () => {
   });
 });
 
-describe('bot-players: 狼人 bot 不懷疑也不投隊友（整局檢查）', () => {
+describe('bot-players: 狼人 bot 不懷疑也不投隊友 (整局檢查)', () => {
   it('12 人局 20 組隨機種子，狼人 bot 的懷疑和投票都不是狼人', () => {
     for (let seed = 1; seed <= 20; seed++) {
       let x = seed;
@@ -1798,7 +1798,7 @@ describe('bot-players: 狼人 bot 不懷疑也不投隊友（整局檢查）', (
 });
 
 describe('bot-players: bot 理解真人的發言', () => {
-  // withBots 天亮後：輪流發言順序 bot4 → p1（真人，正在發言）→ bot1 → bot2 → bot3；bot5 第一夜死亡
+  // withBots 天亮後：輪流發言順序 bot4 → p1 (真人，正在發言)→ bot1 → bot2 → bot3；bot5 第一夜死亡
   const dayAtP1 = () => {
     const { state } = withBots();
     const day = applyAction(state, { type: 'wolfVote', user: 'p1', target: state.night!.wolfVotes[botId(state, 1)] }, () => 0.99999).state;
@@ -1866,7 +1866,7 @@ describe('bot-players: bot 理解真人的發言', () => {
   it('狼人 bot 反咬報出它是狼人的真人預言家', () => {
     const day = dayAtP1();
     const wolf = botId(day, 1);
-    // 把 p1 改成村民（真人好人），讓 p1 跳預言家查殺狼人 bot
+    // 把 p1 改成村民 (真人好人)，讓 p1 跳預言家查殺狼人 bot
     const good = { ...day, players: day.players.map((p) => (p.id === 'p1' ? { ...p, role: 'villager' as Role } : p)) };
     const after = run([{ type: 'chat', user: 'p1', text: `我是預言家，查殺 ${mention(wolf)}` }], good).state;
     const vote = toVote(after).state;
@@ -1875,7 +1875,7 @@ describe('bot-players: bot 理解真人的發言', () => {
 });
 
 describe('win-condition: 狼人數量追上好人', () => {
-  it('存活 2 狼 2 好人（村民和神職都還在）：狼人獲勝', () => {
+  it('存活 2 狼 2 好人 (村民和神職都還在)：狼人獲勝', () => {
     expect(checkWinner(table('WWSiVv'))).toBe('wolves'); // 存活：2 狼、預言家、村民
   });
 
@@ -1892,7 +1892,7 @@ describe('win-condition: 狼人數量追上好人', () => {
   });
 });
 
-describe('day-phase / win-condition: 狼王開槍（取代原本獵人的情境）', () => {
+describe('day-phase / win-condition: 狼王開槍 (取代原本獵人的情境)', () => {
   it('被狼人刀死的狼王開槍後，接著開始輪流發言', () => {
     const night = skipLastWords(night10('p3', 'skip'));
     const shot = run([{ type: 'shoot', user: 'p3', target: 'p9' }], night.state);

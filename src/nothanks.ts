@@ -1,4 +1,4 @@
-// 不要謝謝（No Thanks!）遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyNoThanks(state, action, rng) → { state, events }。
+// 不要謝謝 (No Thanks!) 遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyNoThanks(state, action, rng) → { state, events }。
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
 
@@ -67,7 +67,7 @@ export function runsText(cards: number[]): string {
     if (g && g.at(-1) === c - 1) g.push(c);
     else groups.push([c]);
   }
-  return groups.length ? groups.map((g) => (g.length > 1 ? `${g[0]}-${g.at(-1)}` : `${g[0]}`)).join(' · ') : '（還沒有）';
+  return groups.length ? groups.map((g) => (g.length > 1 ? `${g[0]}-${g.at(-1)}` : `${g[0]}`)).join(' · ') : '(還沒有)';
 }
 
 // bot：沒籌碼、收下不會變多分、或牌上籌碼 × 3 ≥ 增加的分數就收下
@@ -81,9 +81,9 @@ const current = (s: NTState) => s.players[s.turn];
 
 function board(s: NTState, options = true): GameEvent {
   const lines = [
-    `🃏 第 ${s.cardNo} 張：*${s.card}*，牌上 🪙 ${s.pot} 個（牌堆剩 ${s.deck.length} 張）`,
+    `🃏 第 ${s.cardNo} 張：*${s.card}*，牌上 🪙 ${s.pot} 個 (牌堆剩 ${s.deck.length} 張)`,
     ...(s.last ? [s.last] : []),
-    options ? `輪到 ${mention(current(s).id)}（${TURN_MS / 1000} 秒）：「🙅 不要謝謝」付 1 個籌碼，或「✋ 收下」` : '',
+    options ? `輪到 ${mention(current(s).id)} (${TURN_MS / 1000} 秒)：「🙅 不要謝謝」付 1 個籌碼，或「✋ 收下」` : '',
     '收下的牌：',
     ...s.players.map((p) => `• ${mention(p.id)}：${runsText(p.cards)}`),
   ].filter(Boolean);
@@ -119,7 +119,7 @@ function pass(c: Ctx, auto: boolean) {
   me.chips--;
   s.pot++;
   s.step++;
-  s.last = `🙅 ${mention(me.id)} 不要謝謝${auto ? '（超時）' : ''}`;
+  s.last = `🙅 ${mention(me.id)} 不要謝謝${auto ? ' (超時)' : ''}`;
   s.turn = (s.turn + 1) % s.players.length;
   c.events.push(board(s));
   startTimer(c, TURN_MS);
@@ -133,7 +133,7 @@ function take(c: Ctx, auto: boolean) {
   s.step++;
   s.last = `✋ ${mention(me.id)} 收下了`;
   c.events.push(board(s, false));
-  c.events.push({ type: 'announce', text: `✋ ${mention(me.id)} 收下 ${s.card} 和 ${s.pot} 個籌碼${auto ? '（超時）' : ''}` });
+  c.events.push({ type: 'announce', text: `✋ ${mention(me.id)} 收下 ${s.card} 和 ${s.pot} 個籌碼${auto ? ' (超時)' : ''}` });
   if (s.deck.length) flip(c);
   else endGame(c);
 }
@@ -152,7 +152,7 @@ function endGame(c: Ctx) {
       type: 'announce',
       text: [
         `🏆 遊戲結束，${s.winners.map(mention).join('、')} 分數最低獲勝！`,
-        ...ranking.map((p, i) => `${i + 1}. ${mention(p.id)} 分數 ${scoreOf(p)}（牌 ${runsText(p.cards)}，🪙 ${p.chips}）${scoreOf(p) === min ? ' 🏆' : ''}`),
+        ...ranking.map((p, i) => `${i + 1}. ${mention(p.id)} 分數 ${scoreOf(p)} (牌 ${runsText(p.cards)}，🪙 ${p.chips})${scoreOf(p) === min ? ' 🏆' : ''}`),
         `一開始被拿掉的牌：${sorted(s.removed).join(' ')}`,
       ].join('\n'),
       gif: 'goodWin',
@@ -177,7 +177,7 @@ function start(c: Ctx, user: string): boolean {
   s.phase = 'turn';
   c.events.push({
     type: 'announce',
-    text: `🙅 不要謝謝開始！座位：${s.players.map((p) => mention(p.id)).join(' → ')}\n每人 ${chips} 個籌碼（不公開），由 ${mention(current(s).id)} 先開始。\n分數＝收下的牌點數加總（連號只算最小那張）減去籌碼，分數最低的人贏。`,
+    text: `🙅 不要謝謝開始！座位：${s.players.map((p) => mention(p.id)).join(' → ')}\n每人 ${chips} 個籌碼 (不公開)，由 ${mention(current(s).id)} 先開始。\n分數＝收下的牌點數加總 (連號只算最小那張) 減去籌碼，分數最低的人贏。`,
   });
   const rules = `🙅 不要謝謝規則：牌 3～35，拿掉 9 張不公開。輪到你時「🙅 不要謝謝」付 1 個籌碼放在牌上換下一位，或「✋ 收下」這張牌和牌上所有籌碼，再翻下一張還是輪到你；沒有籌碼只能收下。每次 60 秒，超時有籌碼就自動不要謝謝。分數最低的人贏。你有 ${chips} 個籌碼，隨時按「👀 我的籌碼」查看。`;
   for (const p of s.players) if (!isBot(p.id)) c.events.push({ type: 'dm', to: p.id, text: rules });

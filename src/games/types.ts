@@ -12,7 +12,7 @@ export interface GameDef<S extends { phase: string }, A extends { type: string }
   players: string; // 例如「3～6 人」
   category: Category;
   desc: string; // 大廳的一句介紹
-  noBots?: boolean; // 遊戲清單那一行加「（不支援 bot）」
+  noBots?: boolean; // 遊戲清單那一行加「(不支援 bot)」
   help: string; // `/game <遊戲> help` 的指令說明
   apply(state: S | undefined, action: A, rng: Rng): { state: S; events: GameEvent[] };
   parse(text: string, user: string, channel: string): A | null;

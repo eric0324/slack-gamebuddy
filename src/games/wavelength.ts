@@ -5,15 +5,15 @@ import { parseRoomCommand } from './undercover.js';
 
 const HELP = [
   '*心電感應指令*',
-  '• `/game wavelength new`：開房（任何人）',
-  '• `/game wavelength start`：開始遊戲，需要 4～12 位真人（房主）',
+  '• `/game wavelength new`：開房 (任何人)',
+  '• `/game wavelength start`：開始遊戲，需要 4～12 位真人 (房主)',
   '• 出題：輪到你時按「✍️ 寫提示」輸入提示詞；也可以打 `/game wavelength clue <提示>`',
-  '• `/game wavelength cancel`：取消遊戲（房主）',
+  '• `/game wavelength cancel`：取消遊戲 (房主)',
   '猜位置、猜左右都用頻道按鈕',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
-// 心電感應的子指令：clue <提示>（提示可以有空白）
+// 心電感應的子指令：clue <提示> (提示可以有空白)
 export function parseWavelengthCommand(text: string, user: string, channel: string): WAction | null {
   const [sub, ...rest] = text.trim().split(/\s+/);
   if (sub === 'clue') return rest.length ? { type: 'clue', user, text: rest.join(' ') } : null;

@@ -38,7 +38,7 @@ const timers = (events: GameEvent[]) => events.filter((e) => e.type === 'startTi
 const fire = (s: CState, r: () => number = rng) => run([{ type: 'timeout', id: s.timers.phase! }], s, r);
 const P = (s: CState, id: string) => s.players.find((p) => p.id === id)!;
 
-// 自訂局面：n 人（p1…pn），chars[i] 是 p(i+1) 這輪的角色；直接跳到選角最後一位選完，開始叫號
+// 自訂局面：n 人 (p1…pn)，chars[i] 是 p(i+1) 這輪的角色；直接跳到選角最後一位選完，開始叫號
 type Setup = { gold?: number[]; hands?: string[][]; cities?: string[][]; faceUp?: Rank[]; deck?: string[]; crown?: number; round?: number; cityRound?: number };
 function calling(chars: Rank[], o: Setup = {}, r: () => number = rng) {
   const n = chars.length;
@@ -59,7 +59,7 @@ function calling(chars: Rank[], o: Setup = {}, r: () => number = rng) {
 }
 // 目前回合的 seq
 const seqOf = (s: CState) => s.seq;
-// 讓目前的玩家拿金（收集資源）
+// 讓目前的玩家拿金 (收集資源)
 const gatherGold = (s: CState) => run([{ type: 'gather', user: s.players[s.turn!.player].id, seq: s.seq, kind: 'gold' }], s);
 
 describe('citadels/setup: 房間', () => {
@@ -169,12 +169,12 @@ describe('citadels/setup: 我的狀態', () => {
     expect(state).toBe(s);
     expect(timers(events)).toHaveLength(0);
     const text = ephemeralTo(events, 'p1')[0];
-    expect(text).toContain('🟣 圖書館（6）');
+    expect(text).toContain('🟣 圖書館 (6)');
     expect(text).toContain('抽牌時全部留下');
-    expect(text).toContain('🟡 城堡（4）');
+    expect(text).toContain('🟡 城堡 (4)');
     expect(text).toContain('5 金');
     expect(text).toContain('🦹 盜賊');
-    expect(text).toContain('🟢 酒館（1）');
+    expect(text).toContain('🟢 酒館 (1)');
     expect(events.every((e) => e.type === 'ephemeral' && e.to === 'p1')).toBe(true);
   });
 
@@ -193,7 +193,7 @@ describe('citadels/setup: 我的狀態', () => {
   });
 });
 
-// 依目前的選角順序替每個人選角（ranks 依序）
+// 依目前的選角順序替每個人選角 (ranks 依序)
 function pickAll(s: CState, ranks: Rank[]) {
   let state = s;
   for (const rank of ranks) state = run([{ type: 'pick', user: state.players[state.draft!.order[state.draft!.at]].id, rank }], state).state;
@@ -228,7 +228,7 @@ describe('citadels/draft: 選角前的棄牌', () => {
   });
 
   it('國王不會面朝上棄掉：改棄另一張', () => {
-    const { state } = started(4, () => 0); // 角色洗成 2,3,4,5,…：面朝下 2，面朝上翻到 3、4（國王）→ 改棄 5
+    const { state } = started(4, () => 0); // 角色洗成 2,3,4,5,…：面朝下 2，面朝上翻到 3、4 (國王)→ 改棄 5
     expect(state.draft!.faceUp).toEqual([3, 5]);
     expect(state.draft!.pool).toContain(4);
   });
@@ -306,7 +306,7 @@ describe('citadels/draft: 7 人局的最後一位', () => {
     const s = lastOf7();
     expect(s.draft!.order[s.draft!.at]).toBe(5);
     const { events } = run([{ type: 'pickMenu', user: 'p6' }], s);
-    expect(labels(events, 'p6')).toEqual(['🔮 魔術師', '🗡️ 刺客（面朝下的棄牌）']);
+    expect(labels(events, 'p6')).toEqual(['🔮 魔術師', '🗡️ 刺客 (面朝下的棄牌)']);
     const picked = run([{ type: 'pick', user: 'p6', rank: 1 }], s);
     expect(P(picked.state, 'p6').char).toBe(1);
     expect(picked.state.players.some((p) => p.char === 3)).toBe(false);
@@ -338,7 +338,7 @@ describe('citadels/turns: 叫號', () => {
     const board = boards(first.events).at(-1)!;
     expect(board.ref).toBe(`citadels:${first.state.seq}`);
     expect(board.text).toContain('第 1 輪');
-    expect(board.text.split('\n')[0]).toBe('*👉 現在輪到：<@p1>（2 號 🦹 盜賊）⏳ 90 秒*');
+    expect(board.text.split('\n')[0]).toBe('*👉 現在輪到：<@p1> (2 號 🦹 盜賊) ⏳ 90 秒*');
     expect(board.text).toContain('已翻開：🦹 盜賊 <@p1>');
     expect(board.text).toContain('沒有人是 1 號 🗡️ 刺客');
     expect(board.options).toEqual([
@@ -366,7 +366,7 @@ describe('citadels/turns: 叫號', () => {
     const text = boards(events).at(-1)!.text;
     expect(text).toContain('👑 王冠：<@p2>');
     expect(text).toContain('👉 • <@p1>：💰 2 金｜🃏 1 張｜🏘️ 0 棟');
-    expect(text).toContain('\n• <@p2>：💰 2 金｜🃏 0 張｜🏘️ 1 棟：🟢 酒館（1）');
+    expect(text).toContain('\n• <@p2>：💰 2 金｜🃏 0 張｜🏘️ 1 棟：🟢 酒館 (1)');
     expect(text).not.toContain('城堡');
     expect(text).not.toMatch(/國王|商人|建築師/);
   });
@@ -407,12 +407,12 @@ describe('citadels/turns: 回合選單', () => {
 
   it('選單列出自己的城市：收集前、收集後、沒有建築時', () => {
     const s = calling([2, 4, 6, 7], { cities: [['castle', 'market'], [], [], []] }).state;
-    const city = '🏘️ 你的城市（2 棟）：🟡 城堡（4）、🟢 市集（2）';
+    const city = '🏘️ 你的城市 (2 棟)：🟡 城堡 (4)、🟢 市集 (2)';
     expect(menuOf(run([{ type: 'turnMenu', user: 'p1', seq: s.seq }], s).events, 'p1')!.text).toContain(city);
     const g = gatherGold(s).state;
     expect(menuOf(run([{ type: 'turnMenu', user: 'p1', seq: g.seq }], g).events, 'p1')!.text).toContain(city);
     const empty = calling([2, 4, 6, 7]).state;
-    expect(menuOf(run([{ type: 'turnMenu', user: 'p1', seq: empty.seq }], empty).events, 'p1')!.text).toContain('🏘️ 你的城市（0 棟）：（還沒有建築）');
+    expect(menuOf(run([{ type: 'turnMenu', user: 'p1', seq: empty.seq }], empty).events, 'p1')!.text).toContain('🏘️ 你的城市 (0 棟)：(還沒有建築)');
   });
 
   it('選單列出場上一覽，名字用 @ 標記', () => {
@@ -429,7 +429,7 @@ describe('citadels/turns: 回合選單', () => {
   it('建造清單也列出自己的城市', () => {
     const s = gatherGold(calling([2, 4, 6, 7], { cities: [['market'], [], [], []], hands: [['tavern'], [], [], []] }).state).state;
     const text = menuOf(run([{ type: 'turnMenu', user: 'p1', seq: s.seq, sub: 'build' }], s).events, 'p1')!.text;
-    expect(text).toContain('🏘️ 你的城市（1 棟）：🟢 市集（2）');
+    expect(text).toContain('🏘️ 你的城市 (1 棟)：🟢 市集 (2)');
     expect(text).toContain('🔨 要建哪一棟？');
   });
 
@@ -475,7 +475,7 @@ describe('citadels/turns: 收集資源', () => {
     expect(announces(drew.events).join()).toContain('<@p1> 抽了牌');
     expect(announces(drew.events).join()).not.toMatch(/城堡|酒館/);
     expect(values(drew.events, 'p1')).toEqual([`keep:${s.seq}:castle`, `keep:${s.seq}:tavern`]);
-    expect(labels(drew.events, 'p1')).toEqual(['🟡 城堡（4）', '🟢 酒館（1）']);
+    expect(labels(drew.events, 'p1')).toEqual(['🟡 城堡 (4)', '🟢 酒館 (1)']);
     const { state } = run([{ type: 'keep', user: 'p1', seq: s.seq, card: 'castle' }], drew.state);
     expect(P(state, 'p1').hand).toEqual(['castle']);
     expect(state.deck).toEqual(['manor', 'tavern']);
@@ -504,9 +504,9 @@ describe('citadels/turns: 建造', () => {
     expect(P(state, 'p1').gold).toBe(0);
     expect(P(state, 'p1').hand).toEqual(['tavern']);
     expect(P(state, 'p1').city.map((x) => x.card)).toEqual(['castle']);
-    expect(announces(events).join()).toContain('<@p1> 建了 🟡 城堡（4）');
+    expect(announces(events).join()).toContain('<@p1> 建了 🟡 城堡 (4)');
     expect(boards(events).map((b) => b.ref)).toEqual([`citadels:${s.seq}`]);
-    expect(boards(events)[0].text).toContain('🏘️ 1 棟：🟡 城堡（4）');
+    expect(boards(events)[0].text).toContain('🏘️ 1 棟：🟡 城堡 (4)');
   });
 
   it('金幣不夠：選單沒有建造', () => {
@@ -597,7 +597,7 @@ describe('citadels/turns: 回合計時', () => {
 // 目前的玩家拿金，然後做 actions
 const act = (s: CState, actions: CAction[]) => run(actions, gatherGold(s).state);
 const sub = (s: CState, user: string, which: Extract<CAction, { type: 'turnMenu' }>['sub']) => run([{ type: 'turnMenu', user, seq: s.seq, sub: which }], s);
-// 把整輪打完（每個人拿金後結束），回傳每一步的公告
+// 把整輪打完 (每個人拿金後結束)，回傳每一步的公告
 function finishRound(s: CState) {
   const all: string[] = [];
   const round = s.round;
@@ -745,7 +745,7 @@ describe('citadels/turns: 商人與建築師', () => {
     const s = until(calling([2, 4, 6, 7], { deck: ['castle', 'tavern', 'manor', 'palace', 'temple'], gold: [2, 2, 2, 20] }).state, 'p4');
     const drew = run([{ type: 'gather', user: 'p4', seq: s.seq, kind: 'draw' }, { type: 'keep', user: 'p4', seq: s.seq, card: 'castle' }], s);
     expect(P(drew.state, 'p4').hand).toEqual(['castle', 'manor', 'palace']);
-    expect(menuOf(drew.events, 'p4')!.text).toContain('📐 你多抽到 🟡 莊園（3）');
+    expect(menuOf(drew.events, 'p4')!.text).toContain('📐 你多抽到 🟡 莊園 (3)');
     let st = run([{ type: 'gather', user: 'p4', seq: s.seq, kind: 'draw' }, { type: 'keep', user: 'p4', seq: s.seq, card: 'castle' }], s).state;
     for (const card of ['castle', 'manor', 'palace']) st = run([{ type: 'build', user: 'p4', seq: s.seq, card }], st).state;
     expect(P(st, 'p4').city).toHaveLength(3);
@@ -760,12 +760,12 @@ describe('citadels/turns: 軍閥', () => {
     const s = warlord({ cities: [['market'], [], [], []], gold: [2, 2, 2, 1], deck: ['temple'] });
     expect(labels(run([{ type: 'turnMenu', user: 'p4', seq: s.seq }], s).events, 'p4')).toContain('💥 破壞');
     expect(values(sub(s, 'p4', 'destroy').events, 'p4')).toEqual([`destroy:${s.seq}:market:p1`]);
-    expect(labels(sub(s, 'p4', 'destroy').events, 'p4')).toEqual(['p1 的 🟢 市集（2）：1 金']);
+    expect(labels(sub(s, 'p4', 'destroy').events, 'p4')).toEqual(['p1 的 🟢 市集 (2)：1 金']);
     const { state, events } = run([{ type: 'destroy', user: 'p4', seq: s.seq, target: 'p1', card: 'market' }], s);
     expect(P(state, 'p4').gold).toBe(2);
     expect(P(state, 'p1').city).toEqual([]);
     expect(state.deck.at(-1)).toBe('market');
-    expect(announces(events).join()).toContain('<@p4> 花 1 金破壞了 <@p1> 的 🟢 市集（2）');
+    expect(announces(events).join()).toContain('<@p4> 花 1 金破壞了 <@p1> 的 🟢 市集 (2)');
     expect(run([{ type: 'turnMenu', user: 'p4', seq: s.seq }], state).events.length).toBeGreaterThan(0);
     expect(labels(run([{ type: 'turnMenu', user: 'p4', seq: s.seq }], state).events, 'p4')).not.toContain('💥 破壞');
   });
@@ -803,7 +803,7 @@ describe('citadels/districts: 要塞與城牆', () => {
 
   it('城牆讓其他建築的破壞費用 +1，城牆本身照一般費用', () => {
     const s = warlordOf({ cities: [['greatWall', 'market'], [], [], []], gold: [2, 2, 2, 8] });
-    expect(labels(sub(s, 'p4', 'destroy').events, 'p4')).toEqual(['p1 的 🟣 城牆（6）：5 金', 'p1 的 🟢 市集（2）：2 金']);
+    expect(labels(sub(s, 'p4', 'destroy').events, 'p4')).toEqual(['p1 的 🟣 城牆 (6)：5 金', 'p1 的 🟢 市集 (2)：2 金']);
   });
 });
 
@@ -886,7 +886,7 @@ describe('citadels/districts: 墓地', () => {
     const asked = destroyWith([[], ['castle'], ['graveyard'], []]);
     expect(asked.state.phase).toBe('graveyard');
     const dm = prompts(asked.events).find((p) => p.audience === 'user' && p.user === 'p3')!;
-    expect(dm.text).toContain('要不要付 1 金把 🟡 城堡（4） 收回手上');
+    expect(dm.text).toContain('要不要付 1 金把 🟡 城堡 (4) 收回手上');
     expect(dm.options).toEqual([{ value: 'grave:yes', label: '付 1 金收回' }, { value: 'grave:no', label: '不用' }]);
     expect(timers(asked.events).at(-1)!.ms).toBe(20_000);
     expect(run([{ type: 'end', user: 'p4', seq: asked.before.seq }], asked.state).state).toBe(asked.state);
@@ -1051,7 +1051,7 @@ describe('citadels/scoring: 結束公告、再來一局、取消', () => {
 });
 
 const BOT = (i: number) => `bot:${i}:B${i}`;
-// 把第 i 位（0 起）改成 bot
+// 把第 i 位 (0 起) 改成 bot
 function asBot(s: CState, i: number, city: string[] = []) {
   const st = structuredClone(s);
   st.players[i].id = BOT(i + 1);
@@ -1123,7 +1123,7 @@ describe('citadels/bots: bot 的回合', () => {
     const text = announces(events).join('\n');
     expect(text).toContain('🤖B1 拿了 2 金');
     expect(text).toContain('🤖B1 收稅 0 金');
-    expect(text).toContain('🤖B1 建了 🟡 城堡（4）');
+    expect(text).toContain('🤖B1 建了 🟡 城堡 (4)');
   });
 
   it('沒有能蓋的牌就抽牌，留費用最高、不重複的', () => {
@@ -1195,13 +1195,13 @@ describe('citadels/bots: 一個人也能玩完整局', () => {
   });
 });
 
-describe('citadels/setup: 遊戲清單與指令說明（GameDef）', () => {
+describe('citadels/setup: 遊戲清單與指令說明 (GameDef)', () => {
   it('大廳資訊', () => {
     expect(citadels).toMatchObject({ kind: 'citadels', emoji: '🏛️', name: '富饒之城', players: '4～7 人', category: 'bluff' });
     expect(citadels.desc.length).toBeGreaterThan(0);
   });
 
-  it('help 列出指令和按鈕用法；不認識的子指令回傳 null（顯示說明）', () => {
+  it('help 列出指令和按鈕用法；不認識的子指令回傳 null (顯示說明)', () => {
     for (const w of ['new', 'addbot', 'removebot', 'start', 'cancel', '🎭 選角色', '🏰 行動', '📜 我的狀態']) expect(citadels.help).toContain(w);
     expect(citadels.parse('foo', 'U', 'C')).toBeNull();
     expect(citadels.parse('help', 'U', 'C')).toBeNull();
@@ -1270,13 +1270,13 @@ describe('citadels/turns: 回合面板', () => {
   it('私下資訊併進選單開頭：建築師多抽到的牌', () => {
     const s = until(calling([2, 4, 6, 7], { deck: ['castle', 'tavern'] }).state, 'p4');
     const { events } = run([{ type: 'gather', user: 'p4', seq: s.seq, kind: 'gold' }], s);
-    expect(menuOf(events, 'p4')!.text.startsWith('📐 你多抽到 🟡 城堡（4）、🟢 酒館（1）。\n')).toBe(true);
+    expect(menuOf(events, 'p4')!.text.startsWith('📐 你多抽到 🟡 城堡 (4)、🟢 酒館 (1)。\n')).toBe(true);
     expect(ephs(events, 'p4')).toEqual([]);
   });
 
   it('逾時時私下資訊照常另外告訴本人', () => {
     const s = until(calling([2, 4, 6, 7], { deck: ['castle', 'tavern'] }).state, 'p4');
-    expect(ephemeralTo(fire(s).events, 'p4').join()).toContain('📐 你多抽到 🟡 城堡（4）、🟢 酒館（1）。');
+    expect(ephemeralTo(fire(s).events, 'p4').join()).toContain('📐 你多抽到 🟡 城堡 (4)、🟢 酒館 (1)。');
   });
 
   it('結束回合：面板變成「✅ 你的回合結束了」', () => {

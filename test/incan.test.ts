@@ -45,7 +45,7 @@ describe('incan/setup: 印加寶藏的房間', () => {
     expect(ephemeralTo(events, 'p1')?.text).toContain('至少需要 3 人');
   });
 
-  it('房間已滿（8 人）時拒絕加入', () => {
+  it('房間已滿 (8 人) 時拒絕加入', () => {
     const { state, events } = run([{ type: 'join', user: 'x' }], lobbyWith(8).state);
     expect(state.players).toHaveLength(8);
     expect(ephemeralTo(events, 'x')?.text).toContain('房間已滿');
@@ -86,7 +86,7 @@ describe('incan/setup: 加入與移除 bot', () => {
 });
 
 describe('incan/setup: 牌庫與開局', () => {
-  it('探險牌庫 30 張：15 張寶藏（照原版寶石數）、5 種危險各 3 張、沒有神器', () => {
+  it('探險牌庫 30 張：15 張寶藏 (照原版寶石數)、5 種危險各 3 張、沒有神器', () => {
     const deck = newDeck();
     expect(deck).toHaveLength(30);
     expect(deck.filter(isGem).map((c) => Number(c.slice(4)))).toEqual([1, 2, 3, 4, 5, 5, 7, 7, 9, 11, 11, 13, 14, 15, 17]);
@@ -117,7 +117,7 @@ describe('incan/setup: 牌庫與開局', () => {
   });
 });
 
-// 下一張翻 card：從牌庫拿出這張（沒有就新加）放到最上面，洞裡還沒選的真人全部選繼續探險
+// 下一張翻 card：從牌庫拿出這張 (沒有就新加) 放到最上面，洞裡還沒選的真人全部選繼續探險
 function flip(state: IState, card: string) {
   const s = structuredClone(state);
   const c = card as IState['deck'][number];
@@ -188,7 +188,7 @@ describe('incan/rounds: 步驟訊息', () => {
 });
 
 const pick = (user: string, seq: number, choice: 'go' | 'camp'): IAction => ({ type: 'choose', user, seq, choice });
-// 洞裡的真人依 choices 選擇（沒列到的選繼續探險）
+// 洞裡的真人依 choices 選擇 (沒列到的選繼續探險)
 function chooseAll(state: IState, choices: Record<string, 'go' | 'camp'> = {}) {
   const cave = state.players.filter((p) => p.inCave && !isBot(p.id));
   return run(cave.map((p) => pick(p.id, state.seq, choices[p.id] ?? 'go')), state);
@@ -205,7 +205,7 @@ describe('incan/rounds: 同時選擇', () => {
   it('選擇不公開：私下確認，頻道同一則訊息更新為已選 1/3', () => {
     const s = started(3).state;
     const { state, events } = run([pick('p1', s.seq, 'camp')], s);
-    expect(ephemeralTo(events, 'p1')?.text).toBe('你選了 ⛺ 回營地（揭曉前可以改）');
+    expect(ephemeralTo(events, 'p1')?.text).toBe('你選了 ⛺ 回營地 (揭曉前可以改)');
     const [b] = boards(events);
     expect(b.ref).toBe(`incan:${s.seq}`);
     expect(b.text).toContain('已選 1/3');
@@ -219,7 +219,7 @@ describe('incan/rounds: 同時選擇', () => {
     const s = started(3).state;
     const { state, events } = run([pick('p1', s.seq, 'camp'), pick('p1', s.seq, 'go')], s);
     expect(player(state, 'p1').choice).toBe('go');
-    expect(ephemeralTo(events, 'p1')?.text).toBe('你選了 🔦 繼續探險（揭曉前可以改）');
+    expect(ephemeralTo(events, 'p1')?.text).toBe('你選了 🔦 繼續探險 (揭曉前可以改)');
     expect(boards(events)).toEqual([]);
   });
 
@@ -273,7 +273,7 @@ describe('incan/rounds: 揭曉與回營', () => {
   });
 });
 
-// 下一步翻到的寶藏留在路上的餘數（測試用：直接看最新翻的牌）
+// 下一步翻到的寶藏留在路上的餘數 (測試用：直接看最新翻的牌)
 function gemsLeft(s: IState) {
   const last = s.revealed.at(-1)!;
   if (!last.startsWith('gem:')) return 0;
@@ -313,8 +313,8 @@ describe('incan/rounds: 逾時', () => {
     const chose = run([pick('p1', s.seq, 'go')], s).state;
     const { state, events } = run([{ type: 'timeout', id: chose.timers.phase! }], chose);
     expect([player(state, 'p2').inCave, player(state, 'p3').inCave, player(state, 'p1').inCave]).toEqual([false, false, true]);
-    expect(boards(events)[0].text).toContain('<@p2> ⛺ 回營地（逾時，自動回營）');
-    expect(boards(events)[0].text).not.toContain('<@p1> 🔦 繼續探險（逾時');
+    expect(boards(events)[0].text).toContain('<@p2> ⛺ 回營地 (逾時，自動回營)');
+    expect(boards(events)[0].text).not.toContain('<@p1> 🔦 繼續探險 (逾時');
   });
 
   it('舊計時器被忽略', () => {
@@ -325,7 +325,7 @@ describe('incan/rounds: 逾時', () => {
   });
 });
 
-// 把牌庫裡的一張牌移到路上（當作這座神殿已經翻過）
+// 把牌庫裡的一張牌移到路上 (當作這座神殿已經翻過)
 function onPath(state: IState, card: string) {
   const s = structuredClone(state);
   const c = card as IState['deck'][number];
@@ -359,7 +359,7 @@ describe('incan/rounds: 神殿結束', () => {
     expect(countOf(all(state), isRelic)).toBe(2);
   });
 
-  it('移除的牌不回來：第二張毒蛇失敗、路上 1 個神器 → 第二座 15 寶藏、14 危險（毒蛇 2）、1 神器', () => {
+  it('移除的牌不回來：第二張毒蛇失敗、路上 1 個神器 → 第二座 15 寶藏、14 危險 (毒蛇 2)、1 神器', () => {
     const s = onPath(onPath(started(3).state, 'relic'), 'snake');
     const { state, events } = flip(s, 'snake');
     const cards = all(state);
@@ -397,7 +397,7 @@ describe('incan/rounds: 勝負與結束', () => {
     expect(resultOf(events)).toEqual({ type: 'result', players: ['p1', 'p2', 'p3'], winners: ['p1'] });
     const text = announces(events).join('\n');
     expect(text).toContain('<@p1> 獲勝');
-    expect(text).toContain('1. <@p1> 48 分（寶石 38、神器 2 個 10 分）');
+    expect(text).toContain('1. <@p1> 48 分 (寶石 38、神器 2 個 10 分)');
     expect(text).toContain('2. <@p2> 40 分');
     expect(text).toContain('3. <@p3> 31 分');
     expect(prompts(events).some((p) => p.kind === 'rematch')).toBe(true);
@@ -449,7 +449,7 @@ describe('incan/bots: bot 的選擇策略', () => {
     expect(hazardRisk(botState({ seen: ['spider', 'snake'], deck: deckOf(20, ['spider', 'spider', 'snake', 'snake', 'fire']) }))).toBe(0.2);
   });
 
-  it('還沒出現危險就繼續（即使拿了 12 顆）', () => {
+  it('還沒出現危險就繼續 (即使拿了 12 顆)', () => {
     const s = botState({ deck: deckOf(25, ['spider', 'spider']) }, 12);
     expect(botChoice(s, s.players[0])).toBe('go');
   });
@@ -500,12 +500,12 @@ describe('incan/bots: 一個人也能玩完整局', () => {
       expect(state.temple).toBe(5);
       expect(resultOf(seen)).toMatchObject({ players: state.players.map((p) => p.id) });
       expect(seen.filter((e) => e.type === 'ephemeral' && isBot(e.to))).toEqual([]);
-      expect(boards(seen).some((b) => b.text.includes('<@p1> ⛺ 回營地（逾時，自動回營）'))).toBe(true);
+      expect(boards(seen).some((b) => b.text.includes('<@p1> ⛺ 回營地 (逾時，自動回營)'))).toBe(true);
     }
   });
 });
 
-describe('incan/setup: 指令解析與按鈕（GameDef）', () => {
+describe('incan/setup: 指令解析與按鈕 (GameDef)', () => {
   it('大廳資訊：💎 印加寶藏、3～8 人、心理戰', () => {
     expect(incan).toMatchObject({ kind: 'incan', emoji: '💎', name: '印加寶藏', players: '3～8 人', category: 'bluff' });
     expect(incan.apply).toBe(applyIncan);
@@ -520,7 +520,7 @@ describe('incan/setup: 指令解析與按鈕（GameDef）', () => {
     expect(incan.parse('removebot 2', 'u', 'C1')).toEqual({ type: 'removeBot', user: 'u', count: 2 });
   });
 
-  it('help 和不認識的子指令回傳 null（顯示說明），說明列出所有指令和兩顆按鈕', () => {
+  it('help 和不認識的子指令回傳 null (顯示說明)，說明列出所有指令和兩顆按鈕', () => {
     expect(incan.parse('help', 'u', 'C1')).toBeNull();
     expect(incan.parse('dig', 'u', 'C1')).toBeNull();
     for (const cmd of ['new', 'addbot', 'removebot', 'start', 'cancel']) expect(incan.help).toContain(`/game incan ${cmd}`);

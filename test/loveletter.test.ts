@@ -28,7 +28,7 @@ const prompts = (events: GameEvent[]) => events.filter((e) => e.type === 'prompt
 const values = (p: { options: { value: string }[] }) => p.options.map((o) => o.value);
 const lastTimer = (events: GameEvent[]) => (events.filter((e) => e.type === 'startTimer') as { id: number; ms: number }[]).at(-1)!;
 
-// rng 固定時不洗牌：牌堆依 CARDS 的順序（間諜×2、衛兵×6、神父×2…公主）；先蓋 1 張，再依序發給 p1、p2…；第一位是最後一位玩家
+// rng 固定時不洗牌：牌堆依 CARDS 的順序 (間諜×2、衛兵×6、神父×2…公主)；先蓋 1 張，再依序發給 p1、p2…；第一位是最後一位玩家
 const started = (n: number, r: () => number = rng) => run([{ type: 'start', user: 'p1' }], lobbyWith(n).state, r);
 
 // 直接擺出一個局面：輪到 hands[turn] 的人，他的兩張牌已經在手上
@@ -67,7 +67,7 @@ describe('loveletter/setup: 情書的房間', () => {
     expect(ephemeralTo(events, 'p1')?.text).toContain('至少需要 2 人');
   });
 
-  it('房間已滿（6 人）時拒絕加入', () => {
+  it('房間已滿 (6 人) 時拒絕加入', () => {
     const { state, events } = run([{ type: 'join', user: 'x' }], lobbyWith(6).state);
     expect(state.players).toHaveLength(6);
     expect(ephemeralTo(events, 'x')?.text).toContain('房間已滿');
@@ -102,7 +102,7 @@ describe('loveletter/setup: 牌堆與每輪發牌', () => {
     expect(CARDS.map((c) => c.value)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
 
-  it('4 人：蓋 1 張、每人 1 張，牌堆剩 16 張（第一位再抽 1 張）', () => {
+  it('4 人：蓋 1 張、每人 1 張，牌堆剩 16 張 (第一位再抽 1 張)', () => {
     const { state } = started(4);
     expect(state.burned).toBe('spy');
     expect(state.faceUp).toEqual([]);
@@ -179,7 +179,7 @@ describe('loveletter/rounds: 輪到與出牌', () => {
     expect(ephemeralTo(run([{ type: 'menu', user: 'p2' }], s).events, 'p2')!.text).toContain('還沒輪到你');
   });
 
-  it('出牌 → 選目標 → 猜角色（9 個、沒有衛兵）', () => {
+  it('出牌 → 選目標 → 猜角色 (9 個、沒有衛兵)', () => {
     const s = table([['guard', 'king'], ['priest'], ['baron']], ['spy']);
     const menu = ephPrompt(run([{ type: 'menu', user: 'p1' }], s).events, 'p1');
     expect(values(menu)).toEqual(['pick:1:0', 'pick:1:1']);

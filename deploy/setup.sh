@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 在全新的 Ubuntu 24.04 主機上安裝 werewolf bot（Google Cloud e2-micro 等小主機）
+# 在全新的 Ubuntu 24.04 主機上安裝 werewolf bot (Google Cloud e2-micro 等小主機)
 # 用法：curl -fsSL https://raw.githubusercontent.com/eric0324/slack-gamebuddy/main/deploy/setup.sh | bash
 set -euo pipefail
 
@@ -7,11 +7,11 @@ REPO=https://github.com/eric0324/slack-gamebuddy.git
 HOME_DIR=/opt/werewolf
 APP_DIR=$HOME_DIR/app
 
-echo "==> 安裝 Node.js 22、git 和編譯工具（better-sqlite3 沒有現成的版本時要現場編譯）"
+echo "==> 安裝 Node.js 22、git 和編譯工具 (better-sqlite3 沒有現成的版本時要現場編譯)"
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt-get install -y nodejs git build-essential
 
-echo "==> 加 1GB swap（e2-micro 只有 1GB 記憶體，安裝套件時比較保險）"
+echo "==> 加 1GB swap (e2-micro 只有 1GB 記憶體，安裝套件時比較保險)"
 if ! sudo swapon --show | grep -q /swapfile; then
   sudo fallocate -l 1G /swapfile
   sudo chmod 600 /swapfile

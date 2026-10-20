@@ -20,7 +20,7 @@ import {
   type Grid,
 } from '../src/saboteurCards.js';
 
-// 測試用：把通道牌直接放到地圖上（不檢查規則）
+// 測試用：把通道牌直接放到地圖上 (不檢查規則)
 const put = (grid: Grid, cell: string, edges: number, dead = false) => {
   const { r, c } = cellAt(cell)!;
   grid[r][c] = { kind: 'path', edges, dead };
@@ -251,7 +251,7 @@ describe('saboteur/setup: 矮人礦坑的房間', () => {
     expect(ephemeralTo(events, 'p1').join()).toContain('至少需要 3 人');
   });
 
-  it('房間已滿（10 人）時拒絕加入', () => {
+  it('房間已滿 (10 人) 時拒絕加入', () => {
     const { state, events } = run([{ type: 'join', user: 'x' }], lobbyWith(10).state);
     expect(state.players).toHaveLength(10);
     expect(ephemeralTo(events, 'x').join()).toContain('房間已滿');
@@ -304,7 +304,7 @@ describe('saboteur/setup: 身分分配', () => {
     expect(pub).not.toMatch(/p1.{0,5}破壞者/);
   });
 
-  it('洗牌後剩下的那張可能是破壞者（場上沒有破壞者）', () => {
+  it('洗牌後剩下的那張可能是破壞者 (場上沒有破壞者)', () => {
     // rng 一直回傳 0：洗牌時破壞者被換到最後一張，剛好是不用的那張
     const { state } = run([{ type: 'start', user: 'p1' }], lobbyWith(4).state, () => 0);
     expect(state.players.every((p) => p.role === 'digger')).toBe(true);
@@ -348,7 +348,7 @@ describe('saboteur/setup: 開局公告', () => {
   });
 });
 
-// 4 人局（p1 破壞者、其他金礦工），改成輪到 p1、指定手牌
+// 4 人局 (p1 破壞者、其他金礦工)，改成輪到 p1、指定手牌
 const P = (edges: number, dead = false): PathCard => ({ kind: 'path', edges, dead });
 function setup(mut: (s: SState) => void = () => {}, n = 4) {
   const s = structuredClone(started(n).state);
@@ -580,7 +580,7 @@ describe('saboteur/turns: 藏寶圖', () => {
 });
 
 describe('saboteur/turns: 落石', () => {
-  it('只列通道牌（不含起點終點），拿掉後變空格', () => {
+  it('只列通道牌 (不含起點終點)，拿掉後變空格', () => {
     const s = setup((s) => {
       s.grid[4][3] = P(E | W);
       s.grid[4][4] = P(E | W, true);
@@ -641,7 +641,7 @@ describe('saboteur/turns: 抽牌、回合順序、計時', () => {
   });
 });
 
-// 金礦在 K5，D5～I5 已經挖好，輪到 who（index）手上拿著能接到金礦的「橫」
+// 金礦在 K5，D5～I5 已經挖好，輪到 who (index) 手上拿著能接到金礦的「橫」
 function nearGold(who = 1, mut: (s: SState) => void = () => {}, n = 4) {
   return setup((s) => {
     s.grid = newGrid(1);
@@ -778,7 +778,7 @@ describe('saboteur/scoring: 勝負與結束', () => {
     expect(prompts(events).some((p) => p.kind === 'rematch')).toBe(true);
   });
 
-  it('同分並列（包括全員 0 金）', () => {
+  it('同分並列 (包括全員 0 金)', () => {
     expect(finalRound([4, 8, 1, 1]).state.winners).toEqual(['p1', 'p2']);
     const zero = lastCard((s) => {
       s.round = 3;
@@ -837,11 +837,11 @@ describe('saboteur/bots: 金礦工 bot 的出牌策略', () => {
       s.players[1].hand = [P(N | S), P(15, true)];
       s.players[1].peeked = { K5: true };
     });
-    // 只有起點時「直」只能放 C4、C6，離 K5 最近的前緣還是 D5（距離 7）
+    // 只有起點時「直」只能放 C4、C6，離 K5 最近的前緣還是 D5 (距離 7)
     expect(move(s)).toMatchObject({ type: 'discard', i: 1 });
   });
 
-  it('先修自己（雙用牌修第一項壞掉的）', () => {
+  it('先修自己 (雙用牌修第一項壞掉的)', () => {
     const s = digger((s) => {
       s.players[1].hand = [P(E | W), { kind: 'fix', tools: ['pick', 'cart'] }];
       s.players[1].broken = ['cart', 'pick'];
@@ -909,7 +909,7 @@ describe('saboteur/bots: bot 的其他行為', () => {
   it('bot 一輪到就立刻行動；挑金塊拿最大', () => {
     const lobby = run([{ type: 'addBot', user: 'p1', count: 3 }], lobbyWith(1).state).state;
     const { state, events } = run([{ type: 'start', user: 'p1' }], lobby);
-    // 第 1 回合從最後一位（bot）開始，bot 們行動完輪到真人 p1
+    // 第 1 回合從最後一位 (bot) 開始，bot 們行動完輪到真人 p1
     expect(state.turn).toBe(0);
     expect(boards(events).length).toBeGreaterThan(1);
     const s = digGold(nearGold(1, (s) => (s.players[1].id = 'bot:9:阿土')));
@@ -932,7 +932,7 @@ describe('saboteur/bots: 一個人也能玩完整局', () => {
   });
 });
 
-describe('saboteur/setup: 指令解析與按鈕（GameDef）', () => {
+describe('saboteur/setup: 指令解析與按鈕 (GameDef)', () => {
   it('大廳資訊：⛏️ 矮人礦坑、3～10 人、推理', () => {
     expect(saboteur).toMatchObject({ kind: 'saboteur', emoji: '⛏️', name: '矮人礦坑', players: '3～10 人', category: 'deduction' });
     expect(saboteur.apply).toBe(applySaboteur);
@@ -946,7 +946,7 @@ describe('saboteur/setup: 指令解析與按鈕（GameDef）', () => {
     expect(saboteur.parse('removebot', 'u', 'C1')).toEqual({ type: 'removeBot', user: 'u', count: 1 });
   });
 
-  it('help 和不認識的子指令回傳 null（顯示說明），說明列出所有指令和按鈕', () => {
+  it('help 和不認識的子指令回傳 null (顯示說明)，說明列出所有指令和按鈕', () => {
     expect(saboteur.parse('help', 'u', 'C1')).toBeNull();
     expect(saboteur.parse('dig', 'u', 'C1')).toBeNull();
     for (const cmd of ['new', 'addbot', 'removebot', 'start', 'cancel']) expect(saboteur.help).toContain(`/game saboteur ${cmd}`);

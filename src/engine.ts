@@ -11,7 +11,7 @@ export const MAX_PLAYERS = 12;
 export type Phase = 'lobby' | 'night' | 'lastWords' | 'shooting' | 'speech' | 'vote' | 'pkSpeech' | 'pkVote' | 'ended';
 export type Role = 'werewolf' | 'wolfKing' | 'seer' | 'witch' | 'knight' | 'villager';
 
-// 人數 → 各角色數量（順序也是不洗牌時的發牌順序）
+// 人數 → 各角色數量 (順序也是不洗牌時的發牌順序)
 export const ROLE_TABLE: Record<number, Partial<Record<Role, number>>> = {
   6: { werewolf: 2, seer: 1, witch: 1, villager: 2 },
   7: { werewolf: 2, seer: 1, witch: 1, villager: 3 },
@@ -33,7 +33,7 @@ export const ROLE_NAME: Record<Role, string> = {
 
 const ROLE_HELP: Record<Role, string> = {
   werewolf: '每晚和其他狼人一起選一位玩家擊殺。殺光所有村民或所有神職就獲勝。',
-  wolfKing: '你是狼人陣營，每晚和其他狼人一起擊殺。死亡時（被毒死除外）可以開槍帶走一位玩家。',
+  wolfKing: '你是狼人陣營，每晚和其他狼人一起擊殺。死亡時 (被毒死除外) 可以開槍帶走一位玩家。',
   seer: '每晚可以查驗一位玩家是好人還是狼人。',
   witch: '有一瓶解藥和一瓶毒藥，各能用一次，一晚最多用一瓶。解藥只有第一夜可以救自己。',
   knight: '整局一次，白天輪流發言時可以翻牌向一位玩家決鬥：對方是狼人就出局並直接入夜，對方是好人則你出局。',
@@ -87,16 +87,16 @@ export interface GameState {
   lastDeaths: string[]; // 上一次夜晚結算死亡的玩家
   winner?: 'good' | 'wolves'; // 分出勝負後才有；取消的遊戲沒有
   knightUsed: boolean; // 騎士是否已經決鬥過
-  suspects: Record<string, string>; // bot → 當天發言時懷疑的玩家（投票時優先投他）
+  suspects: Record<string, string>; // bot → 當天發言時懷疑的玩家 (投票時優先投他)
   checks: { night: number; target: string; wolf: boolean }[]; // 預言家的真實查驗結果
   witchLog: { night: number; saved?: string; poisoned?: string }[]; // 女巫的用藥紀錄
-  claims: { by: string; night: number; target: string; wolf: boolean }[]; // bot 公開報過的查驗（可能是假的）
+  claims: { by: string; night: number; target: string; wolf: boolean }[]; // bot 公開報過的查驗 (可能是假的)
   fakeSeer?: string; // 悍跳預言家的狼人 bot
   fakeSeerDecided: boolean; // 第一天是否已經決定過要不要悍跳
   seerClaimers: string[]; // 在頻道自稱過預言家的真人
   godClaims: Record<string, 'witch' | 'knight'>; // 在頻道自稱神職的真人
   speakers: string[]; // 還沒輪到的發言者
-  speaker?: string; // 目前的發言者（輪流發言或遺言）
+  speaker?: string; // 目前的發言者 (輪流發言或遺言)
   lastWords: string[]; // 還沒講遺言的死者
   afterLastWords?: { kind: 'dawn' } | { kind: 'exile'; id: string }; // 遺言講完後要接什麼
   votes: Record<string, string>; // 投票者 → 目標 id 或 'abstain'
@@ -114,7 +114,7 @@ export type Action =
   | { type: 'cancel'; user: string }
   | { type: 'addBot'; user: string; count: number }
   | { type: 'removeBot'; user: string; count: number }
-  | { type: 'wolfVote'; user: string; target: string } // target 是玩家 id 或 'none'（不殺人）
+  | { type: 'wolfVote'; user: string; target: string } // target 是玩家 id 或 'none'(不殺人)
   | { type: 'seerCheck'; user: string; target: string }
   | { type: 'witchAct'; user: string; choice: string } // 'save' | 'skip' | 'poison:<id>'
   | { type: 'endDiscussion'; user: string }
@@ -191,7 +191,7 @@ const GODS: Role[] = ['seer', 'witch', 'knight'];
 // 狼人陣營：狼王在擊殺、查驗、勝負判定時都算狼人
 export const isWolf = (role?: Role) => role === 'werewolf' || role === 'wolfKing';
 
-// 屠邊：狼人全滅 → 好人贏（同時成立也算好人）；村民全滅、神職全滅，或存活狼人 ≥ 存活好人 → 狼人贏
+// 屠邊：狼人全滅 → 好人贏 (同時成立也算好人)；村民全滅、神職全滅，或存活狼人 ≥ 存活好人 → 狼人贏
 export function checkWinner(players: Player[]): 'good' | 'wolves' | null {
   const allDead = (match: (r: Role) => boolean) => players.filter((p) => match(p.role!)).every((p) => !p.alive);
   if (allDead(isWolf)) return 'good';
@@ -223,7 +223,7 @@ function startTimer(c: Ctx, name: TimerName, ms: number) {
   c.events.push({ type: 'startTimer', id, ms });
 }
 
-// 回傳得票最多的人（平手時有多位，沒有票時是空陣列）
+// 回傳得票最多的人 (平手時有多位，沒有票時是空陣列)
 function mostVoted(votes: string[]): string[] {
   const tally = new Map<string, number>();
   for (const v of votes) tally.set(v, (tally.get(v) ?? 0) + 1);
@@ -251,7 +251,7 @@ function announceStart(c: Ctx) {
     {
       type: 'wolfChat',
       wolves,
-      text: `這裡是狼人的私密對話。狼人：${wolves.map((id) => mention(id) + (player(s, id).role === 'wolfKing' ? '（狼王）' : '')).join(' ')}`,
+      text: `這裡是狼人的私密對話。狼人：${wolves.map((id) => mention(id) + (player(s, id).role === 'wolfKing' ? ' (狼王)' : '')).join(' ')}`,
     },
   );
 }
@@ -428,7 +428,7 @@ function nextLastWords(c: Ctx) {
       type: 'prompt',
       kind: 'endSpeech',
       audience: 'channel',
-      text: `🕯️ ${mention(id)} 的遺言（${LAST_WORDS_MS / 1000} 秒）`,
+      text: `🕯️ ${mention(id)} 的遺言 (${LAST_WORDS_MS / 1000} 秒)`,
       options: [{ value: id, label: '結束發言' }],
     });
     startTimer(c, 'phase', LAST_WORDS_MS);
@@ -487,7 +487,7 @@ function finishShooter(c: Ctx, target: string) {
   else enterNight(c);
 }
 
-// 隨機選起點，依加入順序（座位）輪流發言
+// 隨機選起點，依加入順序 (座位) 輪流發言
 function startSpeeches(c: Ctx) {
   const s = c.s;
   const living = alive(s).map((p) => p.id);
@@ -539,7 +539,7 @@ function readChat(s: GameState, user: string, text: string): boolean {
   return changed;
 }
 
-// bot 的遺言：預言家（或悍跳的狼人）報查驗，其他人依身分懷疑一位存活玩家
+// bot 的遺言：預言家 (或悍跳的狼人) 報查驗，其他人依身分懷疑一位存活玩家
 function botLastWords(s: GameState, id: string, rng: Rng): string {
   const role = player(s, id).role!;
   if (role === 'seer' && s.checks.length) {
@@ -552,7 +552,7 @@ function botLastWords(s: GameState, id: string, rng: Rng): string {
   return botLine('lastWords', mention(target), rng);
 }
 
-// bot 依身分發言：預言家報查驗、狼人假裝好人（可能悍跳）、神職被懷疑時亮身分、好人跟著查殺
+// bot 依身分發言：預言家報查驗、狼人假裝好人 (可能悍跳)、神職被懷疑時亮身分、好人跟著查殺
 function botSpeak(c: Ctx, id: string) {
   const s = c.s;
   const pk = s.phase === 'pkSpeech';
@@ -655,7 +655,7 @@ function promptKnight(c: Ctx) {
     kind: 'duel',
     audience: 'user',
     user: knight.id,
-    text: '🗡️ 你可以在輪流發言時翻牌決鬥（整局一次）。選擇決鬥對象：',
+    text: '🗡️ 你可以在輪流發言時翻牌決鬥 (整局一次)。選擇決鬥對象：',
     options: options(alive(s).filter((p) => p.id !== knight.id).map((p) => p.id)),
   });
 }
@@ -693,7 +693,7 @@ function nextSpeaker(c: Ctx) {
       type: 'prompt',
       kind: 'endSpeech',
       audience: 'channel',
-      text: `🎤 輪到 ${mention(id)} 發言（${SPEECH_MS / 1000} 秒）`,
+      text: `🎤 輪到 ${mention(id)} 發言 (${SPEECH_MS / 1000} 秒)`,
       options: [{ value: id, label: '結束發言' }],
     });
     startTimer(c, 'phase', SPEECH_MS);
@@ -724,7 +724,7 @@ function openVote(c: Ctx, phase: 'vote' | 'pkVote', candidates: string[], voters
     type: 'prompt',
     kind: phase === 'vote' ? 'dayVote' : 'pkVote',
     audience: 'channel',
-    text: phase === 'vote' ? '🗳️ 請投票選出要放逐的玩家。' : '⚔️ PK 投票：請在平票的玩家中選出要放逐的人（PK 中的玩家不能投票）。',
+    text: phase === 'vote' ? '🗳️ 請投票選出要放逐的玩家。' : '⚔️ PK 投票：請在平票的玩家中選出要放逐的人 (PK 中的玩家不能投票)。',
     options: [...options(candidates), { value: 'abstain', label: '棄票' }],
   });
   startTimer(c, 'phase', ACTION_MS);
@@ -774,11 +774,11 @@ function checkGameOver(c: Ctx): boolean {
   c.s.phase = 'ended';
   c.s.timers = {};
   const roster = c.s.players
-    .map((p) => `${mention(p.id)}：${ROLE_NAME[p.role!]}（${p.alive ? '存活' : '死亡'}）`)
+    .map((p) => `${mention(p.id)}：${ROLE_NAME[p.role!]} (${p.alive ? '存活' : '死亡'})`)
     .join('\n');
   const title = winner === 'good' ? '🎉 遊戲結束，好人陣營獲勝！' : '🐺 遊戲結束，狼人陣營獲勝！';
   c.s.winner = winner;
-  // 只記錄全真人的遊戲（戰績查詢用）
+  // 只記錄全真人的遊戲 (戰績查詢用)
   if (!c.s.players.some((p) => isBot(p.id))) {
     c.events.push({ type: 'gameRecord', winner, players: c.s.players.map((p) => ({ id: p.id, role: p.role! })) });
   }
@@ -800,7 +800,7 @@ const advanceSpeaker = (c: Ctx) => (c.s.phase === 'lastWords' ? nextLastWords(c)
 
 type GameAction = Exclude<Action, { type: 'new' } | { type: 'rematch' }>;
 
-// 只有這局的玩家才能做的操作（遊戲按鈕）
+// 只有這局的玩家才能做的操作 (遊戲按鈕)
 const PLAYER_ACTIONS: GameAction['type'][] = ['wolfVote', 'seerCheck', 'witchAct', 'shoot', 'endSpeech', 'dayVote', 'duel'];
 
 // 回傳 true 代表 state 有變動

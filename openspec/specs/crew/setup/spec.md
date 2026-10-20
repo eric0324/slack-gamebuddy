@@ -6,7 +6,7 @@ TBD - created by archiving change add-crew-game. Update Purpose after archive.
 ## Requirements
 
 ### Requirement: 星際探險隊的房間
-星際探險隊的房間 SHALL 和其他遊戲有相同的操作方式：`/game crew new` 開房（開房者為房主並自動加入）、房間公告上有「加入」「離開」「開始遊戲」按鈕、`/game crew start` 開始、`/game crew cancel` 取消、房主開始前離開就取消房間。人數 SHALL 在 3～5 位真人之間；星際探險隊 SHALL NOT 支援 bot，房主輸入 `addbot` 時 SHALL 只讓房主看到「星際探險隊不支援 bot」。房間公告 SHALL 標示這是星際探險隊，以及這局要打的關卡編號、名稱、任務數、順序標記和特殊規則。一個頻道同時只能有一局遊戲（不分遊戲種類）。
+星際探險隊的房間 SHALL 和其他遊戲有相同的操作方式：`/game crew new` 開房 (開房者為房主並自動加入)、房間公告上有「加入」「離開」「開始遊戲」按鈕、`/game crew start` 開始、`/game crew cancel` 取消、房主開始前離開就取消房間。人數 SHALL 在 3～5 位真人之間；星際探險隊 SHALL NOT 支援 bot，房主輸入 `addbot` 時 SHALL 只讓房主看到「星際探險隊不支援 bot」。房間公告 SHALL 標示這是星際探險隊，以及這局要打的關卡編號、名稱、任務數、順序標記和特殊規則。一個頻道同時只能有一局遊戲 (不分遊戲種類)。
 
 #### Scenario: 人數不足
 - **WHEN** 房間只有 2 人，房主按下開始
@@ -25,7 +25,7 @@ TBD - created by archiving change add-crew-game. Update Purpose after archive.
 - **THEN** 房間公告顯示第 7 關「月背通訊站」、3 個任務、🔇 通訊干擾
 
 ### Requirement: 牌組與發牌
-牌組 SHALL 有 40 張：藍、綠、黃、紫 4 種顏色各 1～9（36 張），加上火箭 1～4（4 張）。遊戲開始時洗牌並全部發完：4 人每人 10 張、5 人每人 8 張；3 人時從隨機一位開始依加入順序發，第一位 14 張、其他兩位 13 張，總共打 13 墩，14 張的人最後剩下的 1 張不打。手牌 SHALL 依藍、綠、黃、紫、火箭的順序，同色由小到大顯示。
+牌組 SHALL 有 40 張：藍、綠、黃、紫 4 種顏色各 1～9 (36 張)，加上火箭 1～4 (4 張)。遊戲開始時洗牌並全部發完：4 人每人 10 張、5 人每人 8 張；3 人時從隨機一位開始依加入順序發，第一位 14 張、其他兩位 13 張，總共打 13 墩，14 張的人最後剩下的 1 張不打。手牌 SHALL 依藍、綠、黃、紫、火箭的順序，同色由小到大顯示。
 
 #### Scenario: 4 人發牌
 - **WHEN** 4 人開始遊戲
@@ -40,7 +40,7 @@ TBD - created by archiving change add-crew-game. Update Purpose after archive.
 - **THEN** 每人 8 張手牌，總共 8 墩
 
 ### Requirement: 指揮官與開局公告
-持有火箭 4 的玩家 SHALL 是這一關的指揮官。發牌後頻道 SHALL 公告：關卡編號、名稱和劇情、指揮官是誰、人數對應的墩數、規則摘要（跟花色、火箭最大、親自吃下自己的任務牌、每人一次通訊），以及提醒「請不要在頻道討論手牌，只靠出牌和通訊溝通」。每位玩家 SHALL 收到一則私訊列出自己的手牌。接著 SHALL 進入任務分配，指揮官 SHALL 領第一墩。
+持有火箭 4 的玩家 SHALL 是這一關的指揮官。發牌後頻道 SHALL 公告：關卡編號、名稱和劇情、指揮官是誰、人數對應的墩數、規則摘要 (跟花色、火箭最大、親自吃下自己的任務牌、每人一次通訊)，以及提醒「請不要在頻道討論手牌，只靠出牌和通訊溝通」。每位玩家 SHALL 收到一則私訊列出自己的手牌。接著 SHALL 進入任務分配，指揮官 SHALL 領第一墩。
 
 #### Scenario: 指揮官
 - **WHEN** 發牌後 B 的手上有火箭 4
@@ -62,7 +62,7 @@ TBD - created by archiving change add-crew-game. Update Purpose after archive.
 - **THEN** 系統拒絕並只讓 Z 看到自己不在遊戲中
 
 ### Requirement: 遊戲清單與指令說明
-`/game` 的遊戲清單和遊戲大廳 SHALL 列出星際探險隊的名稱（🚀 星際探險隊）、代號 `crew`、人數（3～5 人）、「不支援 bot」和開房方式，大廳分類是 🤝 合作。輸入 `/game crew help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到星際探險隊的條列式指令說明，包含選關、重設進度和不要討論手牌的提醒。
+`/game` 的遊戲清單和遊戲大廳 SHALL 列出星際探險隊的名稱 (🚀 星際探險隊)、代號 `crew`、人數 (3～5 人)、「不支援 bot」和開房方式，大廳分類是 🤝 合作。輸入 `/game crew help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到星際探險隊的條列式指令說明，包含選關、重設進度和不要討論手牌的提醒。
 
 #### Scenario: 查看指令
 - **WHEN** 使用者輸入 `/game crew help`
@@ -70,4 +70,4 @@ TBD - created by archiving change add-crew-game. Update Purpose after archive.
 
 #### Scenario: 大廳合作分類
 - **WHEN** 使用者在大廳看 🤝 合作
-- **THEN** 列表有 🚀 星際探險隊（`crew`）3～5 人（不支援 bot）和「開房」按鈕
+- **THEN** 列表有 🚀 星際探險隊 (`crew`) 3～5 人 (不支援 bot) 和「開房」按鈕

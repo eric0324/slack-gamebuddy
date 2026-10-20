@@ -1,4 +1,4 @@
-// 重構安全網：記下使用者看得到的文字（遊戲清單、大廳、各遊戲指令說明），重構前後必須完全一樣
+// 重構安全網：記下使用者看得到的文字 (遊戲清單、大廳、各遊戲指令說明)，重構前後必須完全一樣
 import { describe, expect, it } from 'vitest';
 import { GameHost, type SlackClient } from '../src/slack.js';
 

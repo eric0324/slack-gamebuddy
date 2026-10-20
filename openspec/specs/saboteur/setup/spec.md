@@ -6,7 +6,7 @@ TBD - created by archiving change add-saboteur-game. Update Purpose after archiv
 ## Requirements
 
 ### Requirement: 矮人礦坑的房間
-矮人礦坑的房間 SHALL 和其他遊戲有相同的操作方式：`/game saboteur new` 開房（開房者為房主並自動加入）、房間公告上有「加入」「離開」「開始遊戲」按鈕、`/game saboteur start` 開始、`/game saboteur cancel` 取消、房主開始前離開就取消房間。人數 SHALL 在 3～10 人之間（bot 也算）。房間公告 SHALL 標示這是矮人礦坑。一個頻道同時只能有一局遊戲（不分遊戲種類）。
+矮人礦坑的房間 SHALL 和其他遊戲有相同的操作方式：`/game saboteur new` 開房 (開房者為房主並自動加入)、房間公告上有「加入」「離開」「開始遊戲」按鈕、`/game saboteur start` 開始、`/game saboteur cancel` 取消、房主開始前離開就取消房間。人數 SHALL 在 3～10 人之間 (bot 也算)。房間公告 SHALL 標示這是矮人礦坑。一個頻道同時只能有一局遊戲 (不分遊戲種類)。
 
 #### Scenario: 人數不足
 - **WHEN** 房間只有 2 人，房主按下開始
@@ -25,7 +25,7 @@ TBD - created by archiving change add-saboteur-game. Update Purpose after archiv
 - **THEN** 系統拒絕，只讓這位使用者看到「這個頻道已經有遊戲了」
 
 ### Requirement: 加入與移除 bot
-房主 SHALL 可以在開始前用 `/game saboteur addbot [數量]` 加入 bot、`/game saboteur removebot [數量]` 移除 bot（沒寫數量就是 1，從最後加入的移除）。bot 的名字和顯示方式 SHALL 和其他遊戲相同（「🤖<名字>」、同房間不重複）。加 bot 超過 10 人時 SHALL 只加到 10 人並只讓房主看到「房間已滿」。非房主或遊戲開始後使用 SHALL 被拒絕。
+房主 SHALL 可以在開始前用 `/game saboteur addbot [數量]` 加入 bot、`/game saboteur removebot [數量]` 移除 bot (沒寫數量就是 1，從最後加入的移除)。bot 的名字和顯示方式 SHALL 和其他遊戲相同 (「🤖<名字>」、同房間不重複)。加 bot 超過 10 人時 SHALL 只加到 10 人並只讓房主看到「房間已滿」。非房主或遊戲開始後使用 SHALL 被拒絕。
 
 #### Scenario: 一個人加 bot
 - **WHEN** 房間有 1 位真人，房主輸入 `/game saboteur addbot 3`
@@ -53,7 +53,7 @@ TBD - created by archiving change add-saboteur-game. Update Purpose after archiv
 | 9 | 3 | 7 |
 | 10 | 4 | 7 |
 
-每位真人 SHALL 私下收到自己這回合的身分（「⛏️ 金礦工」或「💣 破壞者」）。破壞者 SHALL NOT 知道其他破壞者是誰。身分在回合結束前 SHALL NOT 公開。
+每位真人 SHALL 私下收到自己這回合的身分 (「⛏️ 金礦工」或「💣 破壞者」)。破壞者 SHALL NOT 知道其他破壞者是誰。身分在回合結束前 SHALL NOT 公開。
 
 #### Scenario: 4 人局的身分
 - **WHEN** 4 人開始一回合
@@ -64,13 +64,13 @@ TBD - created by archiving change add-saboteur-game. Update Purpose after archiv
 - **THEN** 每位真人私下看到自己的身分，頻道沒有公開任何人的身分
 
 ### Requirement: 牌庫與發牌
-每個回合開始時，牌庫 SHALL 有 67 張：通道牌 40 張（見 `saboteur/map`）和行動牌 27 張：
+每個回合開始時，牌庫 SHALL 有 67 張：通道牌 40 張 (見 `saboteur/map`) 和行動牌 27 張：
 
 | 行動牌 | 張數 |
 |---|---|
-| 破壞工具：鎬子、礦燈、礦車 | 各 3（共 9） |
-| 修理工具：鎬子、礦燈、礦車 | 各 2（共 6） |
-| 雙用修理：鎬子／礦燈、鎬子／礦車、礦燈／礦車 | 各 1（共 3） |
+| 破壞工具：鎬子、礦燈、礦車 | 各 3 (共 9) |
+| 修理工具：鎬子、礦燈、礦車 | 各 2 (共 6) |
+| 雙用修理：鎬子／礦燈、鎬子／礦車、礦燈／礦車 | 各 1 (共 3) |
 | 🗺️ 藏寶圖 | 6 |
 | 🪨 落石 | 3 |
 
@@ -85,14 +85,14 @@ TBD - created by archiving change add-saboteur-game. Update Purpose after archiv
 - **THEN** 每人 4 張手牌，牌庫剩 35 張
 
 ### Requirement: 開局公告
-遊戲開始時，頻道 SHALL 公告玩家、共 3 回合和規則摘要（金礦工要從起點挖到金礦，破壞者暗中阻止；輪到時放一張通道牌、打一張行動牌或蓋掉一張牌，再抽一張；工具壞掉不能放通道牌；挖到金礦金礦工分金塊，手牌出完還沒挖到破壞者拿金塊；3 回合後金塊最多的人贏），每位玩家從 0 金開始，接著 SHALL 開始第 1 回合。
+遊戲開始時，頻道 SHALL 公告玩家、共 3 回合和規則摘要 (金礦工要從起點挖到金礦，破壞者暗中阻止；輪到時放一張通道牌、打一張行動牌或蓋掉一張牌，再抽一張；工具壞掉不能放通道牌；挖到金礦金礦工分金塊，手牌出完還沒挖到破壞者拿金塊；3 回合後金塊最多的人贏)，每位玩家從 0 金開始，接著 SHALL 開始第 1 回合。
 
 #### Scenario: 開始遊戲
 - **WHEN** 4 人開始遊戲
 - **THEN** 頻道公告玩家、3 回合和規則摘要，然後開始第 1/3 回合：發身分、發手牌、發出第一個回合面板
 
 ### Requirement: 遊戲清單與指令說明
-`/game` 的遊戲清單和遊戲大廳 SHALL 列出矮人礦坑的名稱（⛏️ 矮人礦坑）、代號 `saboteur`、人數（3～10 人）和開房方式，大廳分類是 🔍 推理。輸入 `/game saboteur help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到矮人礦坑的條列式指令說明（new、addbot、removebot、start、cancel，以及遊戲中用回合面板上的「⛏️ 行動」「🎒 我的手牌」按鈕操作）。
+`/game` 的遊戲清單和遊戲大廳 SHALL 列出矮人礦坑的名稱 (⛏️ 矮人礦坑)、代號 `saboteur`、人數 (3～10 人) 和開房方式，大廳分類是 🔍 推理。輸入 `/game saboteur help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到矮人礦坑的條列式指令說明 (new、addbot、removebot、start、cancel，以及遊戲中用回合面板上的「⛏️ 行動」「🎒 我的手牌」按鈕操作)。
 
 #### Scenario: 查看指令
 - **WHEN** 使用者輸入 `/game saboteur help`
@@ -104,4 +104,4 @@ TBD - created by archiving change add-saboteur-game. Update Purpose after archiv
 
 #### Scenario: 大廳推理分類
 - **WHEN** 使用者在大廳看 🔍 推理
-- **THEN** 列表有 ⛏️ 矮人礦坑（`saboteur`）3～10 人和「開房」按鈕
+- **THEN** 列表有 ⛏️ 矮人礦坑 (`saboteur`) 3～10 人和「開房」按鈕

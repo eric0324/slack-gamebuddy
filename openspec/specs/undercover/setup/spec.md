@@ -6,11 +6,11 @@
 ## Requirements
 
 ### Requirement: 誰是臥底的房間
-誰是臥底的房間 SHALL 和狼人殺的房間有相同的操作方式：`/game undercover new` 開房（開房者為房主並自動加入）、房間公告上有「加入」「離開」「開始遊戲」按鈕、房主可以用 `/game undercover addbot [數量]`、`removebot [數量]` 加減 bot、`/game undercover start` 開始、`/game undercover cancel` 取消、房主開始前離開就取消房間。人數 SHALL 在 4～12 人之間（bot 也算），房間公告 SHALL 標示這是誰是臥底。
+誰是臥底的房間 SHALL 和狼人殺的房間有相同的操作方式：`/game undercover new` 開房 (開房者為房主並自動加入)、房間公告上有「加入」「離開」「開始遊戲」按鈕、房主可以用 `/game undercover addbot [數量]`、`removebot [數量]` 加減 bot、`/game undercover start` 開始、`/game undercover cancel` 取消、房主開始前離開就取消房間。人數 SHALL 在 4～12 人之間 (bot 也算)，房間公告 SHALL 標示這是誰是臥底。
 
 #### Scenario: 開誰是臥底的房間
 - **WHEN** 使用者 A 輸入 `/game undercover new`
-- **THEN** 頻道出現「誰是臥底房間（房主 A）」的公告，名單只有 A，並有「加入」「離開」「開始遊戲」按鈕
+- **THEN** 頻道出現「誰是臥底房間 (房主 A)」的公告，名單只有 A，並有「加入」「離開」「開始遊戲」按鈕
 
 #### Scenario: 人數不足
 - **WHEN** 房間只有 3 人，房主按「開始遊戲」
@@ -59,7 +59,7 @@
 - **THEN** 白板收到「你是白板，沒有拿到詞」
 
 ### Requirement: 詞庫
-系統 SHALL 內建至少 60 組詞，每一組是兩個相近但不同的詞（例如「牛奶／豆漿」）。每個詞 SHALL 附上至少 3 句描述句供 bot 使用，描述句 SHALL NOT 包含這個詞本身，也 SHALL NOT 包含同一組的另一個詞。
+系統 SHALL 內建至少 60 組詞，每一組是兩個相近但不同的詞 (例如「牛奶／豆漿」)。每個詞 SHALL 附上至少 3 句描述句供 bot 使用，描述句 SHALL NOT 包含這個詞本身，也 SHALL NOT 包含同一組的另一個詞。
 
 #### Scenario: 詞庫數量
 - **WHEN** 檢查內建詞庫

@@ -32,7 +32,7 @@ const player = (s: MemeState, id: string) => s.players.find((p) => p.id === id)!
 
 // 每個人都出第 1 張手牌
 const allPlay = (s: MemeState) => run(s.players.filter((p) => !isBot(p.id) && !p.answer).map((p) => ({ type: 'play', user: p.id, seq: s.seq, card: 0 }) as MemeAction), s);
-// 投票：答案依玩家順序（rng 不洗動）；votes[i] 是第 i 位玩家投的答案 index
+// 投票：答案依玩家順序 (rng 不洗動)；votes[i] 是第 i 位玩家投的答案 index
 const voteAll = (s: MemeState, votes: Record<string, number>) =>
   run(Object.entries(votes).map(([user, n]) => ({ type: 'vote', user, seq: s.seq, n }) as MemeAction), s);
 // 每人投下一位玩家的答案，玩完一輪
@@ -312,7 +312,7 @@ describe('meme/setup: 每局最多 2 張投稿梗圖', () => {
     const { state, events } = startWith(2); // rng 不洗動：投稿排在前面
     expect(state.images[0]).toEqual({ name: '投稿1', url: 'https://x/1.png', by: 'u1' });
     const round = announces(events)[1];
-    expect(round.text).toContain('投稿1（<@u1> 投稿）');
+    expect(round.text).toContain('投稿1 (<@u1> 投稿)');
     expect(round.image).toEqual({ url: 'https://x/1.png', alt: '投稿1' });
   });
 });

@@ -4,7 +4,7 @@
 
 ## 2. 搬移
 
-- [x] 2.1 新增 `src/games/types.ts`（`GameDef`、`Category`）和 `parseRoomCommand`
+- [x] 2.1 新增 `src/games/types.ts` (`GameDef`、`Category`) 和 `parseRoomCommand`
 - [x] 2.2 17 款遊戲各新增 `src/games/<遊戲>.ts`，把說明、解析、按鈕、大廳資訊、視窗、頻道訊息搬過去
 - [x] 2.3 新增 `src/games/index.ts` 的 `GAMES`
 - [x] 2.4 `slack.ts` 的遊戲清單、`CATALOG`、`Kind`、`defs`、`modal()`、視窗備用文字、`chat()` 改成從 `GAMES` 產生

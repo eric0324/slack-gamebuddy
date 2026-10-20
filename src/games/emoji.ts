@@ -5,16 +5,16 @@ import { parseRoomCommand } from './undercover.js';
 
 const HELP = [
   '*Emoji 傳話指令*',
-  '• `/game emoji new`：開房（任何人）',
-  '• `/game emoji start`：開始遊戲，需要 4～10 位真人（房主）',
-  '• `/game emoji send <內容>`：作答，和按「✍️ 作答」一樣；🎨 emoji 步只能用 emoji（可以貼 emoji 或打 `:shortcode:`，可以有空白，最多 20 個），🧠 猜測步寫 1～30 字；截止前可以重送',
-  '• `/game emoji cancel`：取消遊戲（房主）',
+  '• `/game emoji new`：開房 (任何人)',
+  '• `/game emoji start`：開始遊戲，需要 4～10 位真人 (房主)',
+  '• `/game emoji send <內容>`：作答，和按「✍️ 作答」一樣；🎨 emoji 步只能用 emoji (可以貼 emoji 或打 `:shortcode:`，可以有空白，最多 20 個)，🧠 猜測步寫 1～30 字；截止前可以重送',
+  '• `/game emoji cancel`：取消遊戲 (房主)',
   '• `/game emoji help`：看這份說明',
   '每人拿一個題目當鏈的起點，文字用 emoji 演、emoji 用文字猜，傳一圈後公布每條鏈；接著投「🎨 最佳 emoji」和「🧠 最神猜測」，每得 1 票 +1 分，總分最高的人獲勝',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
-// Emoji 傳話的子指令：send <內容>（可以有空白）
+// Emoji 傳話的子指令：send <內容> (可以有空白)
 export function parseEmojiCommand(text: string, user: string, channel: string): EAction | null {
   const m = text.trim().match(/^send\s+([\s\S]+)$/);
   if (m) return { type: 'send', user, text: m[1].trim() };

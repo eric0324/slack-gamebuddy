@@ -10,7 +10,7 @@ export interface ChatInfo {
 
 const GOD_CLAIMS = { 女巫: 'witch', 騎士: 'knight' } as const;
 
-// 找出這一段提到的玩家：Slack mention（<@U123> 或 <@U123|名字>）或 bot 的名字（不分大小寫、要完整比對）
+// 找出這一段提到的玩家：Slack mention (<@U123> 或 <@U123|名字>) 或 bot 的名字 (不分大小寫、要完整比對)
 function mentioned(segment: string, players: string[]): string[] {
   const found = new Set<string>();
   for (const m of segment.matchAll(/<@([A-Z0-9]+)(?:\|[^>]*)?>/g)) if (players.includes(m[1])) found.add(m[1]);

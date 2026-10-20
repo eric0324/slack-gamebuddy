@@ -5,12 +5,12 @@ import { parseRoomCommand } from './undercover.js';
 
 const HELP = [
   '*印加寶藏指令*',
-  '• `/game incan new`：開房（任何人）',
-  '• `/game incan addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/game incan removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/game incan start`：開始遊戲，需要 3～8 人（房主）',
-  '• `/game incan cancel`：取消遊戲（房主）',
-  '每一步按步驟訊息上的「🔦 繼續探險」或「⛺ 回營地」（30 秒，揭曉前可以改；沒選視為回營地）',
+  '• `/game incan new`：開房 (任何人)',
+  '• `/game incan addbot [數量]`：加入 bot 補人數 (房主，開始前)',
+  '• `/game incan removebot [數量]`：移除 bot (房主，開始前)',
+  '• `/game incan start`：開始遊戲，需要 3～8 人 (房主)',
+  '• `/game incan cancel`：取消遊戲 (房主)',
+  '每一步按步驟訊息上的「🔦 繼續探險」或「⛺ 回營地」(30 秒，揭曉前可以改；沒選視為回營地)',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 

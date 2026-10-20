@@ -6,12 +6,12 @@ import { parseRoomCommand } from './undercover.js';
 
 const HELP = [
   '*矮人礦坑指令*',
-  '• `/game saboteur new`：開房（任何人）',
-  '• `/game saboteur addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/game saboteur removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/game saboteur start`：開始遊戲，需要 3～10 人（房主）',
-  '• `/game saboteur cancel`：取消遊戲（房主）',
-  '• 「⛏️ 行動」：輪到你時按，選一張牌放通道、打行動牌或蓋掉（60 秒，沒出牌自動蓋掉第一張）',
+  '• `/game saboteur new`：開房 (任何人)',
+  '• `/game saboteur addbot [數量]`：加入 bot 補人數 (房主，開始前)',
+  '• `/game saboteur removebot [數量]`：移除 bot (房主，開始前)',
+  '• `/game saboteur start`：開始遊戲，需要 3～10 人 (房主)',
+  '• `/game saboteur cancel`：取消遊戲 (房主)',
+  '• 「⛏️ 行動」：輪到你時按，選一張牌放通道、打行動牌或蓋掉 (60 秒，沒出牌自動蓋掉第一張)',
   '• 「🎒 我的手牌」：隨時私下看自己的身分、手牌、壞掉的工具和偷看結果',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
@@ -42,7 +42,7 @@ function saboteurButton(kind: string, value: string, user: string, channel: stri
     case 'rock':
       return { type: act, user, seq, i, cell: c };
     case 'tool': {
-      const target = value.split(':').slice(4).join(':'); // 玩家 id 可能含有冒號（bot）
+      const target = value.split(':').slice(4).join(':'); // 玩家 id 可能含有冒號 (bot)
       return TOOLS.includes(c as Tool) && target ? { type: 'tool', user, seq, i, tool: c as Tool, target } : null;
     }
     case 'gold':

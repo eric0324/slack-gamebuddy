@@ -67,7 +67,7 @@ describe('splendor/turns: 應付、缺口、付款', () => {
     expect(payment(disc({ w: 3 }), disc(), gems({ w: 5, o: 2 }))).toEqual(gems({ w: 3 }));
   });
 
-  it('黃金不夠就買不起（回傳 null）', () => {
+  it('黃金不夠就買不起 (回傳 null)', () => {
     expect(payment(disc({ b: 3, g: 2 }), disc(), gems({ b: 2, o: 1 }))).toBeNull();
   });
 
@@ -93,7 +93,7 @@ describe('splendor/setup: 顯示文字', () => {
 
 // ---------- engine ----------
 
-const rng = () => 0.99999; // 洗牌不動（牌堆照 id 順序）；第一位是座位最後一位
+const rng = () => 0.99999; // 洗牌不動 (牌堆照 id 順序)；第一位是座位最後一位
 
 function run(actions: SAction[], start?: SState, r: () => number = rng) {
   let state = start;
@@ -119,7 +119,7 @@ const prompts = (events: GameEvent[]) => events.filter((e) => e.type === 'prompt
 const boards = (events: GameEvent[]) => prompts(events).filter((p) => p.kind === 'splendor' && p.audience === 'channel');
 const menuOf = (events: GameEvent[], user: string) => prompts(events).filter((p) => p.audience === 'ephemeral' && p.user === user).at(-1);
 
-// 開局後改成從 p1 開始（第一位 p1、輪到 p1），再套用 mut
+// 開局後改成從 p1 開始 (第一位 p1、輪到 p1)，再套用 mut
 function setup(mut: (s: SState) => void = () => {}, n = 2) {
   const s = structuredClone(started(n).state);
   s.turn = 0;
@@ -144,7 +144,7 @@ describe('splendor/setup: 璀璨寶石的房間', () => {
     expect(ephemeralTo(events, 'p1').join()).toContain('至少需要 2 人');
   });
 
-  it('房間已滿（4 人）時拒絕加入', () => {
+  it('房間已滿 (4 人) 時拒絕加入', () => {
     const { state, events } = run([{ type: 'join', user: 'x' }], lobbyWith(4).state);
     expect(state.players).toHaveLength(4);
     expect(ephemeralTo(events, 'x').join()).toContain('房間已滿');
@@ -221,22 +221,22 @@ describe('splendor/setup: 開局', () => {
 });
 
 describe('splendor/setup: 回合面板', () => {
-  it('列出輪到誰、第幾輪、庫存、貴族、三排卡（三級到一級）、每位玩家、兩顆按鈕', () => {
+  it('列出輪到誰、第幾輪、庫存、貴族、三排卡 (三級到一級)、每位玩家、兩顆按鈕', () => {
     const { state, events } = started(2);
     const [board] = boards(events);
     expect(board.ref).toBe(`splendor:${state.seq}`);
     expect(board.text).toContain('第 1 輪');
-    expect(board.text).toContain('👉 輪到 <@p2>（90 秒）');
+    expect(board.text).toContain('👉 輪到 <@p2> (90 秒)');
     expect(board.text).toContain('庫存：白 4 藍 4 綠 4 紅 4 黑 4 金 5');
     expect(board.text).toContain('貴族 1：紅4 綠4\n貴族 2：綠4 藍4\n貴族 3：藍4 白4');
-    const i3 = board.text.indexOf('三級（牌堆 16）');
-    const i2 = board.text.indexOf('二級（牌堆 26）');
-    const i1 = board.text.indexOf('一級（牌堆 36）');
+    const i3 = board.text.indexOf('三級 (牌堆 16)');
+    const i2 = board.text.indexOf('二級 (牌堆 26)');
+    const i1 = board.text.indexOf('一級 (牌堆 36)');
     expect(i3).toBeGreaterThan(-1);
     expect(i3 < i2 && i2 < i1).toBe(true);
     expect(board.text).toContain('1-1 白 0分｜紅2 黑1');
     expect(board.text).toContain('3-4 白 5分｜白3 黑7');
-    expect(board.text).toContain('{{name:p1}} 0 分｜籌碼 無（0）｜折扣 無（0 張）｜保留 0｜貴族 0');
+    expect(board.text).toContain('{{name:p1}} 0 分｜籌碼 無 (0)｜折扣 無 (0 張)｜保留 0｜貴族 0');
     expect(board.text).toContain('👉 {{name:p2}} 0 分');
     expect(board.options).toEqual([
       { value: `turnMenu:${state.seq}`, label: '💍 行動' },
@@ -244,7 +244,7 @@ describe('splendor/setup: 回合面板', () => {
     ]);
   });
 
-  it('空位顯示「（空）」；不顯示保留卡內容；不用 emoji 代表寶石', () => {
+  it('空位顯示「(空)」；不顯示保留卡內容；不用 emoji 代表寶石', () => {
     const s = setup((s) => {
       s.table[0][1] = null;
       s.players[1].reserved = [90];
@@ -252,8 +252,8 @@ describe('splendor/setup: 回合面板', () => {
       s.players[1].cards = [17, 20];
     });
     const [, next] = boards(timeout(s).events);
-    expect(next.text).toContain('1-2 （空）');
-    expect(next.text).toContain('👉 {{name:p2}} 0 分｜籌碼 白1 藍2（3）｜折扣 綠2（2 張）｜保留 1｜貴族 0');
+    expect(next.text).toContain('1-2 (空)');
+    expect(next.text).toContain('👉 {{name:p2}} 0 分｜籌碼 白1 藍2 (3)｜折扣 綠2 (2 張)｜保留 1｜貴族 0');
     expect(next.text).not.toContain('紅7 黑3');
     expect(next.text).not.toMatch(/💎|🔴|🟢|🔵|⚪|⚫|🟡|🟤|🪙|♦️/u);
   });
@@ -282,7 +282,7 @@ describe('splendor/setup: 回合面板', () => {
 });
 
 describe('splendor/setup: 我的狀態', () => {
-  it('只讓本人看到分數、籌碼、折扣、已買、保留卡完整內容（含買不買得起）、貴族；state 不變', () => {
+  it('只讓本人看到分數、籌碼、折扣、已買、保留卡完整內容 (含買不買得起)、貴族；state 不變', () => {
     const s = setup((s) => {
       s.players[0].reserved = [90, 1];
       s.players[0].tokens = gems({ r: 2, k: 1 });
@@ -291,7 +291,7 @@ describe('splendor/setup: 我的狀態', () => {
     const { state, events } = run([{ type: 'status', user: 'p1' }], s);
     expect(state).toBe(s);
     const text = ephemeralTo(events, 'p1').join();
-    for (const part of ['1 分', '籌碼 紅2 黑1（3）', '折扣 白1', '白 1分｜綠4', '保留 1 黑 5分｜紅7 黑3（買不起', '保留 2 白 0分｜紅2 黑1（買得起，付 紅2 黑1）', '貴族']) {
+    for (const part of ['1 分', '籌碼 紅2 黑1 (3)', '折扣 白1', '白 1分｜綠4', '保留 1 黑 5分｜紅7 黑3 (買不起', '保留 2 白 0分｜紅2 黑1 (買得起，付 紅2 黑1)', '貴族']) {
       expect(text).toContain(part);
     }
     expect(prompts(events)).toEqual([]);
@@ -468,8 +468,8 @@ describe('splendor/turns: 買卡', () => {
       s.bank = gems({ w: 4, b: 4, g: 4, r: 2, k: 3, o: 4 });
     });
     expect(menuOf(act(s, { type: 'turnMenu', sub: 'buy' }).events, 'p1')!.options).toEqual([
-      { value: `buy:${s.seq}:1-1`, label: '1-1 白 0分｜紅2 黑1（付 紅2 黑1）' },
-      { value: `buy:${s.seq}:r2`, label: '保留 2 綠 0分｜紅3（付 紅2 金1）' },
+      { value: `buy:${s.seq}:1-1`, label: '1-1 白 0分｜紅2 黑1 (付 紅2 黑1)' },
+      { value: `buy:${s.seq}:r2`, label: '保留 2 綠 0分｜紅3 (付 紅2 金1)' },
       { value: `turnMenu:${s.seq}`, label: '↩️ 換一個動作' },
     ]);
   });
@@ -486,7 +486,7 @@ describe('splendor/turns: 買卡', () => {
     expect(state.players[0].cards).toEqual([9, 6]);
     expect(state.bank).toEqual(gems({ w: 4, b: 4, g: 4, r: 4, k: 4, o: 5 }));
     expect(state.table[0][0]).toBe(5);
-    expect(lastBoard(events).text).toContain('{{name:p1}} 買了 1-1 白 0分（付 藍1 金1）');
+    expect(lastBoard(events).text).toContain('{{name:p1}} 買了 1-1 白 0分 (付 藍1 金1)');
   });
 
   it('折扣足夠免費；買保留的卡時場上公開卡不變', () => {
@@ -498,7 +498,7 @@ describe('splendor/turns: 買卡', () => {
     expect(state.players[0].reserved).toEqual([]);
     expect(state.players[0].cards).toEqual([1, 2, 3, 4, 32]);
     expect(state.table).toEqual(s.table);
-    expect(lastBoard(events).text).toContain('{{name:p1}} 買了保留的 紅 1分（付 無）');
+    expect(lastBoard(events).text).toContain('{{name:p1}} 買了保留的 紅 1分 (付 無)');
   });
 
   it('買不起不能買，state 不變', () => {
@@ -550,10 +550,10 @@ describe('splendor/turns: 退回多餘籌碼', () => {
     const r = act(s, { type: 'retPick', counts: [1, 0, 0, 1, 0, 0] });
     expect(r.state).toBe(s);
     expect(menuOf(r.events, 'p1')!.options).toEqual([
-      { value: `retPick:${q}:100100`, label: '退 白（已選 1）' },
+      { value: `retPick:${q}:100100`, label: '退 白 (已選 1)' },
       { value: `retPick:${q}:100100`, label: '退 藍' },
       { value: `retPick:${q}:100100`, label: '退 綠' },
-      { value: `retPick:${q}:100100`, label: '退 紅（已選 1）' },
+      { value: `retPick:${q}:100100`, label: '退 紅 (已選 1)' },
       { value: `retPick:${q}:100100`, label: '退 黑' },
       { value: `retPick:${q}:000000`, label: '重選' },
       { value: `return:${q}:100100`, label: '確認退回 白1 紅1' },
@@ -611,7 +611,7 @@ describe('splendor/turns: 貴族來訪', () => {
     expect(state.players[0].nobles).toEqual([1]);
     expect(state.nobles).toEqual([null, 2, 3]);
     const text = lastBoard(events).text;
-    expect(text).toContain('貴族 1 來訪 {{name:p1}}（+3 分）');
+    expect(text).toContain('貴族 1 來訪 {{name:p1}} (+3 分)');
     expect(text).not.toContain('貴族 1：');
     expect(text).toContain('貴族 2：綠4 藍4');
     expect(text).toContain('{{name:p1}} 3 分');
@@ -733,7 +733,7 @@ describe('splendor/scoring: 防卡死的提前計分', () => {
 });
 
 describe('splendor/scoring: 勝負與結束', () => {
-  // 最後一輪、輪到座位最後一位（p3），他一逾時就計分
+  // 最後一輪、輪到座位最後一位 (p3)，他一逾時就計分
   const endWith = (cards: number[][]) =>
     timeout(setup((s) => {
       s.lastRound = true;
@@ -754,7 +754,7 @@ describe('splendor/scoring: 勝負與結束', () => {
     expect(prompts(events).some((p) => p.kind === 'rematch')).toBe(true);
   });
 
-  it('同分比卡少；再同分並列（包括全員 0 分）', () => {
+  it('同分比卡少；再同分並列 (包括全員 0 分)', () => {
     expect(endWith([[...FIFTEEN, 8, ...zeros(8)], [86, 90, 70, 16, 24, 32, ...zeros(4)], []]).state.winners).toEqual(['p2']);
     expect(endWith([[...FIFTEEN, ...zeros(8)], [86, 90, 82, ...zeros(8)], [8]]).state.winners).toEqual(['p1', 'p2']);
     expect(endWith([[], [], []]).state.winners).toEqual(['p1', 'p2', 'p3']);
@@ -788,14 +788,14 @@ describe('splendor/bots: 缺口和目標卡', () => {
   });
 
   it('缺口計算含黃金', () => {
-    // 沒有黃金時 1-1（白 0分｜紅2 黑1）缺口 3 最小；有 4 個黃金時一級四張缺口都是 0，改取分數高的 1-2（白 1分｜綠4）
+    // 沒有黃金時 1-1 (白 0分｜紅2 黑1) 缺口 3 最小；有 4 個黃金時一級四張缺口都是 0，改取分數高的 1-2 (白 1分｜綠4)
     const s = setup((s) => (s.table[0] = [1, 8, 16, 24]));
     expect(target(s)).toBe('1-1');
     s.players[0].tokens = gems({ o: 4 });
     expect(target(s)).toBe('1-2');
   });
 
-  it('同缺口取分數高的；再相同依固定順序（保留卡在前，再來三級→一級、位置）', () => {
+  it('同缺口取分數高的；再相同依固定順序 (保留卡在前，再來三級→一級、位置)', () => {
     expect(target(setup((s) => (s.table[0] = [4, 8, 2, 13])))).toBe('1-2');
     expect(target(setup((s) => (s.table[0] = [4, 2, 13, 10])))).toBe('1-1');
     expect(target(setup((s) => ((s.table[0] = [4, 2, 13, 10]), (s.players[0].reserved = [19]))))).toBe('r1'); // 綠 0分｜藍2 紅2：缺口同樣 4
@@ -815,7 +815,7 @@ describe('splendor/bots: bot 的行動', () => {
 
   it('同分時付最少的', () => {
     const s = setup((s) => {
-      s.table[0] = [28, 23, 8, 16]; // 紅 0分｜白2 紅2（付 4）、綠 0分｜白2 藍1（付 3）
+      s.table[0] = [28, 23, 8, 16]; // 紅 0分｜白2 紅2 (付 4)、綠 0分｜白2 藍1 (付 3)
       s.players[0].tokens = gems({ w: 2, b: 1, r: 2, k: 2 });
     });
     expect(move(s)).toMatchObject({ type: 'buy', slot: '1-2' });
@@ -871,7 +871,7 @@ describe('splendor/bots: bot 的行動', () => {
 
   it('bot 輪到就立刻行動，需要退回時立刻退完', () => {
     const lobby = run([{ type: 'addBot', user: 'p1', count: 1 }], lobbyWith(1).state).state;
-    const { state } = run([{ type: 'start', user: 'p1' }], lobby); // 第一位是座位最後一位（bot）
+    const { state } = run([{ type: 'start', user: 'p1' }], lobby); // 第一位是座位最後一位 (bot)
     expect(state.turn).toBe(0);
     expect(total(state.players[1].tokens)).toBe(3);
     const s = setup((s) => {
@@ -907,7 +907,7 @@ describe('splendor/bots: 一個人也能玩完整局', () => {
   });
 });
 
-describe('splendor/setup: 指令解析與按鈕（GameDef）', () => {
+describe('splendor/setup: 指令解析與按鈕 (GameDef)', () => {
   it('大廳資訊：💍 璀璨寶石、2～4 人、心理戰', () => {
     expect(splendor).toMatchObject({ kind: 'splendor', emoji: '💍', name: '璀璨寶石', players: '2～4 人', category: 'bluff' });
     expect(splendor.apply).toBe(applySplendor);
@@ -921,7 +921,7 @@ describe('splendor/setup: 指令解析與按鈕（GameDef）', () => {
     expect(splendor.parse('removebot', 'u', 'C1')).toEqual({ type: 'removeBot', user: 'u', count: 1 });
   });
 
-  it('help 和不認識的子指令回傳 null（顯示說明），說明列出所有指令和按鈕', () => {
+  it('help 和不認識的子指令回傳 null (顯示說明)，說明列出所有指令和按鈕', () => {
     expect(splendor.parse('help', 'u', 'C1')).toBeNull();
     expect(splendor.parse('buy', 'u', 'C1')).toBeNull();
     for (const cmd of ['new', 'addbot', 'removebot', 'start', 'cancel']) expect(splendor.help).toContain(`/game splendor ${cmd}`);

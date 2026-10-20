@@ -1,4 +1,4 @@
-// 犯人在跳舞（犯人は踊る）遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyCriminal(state, action, rng) → { state, events }。
+// 犯人在跳舞 (犯人は踊る) 遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyCriminal(state, action, rng) → { state, events }。
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
 
@@ -11,7 +11,7 @@ export type Card = 'first' | 'culprit' | 'detective' | 'alibi' | 'accomplice' | 
 
 const CARDS: { card: Card; label: string; count: number; help: string }[] = [
   { card: 'first', label: '🔎 第一發現者', count: 1, help: '開局時自動打出' },
-  { card: 'culprit', label: '🔪 犯人', count: 1, help: '手上只剩這張時才能出，打出就逃跑成功（犯人和共犯贏）' },
+  { card: 'culprit', label: '🔪 犯人', count: 1, help: '手上只剩這張時才能出，打出就逃跑成功 (犯人和共犯贏)' },
   { card: 'detective', label: '🕵️ 偵探', count: 4, help: '第 2 圈開始才能出；指認一人，他拿著犯人又沒有不在場證明就抓到' },
   { card: 'alibi', label: '🛡️ 不在場證明', count: 5, help: '留在手上時，偵探指到你也不算抓到' },
   { card: 'accomplice', label: '🤝 共犯', count: 2, help: '打出後加入犯人陣營' },
@@ -107,9 +107,9 @@ const say = (c: Ctx, text: string) => c.events.push({ type: 'announce', text });
 const dm = (c: Ctx, to: string, text: string) => {
   if (!isBot(to)) c.events.push({ type: 'dm', to, text });
 };
-const handText = (cards: Card[]) => (cards.length ? cards.map((x) => LABEL[x]).join('、') : '（沒有牌）');
+const handText = (cards: Card[]) => (cards.length ? cards.map((x) => LABEL[x]).join('、') : '(沒有牌)');
 const holderOf = (s: CState) => s.players.find((p) => p.hand.includes('culprit'));
-const AUTO = '⏰（超時自動）';
+const AUTO = '⏰ (超時自動)';
 
 // 每張牌能不能出；不能出時回傳原因
 function blocked(p: CPlayer, i: number, lap: number): string | undefined {
@@ -132,7 +132,7 @@ function start(c: Ctx) {
     text: [
       `🕺 犯人在跳舞開始！每人 4 張牌，座位順序：${s.players.map((p) => mention(p.id)).join(' → ')}`,
       '犯人撐到手上最後一張打出就逃跑成功：犯人和共犯贏。',
-      '用偵探或神犬抓到犯人：只有出那張牌的人贏（出牌的人是共犯時沒有人贏）。',
+      '用偵探或神犬抓到犯人：只有出那張牌的人贏 (出牌的人是共犯時沒有人贏)。',
     ].join('\n'),
     gif: 'start',
   });
@@ -167,9 +167,9 @@ function beginTurn(c: Ctx) {
   s.phase = 'turn';
   s.seq++;
   s.pending = undefined;
-  const lines = [`🕺 第 ${s.lap} 圈，輪到 ${mention(current(s).id)} 出牌（${CHOOSE_MS / 1000} 秒）`];
+  const lines = [`🕺 第 ${s.lap} 圈，輪到 ${mention(current(s).id)} 出牌 (${CHOOSE_MS / 1000} 秒)`];
   for (const p of s.players) {
-    const played = p.played.length ? p.played.map((x) => LABEL[x]).join('、') : '（還沒有）';
+    const played = p.played.length ? p.played.map((x) => LABEL[x]).join('、') : '(還沒有)';
     lines.push(`${mention(p.id)}：手牌 ${p.hand.length} 張，出過 ${played}${p.accomplice ? '｜🤝 共犯陣營' : ''}`);
   }
   c.events.push({ type: 'prompt', kind: 'criminal', audience: 'channel', text: lines.join('\n'), options: [{ value: 'hand', label: '🃏 我的手牌' }] });
@@ -184,7 +184,7 @@ function showHand(c: Ctx, user: string) {
   if (s.phase === 'choose' && s.choose!.picks[user] === null) return promptGive(c, p);
   if (s.phase === 'dog' && s.dog!.by === user) return promptDraw(c);
   if (s.phase !== 'turn' || current(s).id !== user) return reply(c, user, `🃏 你的手牌：${handText(p.hand)}`);
-  const lines = p.hand.map((x, i) => `• ${LABEL[x]}${blocked(p, i, s.lap) ? `（不能出：${blocked(p, i, s.lap)}）` : ''}`);
+  const lines = p.hand.map((x, i) => `• ${LABEL[x]}${blocked(p, i, s.lap) ? ` (不能出：${blocked(p, i, s.lap)})` : ''}`);
   c.events.push({
     type: 'prompt',
     kind: 'criminal',
@@ -218,7 +218,7 @@ function promptGive(c: Ctx, p: CPlayer) {
     kind: 'criminal',
     audience: 'ephemeral',
     user: p.id,
-    text: `🤫 選一張牌${what}（只有你看得到）`,
+    text: `🤫 選一張牌${what} (只有你看得到)`,
     options: p.hand.map((x, i) => ({ value: `give:${s.seq}:${i}`, label: LABEL[x] })),
   });
   return false;
@@ -327,7 +327,7 @@ function resolve(c: Ctx, p: CPlayer, index: number, targetId?: string, auto = fa
   return true;
 }
 
-// 謠言：有牌的人同時從上一位有牌的人手上隨機抽一張（以抽之前的手牌為準）
+// 謠言：有牌的人同時從上一位有牌的人手上隨機抽一張 (以抽之前的手牌為準)
 function rumor(c: Ctx) {
   const s = c.s;
   const ring = s.players.filter((x) => x.hand.length);
@@ -417,7 +417,7 @@ function endGame(c: Ctx, outcome: NonNullable<CState['outcome']>): boolean {
   s.winners = winners;
   const lines = [
     outcome.side === 'culprit' ? `🏃 犯人 ${mention(outcome.culprit)} 逃跑成功！`
-    : `🚨 ${mention(outcome.by)} 抓到犯人 ${mention(outcome.culprit)}！（${outcome.side === 'detective' ? '偵探' : '神犬'}）`,
+    : `🚨 ${mention(outcome.by)} 抓到犯人 ${mention(outcome.culprit)}！(${outcome.side === 'detective' ? '偵探' : '神犬'})`,
     winners.length ? `🏆 ${winners.map(mention).join('、')} 獲勝！` : `🤝 ${mention(outcome.by)} 是共犯，這局沒有人獲勝。`,
     `🔪 犯人：${mention(outcome.culprit)}｜🤝 共犯：${allies.length ? allies.map(mention).join('、') : '沒有'}`,
     ...s.players.map((p) => `${mention(p.id)} 最後的手牌：${handText(p.hand)}`),

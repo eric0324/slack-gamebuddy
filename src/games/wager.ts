@@ -5,11 +5,11 @@ import { parseRoomCommand } from './undercover.js';
 
 const HELP = [
   '*猜猜看指令*',
-  '• `/game wager new`：開房（任何人）',
-  '• `/game wager start`：開始遊戲，需要 3～10 位真人（房主）',
-  '• `/game wager answer <數字>`：寫答案，和按「✍️ 寫答案」一樣；只收阿拉伯數字（可以有逗號、小數點），截止前可以改',
+  '• `/game wager new`：開房 (任何人)',
+  '• `/game wager start`：開始遊戲，需要 3～10 位真人 (房主)',
+  '• `/game wager answer <數字>`：寫答案，和按「✍️ 寫答案」一樣；只收阿拉伯數字 (可以有逗號、小數點)，截止前可以改',
   '• 押注時按「🎯 押注」，每人 2 個標記，押最接近但不超過正解的答案；都太大就押「🔺 全部太大」',
-  '• `/game wager cancel`：取消遊戲（房主）',
+  '• `/game wager cancel`：取消遊戲 (房主)',
   '押中每個標記 +1，寫出贏的答案再 +1；7 題後總分最高的人獲勝',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');

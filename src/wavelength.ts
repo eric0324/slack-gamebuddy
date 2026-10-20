@@ -115,11 +115,11 @@ function startRound(c: Ctx) {
     {
       type: 'dm',
       to: p,
-      text: `🎯 你這題的光譜是「${s.spectrum[0]} ↔ ${s.spectrum[1]}」，目標在 ${s.target}（0 是最左「${s.spectrum[0]}」，10 是最右「${s.spectrum[1]}」）。\n回到頻道按「✍️ 寫提示」，給一個讓隊友猜到這個位置的提示詞。`,
+      text: `🎯 你這題的光譜是「${s.spectrum[0]} ↔ ${s.spectrum[1]}」，目標在 ${s.target} (0 是最左「${s.spectrum[0]}」，10 是最右「${s.spectrum[1]}」)。\n回到頻道按「✍️ 寫提示」，給一個讓隊友猜到這個位置的提示詞。`,
     },
     {
       type: 'announce',
-      text: `🔮 第 ${s.round + 1}／${s.order.length} 題：輪到 ${TEAM_NAME[psychicTeam(s)]} ${mention(p)} 出題（${PHASE_MS / 60_000} 分鐘）\n光譜：${dial(s)}`,
+      text: `🔮 第 ${s.round + 1}／${s.order.length} 題：輪到 ${TEAM_NAME[psychicTeam(s)]} ${mention(p)} 出題 (${PHASE_MS / 60_000} 分鐘)\n光譜：${dial(s)}`,
     },
     { type: 'prompt', kind: 'wavelength', audience: 'channel', text: `${mention(p)} 想好了就按這裡寫提示`, options: [{ value: 'clue', label: '✍️ 寫提示' }] },
   );
@@ -136,7 +136,7 @@ function giveClue(c: Ctx, user: string, text: string): boolean {
   c.events.push(
     {
       type: 'announce',
-      text: `💬 ${mention(user)} 的提示：「${clue}」\n光譜：${dial(s)}\n${TEAM_NAME[psychicTeam(s)]}隊友 ${mates(s).map(mention).join('、')} 請按 0～10 猜目標位置，可以改選（${PHASE_MS / 60_000} 分鐘）`,
+      text: `💬 ${mention(user)} 的提示：「${clue}」\n光譜：${dial(s)}\n${TEAM_NAME[psychicTeam(s)]}隊友 ${mates(s).map(mention).join('、')} 請按 0～10 猜目標位置，可以改選 (${PHASE_MS / 60_000} 分鐘)`,
     },
     {
       type: 'prompt',
@@ -176,7 +176,7 @@ function finishGuess(c: Ctx) {
   c.events.push(
     {
       type: 'announce',
-      text: `📌 ${TEAM_NAME[psychicTeam(s)]}的答案：${s.answer}\n${TEAM_NAME[rival]} ${rivals(s).map(mention).join('、')} 請猜目標在 ${s.answer} 的左邊還是右邊，可以改選（${PHASE_MS / 60_000} 分鐘）`,
+      text: `📌 ${TEAM_NAME[psychicTeam(s)]}的答案：${s.answer}\n${TEAM_NAME[rival]} ${rivals(s).map(mention).join('、')} 請猜目標在 ${s.answer} 的左邊還是右邊，可以改選 (${PHASE_MS / 60_000} 分鐘)`,
     },
     {
       type: 'prompt',
@@ -201,7 +201,7 @@ function pickSide(c: Ctx, user: string, value: Side): boolean {
   return true;
 }
 
-// 公布這題：出題隊依距離得 4／3／2／0 分，對手猜對方向得 1 分（正中時不算）
+// 公布這題：出題隊依距離得 4／3／2／0 分，對手猜對方向得 1 分 (正中時不算)
 function reveal(c: Ctx) {
   const s = c.s;
   const team = psychicTeam(s);
@@ -220,7 +220,7 @@ function reveal(c: Ctx) {
   c.events.push({
     type: 'announce',
     text: [
-      `📍 答案揭曉：提示「${s.clue ?? '（無）'}」`,
+      `📍 答案揭曉：提示「${s.clue ?? '(無)'}」`,
       `${s.spectrum![0]} ${cells.join('')} ${s.spectrum![1]}`,
       `目標 ${s.target}${s.answer === undefined ? '' : `，${TEAM_NAME[team]}答案 ${s.answer}`}`,
       `${TEAM_NAME[team]} +${gained}、${TEAM_NAME[rival]} +${rivalGained}`,
@@ -274,7 +274,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       return cancelGame(c, action.user);
     case 'openClue':
       if (s.phase !== 'clue' || action.user !== psychic(s)) return reply(c, action.user, '現在不是你出題。');
-      c.events.push({ type: 'modal', to: action.user, kind: 'wavelengthClue', title: '寫提示', label: `提示詞（1～${MAX_CLUE} 字）` });
+      c.events.push({ type: 'modal', to: action.user, kind: 'wavelengthClue', title: '寫提示', label: `提示詞 (1～${MAX_CLUE} 字)` });
       return false;
     case 'clue':
       return giveClue(c, action.user, action.text);

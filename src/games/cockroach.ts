@@ -5,12 +5,12 @@ import { parseRoomCommand } from './undercover.js';
 
 const HELP = [
   '*蟑螂撲克指令*',
-  '• `/game cockroach new`：開房（任何人）',
-  '• `/game cockroach addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/game cockroach removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/game cockroach start`：開始遊戲，需要 2～6 人（房主）',
-  '• `/game cockroach cancel`：取消遊戲（房主）',
-  '輪到你時按「🪳 出牌」選牌、要傳給誰、要說它是什麼；收到牌時按「✅ 是」「❌ 不是」或「👀 偷看再傳」；隨時按「🃏 我的手牌」（只有你看得到）',
+  '• `/game cockroach new`：開房 (任何人)',
+  '• `/game cockroach addbot [數量]`：加入 bot 補人數 (房主，開始前)',
+  '• `/game cockroach removebot [數量]`：移除 bot (房主，開始前)',
+  '• `/game cockroach start`：開始遊戲，需要 2～6 人 (房主)',
+  '• `/game cockroach cancel`：取消遊戲 (房主)',
+  '輪到你時按「🪳 出牌」選牌、要傳給誰、要說它是什麼；收到牌時按「✅ 是」「❌ 不是」或「👀 偷看再傳」；隨時按「🃏 我的手牌」(只有你看得到)',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
@@ -19,7 +19,7 @@ export function parseCockroachCommand(text: string, user: string, channel: strin
   return parseRoomCommand(text, user, channel) as CrAction | null;
 }
 
-// value：play、hand、passmenu、yes／no／peek:<step>、card:<step>:<牌>、tgt:<step>:<牌>:<目標>、claim:<step>:<牌>:<宣稱>:<目標>、to:<step>:<目標>、say:<step>:<宣稱>:<目標>（bot 的 id 有冒號，目標放最後）
+// value：play、hand、passmenu、yes／no／peek:<step>、card:<step>:<牌>、tgt:<step>:<牌>:<目標>、claim:<step>:<牌>:<宣稱>:<目標>、to:<step>:<目標>、say:<step>:<宣稱>:<目標> (bot 的 id 有冒號，目標放最後)
 function cockroachButton(kind: string, value: string, user: string, channel: string): CrAction | null {
   if (kind === 'join' || kind === 'leave' || kind === 'start') return { type: kind, user };
   if (kind === 'rematch') return { type: 'rematch', user, channel };

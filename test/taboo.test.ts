@@ -32,7 +32,7 @@ const lastTimer = (events: GameEvent[]) => (events.filter((e) => e.type === 'sta
 const teamOf = (s: TState, id: string) => s.players.find((p) => p.id === id)!.team;
 
 const started = (n = 4) => run([{ type: 'start', user: 'p1' }], lobbyWith(n).state);
-// 4 人局：藍隊 p2、p4 先描述，順序 p2（藍）→ p1（紅）→ p4（藍）→ p3（紅）
+// 4 人局：藍隊 p2、p4 先描述，順序 p2 (藍)→ p1 (紅)→ p4 (藍)→ p3 (紅)
 const describing = (n = 4) => run([{ type: 'go', user: 'p2' }], started(n).state);
 
 describe('taboo/setup: 禁語的房間', () => {
@@ -211,7 +211,7 @@ describe('taboo/rounds: 文字比對', () => {
   });
 });
 
-// 4 人局第 1 輪：藍隊 p2 描述、p4 猜；紅隊 p1、p3 是對手。第一張卡是 C0（西瓜）
+// 4 人局第 1 輪：藍隊 p2 描述、p4 猜；紅隊 p1、p3 是對手。第一張卡是 C0 (西瓜)
 describe('taboo/rounds: 猜中', () => {
   it('隊友的訊息包含題目詞：本隊 +1，公告，換下一張卡', () => {
     const { state, events } = run([{ type: 'chat', user: 'p4', text: `是${C0.word}嗎` }], describing().state);
@@ -304,7 +304,7 @@ describe('taboo/rounds: 跳過', () => {
     expect(cardPrompt(events)!.text).toContain(C1.word);
   });
 
-  it('指令跳過（沒有流水號）跳目前的卡', () => {
+  it('指令跳過 (沒有流水號) 跳目前的卡', () => {
     const { state } = run([{ type: 'skip', user: 'p2' }], describing().state);
     expect(state.log).toEqual([{ word: C0.word, result: 'skip' }]);
   });
@@ -327,7 +327,7 @@ describe('taboo/rounds: 跳過', () => {
 
 const timeout = (s: TState): TAction => ({ type: 'timeout', id: s.timers.phase! });
 
-// 從準備階段玩完一輪：描述者按開始、做 actions（拿到目前的 state 決定）、時間到
+// 從準備階段玩完一輪：描述者按開始、做 actions (拿到目前的 state 決定)、時間到
 function playRound(s: TState, actions: (s: TState) => TAction[] = () => []) {
   let r = run([{ type: 'go', user: s.order[s.round] }], s);
   for (const a of actions(r.state)) r = run([a], r.state);

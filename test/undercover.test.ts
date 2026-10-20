@@ -45,7 +45,7 @@ describe('undercover/setup: 誰是臥底的房間', () => {
     expect(events.some((e) => e.type === 'announce' && e.text.includes('取消'))).toBe(true);
   });
 
-  it('房間已滿（12 人）時拒絕加入', () => {
+  it('房間已滿 (12 人) 時拒絕加入', () => {
     const { state, events } = run([{ type: 'join', user: 'x' }], lobbyWith(12).state);
     expect(state.players).toHaveLength(12);
     expect(ephemeralTo(events, 'x')).toMatchObject({ text: expect.stringContaining('房間已滿') });
@@ -149,13 +149,13 @@ const prompts = (events: GameEvent[], kind: string) =>
   events.filter((e) => e.type === 'prompt' && e.kind === kind) as Extract<GameEvent, { type: 'prompt' }>[];
 const lastTimer = (events: GameEvent[]) => events.filter((e) => e.type === 'startTimer').at(-1) as { id: number; ms: number };
 
-// 4 人局（p1 臥底、p2~p4 平民），rng 固定時第一輪從最後一位 p4 開始：p4 → p1 → p2 → p3
+// 4 人局 (p1 臥底、p2~p4 平民)，rng 固定時第一輪從最後一位 p4 開始：p4 → p1 → p2 → p3
 describe('undercover/rounds: 輪流描述', () => {
   it('公告描述順序，輪到第一位描述 40 秒', () => {
     const { state, events } = startedU(4);
     expect(state).toMatchObject({ phase: 'speech', speaker: 'p4' });
     expect(announces(events)).toContainEqual(expect.stringContaining('<@p4> → <@p1> → <@p2> → <@p3>'));
-    expect(prompts(events, 'endSpeech').at(-1)).toMatchObject({ text: expect.stringContaining('輪到 <@p4> 描述（40 秒）') });
+    expect(prompts(events, 'endSpeech').at(-1)).toMatchObject({ text: expect.stringContaining('輪到 <@p4> 描述 (40 秒)') });
     expect(lastTimer(events).ms).toBe(40_000);
   });
 
@@ -277,7 +277,7 @@ describe('undercover/rounds: 白板猜詞', () => {
     expect(lastTimer(events).ms).toBe(60_000);
   });
 
-  it('白板猜中（忽略前後空白和大小寫）：臥底陣營獲勝', () => {
+  it('白板猜中 (忽略前後空白和大小寫)：臥底陣營獲勝', () => {
     const { state } = exile6('p2');
     const guess = `  ${state.words!.civilian.toUpperCase()} `;
     const after = run([{ type: 'guess', user: 'p2', word: guess }], state);
@@ -312,12 +312,12 @@ describe('undercover/rounds: 白板猜詞', () => {
 const nextVote = (s: UState) => run([{ type: 'endDiscussion', user: 'p1' }], s).state;
 
 describe('undercover/win-condition: 勝負判定', () => {
-  it('臥底全部出局（沒有白板的局）：平民獲勝', () => {
+  it('臥底全部出局 (沒有白板的局)：平民獲勝', () => {
     const { state } = run(votes([['p2', 'p1'], ['p3', 'p1'], ['p4', 'p1'], ['p1', 'p2']]), voting4().state);
     expect(state).toMatchObject({ phase: 'ended', winner: 'civilian' });
   });
 
-  it('臥底和白板都出局：平民獲勝（先放逐白板、白板猜錯，再放逐臥底）', () => {
+  it('臥底和白板都出局：平民獲勝 (先放逐白板、白板猜錯，再放逐臥底)', () => {
     const guessing = exile6('p2').state;
     const afterBlank = run([{ type: 'guess', user: 'p2', word: guessing.words!.undercover }], guessing).state;
     expect(afterBlank.phase).toBe('speech');
@@ -436,7 +436,7 @@ describe('undercover/bots: bot 投票與猜詞', () => {
     }
   });
 
-  it('白板 bot 被放逐時立刻猜詞（從平民詞、臥底詞、另一個隨機的詞中選）', () => {
+  it('白板 bot 被放逐時立刻猜詞 (從平民詞、臥底詞、另一個隨機的詞中選)', () => {
     const vote = run([{ type: 'endDiscussion', user: 'p1' }], withBotsU().state).state;
     const blank = botN(vote, 1);
     // 讓白板 bot 被放逐：真人也投給白板 bot，再把 bot 的票都改成投白板 bot

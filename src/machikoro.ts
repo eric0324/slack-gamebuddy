@@ -1,4 +1,4 @@
-// 骰子街（Machi Koro 基本版＋港口擴充）遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyMachikoro(state, action, rng) → { state, events }。
+// 骰子街 (Machi Koro 基本版＋港口擴充) 遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyMachikoro(state, action, rng) → { state, events }。
 import { isBot, mention, quiet, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
 import {
@@ -28,7 +28,7 @@ export interface MPlayer {
   id: string;
   coins: number;
   cards: Record<string, number>; // 一般建築代號 → 張數
-  landmarks: string[]; // 已蓋好的地標（含開局的市政廳）
+  landmarks: string[]; // 已蓋好的地標 (含開局的市政廳)
 }
 
 export interface MState {
@@ -42,7 +42,7 @@ export interface MState {
   first: number; // 第 1 輪從誰開始：輪回他時輪數 +1
   current: number;
   round: number;
-  seq: number; // 每個新回合（含遊樂園的額外回合）+1：回合面板的 ref，也用來擋掉舊按鈕
+  seq: number; // 每個新回合 (含遊樂園的額外回合)+1：回合面板的 ref，也用來擋掉舊按鈕
   turn?: {
     step: Step;
     dice: number[];
@@ -106,16 +106,16 @@ const menu = (c: Ctx, user: string, text: string, options: { value: string; labe
 };
 const built = (p: MPlayer) => LANDMARKS.filter((l) => p.landmarks.includes(l));
 const cardCount = (p: MPlayer) => Object.values(p.cards).reduce((a, b) => a + b, 0);
-const marketLines = (s: MState) => marketOrder(s.market).map((code) => `• ${cardLabel(code)}剩 ${s.market[code]} 張`);
+const marketLines = (s: MState) => marketOrder(s.market).map((code) => `• ${cardLabel(code)} 剩 ${s.market[code]} 張`);
 const playerLine = (p: MPlayer) =>
-  `${quiet(p.id)} ${p.coins} 元｜地標：${built(p).map((l) => LANDMARK[l].name).join('、') || '（沒有）'}｜建築 ${cardCount(p)} 張`;
+  `${quiet(p.id)} ${p.coins} 元｜地標：${built(p).map((l) => LANDMARK[l].name).join('、') || '(沒有)'}｜建築 ${cardCount(p)} 張`;
 const roundText = (s: MState) => (s.round >= 25 ? `第 ${s.round}/${MAX_ROUNDS} 輪` : `第 ${s.round} 輪`);
 
 // 回合面板：只 @ 輪到的人；ended 時拿掉按鈕
 function board(s: MState, ended = false): GameEvent {
   const me = current(s);
   const lines = [
-    ended ? `✅ ${roundText(s)}｜${quiet(me.id)} 的回合結束` : `*🏘️ ${roundText(s)}｜👉 輪到 ${mention(me.id)}（${TURN_MS / 1000} 秒）*`,
+    ended ? `✅ ${roundText(s)}｜${quiet(me.id)} 的回合結束` : `*🏘️ ${roundText(s)}｜👉 輪到 ${mention(me.id)} (${TURN_MS / 1000} 秒)*`,
     ...(s.turn?.log ?? []),
     '市場：',
     ...marketLines(s),
@@ -142,7 +142,7 @@ function townText(s: MState): string {
     }
     const missing = LANDMARKS.filter((l) => !has(p, l));
     lines.push(`　已蓋：${['cityhall' as const, ...built(p)].map((l) => LANDMARK[l].name).join('、')}`);
-    lines.push(`　還沒蓋：${missing.map((l) => LANDMARK[l].name).join('、') || '（全部蓋好了）'}`);
+    lines.push(`　還沒蓋：${missing.map((l) => LANDMARK[l].name).join('、') || '(全部蓋好了)'}`);
   }
   return lines.join('\n');
 }
@@ -159,7 +159,7 @@ const sum = (dice: number[]) => dice.reduce((a, b) => a + b, 0);
 const diceText = (dice: number[]) => (dice.length === 2 ? `${dice[0]} + ${dice[1]} = ${sum(dice)}` : `${dice[0]}`);
 const rollDice = (c: Ctx, n: number) => Array.from({ length: n }, () => 1 + Math.floor(c.rng() * 6));
 
-// 買建築這一步能買的：市場上買得起的（自己有的紫色除外），和買得起、還沒蓋的地標
+// 買建築這一步能買的：市場上買得起的 (自己有的紫色除外)，和買得起、還沒蓋的地標
 function buyOptions(s: MState): string[] {
   const me = current(s);
   const cards = marketOrder(s.market).filter((code) => CARDS[code].cost <= me.coins && !(CARDS[code].color === 'purple' && me.cards[code]));
@@ -178,16 +178,16 @@ function stepMenu(c: Ctx) {
     case 'roll':
       return menu(c, me.id, `${head}\n要擲幾顆骰子？`, [o('roll', '1', '擲 1 顆'), ...(station ? [o('roll', '2', '擲 2 顆')] : [])]);
     case 'reroll':
-      return menu(c, me.id, `${head}\n擲出 ${diceText(t.dice)}。要保留還是重擲？（廣播塔，每回合一次）`, [
+      return menu(c, me.id, `${head}\n擲出 ${diceText(t.dice)}。要保留還是重擲？(廣播塔，每回合一次)`, [
         o('keep', '', '保留'),
         ...(station ? [o('reroll', '1', '重擲 1 顆'), o('reroll', '2', '重擲 2 顆')] : [o('reroll', '1', '重擲')]),
       ]);
     case 'harbor':
-      return menu(c, me.id, `${head}\n擲出 ${t.total}。要用港口 +2 嗎？`, [o('harbor', 'yes', `+2（變成 ${t.total + 2}）`), o('harbor', 'no', '不加')]);
+      return menu(c, me.id, `${head}\n擲出 ${t.total}。要用港口 +2 嗎？`, [o('harbor', 'yes', `+2 (變成 ${t.total + 2})`), o('harbor', 'no', '不加')]);
     case 'tv':
-      return menu(c, me.id, `${head}\n電視台：要向誰收 5 元？（不夠就收他現有的）`, others(s).map((p) => o('tv', p.id, `${p.id}（${p.coins} 元）`)));
+      return menu(c, me.id, `${head}\n電視台：要向誰收 5 元？(不夠就收他現有的)`, others(s).map((p) => o('tv', p.id, `${p.id} (${p.coins} 元)`)));
     case 'bizGive':
-      return menu(c, me.id, `${head}\n商業中心：要給出自己的哪一張建築？（紫色建築和地標不能換）`, [
+      return menu(c, me.id, `${head}\n商業中心：要給出自己的哪一張建築？(紫色建築和地標不能換)`, [
         ...tradable(me).map((code) => o('bizGive', code, CARDS[code].name)),
         o('bizSkip', '', '不換'),
       ]);
@@ -206,13 +206,13 @@ function stepMenu(c: Ctx) {
     case 'buy': {
       const info = [
         ...marketOrder(s.market).map((code) => `• ${cardLabel(code)}：${CARDS[code].text}`),
-        ...LANDMARKS.filter((l) => !has(me, l)).map((l) => `• 地標 ${LANDMARK[l].name}（${LANDMARK[l].cost} 元）：${LANDMARK[l].text}`),
+        ...LANDMARKS.filter((l) => !has(me, l)).map((l) => `• 地標 ${LANDMARK[l].name} (${LANDMARK[l].cost} 元)：${LANDMARK[l].text}`),
       ];
       const options = buyOptions(s).map((code) => {
         const x = CARDS[code] ?? LANDMARK[code as keyof typeof LANDMARK];
-        return o('buy', code, `${x.name}（${x.cost} 元）`);
+        return o('buy', code, `${x.name} (${x.cost} 元)`);
       });
-      return menu(c, me.id, [head, '要買什麼？（每回合最多 1 棟建築或 1 個地標）', ...info].join('\n'), [...options, o('pass', '', '不買')]);
+      return menu(c, me.id, [head, '要買什麼？(每回合最多 1 棟建築或 1 個地標)', ...info].join('\n'), [...options, o('pass', '', '不買')]);
     }
   }
 }
@@ -284,7 +284,7 @@ function harbor(c: Ctx, a: Extract<MAction, { type: 'harbor' }>): boolean {
 const lineText = (l: Line) =>
   l.from ? `${quiet(l.to)} 的${CARDS[l.card].name}向 ${quiet(l.from)} 收 ${l.amount} 元` : `${quiet(l.to)} 的${CARDS[l.card].name} +${l.amount} 元`;
 
-// 結算：紅 → 藍綠 → 紫（不用選擇的），明細寫進面板
+// 結算：紅 → 藍綠 → 紫 (不用選擇的)，明細寫進面板
 function settle(c: Ctx) {
   const s = c.s;
   const t = s.turn!;
@@ -292,7 +292,7 @@ function settle(c: Ctx) {
   const blueGreen = settleBlueGreen(s.players, s.current, t.total, () => rollDice(c, 2));
   if (blueGreen.tuna) t.log.push(`鮪魚船擲出 ${diceText(blueGreen.tuna)}`);
   lines.push(...blueGreen.lines, ...settlePurple(s.players, s.current, t.total));
-  t.log.push(...(lines.length ? lines.map(lineText) : ['（沒有建築收錢）']));
+  t.log.push(...(lines.length ? lines.map(lineText) : ['(沒有建築收錢)']));
   if (t.total === 6 && current(s).cards.tv) t.step = 'tv';
   else toBusiness(c);
 }
@@ -455,7 +455,7 @@ function endGame(c: Ctx, reason: 'landmarks' | 'limit') {
     {
       type: 'announce',
       text: [
-        `🏆 遊戲結束，${s.winners.map(mention).join('、')} 獲勝！（${why}）`,
+        `🏆 遊戲結束，${s.winners.map(mention).join('、')} 獲勝！(${why})`,
         ...s.players.map((p) => `${mention(p.id)} 地標 ${built(p).length} 個｜${p.coins} 元｜建築 ${cardCount(p)} 張`),
       ].join('\n'),
       gif: 'goodWin',
@@ -502,7 +502,7 @@ function start(c: Ctx, user: string): boolean {
   c.events.push({
     type: 'announce',
     text: [
-      `🏘️ 骰子街開始！玩家（依座位）：${s.players.map((p) => mention(p.id)).join('、')}`,
+      `🏘️ 骰子街開始！玩家 (依座位)：${s.players.map((p) => mention(p.id)).join('、')}`,
       '每人起始 3 元、麥田、麵包店和蓋好的市政廳。',
       RULES,
       '市場：',
@@ -535,7 +535,7 @@ export function richest(s: MState): string {
   return best.id;
 }
 
-// 這一步自動做什麼（bot，或逾時時代為完成）；回傳和真人按按鈕一樣的 action
+// 這一步自動做什麼 (bot，或逾時時代為完成)；回傳和真人按按鈕一樣的 action
 export function autoMove(s: MState, bot: boolean): GameAction {
   const t = s.turn!;
   const me = current(s);

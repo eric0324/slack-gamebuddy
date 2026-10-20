@@ -5,20 +5,20 @@ import { parseRoomCommand } from './undercover.js';
 
 const HELP = [
   '*梗圖大亂鬥指令*',
-  '• `/game meme new`：開房（任何人）',
-  '• `/game meme addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/game meme removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/game meme start`：開始遊戲，需要 3～8 人（房主）',
-  '• `/game meme write <一句話>`：自己寫一句配圖（1～40 字），和按「✍️ 自己寫」一樣',
-  '• `/game meme cancel`：取消遊戲（房主）',
-  '• `/game meme add <圖片網址> [名稱]`：投稿梗圖到這個頻道的梗圖庫（任何人、任何時候；要公開的 https 圖片網址），每局最多 2 輪用投稿的梗圖',
-  '• `/game meme list`：看這個頻道的投稿梗圖（只有自己看得到）',
-  '• `/game meme remove <編號>`：刪掉一張投稿（任何人，頻道會公告）',
+  '• `/game meme new`：開房 (任何人)',
+  '• `/game meme addbot [數量]`：加入 bot 補人數 (房主，開始前)',
+  '• `/game meme removebot [數量]`：移除 bot (房主，開始前)',
+  '• `/game meme start`：開始遊戲，需要 3～8 人 (房主)',
+  '• `/game meme write <一句話>`：自己寫一句配圖 (1～40 字)，和按「✍️ 自己寫」一樣',
+  '• `/game meme cancel`：取消遊戲 (房主)',
+  '• `/game meme add <圖片網址> [名稱]`：投稿梗圖到這個頻道的梗圖庫 (任何人、任何時候；要公開的 https 圖片網址)，每局最多 2 輪用投稿的梗圖',
+  '• `/game meme list`：看這個頻道的投稿梗圖 (只有自己看得到)',
+  '• `/game meme remove <編號>`：刪掉一張投稿 (任何人，頻道會公告)',
   '每輪看到梗圖後，按「🃏 我的手牌」挑一句，或按「✍️ 自己寫」打一句；送出後不能改。接著匿名投票，不能投自己',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
-// 梗圖大亂鬥的子指令：write <一句話>（可以有空白）
+// 梗圖大亂鬥的子指令：write <一句話> (可以有空白)
 export function parseMemeCommand(text: string, user: string, channel: string): MemeAction | null {
   const m = text.trim().match(/^write\s+([\s\S]+)$/);
   if (m) return { type: 'write', user, text: m[1].trim() };

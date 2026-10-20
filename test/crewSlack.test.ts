@@ -1,4 +1,4 @@
-// 星際探險隊接上 Slack adapter：頻道進度帶入與寫入、戰績。GAMES 還沒加 crew（主控整合時加），這裡先 mock 進去
+// 星際探險隊接上 Slack adapter：頻道進度帶入與寫入、戰績。GAMES 還沒加 crew (主控整合時加)，這裡先 mock 進去
 import { describe, expect, it } from 'vitest';
 import { applyCrew, type CAction, type CState } from '../src/crew.js';
 import { CrewStore } from '../src/crewStore.js';
@@ -30,7 +30,7 @@ const rng = () => 0.99999;
 const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
 const crewState = (host: GameHost) => host.state('crew' as never, 'C1') as unknown as CState;
 
-// 3 人局（p3 是指揮官、領出）停在第一墩可以出牌，p3 有 🟦9 任務：這墩 p3 贏就成功
+// 3 人局 (p3 是指揮官、領出) 停在第一墩可以出牌，p3 有 🟦9 任務：這墩 p3 贏就成功
 function oneTrickToWin(prev: CState): CState {
   let s = prev;
   const step = (a: CAction) => (s = applyCrew(s, a, rng).state);

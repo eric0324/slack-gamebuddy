@@ -1,4 +1,4 @@
-// 妙語說書人接上 Slack adapter：GAMES 還沒加 dixit（主控整合時才加），這裡先用 mock 把它放進去
+// 妙語說書人接上 Slack adapter：GAMES 還沒加 dixit (主控整合時才加)，這裡先用 mock 把它放進去
 import { describe, expect, it } from 'vitest';
 import { MemeStore } from '../src/memeStore.js';
 import { GameHost, type SlackClient } from '../src/slack.js';

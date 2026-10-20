@@ -2,7 +2,7 @@
 
 ## Context
 
-GameBuddy 已經有狼人殺（`src/engine.ts`）和誰是臥底（`src/undercover.ts`）兩個純邏輯 engine，adapter（`src/slack.ts`）用每款遊戲各一個 Map 存狀態、用 `lastKind` 決定按鈕交給誰。動機見 proposal.md，規則見 specs。
+GameBuddy 已經有狼人殺 (`src/engine.ts`) 和誰是臥底 (`src/undercover.ts`) 兩個純邏輯 engine，adapter (`src/slack.ts`) 用每款遊戲各一個 Map 存狀態、用 `lastKind` 決定按鈕交給誰。動機見 proposal.md，規則見 specs。
 
 ## Goals / Non-Goals
 
@@ -11,7 +11,7 @@ GameBuddy 已經有狼人殺（`src/engine.ts`）和誰是臥底（`src/undercov
 - 既有兩款遊戲的行為和測試不受影響
 
 **Non-Goals:**
-- 不做多回合計分（一局就分勝負）
+- 不做多回合計分 (一局就分勝負)
 - 不做戰績
 - bot 不理解真人的提問內容
 - 不抽共用模組；房間和投票的程式碼和誰是臥底有重複，等之後再評估
@@ -24,11 +24,11 @@ GameBuddy 已經有狼人殺（`src/engine.ts`）和誰是臥底（`src/undercov
 
 ### 2. 接力提問用兩個子步驟
 
-提問階段（`qa`）裡有兩個子步驟：
+提問階段 (`qa`) 裡有兩個子步驟：
 - `choose`：提問者選人，prompt kind `askTarget`，選項是可以問的玩家，計時 40 秒，超時隨機選
-- `answer`：被問的人回答，prompt kind `endAnswer`（「回答完畢」按鈕），計時 40 秒
+- `answer`：被問的人回答，prompt kind `endAnswer` (「回答完畢」按鈕)，計時 40 秒
 
-整個提問階段另有一個 8 分鐘的總計時器（剩 1 分鐘時再提醒一次），和上面的步驟計時器分開，用不同的 timer id，跟狼人殺夜晚同時有兩個計時器的做法一樣。總時間到時，不管目前在哪個子步驟都直接進入投票。
+整個提問階段另有一個 8 分鐘的總計時器 (剩 1 分鐘時再提醒一次)，和上面的步驟計時器分開，用不同的 timer id，跟狼人殺夜晚同時有兩個計時器的做法一樣。總時間到時，不管目前在哪個子步驟都直接進入投票。
 
 ### 3. 間諜猜地點用 slash command
 
@@ -40,7 +40,7 @@ GameBuddy 已經有狼人殺（`src/engine.ts`）和誰是臥底（`src/undercov
 
 ### 5. adapter
 
-新增 `spyfallGames` Map、`/game spyfall <sub>` 解析，`lastKind` 加上 `'spyfall'`，按鈕依 `lastKind` 交給間諜危機（新增 `askTarget`、`endAnswer` 兩種按鈕）。
+新增 `spyfallGames` Map、`/game spyfall <sub>` 解析，`lastKind` 加上 `'spyfall'`，按鈕依 `lastKind` 交給間諜危機 (新增 `askTarget`、`endAnswer` 兩種按鈕)。
 
 ## Risks / Trade-offs
 

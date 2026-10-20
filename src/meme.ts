@@ -1,4 +1,4 @@
-// 梗圖大亂鬥（What Do You Meme? 的玩法）遊戲引擎：純邏輯，不碰任何 I/O。每輪看一張梗圖，出手牌或自己寫一句，匿名投票。
+// 梗圖大亂鬥 (What Do You Meme? 的玩法) 遊戲引擎：純邏輯，不碰任何 I/O。每輪看一張梗圖，出手牌或自己寫一句，匿名投票。
 // 介面和其他遊戲一樣：applyMeme(state, action, rng) → { state, events }。
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
@@ -16,7 +16,7 @@ const VOTE_MS = 60_000;
 const LETTER = 'ABCDEFGH';
 const MAX_CUSTOM = 2; // 每局最多幾輪用頻道投稿的梗圖
 
-// 這局用到的梗圖；by 是投稿者（內建的沒有）
+// 這局用到的梗圖；by 是投稿者 (內建的沒有)
 export type RoundImage = { name: string; url: string; by?: string };
 
 export interface MemePlayer {
@@ -93,7 +93,7 @@ function answerBoard(s: MemeState): GameEvent {
     audience: 'channel',
     ref: `meme:${s.seq}`,
     text: [
-      `🖼️ 第 ${s.round}/${ROUNDS} 輪：按「🃏 我的手牌」挑一句，或按「✍️ 自己寫」（${ANSWER_MS / 1000} 秒）`,
+      `🖼️ 第 ${s.round}/${ROUNDS} 輪：按「🃏 我的手牌」挑一句，或按「✍️ 自己寫」(${ANSWER_MS / 1000} 秒)`,
       `已送出 ${s.players.length - waiting.length}/${s.players.length}${waiting.length ? `，還沒送出：${waiting.map((p) => mention(p.id)).join(' ')}` : ''}`,
     ].join('\n'),
     options: [
@@ -111,7 +111,7 @@ function voteBoard(s: MemeState, ended = false): GameEvent {
     audience: 'channel',
     ref: `meme:${s.seq}`,
     text: [
-      ended ? `🗳️ 第 ${s.round}/${ROUNDS} 輪投票：已結束` : `🗳️ 第 ${s.round}/${ROUNDS} 輪：投給最好笑的一句（不能投自己，${VOTE_MS / 1000} 秒內可以改票）`,
+      ended ? `🗳️ 第 ${s.round}/${ROUNDS} 輪投票：已結束` : `🗳️ 第 ${s.round}/${ROUNDS} 輪：投給最好笑的一句 (不能投自己，${VOTE_MS / 1000} 秒內可以改票)`,
       ...s.answers.map((a, i) => `${LETTER[i]}. ${a.text}`),
       ...(ended ? [] : [`已投 ${voted}/${humans(s).length}`]),
     ].join('\n'),
@@ -129,7 +129,7 @@ function startRound(c: Ctx) {
     delete p.vote;
   }
   const img = s.images[s.round - 1];
-  const credit = img.by ? `（${mention(img.by)} 投稿）` : '';
+  const credit = img.by ? ` (${mention(img.by)} 投稿)` : '';
   c.events.push({ type: 'announce', text: `🖼️ 第 ${s.round}/${ROUNDS} 輪：${img.name}${credit}`, image: { url: img.url, alt: img.name } });
   for (const p of s.players) if (isBot(p.id)) playCard(c, p, pickIndex(c.rng, p.hand.length));
   c.events.push(answerBoard(s));
@@ -186,7 +186,7 @@ function endGame(c: Ctx) {
   );
 }
 
-// 配圖階段的共同檢查；回傳玩家，不行時回傳 null（已經回覆原因）
+// 配圖階段的共同檢查；回傳玩家，不行時回傳 null (已經回覆原因)
 function answerer(c: Ctx, user: string): MemePlayer | null {
   const me = find(c.s, user);
   if (!me) return (reply(c, user, '你不在這局遊戲裡。'), null);
@@ -209,7 +209,7 @@ function handMenu(c: Ctx, user: string): boolean {
     kind: 'meme',
     audience: 'ephemeral',
     user,
-    text: '🃏 挑一句配這張梗圖（送出後不能改）',
+    text: '🃏 挑一句配這張梗圖 (送出後不能改)',
     options: me.hand.map((card, i) => ({ value: `play:${c.s.seq}:${i}`, label: card })),
     perRow: 1,
   });
@@ -238,7 +238,7 @@ function write(c: Ctx, user: string, raw: string): boolean {
 
 function openWrite(c: Ctx, user: string): boolean {
   if (!answerer(c, user)) return false;
-  c.events.push({ type: 'modal', to: user, kind: 'memeWrite', title: '自己寫', label: `你的梗（1～${MAX_TEXT} 字）` });
+  c.events.push({ type: 'modal', to: user, kind: 'memeWrite', title: '自己寫', label: `你的梗 (1～${MAX_TEXT} 字)` });
   return false;
 }
 
@@ -267,7 +267,7 @@ function timeout(c: Ctx) {
 
 const RULES = [
   `😂 梗圖大亂鬥開始！共 ${ROUNDS} 輪。`,
-  `每輪看一張梗圖，從 ${HAND} 張手牌挑一句，或自己寫一句配上去（${ANSWER_MS / 1000} 秒）。`,
+  `每輪看一張梗圖，從 ${HAND} 張手牌挑一句，或自己寫一句配上去 (${ANSWER_MS / 1000} 秒)。`,
   `所有答案匿名列出，大家投給最好笑的一句，不能投自己；每得 1 票 +1 分。`,
   `${ROUNDS} 輪後總分最高的人獲勝。`,
 ].join('\n');

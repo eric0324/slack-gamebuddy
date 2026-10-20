@@ -165,7 +165,7 @@ function runAll(actions: EAction[], start: EState) {
 const send = (user: string, text: string): EAction => ({ type: 'send', user, text });
 const timeout = (s: EState): EAction => ({ type: 'timeout', id: s.timers.phase! });
 const ids = (s: EState) => s.players.map((p) => p.id);
-// 這一步大家都交（texts 可以指定某人的內容，null 表示不交）；預設 emoji 步交 🐱、猜測步交「貓」
+// 這一步大家都交 (texts 可以指定某人的內容，null 表示不交)；預設 emoji 步交 🐱、猜測步交「貓」
 function stepAll(s: EState, texts: Record<string, string | null> = {}) {
   const def = s.step % 2 ? '🐱' : '貓';
   const actions = ids(s)
@@ -224,7 +224,7 @@ describe('emoji/rounds: 作答', () => {
     expect(boards(events)).toHaveLength(0);
   });
 
-  it('交 emoji：私下看到已收到，頻道更新已交 1/4（同一則），沒有內容', () => {
+  it('交 emoji：私下看到已收到，頻道更新已交 1/4 (同一則)，沒有內容', () => {
     const first = started(4);
     const { state, events } = run([send('A', '🧋 ⚫⚫')], first.state);
     expect(ephemeralTo(events, 'A')[0]).toBe('已收到：🧋 ⚫⚫');
@@ -301,7 +301,7 @@ describe('emoji/rounds: 沒交與跳過', () => {
     expect(sees(s, 'D')).toBe('你拿到：🧋⚫⚫，請猜這是什麼');
   });
 
-  it('猜測步沒交：下一位拿到最近的文字（起點題目）', () => {
+  it('猜測步沒交：下一位拿到最近的文字 (起點題目)', () => {
     let s = stepAll(started(4).state);
     s = stepAll(s, { B: null });
     expect(sees(s, 'C')).toBe(`你拿到：${promptOf(s, 'A')}，請只用 emoji 描述`);
@@ -498,8 +498,8 @@ describe('emoji/rounds: 揭曉與勝負', () => {
     ]);
     expect([score(state, 'A'), score(state, 'B'), score(state, 'C'), score(state, 'D')]).toEqual([2, 2, 1, 3]);
     const text = announces(events).join('\n');
-    expect(text).toMatch(/🎨 最佳 emoji[\s\S]*`2-3` <@D>：🐶（3 票）/);
-    expect(text).toMatch(/🧠 最神猜測[\s\S]*`2-4` <@A>：A猜4（2 票）/);
+    expect(text).toMatch(/🎨 最佳 emoji[\s\S]*`2-3` <@D>：🐶 \(3 票\)/);
+    expect(text).toMatch(/🧠 最神猜測[\s\S]*`2-4` <@A>：A猜4 \(2 票\)/);
     expect(text).toMatch(/<@D> 3 分[\s\S]*<@C> 1 分/);
     expect(text).toContain('<@D> 獲勝');
     expect(state.winners).toEqual(['D']);
@@ -564,7 +564,7 @@ describe('emoji/rounds: 揭曉與勝負', () => {
 });
 
 describe('emoji/setup: 指令與按鈕', () => {
-  it('子指令：send <內容>（可以有空白）、房間指令；help 和不認識的回傳 null', () => {
+  it('子指令：send <內容> (可以有空白)、房間指令；help 和不認識的回傳 null', () => {
     expect(emoji.parse('send 🧋 ⚫ ⚫', 'U1', 'C1')).toEqual({ type: 'send', user: 'U1', text: '🧋 ⚫ ⚫' });
     expect(emoji.parse('send 黑糖 珍奶', 'U1', 'C1')).toEqual({ type: 'send', user: 'U1', text: '黑糖 珍奶' });
     expect(emoji.parse('new', 'U1', 'C1')).toEqual({ type: 'new', user: 'U1', channel: 'C1' });
