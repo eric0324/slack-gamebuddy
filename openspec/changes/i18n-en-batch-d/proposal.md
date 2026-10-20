@@ -5,7 +5,7 @@
 ## What Changes
 
 - 富饒之城 (Citadels)、骰子街 (Machi Koro)、璀璨寶石 (Splendor)、詭影神探 (Deception) 各新增一個字典檔 `src/i18n/games/<代號>.ts`，engine 裡玩家看得到的字串改成依這局語系查字典
-- 角色、建築、地標、卡牌名稱依語系：英文用原版英文名稱 (例如 Assassin、Thieves' Guild、Wheat Field、Train Station)
+- 角色、建築、地標、卡牌名稱依語系：英文用原版英文名稱 (例如 Assassin、Great Wall、Wheat Field、Train Station)
 - 詭影神探的手段／線索詞庫和提示板直接翻成英文，數量和中文版相同
 - 各 GameDef 填 `locales.en` (名稱、人數、介紹、指令說明)
 - 中文輸出完全不變

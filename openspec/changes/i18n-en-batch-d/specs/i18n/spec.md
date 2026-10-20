@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: 富饒之城的英文版
-富饒之城 SHALL 有英文翻譯：英文名稱 Citadels，人數「4-7 players」。英文局的公告、prompt、按鈕、私下訊息和指令說明 SHALL 是英文；角色 SHALL 用原版英文名稱 (Assassin、Thief、Magician、King、Bishop、Merchant、Architect、Warlord)，地區卡 SHALL 用原版英文名稱 (例如 Manor、Castle、Thieves' Guild)。中文局 SHALL 和原本完全一樣。
+富饒之城 SHALL 有英文翻譯：英文名稱 Citadels，人數「4-7 players」。英文局的公告、prompt、按鈕、私下訊息和指令說明 SHALL 是英文；角色 SHALL 用原版英文名稱 (Assassin、Thief、Magician、King、Bishop、Merchant、Architect、Warlord)，地區卡 SHALL 用原版英文名稱 (例如 Manor、Castle、Great Wall)。中文局 SHALL 和原本完全一樣。
 
 #### Scenario: 英文局選角色
 - **WHEN** 英文頻道開一局富饒之城並開始
