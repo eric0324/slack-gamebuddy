@@ -1,5 +1,5 @@
 // 矮人礦坑 (Saboteur) 遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applySaboteur(state, action, rng) → { state, events }。
-import { isBot, mention, quiet, type GameEvent, type Rng } from './engine.js';
+import { isBot, loud, mention, quiet, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
 import {
   actionCards,
@@ -147,7 +147,7 @@ function board(s: SState, ended = false): GameEvent {
     render(s.grid),
     '```',
     ...s.players.map((p) => (p === me ? `👉 ${playerLine(p, s.lang)}` : playerLine(p, s.lang))),
-    ...(s.last ? [tx(s.lang, 'lastMove', { last: s.last })] : []),
+    ...(s.last ? [tx(s.lang, 'lastMove', { last: loud(s.last) })] : []),
   ];
   return {
     type: 'prompt',

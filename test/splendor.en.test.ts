@@ -69,7 +69,7 @@ describe('splendor/en: 英文局', () => {
     const { events } = run([{ type: 'take2', user: 'p2', seq: state.seq, color: 'w' }], state);
     expect(ephemeralTo(events, 'p2')).toContain('✅ You took White 2');
     const next = prompts(events).filter((p) => p.audience === 'channel').at(-1)!;
-    expect(next.text).toContain('Last move: {{name:p2}} took White 2');
+    expect(next.text).toContain('Last move: <@p2> took White 2');
   });
 
   it('我的狀態、局外人、還沒輪到你都是英文', () => {
@@ -82,7 +82,7 @@ describe('splendor/en: 英文局', () => {
   it('逾時跳過的面板是英文', () => {
     const { state } = startedEn();
     const { events } = run([{ type: 'timeout', id: state.timers.phase! }], state);
-    expect(prompts(events)[0].text).toBe("✅ <@p2>'s turn is over: {{name:p2}} timed out and passes");
+    expect(prompts(events)[0].text).toBe("✅ <@p2>'s turn is over: <@p2> timed out and passes");
   });
 });
 
