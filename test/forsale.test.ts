@@ -350,3 +350,154 @@ describe('forsale/bidding: 喊價計時與第一階段結束', () => {
     expect(state.phase).toBe('sell');
   });
 });
+
+// 進入第二階段第 1 輪：第一階段最後一輪 p1、p2…依序放棄（桌上 4、12、21、30 的前 n 間），
+// 放棄前手上的房產照 before、支票牌庫照 checks；setup 可以再改 state
+function toSell(checks: number[], before: number[][] = [[1, 25], [3, 5], [18, 19], [2, 6]], n = 4, setup = (_: FState) => {}) {
+  const s = bidRound([4, 12, 21, 30].slice(0, n), 0, n);
+  s.propDeck = [];
+  s.checkDeck = checks;
+  s.players.forEach((p, i) => (p.props = [...(before[i] ?? [])]));
+  setup(s);
+  return play(s, s.players.slice(0, -1).map((p) => [p.id, 'pass'] as [string, 'pass']));
+}
+// 手上：p1 1、4、25｜p2 3、5、12｜p3 18、19、21｜p4 2、6、30
+const CHECKS3 = [0, 9, 15, 4, 2, 3, 5, 6, 7, 8, 10, 11];
+const sell = (s: FState, user: string, prop: number): FAction => ({ type: 'sell', user, seq: s.seq, prop });
+function sells(s: FState, picks: [string, number][]) {
+  let r = { state: s, events: [] as GameEvent[] };
+  const seen: GameEvent[] = [];
+  for (const [user, prop] of picks) {
+    r = run([sell(r.state, user, prop)], r.state);
+    seen.push(...r.events);
+  }
+  return { ...r, seen };
+}
+
+describe('forsale/selling: 每輪翻開支票與賣房產面板', () => {
+  it('支票由大到小；面板顯示輪數、支票、每人房產數、已選 0/4、還沒選的人和兩顆按鈕', () => {
+    const { state, seen } = toSell(CHECKS3);
+    expect(state.phase).toBe('sell');
+    const b = lastBoard(seen);
+    expect(b.ref).toBe('forsale:sell:1');
+    expect(b.text).toContain('第二階段第 1/7 輪');
+    expect(b.text).toContain('$15,000、$9,000、$4,000、$0');
+    expect(b.text).toContain('<@p1> 3 間');
+    expect(b.text).toContain('已選 0/4');
+    expect(b.text).toContain('還沒選：<@p1> <@p2> <@p3> <@p4>');
+    expect(labels(b)).toEqual(['🏠 選房產', '💰 我的狀態']);
+    expect(values(b)).toEqual([`sellMenu:${state.seq}`, 'status']);
+    expect(seen).toContainEqual({ type: 'startTimer', id: state.timers.phase, ms: 45_000 });
+  });
+});
+
+describe('forsale/selling: 同時選擇', () => {
+  it('「🏠 選房產」：私下列出手上每一間（由小到大），state 不變', () => {
+    const s = toSell(CHECKS3).state;
+    const { state, events } = run([{ type: 'sellMenu', user: 'p1', seq: s.seq }], s);
+    expect(state).toBe(s);
+    const m = menuTo(events, 'p1')!;
+    expect(labels(m)).toEqual(['🏠 1', '🏠 4', '🏠 25']);
+    expect(values(m)).toEqual([1, 4, 25].map((n) => `sell:${s.seq}:${n}`));
+  });
+
+  it('選擇私下確認、頻道只更新已選 1/4；揭曉前可以改，已選人數不變', () => {
+    const s = toSell(CHECKS3).state;
+    const first = run([sell(s, 'p1', 25)], s);
+    expect(ephemeralTo(first.events, 'p1')).toMatchObject({ text: '你選了 🏠 25（揭曉前可以改）', replace: true });
+    expect(lastBoard(first.events).text).toContain('已選 1/4');
+    expect(lastBoard(first.events).text).not.toContain('🏠 25');
+    const changed = run([sell(first.state, 'p1', 1)], first.state);
+    expect(changed.state.players[0].choice).toBe(1);
+    expect(boards(changed.events).every((b) => b.text.includes('已選 1/4'))).toBe(true);
+  });
+
+  it('局外人、舊 seq、手上沒有的房產被拒，state 不變', () => {
+    const s = toSell(CHECKS3).state;
+    expect(ephemeralTo(run([sell(s, 'x', 25)], s).events, 'x')?.text).toContain('你不在這局遊戲中');
+    expect(ephemeralTo(run([{ type: 'sellMenu', user: 'x', seq: s.seq }], s).events, 'x')?.text).toContain('你不在這局遊戲中');
+    const stale = run([{ type: 'sell', user: 'p1', seq: s.seq - 1, prop: 25 }], s);
+    expect(stale.state).toBe(s);
+    expect(ephemeralTo(stale.events, 'p1')?.text).toContain('按鈕已過期');
+    expect(run([sell(s, 'p1', 30)], s).state).toBe(s);
+  });
+});
+
+describe('forsale/selling: 揭曉與分配支票', () => {
+  it('最大房產拿最大支票依序分配，出掉的房產移除，面板改成結果並拿掉按鈕，接著下一輪', () => {
+    const { state, seen } = sells(toSell(CHECKS3).state, [['p1', 25], ['p2', 3], ['p3', 18], ['p4', 30]]);
+    expect(state.players.map((p) => p.checks)).toEqual([[9], [0], [4], [15]]);
+    expect(state.players.map((p) => p.props)).toEqual([[1, 4], [5, 12], [19, 21], [2, 6]]);
+    const done = boards(seen).filter((b) => b.ref === 'forsale:sell:1').at(-1)!;
+    expect(done.options).toEqual([]);
+    expect(done.text).toContain('<@p4> 🏠 30 → $15,000');
+    expect(done.text).toContain('<@p1> 🏠 25 → $9,000');
+    expect(done.text).toContain('<@p3> 🏠 18 → $4,000');
+    expect(done.text).toContain('<@p2> 🏠 3 → $0');
+    expect(state.round).toBe(2);
+    expect(lastBoard(seen).ref).toBe('forsale:sell:2');
+  });
+
+  it('最後一輪每人只剩一間：直接揭曉、不顯示選房產按鈕', () => {
+    const { state, seen } = toSell([0, 9, 15, 4], [[], [], [], []]);
+    const sellBoards = boards(seen).filter((b) => b.ref?.startsWith('forsale:sell:'));
+    expect(sellBoards.length).toBeGreaterThan(0);
+    expect(sellBoards.every((b) => b.options.length === 0)).toBe(true);
+    expect(state.players.map((p) => p.checks)).toEqual([[0], [4], [9], [15]]);
+    expect(state.phase).toBe('ended');
+  });
+
+  it('45 秒逾時：沒選的真人出最小的，標示逾時自動出最小；舊計時器被忽略', () => {
+    const { state } = sells(toSell(CHECKS3).state, [['p1', 25], ['p3', 18], ['p4', 30]]);
+    expect(run([{ type: 'timeout', id: state.timers.phase! - 1 }], state).state).toBe(state);
+    const { state: after, events } = run([{ type: 'timeout', id: state.timers.phase! }], state);
+    expect(after.players[1].props).toEqual([5, 12]);
+    expect(boards(events).find((b) => b.ref === 'forsale:sell:1')!.text).toContain('<@p2> 🏠 3 → $0（逾時，自動出最小）');
+  });
+});
+
+describe('forsale/selling: 計分、勝負與結束', () => {
+  // 3 人局最後一輪每人一間、支票都是 $0：總分就是事先設好的支票加金幣
+  const finish = (checks: number[][], coins: number[]) =>
+    toSell([0, 0, 0], [[], [], []], 3, (s) => s.players.forEach((p, i) => Object.assign(p, { checks: checks[i], money: coins[i] })));
+
+  it('最高分獲勝：公告支票、金幣、總分、排名，送出 result，附再來一局', () => {
+    const { state, seen } = finish([[15, 15, 12, 10], [15, 15, 9, 8], [10, 10, 10, 10]], [3, 6, 2]);
+    expect(state.phase).toBe('ended');
+    const text = announces(seen).join('\n');
+    expect(text).toContain('<@p1> 獲勝');
+    expect(text).toContain('1. <@p1> $55,000（支票 $52,000＋金幣 $3,000）');
+    expect(text).toContain('2. <@p2> $53,000（支票 $47,000＋金幣 $6,000）');
+    expect(text).toContain('3. <@p3> $42,000（支票 $40,000＋金幣 $2,000）');
+    expect(resultOf(seen)).toEqual({ type: 'result', players: ['p1', 'p2', 'p3'], winners: ['p1'] });
+    expect(prompts(seen).some((p) => p.kind === 'rematch')).toBe(true);
+  });
+
+  it('同分比剩下金幣；再同分並列', () => {
+    expect(resultOf(finish([[48], [45], [10]], [2, 5, 0]).seen)).toMatchObject({ winners: ['p2'] });
+    expect(resultOf(finish([[46], [46], [10]], [4, 4, 0]).seen)).toMatchObject({ winners: ['p1', 'p2'] });
+  });
+
+  it('再來一局只有上一局玩家可以按，按的人成為新房主；結束後舊按鈕被忽略', () => {
+    const { state } = finish([[1], [2], [3]], [0, 0, 0]);
+    const outsider = run([{ type: 'rematch', user: 'x', channel: 'C1' }], state);
+    expect(ephemeralTo(outsider.events, 'x')?.text).toContain('只有上一局的玩家');
+    const again = run([{ type: 'rematch', user: 'p2', channel: 'C1' }], state);
+    expect(again.state).toMatchObject({ phase: 'lobby', host: 'p2' });
+    const old = run([{ type: 'status', user: 'p1' }, sell(state, 'p1', 4)], state);
+    expect(old).toEqual({ state, events: [] });
+  });
+
+  it('房主在第二階段取消：公告已取消，沒有 result、沒有再來一局；非房主取消被拒', () => {
+    const s = toSell(CHECKS3).state;
+    const cancelled = run([{ type: 'cancel', user: 'p1' }], s);
+    expect(cancelled.state.phase).toBe('ended');
+    expect(announces(cancelled.events).join()).toContain('取消');
+    expect(resultOf(cancelled.events)).toBeUndefined();
+    expect(prompts(cancelled.events).some((p) => p.kind === 'rematch')).toBe(false);
+    expect(run([{ type: 'rematch', user: 'p1', channel: 'C1' }], cancelled.state).events).toEqual([]);
+    const notHost = run([{ type: 'cancel', user: 'p2' }], s);
+    expect(notHost.state).toBe(s);
+    expect(ephemeralTo(notHost.events, 'p2')?.text).toContain('只有房主可以取消遊戲');
+  });
+});

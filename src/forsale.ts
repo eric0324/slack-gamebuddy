@@ -7,6 +7,7 @@ export const MIN_FORSALE_PLAYERS = 3;
 export const MAX_FORSALE_PLAYERS = 6;
 const TITLE = '地產大亨';
 export const BID_MS = 30_000;
+export const SELL_MS = 45_000;
 
 // 房產 1～30；支票 $0 兩張、$2,000～$15,000 各兩張（沒有 $1,000）
 export const PROPERTIES = Array.from({ length: 30 }, (_, i) => i + 1);
@@ -24,6 +25,8 @@ export interface FPlayer {
   passed: boolean; // 這一輪已放棄（第一階段）
   took?: number; // 這一輪拿到的房產（第一階段）
   paid?: number; // 這一輪付給銀行的錢（第一階段）
+  choice?: number; // 這一輪選的房產（第二階段）
+  auto?: boolean; // 這一步是逾時自動出最小
 }
 
 export interface FState {
@@ -38,6 +41,7 @@ export interface FState {
   propDeck: number[];
   checkDeck: number[];
   table: number[]; // 第一階段桌上的房產（由小到大）
+  checks: number[]; // 第二階段這一輪的支票（由大到小）
   high: number; // 目前最高出價
   highBy?: string;
   turn: number; // 輪到誰（players 的 index）
@@ -59,6 +63,8 @@ export type FAction =
   | { type: 'bid'; user: string; seq: number; amount: number }
   | { type: 'bidMenu'; user: string; seq: number }
   | { type: 'pass'; user: string; seq: number }
+  | { type: 'sellMenu'; user: string; seq: number }
+  | { type: 'sell'; user: string; seq: number; prop: number }
   | { type: 'status'; user: string }
   | { type: 'timeout'; id: number }
   | { type: 'rematch'; user: string; channel: string };
@@ -209,6 +215,124 @@ function endBidPhase(c: Ctx) {
     if (!isBot(p.id)) c.events.push({ type: 'ephemeral', to: p.id, text: `你的房產：${sortedProps(p)}｜💰 金幣 ${money(p.money)}` });
   }
   Object.assign(s, { phase: 'sell', round: 0 });
+  startSellRound(c);
+}
+
+// 揭曉時的名次：出的房產由大到小，第 i 名拿 checks[i]
+const ranked = (s: FState) => [...s.players].sort((a, b) => b.choice! - a.choice!);
+
+// 賣房產面板：揭曉前只顯示誰選好了；revealed 時改成每個人出的房產和拿到的支票並拿掉按鈕
+function sellBoard(s: FState, revealed = false): GameEvent {
+  const head = `第二階段第 ${s.round}/${s.rounds} 輪`;
+  const checks = `💵 支票：${s.checks.map(money).join('、')}`;
+  const waiting = s.players.filter((p) => p.choice === undefined);
+  const lines = revealed
+    ? [
+        `*✅ ${head}揭曉*`,
+        checks,
+        ...ranked(s).map((p, i) => `${mention(p.id)} ${propName(p.choice!)} → ${money(s.checks[i])}${p.auto ? '（逾時，自動出最小）' : ''}`),
+      ]
+    : [
+        `*🏠 ${head}*（${SELL_MS / 1000} 秒）`,
+        checks,
+        `🏠 剩下：${s.players.map((p) => `${mention(p.id)} ${p.props.length} 間`).join('、')}`,
+        `已選 ${s.players.length - waiting.length}/${s.players.length}${waiting.length ? `，還沒選：${waiting.map((p) => mention(p.id)).join(' ')}` : ''}`,
+      ];
+  return {
+    type: 'prompt',
+    kind: 'forsale',
+    audience: 'channel',
+    ref: `forsale:sell:${s.round}`,
+    text: lines.join('\n'),
+    options: revealed ? [] : [{ value: `sellMenu:${s.seq}`, label: '🏠 選房產' }, { value: 'status', label: '💰 我的狀態' }],
+  };
+}
+
+function startSellRound(c: Ctx) {
+  const s = c.s;
+  s.round++;
+  s.seq++;
+  s.checks = s.checkDeck.splice(0, s.players.length).sort((a, b) => b - a);
+  for (const p of s.players) Object.assign(p, { choice: undefined, auto: false });
+  // 最後一輪每人只剩一間：不用選，直接揭曉
+  if (s.players.every((p) => p.props.length === 1)) {
+    for (const p of s.players) p.choice = p.props[0];
+    return reveal(c);
+  }
+  c.events.push(sellBoard(s));
+  startTimer(c, SELL_MS);
+}
+
+// 第二階段選單和選擇的共同檢查；回傳錯誤訊息或 null
+function sellCheck(s: FState, user: string, seq: number): string | null {
+  if (!find(s, user)) return NOT_PLAYER;
+  if (s.phase !== 'sell' || seq !== s.seq) return STALE;
+  return null;
+}
+
+function sellMenu(c: Ctx, user: string, seq: number): boolean {
+  const err = sellCheck(c.s, user, seq);
+  if (err) return reply(c, user, err);
+  const me = find(c.s, user)!;
+  const options = [...me.props].sort((a, b) => a - b).map((n) => ({ value: `sell:${seq}:${n}`, label: propName(n) }));
+  c.events.push({ type: 'prompt', kind: 'forsale', audience: 'ephemeral', user, text: '🏠 選一間房產出售（揭曉前可以改）', options, perRow: 5 });
+  return false;
+}
+
+function sell(c: Ctx, user: string, seq: number, prop: number): boolean {
+  const s = c.s;
+  const err = sellCheck(s, user, seq);
+  if (err) return reply(c, user, err);
+  const me = find(s, user)!;
+  if (!me.props.includes(prop)) return reply(c, user, STALE);
+  const first = me.choice === undefined;
+  me.choice = prop;
+  c.events.push({ type: 'ephemeral', to: user, text: `你選了 ${propName(prop)}（揭曉前可以改）`, replace: true });
+  if (s.players.every((p) => p.choice !== undefined)) reveal(c);
+  else if (first) c.events.push(sellBoard(s));
+  return true;
+}
+
+// 時間到：沒選的真人自動出最小的
+function sellTimeout(c: Ctx) {
+  for (const p of c.s.players) if (p.choice === undefined) Object.assign(p, { choice: Math.min(...p.props), auto: true });
+  reveal(c);
+}
+
+function reveal(c: Ctx) {
+  const s = c.s;
+  c.events.push(sellBoard(s, true));
+  ranked(s).forEach((p, i) => {
+    p.checks.push(s.checks[i]);
+    p.props = p.props.filter((n) => n !== p.choice);
+  });
+  if (s.checkDeck.length) startSellRound(c);
+  else endGame(c);
+}
+
+const totalOf = (p: FPlayer) => sum(p.checks) + p.money;
+
+// 支票加剩下金幣最高的贏；同分比剩下金幣，再一樣就並列
+function endGame(c: Ctx) {
+  const s = c.s;
+  s.phase = 'ended';
+  s.timers = {};
+  const ranking = [...s.players].sort((a, b) => totalOf(b) - totalOf(a) || b.money - a.money);
+  const top = ranking[0];
+  const won = (p: FPlayer) => totalOf(p) === totalOf(top) && p.money === top.money;
+  s.winners = s.players.filter(won).map((p) => p.id);
+  c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: s.winners });
+  c.events.push(
+    {
+      type: 'announce',
+      text: [
+        `🏆 遊戲結束，${s.winners.map(mention).join('、')} 獲勝！`,
+        ...ranking.map((p, i) => `${i + 1}. ${mention(p.id)} ${money(totalOf(p))}（支票 ${money(sum(p.checks))}＋金幣 ${money(p.money)}）${won(p) ? ' 🏆' : ''}`),
+      ].join('\n'),
+      gif: 'goodWin',
+    },
+    { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },
+  );
 }
 
 function statusText(s: FState, me: FPlayer): string {
@@ -284,7 +408,12 @@ function handle(c: Ctx, action: GameAction): boolean {
     case 'timeout':
       if (action.id !== c.s.timers.phase) return false;
       if (c.s.phase === 'bid') doPass(c, true);
+      else sellTimeout(c);
       return true;
+    case 'sellMenu':
+      return sellMenu(c, action.user, action.seq);
+    case 'sell':
+      return sell(c, action.user, action.seq, action.prop);
     default:
       return false;
   }
@@ -314,6 +443,7 @@ function createLobby(prev: FState | undefined, host: string, channel: string): R
     propDeck: [],
     checkDeck: [],
     table: [],
+    checks: [],
     high: 0,
     turn: 0,
     starter: 0,
