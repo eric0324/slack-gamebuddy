@@ -65,8 +65,8 @@ TBD - created by archiving change add-dixit-game. Update Purpose after archive.
 - **WHEN** 3 人開始遊戲
 - **THEN** 開局公告說明每人每輪出 2 張
 
-### Requirement: 遊戲清單與指令說明
-`/game` 的遊戲清單和遊戲大廳 SHALL 列出妙語說書人的名稱 (🎨 妙語說書人)、代號 `dixit`、人數 (3～8 人)、「不支援 bot」和開房方式，大廳分類是 🎲 心理戰。輸入 `/game dixit help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到妙語說書人的條列式指令說明 (new、start、cancel、clue，以及「🃏 我的手牌」按鈕的用法，並說明牌來自梗圖大亂鬥的梗圖庫，可以用 `/game meme add` 投稿)。
+### Requirement: 大廳與指令說明
+`/game` 的遊戲清單和遊戲大廳 SHALL 列出妙語說書人的名稱 (🎨 妙語說書人)、代號 `dixit`、人數 (3～8 人)、「不支援 bot」和開房方式，大廳分類是 😂 派對創意。輸入 `/game dixit help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到妙語說書人的條列式指令說明 (new、start、cancel、clue，以及「🃏 我的手牌」按鈕的用法，並說明牌來自梗圖大亂鬥的梗圖庫，可以用 `/game meme add` 投稿)。
 
 #### Scenario: 查看指令
 - **WHEN** 使用者輸入 `/game dixit help`
@@ -76,6 +76,6 @@ TBD - created by archiving change add-dixit-game. Update Purpose after archive.
 - **WHEN** 使用者輸入 `/game dixit foo`
 - **THEN** 只有這位使用者看到妙語說書人的指令說明
 
-#### Scenario: 大廳心理戰分類
-- **WHEN** 使用者在大廳看 🎲 心理戰
+#### Scenario: 大廳派對創意分類
+- **WHEN** 使用者在大廳看 😂 派對創意
 - **THEN** 列表有 🎨 妙語說書人 (`dixit`) 3～8 人 (不支援 bot) 和「開房」按鈕

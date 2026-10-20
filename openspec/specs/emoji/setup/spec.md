@@ -50,8 +50,8 @@ Emoji 傳話的房間 SHALL 和其他遊戲有相同的操作方式：`/game emo
 - **WHEN** 題庫只剩 2 題沒發，6 人開始遊戲
 - **THEN** 先發這 2 題，其他 4 題從重新洗牌的題庫發，6 題互不重複
 
-### Requirement: 遊戲清單與指令說明
-`/game` 的遊戲清單和遊戲大廳 SHALL 列出 Emoji 傳話的名稱 (🔗 Emoji 傳話)、代號 `emoji`、人數 (4～10 人)、「不支援 bot」和開房方式，大廳分類是 🎲 心理戰。輸入 `/game emoji help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到 Emoji 傳話的條列式指令說明 (new、start、send、cancel、help)。
+### Requirement: 大廳與指令說明
+`/game` 的遊戲清單和遊戲大廳 SHALL 列出 Emoji 傳話的名稱 (🔗 Emoji 傳話)、代號 `emoji`、人數 (4～10 人)、「不支援 bot」和開房方式，大廳分類是 😂 派對創意。輸入 `/game emoji help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到 Emoji 傳話的條列式指令說明 (new、start、send、cancel、help)。
 
 #### Scenario: 查看指令
 - **WHEN** 使用者輸入 `/game emoji help`
@@ -61,6 +61,6 @@ Emoji 傳話的房間 SHALL 和其他遊戲有相同的操作方式：`/game emo
 - **WHEN** 使用者輸入 `/game emoji foo`
 - **THEN** 只有這位使用者看到 Emoji 傳話的指令說明
 
-#### Scenario: 大廳心理戰分類
-- **WHEN** 使用者在大廳看 🎲 心理戰
+#### Scenario: 大廳派對創意分類
+- **WHEN** 使用者在大廳看 😂 派對創意
 - **THEN** 列表有 🔗 Emoji 傳話 (`emoji`) 4～10 人 (不支援 bot) 和「開房」按鈕

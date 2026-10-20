@@ -39,13 +39,13 @@ TBD - created by archiving change add-herd-game. Update Purpose after archive.
 - **WHEN** 同一個頻道上一局出過一些題目，接著開新的一局
 - **THEN** 新的一局不會出現上一局出過的題目，直到全部抽完才重新洗牌
 
-### Requirement: 遊戲清單與指令說明
-`/game` 的遊戲清單和遊戲大廳 SHALL 列出從眾心理的名稱 (🐑 從眾心理)、代號 `herd`、人數 (4～12 人)、「不支援 bot」和開房方式，大廳分類是 🎲 心理戰。輸入 `/game herd help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到從眾心理的條列式指令說明 (含 `answer`、`merge`、`done`)。
+### Requirement: 大廳與指令說明
+`/game` 的遊戲清單和遊戲大廳 SHALL 列出從眾心理的名稱 (🐑 從眾心理)、代號 `herd`、人數 (4～12 人)、「不支援 bot」和開房方式，大廳分類是 😂 派對創意。輸入 `/game herd help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到從眾心理的條列式指令說明 (含 `answer`、`merge`、`done`)。
 
 #### Scenario: 查看指令
 - **WHEN** 使用者輸入 `/game herd help`
 - **THEN** 只有這位使用者看到從眾心理所有指令的條列說明
 
-#### Scenario: 大廳心理戰分類
-- **WHEN** 使用者在大廳看 🎲 心理戰
+#### Scenario: 大廳派對創意分類
+- **WHEN** 使用者在大廳看 😂 派對創意
 - **THEN** 列表有 🐑 從眾心理 (`herd`) 4～12 人和「開房」按鈕，其他分類沒有從眾心理

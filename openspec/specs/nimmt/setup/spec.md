@@ -60,13 +60,13 @@ TBD - created by archiving change add-nimmt-game. Update Purpose after archive.
 - **WHEN** 一輪開始
 - **THEN** 頻道公告只有四列的牌，每位玩家只在私訊看到自己的手牌
 
-### Requirement: 遊戲清單與指令說明
-`/game` 的遊戲清單和遊戲大廳 SHALL 列出誰是牛頭王的名稱 (🐮 誰是牛頭王)、代號 `nimmt`、人數 (2～10 人) 和開房方式，大廳分類是「🎲 心理戰」。輸入 `/game nimmt help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到誰是牛頭王的條列式指令說明 (new、addbot、removebot、start、play、cancel，以及「🃏 選牌」按鈕的用法)。
+### Requirement: 大廳與指令說明
+`/game` 的遊戲清單和遊戲大廳 SHALL 列出誰是牛頭王的名稱 (🐮 誰是牛頭王)、代號 `nimmt`、人數 (2～10 人) 和開房方式，大廳分類是「🧩 策略桌遊」。輸入 `/game nimmt help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到誰是牛頭王的條列式指令說明 (new、addbot、removebot、start、play、cancel，以及「🃏 選牌」按鈕的用法)。
 
 #### Scenario: 查看指令
 - **WHEN** 使用者輸入 `/game nimmt help`
 - **THEN** 只有這位使用者看到誰是牛頭王所有指令的條列說明
 
 #### Scenario: 大廳
-- **WHEN** 使用者在大廳按「🎲 心理戰」
+- **WHEN** 使用者在大廳按「🧩 策略桌遊」
 - **THEN** 看到誰是牛頭王 (`nimmt`，2～10 人) 和它的「開房」按鈕

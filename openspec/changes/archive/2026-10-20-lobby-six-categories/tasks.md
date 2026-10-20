@@ -6,5 +6,5 @@
 
 ## 2. 文件與驗證
 
-- [ ] 2.1 README、wiki 各遊戲首頁的「分類」改成新分類 (wiki 問過再 push)
+- [x] 2.1 README、wiki 各遊戲首頁的「分類」改成新分類 (wiki 問過再 push)
 - [x] 2.2 跑 `npm test` 和 `npm run typecheck`，確認全部綠燈

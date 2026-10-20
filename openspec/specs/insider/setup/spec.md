@@ -46,13 +46,13 @@ TBD - created by archiving change add-insider-game. Update Purpose after archive
 - **WHEN** 遊戲開始
 - **THEN** 答案是 `DECRYPTO_WORDS` 裡的一個詞
 
-### Requirement: 遊戲清單與指令說明
-`/game` 的遊戲清單和遊戲大廳 SHALL 列出圈內人的名稱、代號 `insider`、人數 (4～8 人) 和開房方式，大廳分類是 🔍 推理。輸入 `/game insider help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到圈內人的條列式指令說明。
+### Requirement: 大廳與指令說明
+`/game` 的遊戲清單和遊戲大廳 SHALL 列出圈內人的名稱、代號 `insider`、人數 (4～8 人) 和開房方式，大廳分類是 🔍 身分推理。輸入 `/game insider help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到圈內人的條列式指令說明。
 
 #### Scenario: 查看指令
 - **WHEN** 使用者輸入 `/game insider help`
 - **THEN** 只有這位使用者看到圈內人所有指令的條列說明
 
-#### Scenario: 大廳推理分類
-- **WHEN** 使用者在大廳看 🔍 推理
+#### Scenario: 大廳身分推理分類
+- **WHEN** 使用者在大廳看 🔍 身分推理
 - **THEN** 列表有 🕴️ 圈內人 (`insider`) 4～8 人和「開房」按鈕

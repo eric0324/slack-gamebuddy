@@ -110,8 +110,8 @@ TBD - created by archiving change add-splendor-game. Update Purpose after archiv
 - **WHEN** 不在遊戲中的人按「📜 我的狀態」
 - **THEN** 只有他看到「你不在這局遊戲中」
 
-### Requirement: 遊戲清單與指令說明
-`/game` 的遊戲清單和遊戲大廳 SHALL 列出璀璨寶石的名稱 (💍 璀璨寶石)、代號 `splendor`、人數 (2～4 人) 和開房方式，大廳分類是 🎲 心理戰。輸入 `/game splendor help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到璀璨寶石的條列式指令說明 (new、addbot、removebot、start、cancel，以及遊戲中用回合面板上的「💍 行動」「📜 我的狀態」按鈕操作)。
+### Requirement: 大廳與指令說明
+`/game` 的遊戲清單和遊戲大廳 SHALL 列出璀璨寶石的名稱 (💍 璀璨寶石)、代號 `splendor`、人數 (2～4 人) 和開房方式，大廳分類是 🧩 策略桌遊。輸入 `/game splendor help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到璀璨寶石的條列式指令說明 (new、addbot、removebot、start、cancel，以及遊戲中用回合面板上的「💍 行動」「📜 我的狀態」按鈕操作)。
 
 #### Scenario: 查看指令
 - **WHEN** 使用者輸入 `/game splendor help`
@@ -121,6 +121,6 @@ TBD - created by archiving change add-splendor-game. Update Purpose after archiv
 - **WHEN** 使用者輸入 `/game splendor buy`
 - **THEN** 只有這位使用者看到璀璨寶石的指令說明
 
-#### Scenario: 大廳心理戰分類
-- **WHEN** 使用者在大廳看 🎲 心理戰
+#### Scenario: 大廳策略桌遊分類
+- **WHEN** 使用者在大廳看 🧩 策略桌遊
 - **THEN** 列表有 💍 璀璨寶石 (`splendor`) 2～4 人和「開房」按鈕
