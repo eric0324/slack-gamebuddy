@@ -1,7 +1,9 @@
 // 截碼戰遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyDecrypto(state, action, rng) → { state, events }。
 import { mention, type GameEvent, type Rng } from './engine.js';
 import { cancelGame, joinRoom, leaveRoom, lobbyEvent, reply, runGame, shuffle, startTimer } from './common.js';
-import { DECRYPTO_WORDS } from './decryptoWords.js';
+import { DECRYPTO_WORDS_BY_LANG } from './decryptoWords.js';
+import type { Lang } from './i18n/index.js';
+import { tx } from './i18n/games/decrypto.js';
 
 export const MIN_DECRYPTO_PLAYERS = 4;
 export const MAX_DECRYPTO_PLAYERS = 12;
@@ -15,7 +17,6 @@ export type Team = 'black' | 'white';
 type Mode = 'decode' | 'intercept';
 
 const TEAMS: Team[] = ['black', 'white'];
-const TEAM_NAME: Record<Team, string> = { black: '⚫ 黑隊', white: '⚪ 白隊' };
 const other = (t: Team): Team => (t === 'black' ? 'white' : 'black');
 
 // 1～4 取 3 個不重複數字的所有排列 (24 組)，依字典順序
@@ -52,10 +53,11 @@ export interface DState {
   winner?: Team | 'tie';
   timerSeq: number;
   timers: { phase?: number };
+  lang?: Lang;
 }
 
 export type DAction =
-  | { type: 'new'; user: string; channel: string }
+  | { type: 'new'; user: string; channel: string; lang?: Lang }
   | { type: 'join'; user: string }
   | { type: 'leave'; user: string }
   | { type: 'start'; user: string }
@@ -87,10 +89,12 @@ const emptyTeam = (): DTeam => ({ words: [], order: [], history: [[], [], [], []
 const teamOf = (s: DState, id: string) => s.players.find((p) => p.id === id)?.team;
 const encryptor = (s: DState, t: Team) => s.teams[t].order[s.round % s.teams[t].order.length];
 const decoders = (s: DState, t: Team) => s.teams[t].order.filter((id) => id !== encryptor(s, t));
-const tokens = (s: DState) => TEAMS.map((t) => `${TEAM_NAME[t]} 🕵️ ${s.teams[t].intercept}　❌ ${s.teams[t].miss}`).join('｜');
+const teamName = (s: DState, t: Team) => tx(s.lang, t === 'black' ? 'teamBlack' : 'teamWhite');
+const tokens = (s: DState) =>
+  TEAMS.map((t) => tx(s.lang, 'tokens', { team: teamName(s, t), intercept: s.teams[t].intercept, miss: s.teams[t].miss })).join(tx(s.lang, 'tokensSep'));
 const clueLine = (s: DState, t: Team) => {
   const cl = s.teams[t].clues;
-  return `${TEAM_NAME[t]} (${mention(encryptor(s, t))})：${cl ? cl.join(' → ') : '(沒有提示)'}`;
+  return tx(s.lang, 'clueLine', { team: teamName(s, t), encryptor: mention(encryptor(s, t)), clues: cl ? cl.join(' → ') : tx(s.lang, 'noClues') });
 };
 
 // 開局：隨機分隊，每隊 4 個祕密詞，私訊給隊員
@@ -98,20 +102,20 @@ function deal(c: Ctx) {
   const s = c.s;
   const shuffled = shuffle(s.players, c.rng);
   shuffled.forEach((p, i) => (s.players.find((x) => x.id === p.id)!.team = i % 2 === 0 ? 'black' : 'white'));
-  const words = shuffle(DECRYPTO_WORDS, c.rng);
+  const words = shuffle(DECRYPTO_WORDS_BY_LANG[s.lang ?? 'zh-TW'], c.rng);
   TEAMS.forEach((t, i) => {
     s.teams[t].words = words.slice(i * 4, i * 4 + 4);
     s.teams[t].order = shuffled.filter((p) => teamOf(s, p.id) === t).map((p) => p.id);
   });
-  const roster = (t: Team) => `${TEAM_NAME[t]}：${s.teams[t].order.map(mention).join('、')}`;
+  const roster = (t: Team) => tx(s.lang, 'roster', { team: teamName(s, t), list: s.teams[t].order.map(mention).join(tx(s.lang, 'sep')) });
   c.events.push({
     type: 'announce',
-    text: `🔐 截碼戰開始！每隊有 4 個祕密詞 (已私訊)，加密者用提示讓隊友解出 3 碼密碼，也別讓對手攔截。\n攔截成功 2 次獲勝、自己解錯 2 次落敗，最多 ${MAX_ROUNDS} 回合。\n${roster('black')}\n${roster('white')}`,
+    text: tx(s.lang, 'start', { max: MAX_ROUNDS, black: roster('black'), white: roster('white') }),
     gif: 'start',
   });
   for (const t of TEAMS) {
     const list = s.teams[t].words.map((w, i) => `${i + 1} ${w}`).join('\n');
-    for (const id of s.teams[t].order) c.events.push({ type: 'dm', to: id, text: `🔐 你是${TEAM_NAME[t]}，你們的祕密詞：\n${list}` });
+    for (const id of s.teams[t].order) c.events.push({ type: 'dm', to: id, text: tx(s.lang, 'wordsDm', { team: teamName(s, t), list }) });
   }
   startRound(c);
 }
@@ -130,22 +134,28 @@ function startRound(c: Ctx) {
     c.events.push({
       type: 'dm',
       to: encryptor(s, t),
-      text: `🔑 第 ${s.round + 1} 回合你是加密者，密碼是 ${team.code.join('-')}：${hint}\n回到頻道按「✍️ 寫提示」，依順序寫 3 個提示。`,
+      text: tx(s.lang, 'codeDm', { round: s.round + 1, code: team.code.join('-'), hint }),
     });
   }
   c.events.push(
     {
       type: 'announce',
-      text: `🔐 第 ${s.round + 1}／${MAX_ROUNDS} 回合：加密者 ${TEAMS.map((t) => `${TEAM_NAME[t]} ${mention(encryptor(s, t))}`).join('、')} 請寫提示 (${PHASE_MS / 60_000} 分鐘)\n${tokens(s)}`,
+      text: tx(s.lang, 'roundStart', {
+        round: s.round + 1,
+        max: MAX_ROUNDS,
+        encryptors: TEAMS.map((t) => tx(s.lang, 'encryptorItem', { team: teamName(s, t), who: mention(encryptor(s, t)) })).join(tx(s.lang, 'sep')),
+        min: PHASE_MS / 60_000,
+        tokens: tokens(s),
+      }),
     },
     {
       type: 'prompt',
       kind: 'decrypto',
       audience: 'channel',
-      text: '加密者想好了就按這裡寫提示',
+      text: tx(s.lang, 'cluePrompt'),
       options: [
-        { value: 'clue', label: '✍️ 寫提示' },
-        { value: 'history', label: '📜 提示紀錄' },
+        { value: 'clue', label: tx(s.lang, 'clueButton') },
+        { value: 'history', label: tx(s.lang, 'historyButton') },
       ],
     },
   );
@@ -155,13 +165,13 @@ function startRound(c: Ctx) {
 function giveClue(c: Ctx, user: string, texts: string[]): boolean {
   const s = c.s;
   const t = teamOf(s, user);
-  if (s.phase !== 'clue' || !t || encryptor(s, t) !== user) return reply(c, user, '這回合不是你加密。');
+  if (s.phase !== 'clue' || !t || encryptor(s, t) !== user) return reply(c, user, tx(s.lang, 'notEncryptor'));
   const clean = texts.map((x) => x.trim());
   if (clean.length !== 3 || clean.some((x) => !x || [...x].length > MAX_CLUE)) {
-    return reply(c, user, `要寫剛好 3 個提示，每個 1～${MAX_CLUE} 個字。`);
+    return reply(c, user, tx(s.lang, 'clueRule', { max: MAX_CLUE }));
   }
   s.teams[t].clues = clean;
-  c.events.push({ type: 'ephemeral', to: user, text: `已送出：${clean.join(' → ')}` });
+  c.events.push({ type: 'ephemeral', to: user, text: tx(s.lang, 'clueSent', { clues: clean.join(' → ') }) });
   if (TEAMS.every((x) => s.teams[x].clues)) startVote(c);
   return true;
 }
@@ -175,21 +185,21 @@ function startVote(c: Ctx) {
     {
       type: 'announce',
       text: [
-        `🔎 第 ${s.round + 1} 回合的提示：`,
+        tx(s.lang, 'cluesHeader', { round: s.round + 1 }),
         ...TEAMS.map((t) => clueLine(s, t)),
-        steal ? '按「🔓」解自己隊的密碼 (加密者不投)，按「🕵️」攔截對方的密碼，可以改選' : '按「🔓」解自己隊的密碼 (加密者不投)，可以改選；第 1 回合不攔截',
-        `(${PHASE_MS / 60_000} 分鐘)`,
+        tx(s.lang, steal ? 'voteHintSteal' : 'voteHintFirst'),
+        tx(s.lang, 'minutes', { min: PHASE_MS / 60_000 }),
       ].join('\n'),
     },
     {
       type: 'prompt',
       kind: 'decrypto',
       audience: 'channel',
-      text: '投票',
+      text: tx(s.lang, 'votePrompt'),
       options: [
-        { value: 'decode', label: '🔓 解我們的密碼' },
-        ...(steal ? [{ value: 'intercept', label: '🕵️ 攔截對方密碼' }] : []),
-        { value: 'history', label: '📜 提示紀錄' },
+        { value: 'decode', label: tx(s.lang, 'decodeButton') },
+        ...(steal ? [{ value: 'intercept', label: tx(s.lang, 'interceptButton') }] : []),
+        { value: 'history', label: tx(s.lang, 'historyButton') },
       ],
     },
   );
@@ -198,9 +208,9 @@ function startVote(c: Ctx) {
 
 function canVote(s: DState, user: string, mode: Mode) {
   const t = teamOf(s, user);
-  if (s.phase !== 'vote' || !t) return '現在不能投票。';
-  if (mode === 'decode' && encryptor(s, t) === user) return '這回合你是加密者，不能解自己的密碼。';
-  if (mode === 'intercept' && s.round === 0) return '第 1 回合不攔截。';
+  if (s.phase !== 'vote' || !t) return tx(s.lang, 'cannotVote');
+  if (mode === 'decode' && encryptor(s, t) === user) return tx(s.lang, 'encryptorNoDecode');
+  if (mode === 'intercept' && s.round === 0) return tx(s.lang, 'noInterceptFirst');
   return undefined;
 }
 
@@ -212,7 +222,7 @@ function voteMenu(c: Ctx, user: string, mode: Mode): boolean {
     kind: 'decrypto',
     audience: 'ephemeral',
     user,
-    text: mode === 'decode' ? '🔓 我們的密碼是？' : '🕵️ 對方的密碼是？',
+    text: tx(c.s.lang, mode === 'decode' ? 'decodeMenu' : 'interceptMenu'),
     options: CODES.map((code) => ({ value: `vote:${mode}:${c.s.round}:${code}`, label: fmt(code) })),
     perRow: 6,
   });
@@ -223,10 +233,10 @@ function vote(c: Ctx, user: string, mode: Mode, round: number, code: string): bo
   const s = c.s;
   const err = canVote(s, user, mode);
   if (err) return reply(c, user, err);
-  if (round !== s.round) return reply(c, user, '這是之前回合的選單。');
+  if (round !== s.round) return reply(c, user, tx(s.lang, 'oldMenu'));
   if (!CODES.includes(code)) return false;
   (mode === 'decode' ? s.decodeVotes : s.interceptVotes)[user] = code;
-  c.events.push({ type: 'ephemeral', to: user, text: `你選了 ${fmt(code)}` });
+  c.events.push({ type: 'ephemeral', to: user, text: tx(s.lang, 'youChose', { code: fmt(code) }) });
   const done =
     TEAMS.every((t) => decoders(s, t).every((id) => id in s.decodeVotes)) &&
     (s.round === 0 || s.players.every((p) => p.id in s.interceptVotes));
@@ -245,7 +255,7 @@ function majority(c: Ctx, votes: string[]): string | undefined {
 
 function reveal(c: Ctx) {
   const s = c.s;
-  const lines = [`📍 第 ${s.round + 1} 回合揭曉`];
+  const lines = [tx(s.lang, 'revealHeader', { round: s.round + 1 })];
   const teamVotes = (t: Team, votes: Record<string, string>) => s.teams[t].order.filter((id) => id in votes).map((id) => votes[id]);
   const answers = TEAMS.map((t) => ({
     t,
@@ -257,11 +267,20 @@ function reveal(c: Ctx) {
     const code = team.code!.join('');
     const ok = decode === code;
     if (!ok) team.miss++;
-    let line = `${TEAM_NAME[t]} 密碼 ${fmt(code)}｜解碼 ${decode ? fmt(decode) : '(沒有人投)'} ${ok ? '✅' : '❌ 解錯'}`;
+    let line = tx(s.lang, 'revealLine', {
+      team: teamName(s, t),
+      code: fmt(code),
+      decode: decode ? fmt(decode) : tx(s.lang, 'noVotes'),
+      result: tx(s.lang, ok ? 'decodeOk' : 'decodeWrong'),
+    });
     if (s.round > 0) {
       const caught = steal === s.teams[other(t)].code!.join('');
       if (caught) team.intercept++;
-      line += `｜攔截${TEAM_NAME[other(t)]} ${steal ? fmt(steal) : '(沒有人投)'} ${caught ? '🕵️ 成功' : '✗'}`;
+      line += tx(s.lang, 'interceptPart', {
+        other: teamName(s, other(t)),
+        steal: steal ? fmt(steal) : tx(s.lang, 'noVotes'),
+        result: tx(s.lang, caught ? 'interceptOk' : 'interceptFail'),
+      });
     }
     lines.push(line);
     team.code!.forEach((n, i) => team.clues?.[i] && team.history[n - 1].push(team.clues[i]));
@@ -289,20 +308,20 @@ function endGame(c: Ctx, winner: Team | 'tie') {
   s.phase = 'ended';
   s.timers = {};
   s.winner = winner;
-  const result = winner === 'tie' ? '🤝 平手！' : `🎉 ${TEAM_NAME[winner]}獲勝！`;
-  const words = TEAMS.map((t) => `${TEAM_NAME[t]}的祕密詞：${s.teams[t].words.map((x, i) => `${i + 1} ${x}`).join('、')}`);
+  const result = winner === 'tie' ? tx(s.lang, 'tie') : tx(s.lang, 'win', { team: teamName(s, winner) });
+  const words = TEAMS.map((t) => tx(s.lang, 'wordsLine', { team: teamName(s, t), list: s.teams[t].words.map((x, i) => `${i + 1} ${x}`).join(tx(s.lang, 'sep')) }));
   c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: s.players.filter((p) => p.team === winner).map((p) => p.id) });
   c.events.push(
-    { type: 'announce', text: [`🏁 遊戲結束！${result}`, tokens(s), ...words].join('\n'), gif: 'goodWin' },
+    { type: 'announce', text: [tx(s.lang, 'gameOver', { result }), tokens(s), ...words].join('\n'), gif: 'goodWin' },
     { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },
   );
 }
 
 function history(c: Ctx, user: string): boolean {
   const s = c.s;
-  const lines = ['📜 提示紀錄'];
+  const lines = [tx(s.lang, 'historyHeader')];
   for (const t of TEAMS) {
-    lines.push(TEAM_NAME[t], ...s.teams[t].history.map((h, i) => `${i + 1}：${h.length ? h.join('、') : '—'}`));
+    lines.push(teamName(s, t), ...s.teams[t].history.map((h, i) => tx(s.lang, 'historyLine', { n: i + 1, clues: h.length ? h.join(tx(s.lang, 'sep')) : '—' })));
   }
   return reply(c, user, lines.join('\n'));
 }
@@ -316,12 +335,12 @@ function handle(c: Ctx, action: GameAction): boolean {
       return leaveRoom(c, TITLE, action.user);
     case 'addBot':
     case 'removeBot':
-      return reply(c, action.user, '截碼戰不支援 bot。');
+      return reply(c, action.user, tx(s.lang, 'noBots'));
     case 'start': {
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以開始遊戲。');
+      if (action.user !== s.host) return reply(c, action.user, tx(s.lang, 'onlyHostStart'));
       if (s.phase !== 'lobby') return false;
       const n = s.players.length;
-      if (n < MIN_DECRYPTO_PLAYERS) return reply(c, action.user, `目前 ${n} 人，至少需要 ${MIN_DECRYPTO_PLAYERS} 人才能開始。`);
+      if (n < MIN_DECRYPTO_PLAYERS) return reply(c, action.user, tx(s.lang, 'notEnough', { n, min: MIN_DECRYPTO_PLAYERS }));
       c.events.push(lobbyEvent(TITLE, { ...s, phase: 'clue' }));
       deal(c);
       return true;
@@ -330,15 +349,15 @@ function handle(c: Ctx, action: GameAction): boolean {
       return cancelGame(c, action.user);
     case 'openClue': {
       const t = teamOf(s, action.user);
-      if (s.phase !== 'clue' || !t || encryptor(s, t) !== action.user) return reply(c, action.user, '這回合不是你加密。');
+      if (s.phase !== 'clue' || !t || encryptor(s, t) !== action.user) return reply(c, action.user, tx(s.lang, 'notEncryptor'));
       const code = s.teams[t].code!;
       c.events.push({
         type: 'modal',
         to: action.user,
         kind: 'decryptoClue',
-        title: '寫提示',
-        label: `密碼 ${code.join('-')}`,
-        fields: code.map((n, i) => `第 ${i + 1} 個提示 (${n} ${s.teams[t].words[n - 1]})`),
+        title: tx(s.lang, 'modalTitle'),
+        label: tx(s.lang, 'modalLabel', { code: code.join('-') }),
+        fields: code.map((n, i) => tx(s.lang, 'modalField', { i: i + 1, n, word: s.teams[t].words[n - 1] })),
       });
       return false;
     }

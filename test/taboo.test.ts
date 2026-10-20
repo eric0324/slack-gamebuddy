@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { type GameEvent } from '../src/engine.js';
 import { applyTaboo, contains, type TAction, type TState } from '../src/taboo.js';
 import { TABOO_CARDS } from '../src/tabooCards.js';
+import { TABOO_CARDS_EN } from '../src/tabooCardsEn.js';
+import { taboo } from '../src/games/taboo.js';
 
 // rng 接近 1 時 shuffle 不換位置：分隊 p1 紅、p2 藍、p3 紅、p4 藍…；藍隊先描述；抽卡依詞庫順序
 const rng = () => 0.99999;
@@ -417,5 +419,62 @@ describe('taboo/rounds: 勝負與結束', () => {
     const { state, events } = run([{ type: 'cancel', user: 'p2' }], s);
     expect(state).toBe(s);
     expect(ephemeralTo(events, 'p2')!.text).toContain('只有房主');
+  });
+});
+
+// 英文局：同樣是 p2 (藍) 先描述、p4 猜；第一張卡是英文題庫第 0 張
+describe('taboo/i18n: 英文版', () => {
+  const E0 = TABOO_CARDS_EN[0];
+  const enLobby = run([
+    { type: 'new', user: 'p1', channel: 'C1', lang: 'en' },
+    ...['p2', 'p3', 'p4'].map((user) => ({ type: 'join', user }) as TAction),
+  ]).state;
+  const enStarted = () => run([{ type: 'start', user: 'p1' }], enLobby);
+  const enDescribing = () => run([{ type: 'go', user: 'p2' }], enStarted().state);
+  const say = (user: string, text: string) => run([{ type: 'chat', user, text }], enDescribing().state);
+
+  it('開局公告、準備按鈕和題目卡是英文，題目從英文題庫抽', () => {
+    const start = enStarted();
+    expect(announces(start.events).join('\n')).toContain('🤐 Taboo begins!');
+    expect(prompts(start.events).at(-1)!.options).toEqual([{ value: 'go', label: '▶️ Start' }]);
+    const card = cardPrompt(enDescribing().events)!;
+    expect(card.text).toBe(`🃏 Word: "${E0.word}"\n🚫 Taboo: ${E0.taboo.join(', ')}`);
+    expect(card.options[0].label).toBe('⏭️ Skip');
+  });
+
+  it('猜詞不分大小寫、可以加複數；公告是英文', () => {
+    const { state, events } = say('p4', `is it ${E0.word.toUpperCase()}S?`);
+    expect(state.scores).toEqual({ red: 0, blue: 1 });
+    expect(announces(events)).toContain(`✅ <@p4> got "${E0.word}"! 🔵Blue +1`);
+  });
+
+  it('犯規用整個單字比對：單字裡剛好有禁語不算，說出禁語算', () => {
+    const s = enDescribing().state;
+    expect(run([{ type: 'chat', user: 'p2', text: 'I covered it with a box' }], s).state).toBe(s);
+    const { state, events } = say('p2', 'It is RED inside');
+    expect(state.scores).toEqual({ red: 1, blue: 0 });
+    expect(announces(events)).toContain(`🚨 <@p2> foul! Said "red". The word was "${E0.word}". 🔴Red +1`);
+    expect(say('p2', 'w*ter').state.scores).toEqual({ red: 1, blue: 0 });
+  });
+
+  it('錯誤訊息是英文', () => {
+    expect(ephemeralTo(run([{ type: 'addBot', user: 'p1', count: 1 }], enLobby).events, 'p1')!.text).toBe("Taboo doesn't support bots.");
+    expect(ephemeralTo(run([{ type: 'card', user: 'p4' }], enDescribing().state).events, 'p4')!.text).toBe('Only the describer can see the card.');
+  });
+
+  it('GameDef 有英文名稱和英文說明', () => {
+    expect(taboo.locales.en).toMatchObject({ name: 'Taboo', players: '4-12 players' });
+    expect(taboo.locales.en.help).toContain('*Taboo commands*');
+  });
+
+  it('英文題庫和中文一樣多：每張 5 個不重複的禁語，題目詞不重複', () => {
+    expect(TABOO_CARDS_EN).toHaveLength(TABOO_CARDS.length);
+    const low = (w: string) => w.toLowerCase();
+    expect(new Set(TABOO_CARDS_EN.map((c) => low(c.word))).size).toBe(TABOO_CARDS_EN.length);
+    for (const { word, taboo: words } of TABOO_CARDS_EN) {
+      expect(new Set(words.map(low)).size, word).toBe(5);
+      expect(words.map(low), word).not.toContain(low(word));
+      for (const w of [word, ...words]) expect(w.trim().length, `${word}: ${w}`).toBeGreaterThanOrEqual(2);
+    }
   });
 });

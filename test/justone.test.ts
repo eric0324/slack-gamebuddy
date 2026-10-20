@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { type GameEvent } from '../src/engine.js';
 import { applyJustOne, type JAction, type JState } from '../src/justone.js';
+import { CODENAMES_WORDS_BY_LANG } from '../src/codenamesWords.js';
+import { justOne } from '../src/games/justone.js';
 
 const rng = () => 0.99999;
 
@@ -216,5 +218,45 @@ describe('justone/rounds: 結束與評價', () => {
     expect(ephemeralTo(run([{ type: 'rematch', user: 'X', channel: 'C1' }], state).events, 'X')).toBeDefined();
     const cancelled = run([{ type: 'cancel', user: 'p1' }], started(4).state).state;
     expect(run([{ type: 'rematch', user: 'p2', channel: 'C1' }], cancelled).events).toEqual([]);
+  });
+});
+
+// rng 固定時不洗牌：牌堆是英文詞庫前 13 個，3 人局由 p3 先猜
+describe('justone/i18n: 英文版', () => {
+  const enStarted = () =>
+    run([
+      { type: 'new', user: 'p1', channel: 'C1', lang: 'en' },
+      { type: 'join', user: 'p2' },
+      { type: 'join', user: 'p3' },
+      { type: 'start', user: 'p1' },
+    ]);
+
+  it('開局公告、回合公告和私訊是英文，題目從英文詞庫抽', () => {
+    const { state, events } = enStarted();
+    expect(state.word).toBe(CODENAMES_WORDS_BY_LANG.en[0]);
+    const text = announces(events).join('\n');
+    expect(text).toContain('💡 Just One begins!');
+    expect(text).toContain('🃏 Card 1: <@p3> is guessing');
+    expect(dmTo(events, 'p1')!.text).toContain(`"${state.word}"`);
+  });
+
+  it('提示、跳過按鈕、猜詞結果是英文；重複的提示和猜詞不分大小寫、忽略前後空白', () => {
+    const s = enStarted().state;
+    const clued = run([{ type: 'clue', user: 'p1', word: 'stripes' }, { type: 'clue', user: 'p2', word: ' Stripes ' }], s);
+    expect(announces(clued.events).join('\n')).toContain('No clues left 😱');
+    const p = clued.events.find((e) => e.type === 'prompt' && e.kind === 'skipGuess') as Extract<GameEvent, { type: 'prompt' }>;
+    expect(p.options).toEqual([{ value: 'p3', label: 'Skip' }]);
+    const right = run([{ type: 'guess', user: 'p3', word: ` ${s.word!.toUpperCase()} ` }], clued.state);
+    expect(announces(right.events).join('\n')).toContain(`🎉 Correct! The word was "${s.word}"`);
+  });
+
+  it('錯誤訊息是英文', () => {
+    const lobby = run([{ type: 'new', user: 'p1', channel: 'C1', lang: 'en' }]).state;
+    expect(ephemeralTo(run([{ type: 'addBot', user: 'p1', count: 1 }], lobby).events, 'p1')).toMatchObject({ text: "Just One doesn't support bots." });
+  });
+
+  it('GameDef 有英文名稱和英文說明', () => {
+    expect(justOne.locales.en).toMatchObject({ name: 'Just One', players: '3-7 players' });
+    expect(justOne.locales.en.help).toContain('*Just One commands*');
   });
 });

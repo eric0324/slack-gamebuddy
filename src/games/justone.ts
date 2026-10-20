@@ -14,6 +14,17 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Just One commands*',
+  '• `/game justone new`: open a room (anyone)',
+  '• `/game justone start`: start the game, needs 3-7 human players (host)',
+  "• `/game justone clue <word>`: give one clue (everyone except the guesser; others can't see what you type)",
+  '• `/game justone guess <word>`: guess the word (guesser); press "Skip" if unsure',
+  '• `/game justone next`: skip a stuck step (host)',
+  '• `/game justone cancel`: cancel the game (host)',
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 // 一字千金的子指令：clue <詞>、guess <詞>，next 是跳過卡住的步驟
 export function parseJustOneCommand(text: string, user: string, channel: string): JAction | null {
   const [sub, ...rest] = text.trim().split(/\s+/);
@@ -36,6 +47,7 @@ export const justOne = {
   category: 'coop',
   desc: '合作猜詞，大家各給一個提示，重複的會被刪掉',
   noBots: true,
+  locales: { en: { name: 'Just One', players: '3-7 players', desc: 'Co-op word guessing: everyone gives one clue, duplicates get removed', help: HELP_EN } },
   help: HELP,
   apply: applyJustOne,
   parse: parseJustOneCommand,

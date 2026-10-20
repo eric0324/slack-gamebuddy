@@ -16,6 +16,19 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Spyfall commands*',
+  '• `/game spyfall new`: open a room (anyone)',
+  '• `/game spyfall addbot [count]`: add bots to fill seats (host, before starting)',
+  '• `/game spyfall removebot [count]`: remove bots (host, before starting)',
+  '• `/game spyfall start`: start the game, needs 4-10 players (host)',
+  '• `/game spyfall next`: skip a stuck question or answer (host)',
+  '• `/game spyfall vote`: end questioning and vote now (host)',
+  '• `/game spyfall cancel`: cancel the game (host)',
+  '• `/game spyfall guess <location>`: the spy guesses the location (once during questioning, or within 60 sec after being accused)',
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 // 間諜危機的子指令和誰是臥底一樣，只有 guess 猜的是地點
 export function parseSpyfallCommand(text: string, user: string, channel: string): SAction | null {
   const action = parseUndercoverCommand(text, user, channel);
@@ -50,6 +63,7 @@ export const spyfall = {
   players: '4～10 人',
   category: 'deduction',
   desc: '只有間諜不知道地點，接力提問、投票抓間諜',
+  locales: { en: { name: 'Spyfall', players: '4-10 players', desc: "Everyone but the spy knows the location; ask questions and vote to catch the spy", help: HELP_EN } },
   help: HELP,
   apply: applySpyfall,
   parse: parseSpyfallCommand,

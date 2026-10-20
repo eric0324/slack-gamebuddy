@@ -1,5 +1,6 @@
 // 截碼戰的祕密詞：每隊抽 4 個，同一局不重複 (有測試檢查數量和格式)。
 // 挑選原則：具體、聯想多的名詞，加密者才有辦法從不同角度給提示。
+import type { Lang } from './i18n/index.js';
 
 export const DECRYPTO_WORDS: string[] = [
   // 動物
@@ -19,3 +20,26 @@ export const DECRYPTO_WORDS: string[] = [
   // 抽象與活動
   '夢', '時間', '音樂', '戰爭', '婚禮', '生日', '考試', '假期', '祕密', '運氣', '魔法', '鬼', '心臟', '骨頭', '血', '眼淚', '微笑', '影子', '聲音', '金錢',
 ];
+
+// 英文詞庫：和上面一對一翻譯、順序相同，每個詞是一個英文單字；台灣在地的詞換成意思接近的常用詞
+export const DECRYPTO_WORDS_EN: string[] = [
+  // 動物
+  'Cat', 'Dog', 'Tiger', 'Lion', 'Elephant', 'Giraffe', 'Penguin', 'Panda', 'Shark', 'Dolphin', 'Eagle', 'Snake', 'Frog', 'Rabbit', 'Turtle', 'Bee', 'Butterfly', 'Octopus', 'Camel', 'Monkey',
+  // 食物
+  'Hotpot', 'Boba', 'Noodles', 'Pizza', 'Sushi', 'Cake', 'Chocolate', 'Watermelon', 'Banana', 'Chicken', 'Dumpling', 'Coffee', 'Cheese', 'Popcorn', 'Ramen', 'Pineapple', 'Lemon', 'Chili', 'Egg', 'Sundae',
+  // 地點
+  'Beach', 'Desert', 'Forest', 'Volcano', 'Hospital', 'School', 'Airport', 'Market', 'Library', 'Prison', 'Castle', 'Church', 'Museum', 'Carnival', 'Zoo', 'Store', 'Spaceship', 'Antarctica', 'Basement', 'Cinema',
+  // 物品
+  'Mirror', 'Umbrella', 'Key', 'Watch', 'Glasses', 'Pillow', 'Candle', 'Scissors', 'Telephone', 'Camera', 'Map', 'Wallet', 'Balloon', 'Bell', 'Ladder', 'Ring', 'Book', 'Guitar', 'Piano', 'Hat',
+  // 自然
+  'Sun', 'Moon', 'Star', 'Rainbow', 'Typhoon', 'Lightning', 'Snow', 'Ice', 'Fire', 'Cloud', 'River', 'Mountain', 'Island', 'Wave', 'Stone', 'Tree', 'Flower', 'Earthquake', 'Galaxy', 'Diamond',
+  // 人物職業
+  'Doctor', 'Police', 'Teacher', 'Chef', 'Pirate', 'Ninja', 'King', 'Princess', 'Magician', 'Astronaut', 'Clown', 'Detective', 'Firefighter', 'Farmer', 'Robot', 'Vampire', 'Zombie', 'Witch', 'Angel', 'Dinosaur',
+  // 交通與科技
+  'Airplane', 'Train', 'Bicycle', 'Submarine', 'Rocket', 'Taxi', 'Computer', 'Smartphone', 'Internet', 'Battery', 'Satellite', 'Laser', 'Magnet', 'Gear', 'Bomb', 'Fireworks', 'Ticket', 'Stoplight', 'Elevator', 'Wheel',
+  // 抽象與活動
+  'Dream', 'Time', 'Music', 'War', 'Wedding', 'Birthday', 'Exam', 'Vacation', 'Secret', 'Luck', 'Magic', 'Ghost', 'Heart', 'Bone', 'Blood', 'Tears', 'Smile', 'Shadow', 'Sound', 'Money',
+];
+
+// 依語系取詞庫 (別的遊戲要英文詞也可以用這份)
+export const DECRYPTO_WORDS_BY_LANG: Record<Lang, string[]> = { 'zh-TW': DECRYPTO_WORDS, en: DECRYPTO_WORDS_EN };

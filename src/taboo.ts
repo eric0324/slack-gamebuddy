@@ -2,6 +2,9 @@
 import { mention, type GameEvent, type Rng } from './engine.js';
 import { cancelGame, joinRoom, leaveRoom, lobbyEvent, reply, runGame, shuffle, startTimer } from './common.js';
 import { TABOO_CARDS } from './tabooCards.js';
+import { TABOO_CARDS_EN } from './tabooCardsEn.js';
+import type { Lang } from './i18n/index.js';
+import { tx } from './i18n/games/taboo.js';
 
 export const MIN_TABOO_PLAYERS = 4;
 export const MAX_TABOO_PLAYERS = 12;
@@ -12,7 +15,6 @@ const DESCRIBE_MS = 90_000;
 export type Team = 'red' | 'blue';
 export type TPhase = 'lobby' | 'ready' | 'describe' | 'ended';
 
-const TEAM_NAME: Record<Team, string> = { red: '🔴紅隊', blue: '🔵藍隊' };
 const other = (t: Team): Team => (t === 'red' ? 'blue' : 'red');
 
 export interface TState {
@@ -31,10 +33,11 @@ export interface TState {
   winner?: Team | 'tie'; // 正常結束才有 (取消的沒有)→ 可以再來一局
   timerSeq: number;
   timers: { phase?: number };
+  lang?: Lang;
 }
 
 export type TAction =
-  | { type: 'new'; user: string; channel: string }
+  | { type: 'new'; user: string; channel: string; lang?: Lang }
   | { type: 'join'; user: string }
   | { type: 'leave'; user: string }
   | { type: 'start'; user: string }
@@ -62,7 +65,12 @@ interface Ctx {
 }
 
 const teamOf = (s: TState, id: string) => s.players.find((p) => p.id === id)?.team;
-const roster = (s: TState, t: Team) => `${TEAM_NAME[t]}：${s.players.filter((p) => p.team === t).map((p) => mention(p.id)).join('、')}`;
+const teamName = (s: TState, t: Team) => tx(s.lang, t === 'red' ? 'teamRed' : 'teamBlue');
+const roster = (s: TState, t: Team) =>
+  tx(s.lang, 'roster', { team: teamName(s, t), list: s.players.filter((p) => p.team === t).map((p) => mention(p.id)).join(tx(s.lang, 'sep')) });
+// 題庫依這局的語系；牌堆存的是 index，中英文同一個 index 是同一張卡
+const TABOO_CARDS_BY_LANG: Record<Lang, typeof TABOO_CARDS> = { 'zh-TW': TABOO_CARDS, en: TABOO_CARDS_EN };
+const cards = (s: TState) => TABOO_CARDS_BY_LANG[s.lang ?? 'zh-TW'];
 
 // 開局：隨機分隊；兩隊輪流，每隊輪數 = 人數較多那隊的人數，人數少的隊伍從頭再輪
 function deal(c: Ctx) {
@@ -76,10 +84,10 @@ function deal(c: Ctx) {
   c.events.push({
     type: 'announce',
     text: [
-      `🤐 禁語開始！共 ${s.order.length} 輪，每輪 ${DESCRIBE_MS / 1000} 秒。`,
+      tx(s.lang, 'start', { rounds: s.order.length, sec: DESCRIBE_MS / 1000 }),
       roster(s, 'red'),
       roster(s, 'blue'),
-      '描述者私下看到題目詞和禁語，直接在頻道打字描述；隊友在頻道打字猜。說到題目詞或禁語算犯規！',
+      tx(s.lang, 'startRule'),
     ].join('\n'),
     gif: 'start',
   });
@@ -88,7 +96,7 @@ function deal(c: Ctx) {
 const describer = (s: TState) => s.order[s.round];
 const describerTeam = (s: TState) => teamOf(s, describer(s))!;
 const mates = (s: TState) => s.players.filter((p) => p.team === describerTeam(s) && p.id !== describer(s)).map((p) => p.id);
-const word = (s: TState) => TABOO_CARDS[s.card!].word;
+const word = (s: TState) => cards(s)[s.card!].word;
 
 // 每輪開始：公告描述者，等他按「▶️ 開始」
 function startReady(c: Ctx) {
@@ -99,9 +107,16 @@ function startReady(c: Ctx) {
   c.events.push(
     {
       type: 'announce',
-      text: `🎙️ 第 ${s.round + 1}／${s.order.length} 輪：${TEAM_NAME[describerTeam(s)]} ${mention(d)} 描述，隊友 ${mates(s).map(mention).join('、')} 負責猜；${TEAM_NAME[other(describerTeam(s))]}監督。`,
+      text: tx(s.lang, 'ready', {
+        round: s.round + 1,
+        total: s.order.length,
+        team: teamName(s, describerTeam(s)),
+        describer: mention(d),
+        mates: mates(s).map(mention).join(tx(s.lang, 'sep')),
+        other: teamName(s, other(describerTeam(s))),
+      }),
     },
-    { type: 'prompt', kind: 'taboo', audience: 'channel', text: `${mention(d)} 準備好就按開始 (${READY_MS / 1000} 秒內)`, options: [{ value: 'go', label: '▶️ 開始' }] },
+    { type: 'prompt', kind: 'taboo', audience: 'channel', text: tx(s.lang, 'readyPrompt', { describer: mention(d), sec: READY_MS / 1000 }), options: [{ value: 'go', label: tx(s.lang, 'goButton') }] },
   );
   startTimer(c, READY_MS);
 }
@@ -109,10 +124,10 @@ function startReady(c: Ctx) {
 function go(c: Ctx, user: string): boolean {
   const s = c.s;
   if (s.phase !== 'ready') return false;
-  if (user !== describer(s)) return reply(c, user, '只有描述者可以開始。');
+  if (user !== describer(s)) return reply(c, user, tx(s.lang, 'onlyDescriberGo'));
   s.phase = 'describe';
   s.log = [];
-  c.events.push({ type: 'announce', text: `⏱️ 開始！${mention(user)} 描述 ${DESCRIBE_MS / 1000} 秒，隊友直接在頻道打字猜。` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'go', { describer: mention(user), sec: DESCRIBE_MS / 1000 }) });
   drawCard(c);
   startTimer(c, DESCRIBE_MS);
   return true;
@@ -121,7 +136,7 @@ function go(c: Ctx, user: string): boolean {
 // 抽下一張卡 (同一局不重複，用完重洗)，只讓描述者看到
 function drawCard(c: Ctx) {
   const s = c.s;
-  if (!s.deck.length) s.deck = shuffle(TABOO_CARDS.map((_, i) => i), c.rng);
+  if (!s.deck.length) s.deck = shuffle(cards(s).map((_, i) => i), c.rng);
   s.card = s.deck.shift()!;
   s.cardSeq++;
   showCard(c);
@@ -129,14 +144,14 @@ function drawCard(c: Ctx) {
 
 function showCard(c: Ctx) {
   const s = c.s;
-  const { word: w, taboo } = TABOO_CARDS[s.card!];
+  const { word: w, taboo } = cards(s)[s.card!];
   c.events.push({
     type: 'prompt',
     kind: 'taboo',
     audience: 'ephemeral',
     user: describer(s),
-    text: `🃏 題目：「${w}」\n🚫 禁語：${taboo.join('、')}`,
-    options: [{ value: `skip:${s.cardSeq}`, label: '⏭️ 跳過' }],
+    text: tx(s.lang, 'card', { word: w, taboo: taboo.join(tx(s.lang, 'sep')) }),
+    options: [{ value: `skip:${s.cardSeq}`, label: tx(s.lang, 'skipButton') }],
   });
 }
 
@@ -146,13 +161,27 @@ export const contains = (text: string, w: string) => normalize(text).includes(no
 // 描述者不能用來代替文字的字 (例如「老x」)；比對原始訊息，因為 normalize 會去掉符號
 const placeholder = (t: string) => t.normalize('NFKC').match(/[x×✕✖○〇●*]/i)?.[0];
 
+// 英文：整個單字比對 (可以加 s／es)，不分大小寫、忽略標點；撇號直接去掉 (mother's → mothers)
+const tokens = (t: string) => t.normalize('NFKC').toLowerCase().replace(/['’]/g, '').match(/[\p{L}\p{N}]+/gu) ?? [];
+const sameWord = (a: string, b: string) => a === b || a === `${b}s` || a === `${b}es`;
+export function containsWord(text: string, w: string) {
+  const ws = tokens(text);
+  const target = tokens(w);
+  if (!target.length) return false;
+  const joined = target.join(''); // 多個字的詞連在一起打也算 (spider-man → spiderman)
+  return ws.some((x, i) => sameWord(x, joined) || target.every((t, j) => i + j < ws.length && sameWord(ws[i + j], t)));
+}
+// 英文單字裡本來就有 x，英文局不把 x 當替代字
+const placeholderEn = (t: string) => t.normalize('NFKC').match(/[×✕✖○〇●*]/)?.[0];
+const said = (s: TState, text: string, w: string) => (s.lang === 'en' ? containsWord(text, w) : contains(text, w));
+
 // 一張卡結束：記錄、加分、公告，換下一張
 function finishCard(c: Ctx, result: 'correct' | 'foul' | 'skip', text: string) {
   const s = c.s;
   const team = result === 'correct' ? describerTeam(s) : other(describerTeam(s));
   s.scores[team]++;
   s.log.push({ word: word(s), result });
-  c.events.push({ type: 'announce', text: `${text}${TEAM_NAME[team]} +1` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'plusOne', { text, team: teamName(s, team) }) });
   drawCard(c);
 }
 
@@ -160,45 +189,45 @@ function finishCard(c: Ctx, result: 'correct' | 'foul' | 'skip', text: string) {
 function chat(c: Ctx, user: string, text: string): boolean {
   const s = c.s;
   if (s.phase !== 'describe') return false;
-  const { word: w, taboo } = TABOO_CARDS[s.card!];
+  const { word: w, taboo } = cards(s)[s.card!];
   if (user === describer(s)) {
-    const hit = [w, ...taboo].find((x) => contains(text, x));
-    const sub = placeholder(text);
+    const hit = [w, ...taboo].find((x) => said(s, text, x));
+    const sub = s.lang === 'en' ? placeholderEn(text) : placeholder(text);
     if (!hit && !sub) return false;
-    const why = hit ? `說了「${hit}」` : `用了「${sub}」代替文字`;
-    finishCard(c, 'foul', `🚨 ${mention(user)} 犯規！${why}，題目是「${w}」。`);
+    const why = hit ? tx(s.lang, 'foulSaid', { word: hit }) : tx(s.lang, 'foulPlaceholder', { sub: sub! });
+    finishCard(c, 'foul', tx(s.lang, 'foul', { who: mention(user), why, word: w }));
     return true;
   }
-  if (!mates(s).includes(user) || !contains(text, w)) return false;
-  finishCard(c, 'correct', `✅ ${mention(user)} 猜中「${w}」！`);
+  if (!mates(s).includes(user) || !said(s, text, w)) return false;
+  finishCard(c, 'correct', tx(s.lang, 'correct', { who: mention(user), word: w }));
   return true;
 }
 
 function skip(c: Ctx, user: string, seq?: number): boolean {
   const s = c.s;
-  if (s.phase !== 'describe' || user !== describer(s)) return reply(c, user, '只有描述者可以跳過。');
-  if (seq !== undefined && seq !== s.cardSeq) return reply(c, user, '這張卡已經結束了。');
-  finishCard(c, 'skip', `⏭️ 跳過「${word(s)}」。`);
+  if (s.phase !== 'describe' || user !== describer(s)) return reply(c, user, tx(s.lang, 'onlyDescriberSkip'));
+  if (seq !== undefined && seq !== s.cardSeq) return reply(c, user, tx(s.lang, 'cardOver'));
+  finishCard(c, 'skip', tx(s.lang, 'skipped', { word: word(s) }));
   return true;
 }
 
-const scoreLine = (s: TState) => `${TEAM_NAME.red} ${s.scores.red}｜${TEAM_NAME.blue} ${s.scores.blue}`;
+const scoreLine = (s: TState) => tx(s.lang, 'score', { red: teamName(s, 'red'), redScore: s.scores.red, blue: teamName(s, 'blue'), blueScore: s.scores.blue });
 
 // 時間到：進行中的卡不計分，公告這輪結果
 function endRound(c: Ctx) {
   const s = c.s;
   const team = describerTeam(s);
-  const words = (r: 'correct' | 'foul' | 'skip') => s.log.filter((x) => x.result === r).map((x) => x.word).join('、') || '(無)';
+  const words = (r: 'correct' | 'foul' | 'skip') => s.log.filter((x) => x.result === r).map((x) => x.word).join(tx(s.lang, 'sep')) || tx(s.lang, 'none');
   const gained = (t: Team) => s.log.filter((x) => (x.result === 'correct') === (t === team)).length;
   c.events.push({
     type: 'announce',
     text: [
-      `⏰ 時間到！${mention(describer(s))} 這輪結果：`,
-      `✅ 猜中：${words('correct')}`,
-      `🚨 犯規：${words('foul')}`,
-      `⏭️ 跳過：${words('skip')}`,
-      `這輪：${TEAM_NAME.red} +${gained('red')}、${TEAM_NAME.blue} +${gained('blue')}`,
-      `總分：${scoreLine(s)}`,
+      tx(s.lang, 'roundEnd', { describer: mention(describer(s)) }),
+      tx(s.lang, 'roundCorrect', { words: words('correct') }),
+      tx(s.lang, 'roundFoul', { words: words('foul') }),
+      tx(s.lang, 'roundSkip', { words: words('skip') }),
+      tx(s.lang, 'roundGain', { red: teamName(s, 'red'), redGain: gained('red'), blue: teamName(s, 'blue'), blueGain: gained('blue') }),
+      tx(s.lang, 'total', { score: scoreLine(s) }),
     ].join('\n'),
   });
   nextRound(c);
@@ -218,10 +247,10 @@ function endGame(c: Ctx) {
   s.timers = {};
   const { red, blue } = s.scores;
   s.winner = red > blue ? 'red' : blue > red ? 'blue' : 'tie';
-  const result = s.winner === 'tie' ? '🤝 平手！' : `🎉 ${TEAM_NAME[s.winner]}獲勝！`;
+  const result = s.winner === 'tie' ? tx(s.lang, 'tie') : tx(s.lang, 'win', { team: teamName(s, s.winner) });
   c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: s.players.filter((p) => p.team === s.winner).map((p) => p.id) });
   c.events.push(
-    { type: 'announce', text: `🏁 遊戲結束！${scoreLine(s)}\n${result}\n${roster(s, 'red')}\n${roster(s, 'blue')}`, gif: 'goodWin' },
+    { type: 'announce', text: tx(s.lang, 'end', { score: scoreLine(s), result, red: roster(s, 'red'), blue: roster(s, 'blue') }), gif: 'goodWin' },
     { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },
   );
 }
@@ -235,19 +264,19 @@ function handle(c: Ctx, action: GameAction): boolean {
       return leaveRoom(c, TITLE, action.user);
     case 'addBot':
     case 'removeBot':
-      return reply(c, action.user, '禁語不支援 bot。');
+      return reply(c, action.user, tx(s.lang, 'noBots'));
     case 'start': {
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以開始遊戲。');
+      if (action.user !== s.host) return reply(c, action.user, tx(s.lang, 'onlyHostStart'));
       if (s.phase !== 'lobby') return false;
       const n = s.players.length;
-      if (n < MIN_TABOO_PLAYERS) return reply(c, action.user, `目前 ${n} 人，至少需要 ${MIN_TABOO_PLAYERS} 人才能開始。`);
+      if (n < MIN_TABOO_PLAYERS) return reply(c, action.user, tx(s.lang, 'notEnough', { n, min: MIN_TABOO_PLAYERS }));
       c.events.push(lobbyEvent(TITLE, { ...s, phase: 'ready' }));
       deal(c);
       startReady(c);
       return true;
     }
     case 'cancel':
-      return cancelGame(c, action.user, s.phase === 'lobby' ? '' : `目前比分：${scoreLine(s)}`);
+      return cancelGame(c, action.user, s.phase === 'lobby' ? '' : tx(s.lang, 'cancelScore', { score: scoreLine(s) }));
     case 'go':
       return go(c, action.user);
     case 'chat':
@@ -255,13 +284,13 @@ function handle(c: Ctx, action: GameAction): boolean {
     case 'skip':
       return skip(c, action.user, action.seq);
     case 'card':
-      if (s.phase !== 'describe' || action.user !== describer(s)) return reply(c, action.user, '只有描述者可以看題目卡。');
+      if (s.phase !== 'describe' || action.user !== describer(s)) return reply(c, action.user, tx(s.lang, 'onlyDescriberCard'));
       showCard(c);
       return false;
     case 'timeout':
       if (action.id !== s.timers.phase) return false;
       if (s.phase === 'ready') {
-        c.events.push({ type: 'announce', text: `⌛ ${mention(describer(s))} 沒有開始，這輪跳過。` });
+        c.events.push({ type: 'announce', text: tx(s.lang, 'noStart', { describer: mention(describer(s)) }) });
         nextRound(c);
       } else if (s.phase === 'describe') endRound(c);
       return true;

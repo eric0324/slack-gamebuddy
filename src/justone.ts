@@ -1,7 +1,9 @@
 // 一字千金遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyJustOne(state, action, rng) → { state, events }。
-import { CODENAMES_WORDS } from './codenamesWords.js';
+import { CODENAMES_WORDS_BY_LANG } from './codenamesWords.js';
 import { mention, type GameEvent, type Rng } from './engine.js';
 import { cancelGame, joinRoom, leaveRoom, lobbyEvent, reply, runGame, shuffle, startTimer } from './common.js';
+import type { Lang } from './i18n/index.js';
+import { tx } from './i18n/games/justone.js';
 
 export const MIN_JUSTONE_PLAYERS = 3;
 export const MAX_JUSTONE_PLAYERS = 7;
@@ -32,10 +34,11 @@ export interface JState {
   finished?: boolean; // 牌堆用完正常結束 (取消的遊戲沒有)
   timerSeq: number;
   timers: { phase?: number };
+  lang?: Lang;
 }
 
 export type JAction =
-  | { type: 'new'; user: string; channel: string }
+  | { type: 'new'; user: string; channel: string; lang?: Lang }
   | { type: 'join'; user: string }
   | { type: 'leave'; user: string }
   | { type: 'start'; user: string }
@@ -72,10 +75,10 @@ function startRound(c: Ctx) {
   const guesser = s.players[s.guesser].id;
   c.events.push({
     type: 'announce',
-    text: `🃏 第 ${s.card} 張：${mention(guesser)} 猜詞\n其他人請看私訊的詞，用 \`/game justone clue <詞>\` 給一個提示 (${CLUE_MS / 1000} 秒)，重複的提示會被刪掉！`,
+    text: tx(s.lang, 'round', { card: s.card, guesser: mention(guesser), sec: CLUE_MS / 1000 }),
   });
   for (const p of s.players.filter((x) => x.id !== guesser)) {
-    c.events.push({ type: 'dm', to: p.id, text: `🃏 第 ${s.card} 張的詞是「${s.word}」，${mention(guesser)} 要猜。用 \`/game justone clue <詞>\` 給一個提示。` });
+    c.events.push({ type: 'dm', to: p.id, text: tx(s.lang, 'word', { card: s.card, word: s.word!, guesser: mention(guesser) }) });
   }
   startTimer(c, CLUE_MS);
 }
@@ -85,13 +88,13 @@ const cluers = (s: JState) => s.players.filter((_, i) => i !== s.guesser).map((p
 function giveClue(c: Ctx, user: string, word: string): boolean {
   const s = c.s;
   if (!s.players.some((p) => p.id === user)) return false;
-  if (s.phase !== 'clue' || !cluers(s).includes(user)) return reply(c, user, '你現在不能給提示。');
+  if (s.phase !== 'clue' || !cluers(s).includes(user)) return reply(c, user, tx(s.lang, 'cannotClue'));
   const w = word.trim();
-  if (!w || /\s/.test(w)) return reply(c, user, '提示只能是一個詞 (不能有空白)。');
+  if (!w || /\s/.test(w)) return reply(c, user, tx(s.lang, 'oneWord'));
   s.clues[user] = w;
-  reply(c, user, `已收到你的提示「${w}」，在時間內可以重新輸入覆蓋。`);
+  reply(c, user, tx(s.lang, 'clueReceived', { word: w }));
   const done = Object.keys(s.clues).length;
-  c.events.push({ type: 'announce', text: `✍️ 已收到 ${done}／${cluers(s).length} 個提示` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'clueCount', { done, total: cluers(s).length }) });
   if (done === cluers(s).length) endClues(c);
   return true;
 }
@@ -109,16 +112,16 @@ function endClues(c: Ctx) {
   for (const [, w] of entries) count.set(normalize(w), (count.get(normalize(w)) ?? 0) + 1);
   const ok = (w: string) => count.get(normalize(w)) === 1 && normalize(w) !== normalize(s.word!);
   const kept = entries.filter(([, w]) => ok(w));
-  s.removed = entries.filter(([, w]) => !ok(w)).map(([id, w]) => `${mention(id)}「${w}」`);
+  s.removed = entries.filter(([, w]) => !ok(w)).map(([id, w]) => tx(s.lang, 'clueItem', { who: mention(id), word: w }));
   const guesser = s.players[s.guesser].id;
-  const shown = kept.length ? kept.map(([id, w]) => `${mention(id)}「${w}」`).join('、') : '沒有留下任何提示 😱';
-  const removed = s.removed.length ? `\n (${s.removed.length} 個提示因為重複或和答案相同被刪掉)` : '';
+  const shown = kept.length ? kept.map(([id, w]) => tx(s.lang, 'clueItem', { who: mention(id), word: w })).join(tx(s.lang, 'sep')) : tx(s.lang, 'noClues');
+  const removed = s.removed.length ? tx(s.lang, 'removedNote', { n: s.removed.length }) : '';
   c.events.push(
     {
       type: 'announce',
-      text: `💡 提示：${shown}${removed}\n${mention(guesser)} 請用 \`/game justone guess <詞>\` 猜一次，或按「跳過」(${GUESS_MS / 1000} 秒)`,
+      text: tx(s.lang, 'clues', { shown, removed, guesser: mention(guesser), sec: GUESS_MS / 1000 }),
     },
-    { type: 'prompt', kind: 'skipGuess', audience: 'channel', text: '沒把握的話可以跳過，只會丟掉這張牌', options: [{ value: guesser, label: '跳過' }] },
+    { type: 'prompt', kind: 'skipGuess', audience: 'channel', text: tx(s.lang, 'skipPrompt'), options: [{ value: guesser, label: tx(s.lang, 'skipButton') }] },
   );
   startTimer(c, GUESS_MS);
 }
@@ -126,21 +129,19 @@ function endClues(c: Ctx) {
 // 猜詞結果：猜對得分；跳過丟掉這張；猜錯再多丟一張 (牌堆空了就丟一張得分的牌)
 function finishGuess(c: Ctx, result: 'right' | 'skip' | 'wrong') {
   const s = c.s;
-  const lines = [
-    result === 'right' ? `🎉 猜對了！答案是「${s.word}」` : result === 'skip' ? `⏭️ 跳過，答案是「${s.word}」` : `❌ 猜錯了，答案是「${s.word}」`,
-  ];
+  const lines = [tx(s.lang, result === 'right' ? 'right' : result === 'skip' ? 'skipped' : 'wrong', { word: s.word! })];
   if (result === 'right') s.score++;
   if (result === 'wrong') {
     if (s.deck.length) {
       s.deck.shift();
-      lines.push('另外從牌堆多丟掉一張牌。');
+      lines.push(tx(s.lang, 'discardDeck'));
     } else if (s.score > 0) {
       s.score--;
-      lines.push('牌堆沒牌了，改成丟掉一張得分的牌。');
+      lines.push(tx(s.lang, 'discardScore'));
     }
   }
-  if (s.removed.length) lines.push(`被刪掉的提示：${s.removed.join('、')}`);
-  lines.push(`目前得分 ${s.score}，牌堆剩 ${s.deck.length} 張`);
+  if (s.removed.length) lines.push(tx(s.lang, 'removedList', { list: s.removed.join(tx(s.lang, 'sep')) }));
+  lines.push(tx(s.lang, 'status', { score: s.score, left: s.deck.length }));
   c.events.push({ type: 'announce', text: lines.join('\n') });
   s.guesser = (s.guesser + 1) % s.players.length;
   if (s.deck.length) startRound(c);
@@ -148,14 +149,14 @@ function finishGuess(c: Ctx, result: 'right' | 'skip' | 'wrong') {
 }
 
 // 官方評價
-function rating(score: number) {
-  if (score >= 13) return '完美！';
-  if (score === 12) return '驚人！大家的默契太好了';
-  if (score === 11) return '太厲害了！';
-  if (score >= 9) return '很棒！';
-  if (score >= 7) return '不錯，繼續加油';
-  if (score >= 4) return '還可以，再多練習';
-  return '再試一次吧';
+function rating(lang: Lang | undefined, score: number) {
+  if (score >= 13) return tx(lang, 'rate13');
+  if (score === 12) return tx(lang, 'rate12');
+  if (score === 11) return tx(lang, 'rate11');
+  if (score >= 9) return tx(lang, 'rate9');
+  if (score >= 7) return tx(lang, 'rate7');
+  if (score >= 4) return tx(lang, 'rate4');
+  return tx(lang, 'rate0');
 }
 
 function endGame(c: Ctx) {
@@ -165,7 +166,7 @@ function endGame(c: Ctx) {
   s.finished = true;
   c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: [], score: s.score }); // 合作遊戲：只記分數
   c.events.push(
-    { type: 'announce', text: `🏁 遊戲結束！大家一起猜對 ${s.score} 張，得分 ${s.score} 分：${rating(s.score)}`, gif: 'goodWin' },
+    { type: 'announce', text: tx(s.lang, 'end', { score: s.score, rating: rating(s.lang, s.score) }), gif: 'goodWin' },
     { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },
   );
 }
@@ -179,16 +180,16 @@ function handle(c: Ctx, action: GameAction): boolean {
       return leaveRoom(c, TITLE, action.user);
     case 'addBot':
     case 'removeBot':
-      return reply(c, action.user, '一字千金不支援 bot。');
+      return reply(c, action.user, tx(s.lang, 'noBots'));
     case 'start': {
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以開始遊戲。');
+      if (action.user !== s.host) return reply(c, action.user, tx(s.lang, 'onlyHostStart'));
       if (s.phase !== 'lobby') return false;
       const n = s.players.length;
-      if (n < MIN_JUSTONE_PLAYERS) return reply(c, action.user, `目前 ${n} 人，至少需要 ${MIN_JUSTONE_PLAYERS} 人才能開始。`);
+      if (n < MIN_JUSTONE_PLAYERS) return reply(c, action.user, tx(s.lang, 'notEnough', { n, min: MIN_JUSTONE_PLAYERS }));
       c.events.push(lobbyEvent(TITLE, { ...s, phase: 'clue' }));
-      s.deck = shuffle(CODENAMES_WORDS, c.rng).slice(0, DECK_SIZE);
+      s.deck = shuffle(CODENAMES_WORDS_BY_LANG[s.lang ?? 'zh-TW'], c.rng).slice(0, DECK_SIZE);
       s.guesser = Math.floor(c.rng() * n);
-      c.events.push({ type: 'announce', text: `💡 一字千金開始！牌堆 ${DECK_SIZE} 張，大家一起合作，看能猜對幾張。`, gif: 'start' });
+      c.events.push({ type: 'announce', text: tx(s.lang, 'start', { deck: DECK_SIZE }), gif: 'start' });
       startRound(c);
       return true;
     }
@@ -197,18 +198,18 @@ function handle(c: Ctx, action: GameAction): boolean {
     case 'clue':
       return giveClue(c, action.user, action.word);
     case 'guess': {
-      if (s.phase !== 'guess' || action.user !== s.players[s.guesser].id) return reply(c, action.user, '現在不是你猜詞。');
+      if (s.phase !== 'guess' || action.user !== s.players[s.guesser].id) return reply(c, action.user, tx(s.lang, 'notYourGuess'));
       finishGuess(c, normalize(action.word) === normalize(s.word!) ? 'right' : 'wrong');
       return true;
     }
     case 'skipGuess': {
-      if (s.phase !== 'guess' || action.user !== s.players[s.guesser].id) return reply(c, action.user, '只有猜詞的人可以跳過。');
+      if (s.phase !== 'guess' || action.user !== s.players[s.guesser].id) return reply(c, action.user, tx(s.lang, 'onlyGuesserSkip'));
       finishGuess(c, 'skip');
       return true;
     }
     case 'skipStep': {
       if (s.phase !== 'clue' && s.phase !== 'guess') return false;
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以跳過。');
+      if (action.user !== s.host) return reply(c, action.user, tx(s.lang, 'onlyHostSkip'));
       if (s.phase === 'clue') endClues(c);
       else finishGuess(c, 'skip');
       return true;

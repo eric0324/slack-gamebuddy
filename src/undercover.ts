@@ -3,6 +3,9 @@
 import { isBot, MAX_PLAYERS, mention, type GameEvent, type GifKey, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle } from './common.js';
 import { BLANK_LINES, WORD_PAIRS } from './undercoverWords.js';
+import { BLANK_LINES_EN, WORD_PAIRS_EN } from './undercoverWordsEn.js';
+import type { Lang } from './i18n/index.js';
+import { tx } from './i18n/games/undercover.js';
 
 export const MIN_UNDERCOVER_PLAYERS = 4;
 export const SPEECH_MS = 40_000;
@@ -13,7 +16,12 @@ const TITLE = '誰是臥底';
 export type UPhase = 'lobby' | 'speech' | 'vote' | 'pkSpeech' | 'pkVote' | 'guess' | 'ended';
 export type URole = 'civilian' | 'undercover' | 'blank';
 
-export const ROLE_NAME_U: Record<URole, string> = { civilian: '平民', undercover: '臥底', blank: '白板' };
+const roleName = (s: UState, r: URole) => tx(s.lang, r);
+
+// 詞庫依這局的語系
+const PAIRS: Record<Lang, typeof WORD_PAIRS> = { 'zh-TW': WORD_PAIRS, en: WORD_PAIRS_EN };
+const BLANKS: Record<Lang, string[]> = { 'zh-TW': BLANK_LINES, en: BLANK_LINES_EN };
+const pairsOf = (s: UState) => PAIRS[s.lang ?? 'zh-TW'];
 
 // 人數 → 各身分數量
 export const UNDERCOVER_TABLE: Record<number, Record<URole, number>> = {
@@ -53,10 +61,11 @@ export interface UState {
   guesser?: string; // 正在猜詞的白板
   usedHints: Record<string, string[]>; // bot 這一局已經說過的描述句
   winner?: 'civilian' | 'undercover';
+  lang?: Lang;
 }
 
 export type UAction =
-  | { type: 'new'; user: string; channel: string }
+  | { type: 'new'; user: string; channel: string; lang?: Lang }
   | { type: 'rematch'; user: string; channel: string }
   | { type: 'join'; user: string }
   | { type: 'leave'; user: string }
@@ -90,7 +99,8 @@ function deal(c: Ctx) {
     (['undercover', 'blank', 'civilian'] as URole[]).flatMap((r) => Array<URole>(table[r]).fill(r)),
     c.rng,
   );
-  const pair = WORD_PAIRS[Math.floor(c.rng() * WORD_PAIRS.length)];
+  const pairs = pairsOf(s);
+  const pair = pairs[Math.floor(c.rng() * pairs.length)];
   const [civilian, undercover] = c.rng() < 0.5 ? [pair.a.word, pair.b.word] : [pair.b.word, pair.a.word];
   s.words = { civilian, undercover };
   s.players.forEach((p, i) => {
@@ -99,17 +109,15 @@ function deal(c: Ctx) {
   });
   const setup = (['civilian', 'undercover', 'blank'] as URole[])
     .filter((r) => table[r])
-    .map((r) => `${table[r]} ${ROLE_NAME_U[r]}`)
-    .join('、');
+    .map((r) => tx(s.lang, 'setupItem', { n: table[r], role: roleName(s, r) }))
+    .join(tx(s.lang, 'sep'));
   c.events.push({
     type: 'announce',
-    text: `🎲 誰是臥底開始！玩家：${s.players.map((p) => mention(p.id)).join(' ')}\n身分配置：${setup}\n每個人的詞已經用私訊傳給大家，請到和 bot 的私訊查看。`,
+    text: tx(s.lang, 'start', { players: s.players.map((p) => mention(p.id)).join(' '), setup }),
     gif: 'start',
   });
   for (const p of s.players) {
-    const text = p.word
-      ? `你的詞是：${p.word}\n輪到你時，用一句話描述它，不要說得太明白。`
-      : '你是白板，沒有拿到詞。\n仔細聽別人的描述，假裝自己也有詞；被投出去時還有一次猜詞的機會。';
+    const text = p.word ? tx(s.lang, 'yourWord', { word: p.word }) : tx(s.lang, 'youAreBlank');
     c.events.push({ type: 'dm', to: p.id, text });
   }
 }
@@ -130,7 +138,7 @@ function startRound(c: Ctx) {
   const first = Math.floor(c.rng() * living.length);
   s.phase = 'speech';
   s.speakers = [...living.slice(first), ...living.slice(0, first)];
-  c.events.push({ type: 'announce', text: `💬 第 ${s.round} 輪描述，順序：${s.speakers.map(mention).join(' → ')}` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'round', { round: s.round, order: s.speakers.map(mention).join(' → ') }) });
   nextSpeaker(c);
 }
 
@@ -147,8 +155,8 @@ function nextSpeaker(c: Ctx) {
       type: 'prompt',
       kind: 'endSpeech',
       audience: 'channel',
-      text: `🎤 輪到 ${mention(id)} 描述 (${SPEECH_MS / 1000} 秒)`,
-      options: [{ value: id, label: '結束發言' }],
+      text: tx(s.lang, 'speakPrompt', { who: mention(id), sec: SPEECH_MS / 1000 }),
+      options: [{ value: id, label: tx(s.lang, 'endSpeech') }],
     });
     startTimer(c, SPEECH_MS);
     return;
@@ -163,18 +171,18 @@ function nextSpeaker(c: Ctx) {
 }
 
 const pick = <T>(items: T[], rng: Rng): T => items[Math.floor(rng() * items.length)];
-const hintsOf = (word: string) => WORD_PAIRS.flatMap(({ a, b }) => [a, b]).find((w) => w.word === word)?.hints ?? [];
+const hintsOf = (s: UState, word: string) => pairsOf(s).flatMap(({ a, b }) => [a, b]).find((w) => w.word === word)?.hints ?? [];
 
 // bot 描述：平民和臥底用自己詞的描述句 (盡量不重複)，白板用通用的模糊台詞
 function botDescribe(c: Ctx, id: string) {
   const s = c.s;
   const me = s.players.find((p) => p.id === id)!;
-  const pool = me.word ? hintsOf(me.word) : BLANK_LINES;
+  const pool = me.word ? hintsOf(s, me.word) : BLANKS[s.lang ?? 'zh-TW'];
   const used = (s.usedHints[id] ??= []);
   const fresh = pool.filter((h) => !used.includes(h));
   const line = pick(fresh.length ? fresh : pool, c.rng);
   used.push(line);
-  c.events.push({ type: 'announce', text: `${mention(id)}：${line}` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'botSays', { who: mention(id), line }) });
 }
 
 // 找出下一個輪到 bot 的行動：投票 (不投自己、不棄票) 或白板猜詞
@@ -187,7 +195,7 @@ function nextBotAction(s: UState, rng: Rng): Exclude<UAction, { type: 'new' } | 
     }
   }
   if (s.phase === 'guess' && s.guesser && isBot(s.guesser)) {
-    const others = WORD_PAIRS.flatMap(({ a, b }) => [a.word, b.word]).filter((w) => w !== s.words!.civilian && w !== s.words!.undercover);
+    const others = pairsOf(s).flatMap(({ a, b }) => [a.word, b.word]).filter((w) => w !== s.words!.civilian && w !== s.words!.undercover);
     return { type: 'guess', user: s.guesser, word: pick([s.words!.civilian, s.words!.undercover, pick(others, rng)], rng) };
   }
   return null;
@@ -215,8 +223,8 @@ function openVote(c: Ctx, phase: 'vote' | 'pkVote', candidates: string[], voters
     type: 'prompt',
     kind: phase === 'vote' ? 'dayVote' : 'pkVote',
     audience: 'channel',
-    text: phase === 'vote' ? '🗳️ 請投票選出臥底。' : '⚔️ PK 投票：請在平票的玩家中選一位 (PK 中的玩家不能投票)。',
-    options: [...candidates.map((id) => ({ value: id, label: id })), { value: 'abstain', label: '棄票' }],
+    text: tx(s.lang, phase === 'vote' ? 'vote' : 'pkVote'),
+    options: [...candidates.map((id) => ({ value: id, label: id })), { value: 'abstain', label: tx(s.lang, 'abstain') }],
   });
   startTimer(c, VOTE_MS);
   if (!voters.length) endVote(c);
@@ -226,9 +234,9 @@ function endVote(c: Ctx) {
   const s = c.s;
   const lines = s.voters.map((v) => {
     const t = s.votes[v] ?? 'abstain';
-    return `${mention(v)} → ${t === 'abstain' ? '棄票' : mention(t)}`;
+    return `${mention(v)} → ${t === 'abstain' ? tx(s.lang, 'abstain') : mention(t)}`;
   });
-  c.events.push({ type: 'announce', text: `🗳️ 投票結果：\n${lines.join('\n')}` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'voteResults', { lines: lines.join('\n') }) });
   const tally = new Map<string, number>();
   for (const t of Object.values(s.votes)) if (t !== 'abstain') tally.set(t, (tally.get(t) ?? 0) + 1);
   const max = Math.max(0, ...tally.values());
@@ -238,7 +246,7 @@ function endVote(c: Ctx) {
     return;
   }
   if (top.length !== 1) {
-    c.events.push({ type: 'announce', text: '🗳️ 這一輪沒有人出局。' });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'noOneOut') });
     startRound(c);
     return;
   }
@@ -250,7 +258,7 @@ function startPk(c: Ctx, tied: string[]) {
   s.phase = 'pkSpeech';
   s.candidates = tied;
   s.speakers = s.players.map((p) => p.id).filter((id) => tied.includes(id));
-  c.events.push({ type: 'announce', text: `⚔️ 平票！${tied.map(mention).join('、')} 進入 PK，依序再描述一次。`, gif: 'pk' });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'pk', { tied: tied.map(mention).join(tx(s.lang, 'sep')) }), gif: 'pk' });
   nextSpeaker(c);
 }
 
@@ -262,13 +270,13 @@ function eliminate(c: Ctx, id: string) {
   const gif: GifKey = p.role === 'undercover' ? 'duelWin' : 'exile';
   // 白板出局後還要猜詞，不會立刻結束
   const ending = p.role !== 'blank' && checkUndercoverWinner(s.players) !== null;
-  c.events.push({ type: 'announce', text: `🚪 ${mention(id)} 出局，身分是${ROLE_NAME_U[p.role!]}。`, ...(ending ? {} : { gif }) });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'out', { who: mention(id), role: roleName(s, p.role!) }), ...(ending ? {} : { gif }) });
   if (p.role === 'blank') {
     s.phase = 'guess';
     s.guesser = id;
     c.events.push({
       type: 'announce',
-      text: `🤔 白板有 ${GUESS_MS / 1000} 秒可以猜平民詞：輸入 \`/game undercover guess <詞>\`，猜中臥底陣營直接獲勝。`,
+      text: tx(s.lang, 'blankGuess', { sec: GUESS_MS / 1000 }),
     });
     startTimer(c, GUESS_MS);
     return;
@@ -284,11 +292,11 @@ function finishGuess(c: Ctx, word: string | undefined) {
   s.guesser = undefined;
   s.timers = {};
   if (word !== undefined && normalize(word) === normalize(s.words!.civilian)) {
-    c.events.push({ type: 'announce', text: `🎯 ${mention(guesser)} 猜「${word.trim()}」，猜中了平民詞！` });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'guessRight', { who: mention(guesser), word: word.trim() }) });
     endGame(c, 'undercover', 'guessRight');
     return;
   }
-  const text = word === undefined ? `${mention(guesser)} 沒有猜詞。` : `${mention(guesser)} 猜「${word.trim()}」，沒猜中。`;
+  const text = word === undefined ? tx(s.lang, 'noGuess', { who: mention(guesser) }) : tx(s.lang, 'guessWrong', { who: mention(guesser), word: word.trim() });
   const ending = checkUndercoverWinner(s.players) !== null;
   c.events.push({ type: 'announce', text, ...(ending ? {} : { gif: 'guessWrong' as const }) });
   continueGame(c, 'guessWrong');
@@ -315,15 +323,22 @@ function endGame(c: Ctx, winner: 'civilian' | 'undercover', gif?: GifKey) {
   s.phase = 'ended';
   s.timers = {};
   s.winner = winner;
-  const title = winner === 'civilian' ? '🎉 遊戲結束，平民獲勝！' : '🕵️ 遊戲結束，臥底陣營獲勝！';
+  const title = tx(s.lang, winner === 'civilian' ? 'civilianWin' : 'undercoverWin');
   const roster = s.players
-    .map((p) => `${mention(p.id)}：${ROLE_NAME_U[p.role!]}${p.word ? ` (${p.word})` : ''}，${p.alive ? '存活' : '出局'}`)
+    .map((p) =>
+      tx(s.lang, 'rosterLine', {
+        who: mention(p.id),
+        role: roleName(s, p.role!),
+        word: p.word ? tx(s.lang, 'rosterWord', { word: p.word }) : '',
+        status: tx(s.lang, p.alive ? 'alive' : 'dead'),
+      }),
+    )
     .join('\n');
   c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: s.players.filter((p) => (p.role === 'civilian') === (winner === 'civilian')).map((p) => p.id) });
   c.events.push(
     {
       type: 'announce',
-      text: `${title}\n平民詞：${s.words!.civilian}／臥底詞：${s.words!.undercover}\n${roster}`,
+      text: tx(s.lang, 'end', { title, civilian: s.words!.civilian, undercover: s.words!.undercover, roster }),
       gif: gif ?? (winner === 'civilian' ? 'goodWin' : 'wolvesWin'),
     },
     { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },
@@ -344,11 +359,11 @@ function handle(c: Ctx, action: Exclude<UAction, { type: 'new' } | { type: 'rema
     case 'removeBot':
       return removeBots(c, TITLE, action.user, action.count);
     case 'start': {
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以開始遊戲。');
+      if (action.user !== s.host) return reply(c, action.user, tx(s.lang, 'onlyHostStart'));
       if (s.phase !== 'lobby') return false;
       const n = s.players.length;
       if (n < MIN_UNDERCOVER_PLAYERS) {
-        return reply(c, action.user, `目前 ${n} 人，至少需要 ${MIN_UNDERCOVER_PLAYERS} 人才能開始。`);
+        return reply(c, action.user, tx(s.lang, 'notEnough', { n, min: MIN_UNDERCOVER_PLAYERS }));
       }
       c.events.push(lobbyEvent(TITLE, { ...s, phase: 'speech' }));
       deal(c);
@@ -359,19 +374,19 @@ function handle(c: Ctx, action: Exclude<UAction, { type: 'new' } | { type: 'rema
       return cancelGame(c, action.user);
     case 'endSpeech': {
       if (!isSpeaking(s)) return false;
-      if (action.user !== s.speaker) return reply(c, action.user, '現在不是你的發言時間。');
+      if (action.user !== s.speaker) return reply(c, action.user, tx(s.lang, 'notYourTurn'));
       nextSpeaker(c);
       return true;
     }
     case 'skipSpeaker': {
       if (!isSpeaking(s)) return false;
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以跳過發言者。');
+      if (action.user !== s.host) return reply(c, action.user, tx(s.lang, 'onlyHostSkip'));
       nextSpeaker(c);
       return true;
     }
     case 'endDiscussion': {
       if (s.phase !== 'speech') return false;
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以直接進入投票。');
+      if (action.user !== s.host) return reply(c, action.user, tx(s.lang, 'onlyHostVote'));
       startVote(c);
       return true;
     }
@@ -379,17 +394,17 @@ function handle(c: Ctx, action: Exclude<UAction, { type: 'new' } | { type: 'rema
       if (s.phase !== 'vote' && s.phase !== 'pkVote') return false;
       const voter = s.players.find((p) => p.id === action.user);
       if (!voter) return false;
-      if (!voter.alive) return reply(c, action.user, '你已經出局，不能投票。');
-      if (!s.voters.includes(action.user)) return reply(c, action.user, 'PK 中的玩家不能投票。');
+      if (!voter.alive) return reply(c, action.user, tx(s.lang, 'outNoVote'));
+      if (!s.voters.includes(action.user)) return reply(c, action.user, tx(s.lang, 'pkNoVote'));
       if (action.target !== 'abstain' && !s.candidates.includes(action.target)) return false;
       s.votes[action.user] = action.target;
-      const choice = action.target === 'abstain' ? '你選擇棄票。' : `你投給了 ${mention(action.target)}。`;
+      const choice = action.target === 'abstain' ? tx(s.lang, 'youAbstained') : tx(s.lang, 'youVoted', { who: mention(action.target) });
       c.events.push({ type: 'ephemeral', to: action.user, text: choice });
       if (s.voters.every((v) => s.votes[v])) endVote(c);
       return true;
     }
     case 'guess': {
-      if (s.phase !== 'guess' || action.user !== s.guesser) return reply(c, action.user, '現在不能猜詞。');
+      if (s.phase !== 'guess' || action.user !== s.guesser) return reply(c, action.user, tx(s.lang, 'cannotGuess'));
       finishGuess(c, action.word);
       return true;
     }
