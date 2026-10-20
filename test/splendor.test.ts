@@ -909,7 +909,7 @@ describe('splendor/bots: 一個人也能玩完整局', () => {
 
 describe('splendor/setup: 指令解析與按鈕 (GameDef)', () => {
   it('大廳資訊：💍 璀璨寶石、2～4 人、心理戰', () => {
-    expect(splendor).toMatchObject({ kind: 'splendor', emoji: '💍', name: '璀璨寶石', players: '2～4 人', category: 'bluff' });
+    expect(splendor).toMatchObject({ kind: 'splendor', emoji: '💍', name: '璀璨寶石', players: '2～4 人', category: 'strategy' });
     expect(splendor.apply).toBe(applySplendor);
   });
 

@@ -38,7 +38,7 @@ export const nimmt = {
   emoji: '🐮',
   name: '誰是牛頭王',
   players: '2～10 人',
-  category: 'bluff',
+  category: 'strategy',
   desc: '大家同時出牌，第 6 張和最小的牌要收走整列牛頭',
   help: HELP,
   apply: applyNimmt,

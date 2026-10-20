@@ -43,7 +43,7 @@ export const herd = {
   emoji: '🐑',
   name: '從眾心理',
   players: '4～12 人',
-  category: 'bluff',
+  category: 'party',
   desc: '猜猜多數人會怎麼答，跟大家一樣就得分；唯一的怪答案會拿到粉紅牛',
   noBots: true,
   help: HELP,

@@ -583,7 +583,7 @@ describe('forsale/bots: 一個人也能玩完整局', () => {
 
 describe('forsale/setup: 指令解析與按鈕 (GameDef)', () => {
   it('大廳資訊：🏠 地產大亨、3～6 人、心理戰', () => {
-    expect(forsale).toMatchObject({ kind: 'forsale', emoji: '🏠', name: '地產大亨', players: '3～6 人', category: 'bluff' });
+    expect(forsale).toMatchObject({ kind: 'forsale', emoji: '🏠', name: '地產大亨', players: '3～6 人', category: 'strategy' });
     expect(forsale.desc).toBeTruthy();
     expect(forsale.apply).toBe(applyForSale);
   });

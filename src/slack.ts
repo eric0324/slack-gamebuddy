@@ -89,10 +89,12 @@ const CATALOG: { kind: Kind; category: string; emoji: string; name: string; play
 
 // 大廳的分類：一次只顯示一類，按上面的分類按鈕切換
 const CATEGORIES = [
-  { key: 'deduction', label: '🔍 推理' },
+  { key: 'deduction', label: '🔍 身分推理' },
+  { key: 'bluff', label: '🎭 吹牛心機' },
+  { key: 'party', label: '😂 派對創意' },
   { key: 'team', label: '⚔️ 團隊對抗' },
   { key: 'coop', label: '🤝 合作' },
-  { key: 'bluff', label: '🎲 心理戰' },
+  { key: 'strategy', label: '🧩 策略桌遊' },
 ];
 
 function lobbyBlocks(channel: string, category = CATEGORIES[0].key) {

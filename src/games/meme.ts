@@ -42,7 +42,7 @@ export const meme = {
   emoji: '😂',
   name: '梗圖大亂鬥',
   players: '3～8 人',
-  category: 'bluff',
+  category: 'party',
   desc: '每輪看一張梗圖，出手牌或自己寫一句最好笑的，匿名投票拿分',
   help: HELP,
   apply: applyMeme,

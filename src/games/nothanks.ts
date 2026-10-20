@@ -34,7 +34,7 @@ export const noThanks = {
   emoji: '🙅',
   name: '不要謝謝',
   players: '3～7 人',
-  category: 'bluff',
+  category: 'strategy',
   desc: '付籌碼說不要，或收下牌和籌碼；連號只算最小的，分數最低的人贏',
   help: HELP,
   apply: applyNoThanks,

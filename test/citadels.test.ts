@@ -1197,7 +1197,7 @@ describe('citadels/bots: 一個人也能玩完整局', () => {
 
 describe('citadels/setup: 遊戲清單與指令說明 (GameDef)', () => {
   it('大廳資訊', () => {
-    expect(citadels).toMatchObject({ kind: 'citadels', emoji: '🏛️', name: '富饒之城', players: '4～7 人', category: 'bluff' });
+    expect(citadels).toMatchObject({ kind: 'citadels', emoji: '🏛️', name: '富饒之城', players: '4～7 人', category: 'strategy' });
     expect(citadels.desc.length).toBeGreaterThan(0);
   });
 

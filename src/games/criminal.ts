@@ -40,7 +40,7 @@ export const criminal = {
   emoji: '🕺',
   name: '犯人在跳舞',
   players: '3～8 人',
-  category: 'deduction',
+  category: 'bluff',
   desc: '每人 4 張牌輪流出，犯人想撐到最後一張逃走，偵探要把他抓出來',
   help: HELP,
   apply: applyCriminal,

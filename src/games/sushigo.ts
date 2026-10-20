@@ -37,7 +37,7 @@ export const sushiGo = {
   emoji: '🍣',
   name: '壽司派對',
   players: '2～5 人',
-  category: 'bluff',
+  category: 'strategy',
   desc: '同時選一張壽司再把手牌傳下去，湊組合拿分，3 輪後總分最高的人贏',
   help: HELP,
   apply: applySushiGo,

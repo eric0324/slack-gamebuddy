@@ -38,7 +38,7 @@ export const wager = {
   emoji: '💰',
   name: '猜猜看',
   players: '3～10 人',
-  category: 'bluff',
+  category: 'party',
   desc: '每題寫一個數字答案，再押注誰最接近正解，不會答也能靠押注贏',
   noBots: true,
   help: HELP,

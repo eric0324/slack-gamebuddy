@@ -592,7 +592,7 @@ describe('emoji/setup: 指令與按鈕', () => {
   });
 
   it('大廳資訊：🔗 Emoji 傳話、4～10 人、心理戰、不支援 bot；help 條列所有指令', () => {
-    expect(emoji).toMatchObject({ kind: 'emoji', emoji: '🔗', name: 'Emoji 傳話', players: '4～10 人', category: 'bluff', noBots: true });
+    expect(emoji).toMatchObject({ kind: 'emoji', emoji: '🔗', name: 'Emoji 傳話', players: '4～10 人', category: 'party', noBots: true });
     for (const cmd of ['new', 'start', 'send', 'cancel', 'help']) expect(emoji.help).toContain(`/game emoji ${cmd}`);
   });
 });

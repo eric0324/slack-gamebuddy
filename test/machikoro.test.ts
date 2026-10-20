@@ -1078,7 +1078,7 @@ describe('machikoro/bots: 一個人也能玩完整局', () => {
 
 describe('machikoro/setup: Slack 設定', () => {
   it('遊戲資訊：🏘️ 骰子街、2～5 人、心理戰分類', () => {
-    expect(machikoro).toMatchObject({ kind: 'machikoro', emoji: '🏘️', name: '骰子街', players: '2～5 人', category: 'bluff' });
+    expect(machikoro).toMatchObject({ kind: 'machikoro', emoji: '🏘️', name: '骰子街', players: '2～5 人', category: 'strategy' });
     expect(machikoro.desc).toBeTruthy();
     expect(machikoro.apply).toBe(applyMachikoro);
   });

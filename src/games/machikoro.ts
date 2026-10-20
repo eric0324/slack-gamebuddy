@@ -65,7 +65,7 @@ export const machikoro = {
   emoji: '🏘️',
   name: '骰子街',
   players: '2～5 人',
-  category: 'bluff',
+  category: 'strategy',
   desc: '輪流擲骰，大家的建築依點數收錢，再買建築擴張城鎮，先蓋好 6 個地標的人贏',
   help: HELP,
   apply: applyMachikoro,

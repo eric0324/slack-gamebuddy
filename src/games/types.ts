@@ -3,7 +3,7 @@ import type { GameEvent, Rng } from '../engine.js';
 
 export const WIKI = 'https://github.com/eric0324/slack-gamebuddy/wiki';
 
-export type Category = 'deduction' | 'team' | 'coop' | 'bluff';
+export type Category = 'deduction' | 'bluff' | 'party' | 'team' | 'coop' | 'strategy';
 
 export interface GameDef<S extends { phase: string }, A extends { type: string }> {
   kind: string;

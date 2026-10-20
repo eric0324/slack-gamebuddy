@@ -43,7 +43,7 @@ export const kittens = {
   emoji: '💣',
   name: '炸彈貓',
   players: '2～5 人',
-  category: 'bluff',
+  category: 'strategy',
   desc: '輪流出牌、抽牌，抽到炸彈貓又沒有拆解就出局，最後活下來的人贏',
   help: HELP,
   apply: applyKittens,
