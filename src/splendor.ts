@@ -74,6 +74,8 @@ export type SAction =
   | { type: 'take2'; user: string; seq: number; color: Color }
   | { type: 'reserve'; user: string; seq: number; slot: string }
   | { type: 'buy'; user: string; seq: number; slot: string }
+  | { type: 'retPick'; user: string; seq: number; counts: number[] } // 白藍綠紅黑金各退幾個
+  | { type: 'return'; user: string; seq: number; counts: number[] }
   | { type: 'timeout'; id: number }
   | { type: 'rematch'; user: string; channel: string };
 
@@ -136,6 +138,7 @@ function board(s: SState, ended = false): GameEvent {
   const lines = [
     `*💍 璀璨寶石｜第 ${s.round} 輪${s.lastRound ? '｜最後一輪' : ''}｜👉 輪到 ${mention(me.id)}（${TURN_MS / 1000} 秒）*`,
     ...(s.last ? [`上一步：${s.last}`] : []),
+    ...(s.step === 'return' ? [`⏳ 等 ${quiet(me.id)} 退回 ${total(me.tokens) - 10} 個籌碼（${RETURN_MS / 1000} 秒）`] : []),
     `庫存：${bank}`,
     ...(nobles.length ? nobles : ['貴族：（沒有了）']),
     ...rows,
@@ -204,6 +207,7 @@ function turnMenu(c: Ctx, user: string, seq: number, sub?: Sub): boolean {
   const s = c.s;
   const err = turnCheck(s, user, seq);
   if (err) return deny(c, user, err);
+  if (s.step === 'return') return sub ? deny(c, user, STALE) : returnMenu(c, user, [0, 0, 0, 0, 0, 0]);
   const me = current(s);
   const why = blocked(s, me);
   if (!sub) {
@@ -324,35 +328,129 @@ function buy(c: Ctx, user: string, seq: number, slot: string): boolean {
   return true;
 }
 
-// 做完動作（或跳過）：更新連續跳過的次數，結束回合
-function finishTurn(c: Ctx, last: string, acted: boolean) {
+// ---------- 退回籌碼、回合結束 ----------
+
+const excessOf = (p: SPlayer) => total(p.tokens) - 10;
+const countsGems = (counts: number[]) => Object.fromEntries(GEMS.map((x, i) => [x, counts[i]])) as Gems;
+const digits = (counts: number[]) => counts.join('');
+// 選的數量合法：每種不超過持有數、總數不超過要退的數量
+const countsOk = (p: SPlayer, counts: number[]) =>
+  counts.length === GEMS.length && counts.every((n, i) => n >= 0 && n <= p.tokens[GEMS[i]]) && counts.reduce((a, b) => a + b, 0) <= excessOf(p);
+
+// 退回選單：按一下多退 1 個，總數剛好時出現確認；選擇記在按鈕上，不改 state
+function returnMenu(c: Ctx, user: string, counts: number[]): boolean {
   const s = c.s;
-  s.passStreak = acted ? 0 : s.passStreak + 1;
-  endTurn(c, last);
+  const me = current(s);
+  if (!countsOk(me, counts)) return deny(c, user, STALE);
+  const excess = excessOf(me);
+  const sum = counts.reduce((a, b) => a + b, 0);
+  const options = GEMS.flatMap((x, i) => {
+    if (!me.tokens[x]) return [];
+    const more = counts[i] < me.tokens[x] && sum < excess ? counts.map((n, j) => (j === i ? n + 1 : n)) : counts;
+    return [{ value: `retPick:${s.seq}:${digits(more)}`, label: `退 ${GEM_WORD[x]}${counts[i] ? `（已選 ${counts[i]}）` : ''}` }];
+  });
+  options.push({ value: `retPick:${s.seq}:000000`, label: '重選' });
+  if (sum === excess) options.push({ value: `return:${s.seq}:${digits(counts)}`, label: `確認退回 ${gemsText(countsGems(counts))}` });
+  const lines = [
+    `你有 ${total(me.tokens)} 個籌碼，要退回 ${excess} 個（${RETURN_MS / 1000} 秒內沒確認會自動退回）`,
+    `手上：${gemsText(me.tokens)}｜已選：${gemsText(countsGems(counts))}`,
+  ];
+  return menu(c, user, lines.join('\n'), options);
 }
 
-// 回合結束：收起這次的面板，輪到下一位
-function endTurn(c: Ctx, last: string) {
+function returnCheck(c: Ctx, user: string, seq: number): boolean {
+  const err = turnCheck(c.s, user, seq) ?? (c.s.step === 'return' ? null : STALE);
+  return err ? deny(c, user, err) : true;
+}
+
+function giveBack(c: Ctx, user: string, seq: number, counts: number[]): boolean {
+  if (!returnCheck(c, user, seq)) return false;
+  const me = current(c.s);
+  if (!countsOk(me, counts) || counts.reduce((a, b) => a + b, 0) !== excessOf(me)) return deny(c, user, STALE);
+  const back = countsGems(counts);
+  move(me.tokens, c.s.bank, back);
+  tell(c, user, `✅ 你退回了 ${gemsText(back)}`);
+  c.s.last += `，${quiet(me.id)} 退回 ${gemsText(back)}`;
+  endTurn(c);
+  return true;
+}
+
+// 逾時自動退：每次從持有最多的顏色退 1 個（同樣多依白藍綠紅黑），黃金最後
+export function autoReturn(p: SPlayer): Gems {
+  const left = { ...p.tokens };
+  const back = emptyGems();
+  for (let k = excessOf(p); k > 0; k--) {
+    const x = COLORS.reduce((best, y) => (left[y] > left[best] ? y : best), COLORS[0]);
+    const gem = left[x] > 0 ? x : 'o';
+    left[gem]--;
+    back[gem]++;
+  }
+  return back;
+}
+
+// 做完動作（或跳過）：更新連續跳過的次數；籌碼超過 10 個先退回，否則結束回合
+function finishTurn(c: Ctx, last: string, acted: boolean) {
   const s = c.s;
+  const me = current(s);
+  s.passStreak = acted ? 0 : s.passStreak + 1;
   s.last = last;
+  if (excessOf(me) > 0) {
+    s.step = 'return';
+    c.events.push(board(s));
+    startTimer(c, RETURN_MS);
+    returnMenu(c, me.id, [0, 0, 0, 0, 0, 0]);
+    return;
+  }
+  endTurn(c);
+}
+
+// 回合結束：貴族來訪（一回合最多 1 位，編號最小的），收起這次的面板，輪到下一位
+function endTurn(c: Ctx) {
+  const s = c.s;
+  const me = current(s);
+  const disc = discountOf(me);
+  const at = s.nobles.findIndex((id) => id !== null && nobleOf(id).need.every(([x, n]) => disc[x] >= n));
+  if (at >= 0) {
+    me.nobles.push(s.nobles[at]!);
+    s.nobles[at] = null;
+    s.last += `，貴族 ${at + 1} 來訪 ${quiet(me.id)}（+3 分）`;
+  }
   c.events.push(board(s, true));
+  advance(c);
+}
+
+// 輪到下一位
+function advance(c: Ctx) {
+  const s = c.s;
   const n = s.players.length;
   if ((s.turn + 1) % n === s.first) s.round++;
   s.turn = (s.turn + 1) % n;
   beginTurn(c);
 }
 
+// 輪到新玩家：沒有任何能做的動作就自動跳過（併進下一個面板的上一步）
 function beginTurn(c: Ctx) {
   const s = c.s;
+  const me = current(s);
   s.seq++;
   s.step = 'act';
+  if (!canAct(s, me)) {
+    s.passStreak++;
+    s.last = [s.last, `${quiet(me.id)} 沒有能做的動作，跳過`].filter(Boolean).join('；');
+    return advance(c);
+  }
   c.events.push(board(s));
   startTimer(c, TURN_MS);
 }
 
 function timeout(c: Ctx) {
-  const me = current(c.s);
-  finishTurn(c, `${quiet(me.id)} 逾時，跳過`, false);
+  const s = c.s;
+  const me = current(s);
+  if (s.step === 'act') return finishTurn(c, `${quiet(me.id)} 逾時，跳過`, false);
+  const back = autoReturn(me);
+  move(me.tokens, s.bank, back);
+  s.last = [s.last, `${quiet(me.id)} 逾時自動退回 ${gemsText(back)}`].filter(Boolean).join('，');
+  endTurn(c);
 }
 
 const RULES = [
@@ -422,6 +520,10 @@ function handle(c: Ctx, action: GameAction): boolean {
       return reserve(c, action.user, action.seq, action.slot);
     case 'buy':
       return buy(c, action.user, action.seq, action.slot);
+    case 'retPick':
+      return returnCheck(c, action.user, action.seq) && returnMenu(c, action.user, action.counts);
+    case 'return':
+      return giveBack(c, action.user, action.seq, action.counts);
     case 'timeout':
       if (action.id !== c.s.timers.phase) return false;
       timeout(c);

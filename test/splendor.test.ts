@@ -518,3 +518,158 @@ describe('splendor/turns: 買卡', () => {
     }
   });
 });
+
+describe('splendor/turns: 退回多餘籌碼', () => {
+  // p1 有 9 個，拿 3 色後 12 個，要退 2 個
+  const over = () => act(setup((s) => (s.players[0].tokens = gems({ w: 3, b: 3, g: 3 }))), { type: 'take3', colors: ['g', 'r', 'k'] });
+
+  it('超過 10 個進入退回階段：面板原地標示等待退回、只有本人看到退回選單、30 秒計時', () => {
+    const { state, events } = over();
+    expect(state).toMatchObject({ step: 'return', turn: 0 });
+    const [board] = boards(events);
+    expect(board.ref).toBe(`splendor:${state.seq}`);
+    expect(board.text).toContain('等 {{name:p1}} 退回 2 個籌碼');
+    const menu = menuOf(events, 'p1')!;
+    expect(menu.text).toContain('要退回 2 個');
+    const q = state.seq;
+    expect(menu.options).toEqual([
+      { value: `retPick:${q}:100000`, label: '退 白' },
+      { value: `retPick:${q}:010000`, label: '退 藍' },
+      { value: `retPick:${q}:001000`, label: '退 綠' },
+      { value: `retPick:${q}:000100`, label: '退 紅' },
+      { value: `retPick:${q}:000010`, label: '退 黑' },
+      { value: `retPick:${q}:000000`, label: '重選' },
+    ]);
+    expect(events).toContainEqual({ type: 'startTimer', id: state.timers.phase, ms: 30_000 });
+  });
+
+  it('retPick 累加、顯示已選幾個、不超過持有數，總數剛好才有確認；不改 state', () => {
+    const s = over().state;
+    const q = s.seq;
+    const r = act(s, { type: 'retPick', counts: [1, 0, 0, 1, 0, 0] });
+    expect(r.state).toBe(s);
+    expect(menuOf(r.events, 'p1')!.options).toEqual([
+      { value: `retPick:${q}:100100`, label: '退 白（已選 1）' },
+      { value: `retPick:${q}:100100`, label: '退 藍' },
+      { value: `retPick:${q}:100100`, label: '退 綠' },
+      { value: `retPick:${q}:100100`, label: '退 紅（已選 1）' },
+      { value: `retPick:${q}:100100`, label: '退 黑' },
+      { value: `retPick:${q}:000000`, label: '重選' },
+      { value: `return:${q}:100100`, label: '確認退回 白1 紅1' },
+    ]);
+    expect(values(act(s, { type: 'retPick', counts: [0, 0, 0, 0, 0, 0] }).events)).not.toContain(`return:${q}:000000`);
+    expect(ephemeralTo(act(s, { type: 'retPick', counts: [0, 0, 0, 2, 0, 0] }).events, 'p1')).toEqual([STALE]); // 紅只有 1 個
+    expect(ephemeralTo(act(s, { type: 'retPick', counts: [3, 0, 0, 0, 0, 0] }).events, 'p1')).toEqual([STALE]); // 超過要退的數量
+  });
+
+  it('確認後籌碼回庫存並公告，回合繼續；可以退剛拿的', () => {
+    const s = over().state;
+    const { state, events } = act(s, { type: 'return', counts: [0, 0, 0, 1, 1, 0] });
+    expect(state.players[0].tokens).toEqual(gems({ w: 3, b: 3, g: 4 }));
+    expect(state.bank.r + state.bank.k).toBe(8);
+    expect(state.turn).toBe(1);
+    expect(lastBoard(events).text).toContain('{{name:p1}} 拿了 綠1 紅1 黑1，{{name:p1}} 退回 紅1 黑1');
+    expect(act(s, { type: 'return', counts: [1, 0, 0, 0, 0, 0] }).state).toBe(s); // 總數不對
+  });
+
+  it('退回階段動作按鈕無效；按「💍 行動」開退回選單', () => {
+    const s = over().state;
+    expect(ephemeralTo(act(s, { type: 'take2', color: 'w' }).events, 'p1')).toEqual([STALE]);
+    expect(ephemeralTo(act(s, { type: 'turnMenu', sub: 'take3' }).events, 'p1')).toEqual([STALE]);
+    expect(menuOf(act(s, { type: 'turnMenu' }).events, 'p1')!.text).toContain('要退回 2 個');
+  });
+
+  it('30 秒逾時自動退：多的顏色先退、同樣多依白藍綠紅黑，黃金最後', () => {
+    const s = setup((s) => {
+      s.step = 'return';
+      s.players[0].tokens = gems({ w: 2, b: 2, g: 2, r: 2, k: 1, o: 3 });
+    });
+    const { state, events } = timeout(s);
+    expect(state.players[0].tokens).toEqual(gems({ w: 1, b: 1, g: 2, r: 2, k: 1, o: 3 }));
+    expect(lastBoard(events).text).toContain('{{name:p1}} 逾時自動退回 白1 藍1');
+    const most = timeout(setup((s) => {
+      s.step = 'return';
+      s.players[0].tokens = gems({ w: 1, b: 5, o: 5 });
+    }));
+    expect(most.state.players[0].tokens).toEqual(gems({ w: 1, b: 4, o: 5 }));
+  });
+});
+
+describe('splendor/turns: 貴族來訪', () => {
+  // 場上貴族 1：紅4 綠4、貴族 2：綠4 藍4、貴族 3：藍4 白4
+  const RED4 = [25, 26, 27, 28];
+  const GREEN3 = [17, 18, 19];
+
+  it('買到第 4 張綠卡時貴族 1 來訪：+3 分、場上移除、編號不重排', () => {
+    const s = setup((s) => {
+      s.players[0].cards = [...RED4, ...GREEN3];
+      s.players[0].tokens = gems({ w: 2, b: 1 });
+      s.table[0][0] = 23; // 綠 0分｜白2 藍1
+    });
+    const { state, events } = act(s, { type: 'buy', slot: '1-1' });
+    expect(state.players[0].nobles).toEqual([1]);
+    expect(state.nobles).toEqual([null, 2, 3]);
+    const text = lastBoard(events).text;
+    expect(text).toContain('貴族 1 來訪 {{name:p1}}（+3 分）');
+    expect(text).not.toContain('貴族 1：');
+    expect(text).toContain('貴族 2：綠4 藍4');
+    expect(text).toContain('{{name:p1}} 3 分');
+  });
+
+  it('籌碼不算進貴族條件', () => {
+    const s = setup((s) => {
+      s.players[0].cards = [...RED4, ...GREEN3];
+      s.players[0].tokens = gems({ g: 4 });
+    });
+    expect(timeout(s).state.players[0].nobles).toEqual([]);
+  });
+
+  it('一回合只來一位，同時符合時來編號最小的；下次回合結束仍符合就來', () => {
+    const s = setup((s) => (s.players[0].cards = [...RED4, 17, 18, 19, 20, 9, 10, 11, 12]));
+    let state = timeout(s).state;
+    expect(state.players[0].nobles).toEqual([1]);
+    expect(state.nobles).toEqual([null, 2, 3]);
+    state = timeout(act(state, { type: 'take2', color: 'w' }, 'p2').state).state;
+    expect(state.players[0].nobles).toEqual([1, 2]);
+  });
+
+  it('退回籌碼之後才檢查', () => {
+    const s = setup((s) => {
+      s.players[0].cards = [...RED4, ...GREEN3, 20];
+      s.players[0].tokens = gems({ w: 3, b: 3, g: 3 });
+    });
+    const mid = act(s, { type: 'take3', colors: ['g', 'r', 'k'] }).state;
+    expect(mid.players[0].nobles).toEqual([]);
+    expect(act(mid, { type: 'return', counts: [2, 0, 0, 0, 0, 0] }).state.players[0].nobles).toEqual([1]);
+  });
+});
+
+describe('splendor/turns: 自動跳過與計時', () => {
+  it('沒有能做的動作：自動跳過並公告，直接輪到下一位', () => {
+    const s = setup((s) => {
+      s.bank = gems({ o: 2 });
+      s.players[1].reserved = [88, 89, 90];
+    }, 3);
+    const { state, events } = timeout(s);
+    expect(state.turn).toBe(2);
+    expect(boards(events).map((b) => b.text).join('\n')).toContain('{{name:p2}} 沒有能做的動作，跳過');
+    expect(boards(events)).toHaveLength(2); // p1 收起的面板、p3 的新面板
+  });
+
+  it('90 秒逾時跳過：資源不變、輪到下一位', () => {
+    const s = setup((s) => (s.players[0].tokens = gems({ w: 1 })));
+    const { state } = timeout(s);
+    expect(state.players[0]).toEqual(s.players[0]);
+    expect(state.bank).toEqual(s.bank);
+    expect(state.turn).toBe(1);
+  });
+
+  it('舊計時器被忽略', () => {
+    const s = setup();
+    const old = s.timers.phase!;
+    const next = act(s, { type: 'take2', color: 'w' }).state;
+    const r = run([{ type: 'timeout', id: old }], next);
+    expect(r.state).toBe(next);
+    expect(r.events).toEqual([]);
+  });
+});
