@@ -436,3 +436,74 @@ describe('cockroach/bots', () => {
     }
   });
 });
+
+describe('cockroach/en: 英文版', () => {
+  const CJK = /[一-鿿]/;
+  const enLobby = (n: number) =>
+    run([
+      { type: 'new', user: 'p1', channel: 'C1', lang: 'en' } as CrAction,
+      ...Array.from({ length: n - 1 }, (_, i) => ({ type: 'join', user: `p${i + 2}` }) as CrAction),
+    ]);
+  const enStarted = (n: number) => run([{ type: 'start', user: 'p1' }], enLobby(n).state);
+  const enTable = (hands: Bug[][], fronts: Bug[][] = []) => {
+    const s = table(hands, fronts);
+    s.lang = 'en';
+    return s;
+  };
+
+  it('開局公告、出牌 prompt 和按鈕、私訊都是英文', () => {
+    const { state, events } = enStarted(3);
+    expect(state.lang).toBe('en');
+    const text = announces(events).join('\n');
+    expect(text).toContain('🪳 Cockroach Poker begins! All 64 cards are dealt');
+    expect(text).toContain("👉 It's <@p3>'s turn to play (2 min)");
+    expect(text).not.toMatch(CJK);
+    const p = lastChannelPrompt(events);
+    expect(p.text).toContain('<@p3>');
+    expect(p.options.map((o) => o.label)).toEqual(['🪳 Play a card', '🃏 My hand']);
+    expect(p.text).not.toMatch(CJK);
+    const dm = dmTo(events, 'p1')!.text;
+    expect(dm).toContain('🃏 Your hand:');
+    expect(dm).not.toMatch(CJK);
+  });
+
+  it('出牌選單、宣稱選單和回答按鈕用英文卡名', () => {
+    const s = enTable([['rat', 'bat'], ['fly'], ['toad']]);
+    const menu = menuFor(run([{ type: 'play', user: 'p1' }], s).events, 'p1');
+    expect(menu.text).not.toMatch(CJK);
+    expect(menu.options.map((o) => o.label)).toEqual(['🐀 Rat ×1', '🦇 Bat ×1']);
+    const claims = menuFor(run([{ type: 'target', user: 'p1', step: s.step, bug: 'rat', target: 'p2' }], s).events, 'p1');
+    expect(claims.options.map((o) => o.label)).toContain('🪲 Stink Bug');
+    const { events } = step(s, (x) => give(x, 'p1', 'rat', 'p2', 'bat'));
+    expect(announces(events).join()).toContain('📨 <@p1> passed a card to <@p2>: "This is a 🦇 Bat"');
+    const respond = lastChannelPrompt(events);
+    expect(respond.options.map((o) => o.label)).toEqual(['✅ Yes, a Bat', '❌ Not a Bat', '👀 Peek & pass', '🃏 My hand']);
+  });
+
+  it('我的手牌和錯誤回覆是英文', () => {
+    const s = enTable([['cockroach', 'cockroach'], ['rat']], [['fly'], []]);
+    expect(ephemeralTo(run([{ type: 'hand', user: 'p1' }], s).events, 'p1')!.text).toBe('🃏 Your hand: 🪳 Cockroach ×2 (2 cards)\nIn front of you: 🪰 Fly ×1');
+    expect(ephemeralTo(run([{ type: 'play', user: 'p2' }], s).events, 'p2')!.text).toBe("It's not your turn.");
+  });
+
+  it('結束公告和再來一局按鈕是英文', () => {
+    const s = enTable([['cockroach', 'rat'], ['rat'], ['bat']], [[], ['cockroach', 'cockroach', 'cockroach'], []]);
+    const given = step(s, (x) => give(x, 'p1', 'cockroach', 'p2', 'cockroach'));
+    const { events } = step(given.state, (x) => answer(x, 'p2', false));
+    const text = announces(events).join('\n');
+    expect(text).toContain('<@p2> loses: 4 🪳 Cockroach cards in front of them');
+    expect(text).not.toMatch(CJK);
+    expect(lastChannelPrompt(events).options.map((o) => o.label)).toEqual(['Rematch']);
+  });
+
+  it('GameDef 有英文名稱、人數和說明', async () => {
+    const { cockroach } = await import('../src/games/cockroach.js');
+    const en = cockroach.locales.en;
+    expect(en.name).toBe('Cockroach Poker');
+    expect(en.players).toBe('2-6 players');
+    expect(en.desc).not.toMatch(CJK);
+    expect(en.help).toContain('/game cockroach new');
+    expect(en.help).toContain('Cockroach-Poker');
+    expect(en.help).not.toMatch(CJK);
+  });
+});

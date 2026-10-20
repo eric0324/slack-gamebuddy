@@ -1,6 +1,8 @@
 // 蟑螂撲克遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyCockroach(state, action, rng) → { state, events }。
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
+import type { Lang } from './i18n/index.js';
+import { tx } from './i18n/games/cockroach.js';
 
 export const MIN_COCKROACH_PLAYERS = 2;
 export const MAX_COCKROACH_PLAYERS = 6;
@@ -20,7 +22,8 @@ export const BUGS: { bug: Bug; emoji: string; name: string }[] = [
   { bug: 'bat', emoji: '🦇', name: '蝙蝠' },
 ];
 const info = (b: Bug) => BUGS.find((x) => x.bug === b)!;
-const label = (b: Bug) => `${info(b).emoji} ${info(b).name}`;
+const bugName = (lang: Lang | undefined, b: Bug) => tx(lang, b);
+const label = (lang: Lang | undefined, b: Bug) => `${info(b).emoji} ${bugName(lang, b)}`;
 export const isBug = (b: string): b is Bug => BUGS.some((x) => x.bug === b);
 
 export type CrPhase = 'lobby' | 'give' | 'respond' | 'pass' | 'ended';
@@ -51,6 +54,7 @@ export interface CrState {
   loser?: string;
   timerSeq: number;
   timers: { phase?: number };
+  lang?: Lang;
 }
 
 export type CrAction =
@@ -91,9 +95,9 @@ const find = (s: CrState, id: string) => s.players.find((p) => p.id === id);
 const count = (bugs: Bug[], b: Bug) => bugs.filter((x) => x === b).length;
 const pickOne = <T>(rng: Rng, xs: T[]) => xs[Math.floor(rng() * xs.length)];
 const groups = (bugs: Bug[]) => BUGS.filter((b) => bugs.includes(b.bug)).map((b) => ({ bug: b.bug, n: count(bugs, b.bug) }));
-const longList = (bugs: Bug[]) => groups(bugs).map((g) => `${label(g.bug)} ×${g.n}`).join('、') || '(沒有)';
+const longList = (lang: Lang | undefined, bugs: Bug[]) => groups(bugs).map((g) => `${label(lang, g.bug)} ×${g.n}`).join(tx(lang, 'sep')) || tx(lang, 'none');
 const shortList = (bugs: Bug[]) => groups(bugs).map((g) => `${info(g.bug).emoji}×${g.n}`).join(' ') || '—';
-const status = (s: CrState) => s.players.map((p) => `${mention(p.id)} 手牌 ${p.hand.length}｜面前 ${shortList(p.front)}`).join('\n');
+const status = (s: CrState) => s.players.map((p) => tx(s.lang, 'statusLine', { who: mention(p.id), hand: p.hand.length, front: shortList(p.front) })).join('\n');
 // 還沒看過這張牌、可以接手的人
 const unseen = (s: CrState) => s.players.filter((p) => p.id !== s.card!.to && !s.card!.seen.includes(p.id)).map((p) => p.id);
 
@@ -101,7 +105,7 @@ const menu = (c: Ctx, user: string, text: string, options: { value: string; labe
   c.events.push({ type: 'prompt', kind: 'cockroach', audience: 'ephemeral', user, text, options });
   return false;
 };
-const HAND = { value: 'hand', label: '🃏 我的手牌' };
+const handButton = (s: CrState) => ({ value: 'hand', label: tx(s.lang, 'handButton') });
 
 function promptGive(c: Ctx) {
   const s = c.s;
@@ -109,13 +113,13 @@ function promptGive(c: Ctx) {
   s.step++;
   const p = s.players[s.turn];
   c.events.push(
-    { type: 'announce', text: `👉 輪到 ${mention(p.id)} 出牌 (${STEP_MS / 60_000} 分鐘)\n${status(s)}` },
+    { type: 'announce', text: tx(s.lang, 'yourTurn', { who: mention(p.id), min: STEP_MS / 60_000, status: status(s) }) },
     {
       type: 'prompt',
       kind: 'cockroach',
       audience: 'channel',
-      text: `${mention(p.id)} 請按「🪳 出牌」選一張牌、要傳給誰、要說它是什麼`,
-      options: [{ value: 'play', label: '🪳 出牌' }, HAND],
+      text: tx(s.lang, 'givePrompt', { who: mention(p.id) }),
+      options: [{ value: 'play', label: tx(s.lang, 'playButton') }, handButton(s)],
     },
   );
   startTimer(c, STEP_MS);
@@ -126,17 +130,17 @@ function promptRespond(c: Ctx) {
   s.phase = 'respond';
   s.step++;
   const card = s.card!;
-  const name = info(card.claim).name;
+  const name = bugName(s.lang, card.claim);
   c.events.push({
     type: 'prompt',
     kind: 'cockroach',
     audience: 'channel',
-    text: `${mention(card.to)}：這是 ${label(card.claim)} 嗎？(${STEP_MS / 60_000} 分鐘)`,
+    text: tx(s.lang, 'respondPrompt', { who: mention(card.to), card: label(s.lang, card.claim), min: STEP_MS / 60_000 }),
     options: [
-      { value: `yes:${s.step}`, label: `✅ 是 ${name}` },
-      { value: `no:${s.step}`, label: `❌ 不是 ${name}` },
-      ...(unseen(s).length ? [{ value: `peek:${s.step}`, label: '👀 偷看再傳' }] : []),
-      HAND,
+      { value: `yes:${s.step}`, label: tx(s.lang, 'yesButton', { name }) },
+      { value: `no:${s.step}`, label: tx(s.lang, 'noButton', { name }) },
+      ...(unseen(s).length ? [{ value: `peek:${s.step}`, label: tx(s.lang, 'peekButton') }] : []),
+      handButton(s),
     ],
   });
   startTimer(c, STEP_MS);
@@ -144,26 +148,33 @@ function promptRespond(c: Ctx) {
 
 function giveCard(c: Ctx, user: string, bug: Bug, target: string, claim: Bug): boolean {
   const s = c.s;
-  if (s.phase !== 'give' || s.players[s.turn].id !== user) return reply(c, user, '還沒輪到你。');
+  if (s.phase !== 'give' || s.players[s.turn].id !== user) return reply(c, user, tx(s.lang, 'notYourTurn'));
   const p = s.players[s.turn];
-  if (!p.hand.includes(bug)) return reply(c, user, '你手上沒有這種牌。');
-  if (target === user || !find(s, target)) return reply(c, user, '不能傳給這個人。');
+  if (!p.hand.includes(bug)) return reply(c, user, tx(s.lang, 'noSuchCard'));
+  if (target === user || !find(s, target)) return reply(c, user, tx(s.lang, 'badTarget'));
   p.hand.splice(p.hand.indexOf(bug), 1);
   s.card = { bug, claim, from: user, to: target, seen: [user] };
-  c.events.push({ type: 'announce', text: `📨 ${mention(user)} 傳了一張牌給 ${mention(target)}：「這是 ${label(claim)}」` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'gave', { from: mention(user), to: mention(target), card: label(s.lang, claim) }) });
   promptRespond(c);
   return true;
 }
 
 function answer(c: Ctx, user: string, yes: boolean): boolean {
   const s = c.s;
-  if (s.phase !== 'respond' || s.card!.to !== user) return reply(c, user, '這張牌不在你手上。');
+  if (s.phase !== 'respond' || s.card!.to !== user) return reply(c, user, tx(s.lang, 'notHolding'));
   const card = s.card!;
   const correct = yes === (card.bug === card.claim);
   const taker = correct ? card.from : card.to;
   c.events.push({
     type: 'announce',
-    text: `🃏 ${mention(user)} 說「${yes ? '是' : '不是'} ${label(card.claim)}」，翻開是 ${label(card.bug)}！${mention(user)} 猜${correct ? '對' : '錯'}了，牌放在 ${mention(taker)} 面前`,
+    text: tx(s.lang, 'answered', {
+      who: mention(user),
+      answer: tx(s.lang, yes ? 'yes' : 'no'),
+      claim: label(s.lang, card.claim),
+      card: label(s.lang, card.bug),
+      result: tx(s.lang, correct ? 'right' : 'wrong'),
+      taker: mention(taker),
+    }),
   });
   return place(c, taker, card.bug);
 }
@@ -174,12 +185,12 @@ function place(c: Ctx, taker: string, bug: Bug): boolean {
   p.front.push(bug);
   s.card = undefined;
   if (count(p.front, bug) >= LOSE_AT) {
-    endGame(c, taker, `面前有 ${LOSE_AT} 張 ${label(bug)}`);
+    endGame(c, taker, tx(s.lang, 'loseFour', { n: LOSE_AT, card: label(s.lang, bug) }));
     return true;
   }
   s.turn = s.players.indexOf(p);
   if (!p.hand.length) {
-    endGame(c, taker, '輪到出牌時手上沒有牌了');
+    endGame(c, taker, tx(s.lang, 'loseEmpty'));
     return true;
   }
   promptGive(c);
@@ -188,14 +199,20 @@ function place(c: Ctx, taker: string, bug: Bug): boolean {
 
 function peek(c: Ctx, user: string): boolean {
   const s = c.s;
-  if (s.phase !== 'respond' || s.card!.to !== user) return reply(c, user, '這張牌不在你手上。');
-  if (!unseen(s).length) return reply(c, user, '其他人都看過這張牌了，只能回答是或不是。');
+  if (s.phase !== 'respond' || s.card!.to !== user) return reply(c, user, tx(s.lang, 'notHolding'));
+  if (!unseen(s).length) return reply(c, user, tx(s.lang, 'allSeen'));
   s.card!.seen.push(user);
   s.phase = 'pass';
   s.step++;
   c.events.push(
-    { type: 'announce', text: `👀 ${mention(user)} 偷看了這張牌，準備傳下去 (${STEP_MS / 60_000} 分鐘)` },
-    { type: 'prompt', kind: 'cockroach', audience: 'channel', text: `${mention(user)} 要把牌傳給誰？`, options: [{ value: 'passmenu', label: '📨 傳下去' }, HAND] },
+    { type: 'announce', text: tx(s.lang, 'peeked', { who: mention(user), min: STEP_MS / 60_000 }) },
+    {
+      type: 'prompt',
+      kind: 'cockroach',
+      audience: 'channel',
+      text: tx(s.lang, 'passPrompt', { who: mention(user) }),
+      options: [{ value: 'passmenu', label: tx(s.lang, 'passButton') }, handButton(s)],
+    },
   );
   if (!isBot(user)) passMenu(c, user);
   startTimer(c, STEP_MS);
@@ -204,21 +221,21 @@ function peek(c: Ctx, user: string): boolean {
 
 function passMenu(c: Ctx, user: string): boolean {
   const s = c.s;
-  if (s.phase !== 'pass' || s.card!.to !== user) return reply(c, user, '現在不能傳牌。');
+  if (s.phase !== 'pass' || s.card!.to !== user) return reply(c, user, tx(s.lang, 'cannotPass'));
   return menu(
     c,
     user,
-    `這張牌是 ${label(s.card!.bug)}，要傳給誰？(只有你看得到)`,
+    tx(s.lang, 'passMenu', { card: label(s.lang, s.card!.bug) }),
     unseen(s).map((id) => ({ value: `to:${s.step}:${id}`, label: id })),
   );
 }
 
 function passCard(c: Ctx, user: string, target: string, claim: Bug): boolean {
   const s = c.s;
-  if (s.phase !== 'pass' || s.card!.to !== user) return reply(c, user, '現在不能傳牌。');
-  if (!unseen(s).includes(target)) return reply(c, user, '只能傳給還沒看過這張牌的人。');
+  if (s.phase !== 'pass' || s.card!.to !== user) return reply(c, user, tx(s.lang, 'cannotPass'));
+  if (!unseen(s).includes(target)) return reply(c, user, tx(s.lang, 'onlyUnseen'));
   Object.assign(s.card!, { from: user, to: target, claim });
-  c.events.push({ type: 'announce', text: `📨 ${mention(user)} 把牌傳給 ${mention(target)}：「這是 ${label(claim)}」` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'passed', { from: mention(user), to: mention(target), card: label(s.lang, claim) }) });
   promptRespond(c);
   return true;
 }
@@ -228,56 +245,57 @@ function endGame(c: Ctx, loser: string, why: string) {
   s.phase = 'ended';
   s.timers = {};
   s.loser = loser;
-  const lines = s.players.map((p) => `${mention(p.id)}：面前 ${shortList(p.front)}`);
+  const lines = s.players.map((p) => tx(s.lang, 'endLine', { who: mention(p.id), front: shortList(p.front) }));
   c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: s.players.filter((p) => p.id !== loser).map((p) => p.id) });
   c.events.push(
-    { type: 'announce', text: `🪳 遊戲結束，${mention(loser)} 輸了：${why}\n${lines.join('\n')}` },
-    { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },
+    { type: 'announce', text: tx(s.lang, 'ended', { loser: mention(loser), why, lines: lines.join('\n') }) },
+    { type: 'prompt', kind: 'rematch', audience: 'channel', text: tx(s.lang, 'rematchPrompt'), options: [{ value: 'rematch', label: tx(s.lang, 'rematchButton') }] },
   );
 }
 
 function playMenu(c: Ctx, user: string): boolean {
   const s = c.s;
-  if (!find(s, user)) return reply(c, user, '你不在這局遊戲裡。');
-  if (s.phase !== 'give' || s.players[s.turn].id !== user) return reply(c, user, '還沒輪到你。');
-  const options = groups(s.players[s.turn].hand).map((g) => ({ value: `card:${s.step}:${g.bug}`, label: `${label(g.bug)} ×${g.n}` }));
-  return menu(c, user, '選一張要傳出去的牌 (只有你看得到)', options);
+  if (!find(s, user)) return reply(c, user, tx(s.lang, 'notInGame'));
+  if (s.phase !== 'give' || s.players[s.turn].id !== user) return reply(c, user, tx(s.lang, 'notYourTurn'));
+  const options = groups(s.players[s.turn].hand).map((g) => ({ value: `card:${s.step}:${g.bug}`, label: `${label(s.lang, g.bug)} ×${g.n}` }));
+  return menu(c, user, tx(s.lang, 'pickCard'), options);
 }
 
 function targetMenu(c: Ctx, user: string, bug: Bug): boolean {
   const s = c.s;
-  if (s.phase !== 'give' || s.players[s.turn].id !== user) return reply(c, user, '還沒輪到你。');
-  if (!s.players[s.turn].hand.includes(bug)) return reply(c, user, '你手上沒有這種牌。');
+  if (s.phase !== 'give' || s.players[s.turn].id !== user) return reply(c, user, tx(s.lang, 'notYourTurn'));
+  if (!s.players[s.turn].hand.includes(bug)) return reply(c, user, tx(s.lang, 'noSuchCard'));
   const others = s.players.filter((p) => p.id !== user);
-  return menu(c, user, `要把 ${label(bug)} 傳給誰？`, others.map((p) => ({ value: `tgt:${s.step}:${bug}:${p.id}`, label: p.id })));
+  return menu(c, user, tx(s.lang, 'pickTarget', { card: label(s.lang, bug) }), others.map((p) => ({ value: `tgt:${s.step}:${bug}:${p.id}`, label: p.id })));
 }
 
-const claimOptions = (prefix: string, target: string) => BUGS.map((b) => ({ value: `${prefix}:${b.bug}:${target}`, label: `${b.emoji} ${b.name}` }));
+const claimOptions = (lang: Lang | undefined, prefix: string, target: string) => BUGS.map((b) => ({ value: `${prefix}:${b.bug}:${target}`, label: label(lang, b.bug) }));
 
 function claimMenu(c: Ctx, user: string, bug: Bug, target: string): boolean {
   const s = c.s;
-  if (s.phase !== 'give' || s.players[s.turn].id !== user) return reply(c, user, '還沒輪到你。');
-  if (target === user || !find(s, target)) return reply(c, user, '不能傳給這個人。');
-  return menu(c, user, `要跟 ${mention(target)} 說這是什麼？(可以說謊)`, claimOptions(`claim:${s.step}:${bug}`, target));
+  if (s.phase !== 'give' || s.players[s.turn].id !== user) return reply(c, user, tx(s.lang, 'notYourTurn'));
+  if (target === user || !find(s, target)) return reply(c, user, tx(s.lang, 'badTarget'));
+  return menu(c, user, tx(s.lang, 'pickClaim', { who: mention(target) }), claimOptions(s.lang, `claim:${s.step}:${bug}`, target));
 }
 
 function sayMenu(c: Ctx, user: string, target: string): boolean {
   const s = c.s;
-  if (s.phase !== 'pass' || s.card!.to !== user) return reply(c, user, '現在不能傳牌。');
-  if (!unseen(s).includes(target)) return reply(c, user, '只能傳給還沒看過這張牌的人。');
-  return menu(c, user, `要跟 ${mention(target)} 說這是什麼？(可以說謊)`, claimOptions(`say:${s.step}`, target));
+  if (s.phase !== 'pass' || s.card!.to !== user) return reply(c, user, tx(s.lang, 'cannotPass'));
+  if (!unseen(s).includes(target)) return reply(c, user, tx(s.lang, 'onlyUnseen'));
+  return menu(c, user, tx(s.lang, 'pickClaim', { who: mention(target) }), claimOptions(s.lang, `say:${s.step}`, target));
 }
 
 function showHand(c: Ctx, user: string): boolean {
+  const lang = c.s.lang;
   const p = find(c.s, user);
-  if (!p) return reply(c, user, '你不在這局遊戲裡。');
-  return reply(c, user, `🃏 你的手牌：${longList(p.hand)}，共 ${p.hand.length} 張\n面前：${longList(p.front)}`);
+  if (!p) return reply(c, user, tx(lang, 'notInGame'));
+  return reply(c, user, tx(lang, 'hand', { hand: longList(lang, p.hand), n: p.hand.length, front: longList(lang, p.front) }));
 }
 
 // 帶 step 的按鈕：step 不同就是過期的選單
 function stale(c: Ctx, user: string, step: number) {
   if (step === c.s.step) return false;
-  reply(c, user, '這個選單已經過期。');
+  reply(c, user, tx(c.s.lang, 'stale'));
   return true;
 }
 
@@ -287,15 +305,15 @@ function onTimeout(c: Ctx): boolean {
     const p = s.players[s.turn];
     const bug = pickOne(c.rng, p.hand);
     const target = pickOne(c.rng, s.players.filter((x) => x.id !== p.id)).id;
-    c.events.push({ type: 'announce', text: `⏰ 時間到，系統替 ${mention(p.id)} 出牌` });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'timeoutGive', { who: mention(p.id) }) });
     return giveCard(c, p.id, bug, target, bug);
   }
   if (s.phase === 'respond') {
-    c.events.push({ type: 'announce', text: `⏰ 時間到，系統替 ${mention(s.card!.to)} 回答「不是」` });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'timeoutRespond', { who: mention(s.card!.to) }) });
     return answer(c, s.card!.to, false);
   }
   if (s.phase === 'pass') {
-    c.events.push({ type: 'announce', text: `⏰ 時間到，系統替 ${mention(s.card!.to)} 把牌傳下去` });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'timeoutPass', { who: mention(s.card!.to) }) });
     return passCard(c, s.card!.to, pickOne(c.rng, unseen(s)), s.card!.claim);
   }
   return false;
@@ -358,15 +376,15 @@ function startGame(c: Ctx) {
   c.events.push({
     type: 'announce',
     text: [
-      '🪳 蟑螂撲克開始！64 張牌全部發完',
-      `座位順序：${s.players.map((p) => mention(p.id)).join(' → ')}`,
-      `手牌：${s.players.map((p) => `${mention(p.id)} ${p.hand.length} 張`).join('、')}`,
-      `第一位出牌：${mention(s.players[s.turn].id)}`,
-      `面前同一種害蟲 ${LOSE_AT} 張，或輪到你出牌時手上沒牌，就輸了`,
+      tx(s.lang, 'started'),
+      tx(s.lang, 'seats', { seats: s.players.map((p) => mention(p.id)).join(' → ') }),
+      tx(s.lang, 'handCounts', { counts: s.players.map((p) => tx(s.lang, 'handCount', { who: mention(p.id), n: p.hand.length })).join(tx(s.lang, 'sep')) }),
+      tx(s.lang, 'first', { who: mention(s.players[s.turn].id) }),
+      tx(s.lang, 'loseRule', { n: LOSE_AT }),
     ].join('\n'),
   });
   for (const p of s.players.filter((x) => !isBot(x.id))) {
-    c.events.push({ type: 'dm', to: p.id, text: `${RULES}\n\n🃏 你的手牌：${longList(p.hand)}，共 ${p.hand.length} 張` });
+    c.events.push({ type: 'dm', to: p.id, text: tx(s.lang, 'dm', { rules: tx(s.lang, 'rules', { n: LOSE_AT }), hand: longList(s.lang, p.hand), n: p.hand.length }) });
   }
   promptGive(c);
 }
@@ -383,10 +401,10 @@ function handle(c: Ctx, action: GameAction): boolean {
     case 'removeBot':
       return removeBots(c, TITLE, action.user, action.count);
     case 'start': {
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以開始遊戲。');
+      if (action.user !== s.host) return reply(c, action.user, tx(s.lang, 'onlyHostStart'));
       if (s.phase !== 'lobby') return false;
       const n = s.players.length;
-      if (n < MIN_COCKROACH_PLAYERS) return reply(c, action.user, `目前 ${n} 人，至少需要 ${MIN_COCKROACH_PLAYERS} 人才能開始。`);
+      if (n < MIN_COCKROACH_PLAYERS) return reply(c, action.user, tx(s.lang, 'notEnough', { n, min: MIN_COCKROACH_PLAYERS }));
       startGame(c);
       return true;
     }
@@ -417,15 +435,6 @@ function handle(c: Ctx, action: GameAction): boolean {
   }
 }
 
-const RULES = [
-  '🪳 *蟑螂撲克* 規則摘要',
-  '• 8 種害蟲各 8 張，全部發完；手牌只有你知道',
-  '• 輪到你時選一張牌蓋著傳給別人，說「這是 X」(可以說謊)',
-  '• 收到牌的人回答「是」或「不是」；猜對，牌放在傳牌的人面前；猜錯，放在自己面前',
-  '• 也可以偷看後傳給還沒看過的人，重新宣稱',
-  `• 面前同一種害蟲 ${LOSE_AT} 張，或輪到你出牌時手上沒牌，你就輸了`,
-  '• 隨時按「🃏 我的手牌」看自己的牌',
-].join('\n');
 
 const newPlayer = (id: string): CrPlayer => ({ id, hand: [], front: [] });
 
