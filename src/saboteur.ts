@@ -135,13 +135,13 @@ export function cardName(card: Card, lang?: Lang): string {
 const current = (s: SState) => s.players[s.turn];
 const toolList = (tools: Tool[], lang?: Lang) => tools.map((t) => toolWord(t, lang)).join(tx(lang, 'sep'));
 const playerLine = (p: SPlayer, lang?: Lang) =>
-  tx(lang, 'playerLine', { who: quiet(p.id), n: p.hand.length, broken: p.broken.length ? tx(lang, 'playerBroken', { tools: toolList(p.broken, lang) }) : '' });
+  tx(lang, 'playerLine', { who: mention(p.id), n: p.hand.length, broken: p.broken.length ? tx(lang, 'playerBroken', { tools: toolList(p.broken, lang) }) : '' });
 
-// 回合面板：只 @ 輪到的人；ended 時拿掉按鈕
+// 回合面板：輪到的人和玩家清單用 @ 標記；ended 時拿掉按鈕
 function board(s: SState, ended = false): GameEvent {
   const me = current(s);
   const lines = [
-    ended ? tx(s.lang, 'turnEnded', { who: quiet(me.id) }) : tx(s.lang, 'turnHead', { round: s.round, rounds: ROUNDS, who: mention(me.id), sec: TURN_MS / 1000 }),
+    ended ? tx(s.lang, 'turnEnded', { who: mention(me.id) }) : tx(s.lang, 'turnHead', { round: s.round, rounds: ROUNDS, who: mention(me.id), sec: TURN_MS / 1000 }),
     tx(s.lang, 'deckLeft', { n: s.deck.length }),
     '```',
     render(s.grid),

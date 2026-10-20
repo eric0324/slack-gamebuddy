@@ -53,7 +53,7 @@ describe('machikoro/en: 英文局', () => {
   it('回合面板和按鈕是英文', () => {
     const board = boards(startedEn().events).at(-1)!;
     expect(board.text).toContain("*🏘️ Round 1 | 👉 <@p2>'s turn (60s)*");
-    expect(board.text).toContain('{{name:p1}} 3 coins | Landmarks: (none) | Establishments 2');
+    expect(board.text).toContain('<@p1> 3 coins | Landmarks: (none) | Establishments 2');
     expect(board.options.map((o) => o.label)).toEqual(['🏘️ Action', '📋 Towns']);
     expect(board.text).not.toMatch(han);
   });

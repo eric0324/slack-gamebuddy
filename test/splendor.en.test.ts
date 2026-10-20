@@ -82,7 +82,7 @@ describe('splendor/en: 英文局', () => {
   it('逾時跳過的面板是英文', () => {
     const { state } = startedEn();
     const { events } = run([{ type: 'timeout', id: state.timers.phase! }], state);
-    expect(prompts(events)[0].text).toBe("✅ {{name:p2}}'s turn is over: {{name:p2}} timed out and passes");
+    expect(prompts(events)[0].text).toBe("✅ <@p2>'s turn is over: {{name:p2}} timed out and passes");
   });
 });
 
