@@ -6,7 +6,7 @@ import { GameHost } from './slack.js';
 import { StatsStore } from './stats.js';
 import { MemeStore } from './memeStore.js';
 import { CrewStore } from './crewStore.js';
-import { LangStore } from './langStore.js';
+import { LangStore, parseDefaultLang } from './langStore.js';
 
 const { SLACK_BOT_TOKEN, SLACK_APP_TOKEN } = process.env;
 if (!SLACK_BOT_TOKEN || !SLACK_APP_TOKEN) {
@@ -17,7 +17,7 @@ if (!SLACK_BOT_TOKEN || !SLACK_APP_TOKEN) {
 const app = new App({ token: SLACK_BOT_TOKEN, appToken: SLACK_APP_TOKEN, socketMode: true });
 const statsFile = process.env.STATS_DB ?? 'data/stats.db';
 mkdirSync(dirname(statsFile), { recursive: true });
-const host = new GameHost(app.client, { stats: new StatsStore(statsFile), memes: new MemeStore(statsFile), crew: new CrewStore(statsFile), langs: new LangStore(statsFile) });
+const host = new GameHost(app.client, { stats: new StatsStore(statsFile), memes: new MemeStore(statsFile), crew: new CrewStore(statsFile), langs: new LangStore(statsFile, parseDefaultLang(process.env.DEFAULT_LANG)) }); // LangStore 放最後：要看得到其他資料表才能判斷哪些頻道玩過
 
 app.command('/werewolf', async ({ command, ack }) => {
   await ack();
