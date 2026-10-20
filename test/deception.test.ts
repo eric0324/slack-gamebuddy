@@ -282,3 +282,244 @@ describe('deception/night: 夜晚逾時', () => {
     expect(old.events).toEqual([]);
   });
 });
+
+type Partial2 = Record<string, unknown> & { type: DAction['type'] };
+type Run = { state: DState; events: GameEvent[] };
+const sciOf = (s: DState) => roleOf(s, 'scientist')[0];
+const fsAct = (s: DState, a: Partial2, user = sciOf(s)) => run([{ user, pseq: s.pseq, ...a } as DAction], s);
+const lineOf = (b: { title: string; options: string[] }, bullet?: number) =>
+  `${b.title}：${b.options.map((o, i) => (i === bullet ? `【${o}】` : o)).join('／')}`;
+// 第 1 輪：死因、居家地點、4 張場景板都放在第 0 個選項
+function placeAll(s: DState): Run {
+  const steps: Partial2[] = [
+    { type: 'fsPlace', slot: 'cause', opt: 0 },
+    { type: 'fsLocation', board: 0, opt: 0 },
+    ...[0, 1, 2, 3].map((i) => ({ type: 'fsPlace', slot: `s${i}`, opt: 0 }) as Partial2),
+  ];
+  let r: Run = { state: s, events: [] };
+  for (const a of steps) r = fsAct(r.state, a);
+  return r;
+}
+// 這一輪剩下的人依序按說完了
+function speakAll(s: DState): Run {
+  let r: Run = { state: s, events: [] };
+  for (let k = s.speaker; k < s.speakers.length; k++) r = run([{ type: 'done', user: r.state.speakers[r.state.speaker], tseq: r.state.tseq }], r.state);
+  return r;
+}
+const timeout = (s: DState) => run([{ type: 'timeout', id: s.timers.phase! }], s);
+// 第 1 輪發言開始
+const present1 = (n = 6) => placeAll(day(n).state);
+// 第 2 輪蒐證開始
+const evidence2 = (n = 6) => speakAll(present1(n).state);
+const shortMsgs = (events: GameEvent[]) => prompts(events).filter((p) => p.audience === 'channel' && !p.ref);
+
+describe('deception/clues: 提示板與回合面板', () => {
+  it('第 1 輪場上有死因板、未選的地點板、4 張場景板，都沒有子彈', () => {
+    const { state } = day(6);
+    expect(state.cause).toEqual({ board: CAUSE_BOARD });
+    expect(state.location).toBeUndefined();
+    expect(state.scenes.map((x) => x.board)).toEqual(SCENE_BOARDS.slice(0, 4));
+    expect(state.scenes.every((x) => x.bullet === undefined)).toBe(true);
+  });
+
+  it('面板：第 N/3 輪、階段、提示板一行一張、場上一覽、誰有徽章、三顆按鈕，不含角色', () => {
+    const { state, events } = day(6);
+    const panel = panels(events).at(-1)!;
+    expect(panel.ref).toBe(`deception:panel:${state.pseq}`);
+    expect(panel.text).toContain('第 1/3 輪．蒐證');
+    expect(panel.text).toContain(lineOf(CAUSE_BOARD));
+    expect(panel.text).toContain('案發地點：（還沒選）');
+    for (const x of state.scenes) expect(panel.text).toContain(lineOf(x.board));
+    expect(panel.text).toContain('場上一覽');
+    for (const p of state.players.slice(0, 5)) expect(panel.text).toContain(`<@${p.id}>　手段：${p.means.join('、')}　線索：${p.clues.join('、')}`);
+    expect(panel.text).toContain('還有徽章：<@p1> <@p2> <@p3> <@p4> <@p5>');
+    expect(values(panel)).toEqual([`fs:${state.pseq}`, 'solve', 'me']);
+    expect(labels(panel)).toEqual(['🧪 鑑識官放子彈', '🔍 破案', '🗂️ 我的身分']);
+    for (const w of ['🔪', '共犯', '目擊者', '調查員']) expect(panel.text).not.toContain(w);
+  });
+
+  it('放子彈的選項用【】標出', () => {
+    const { events } = fsAct(day(6).state, { type: 'fsPlace', slot: 'cause', opt: 3 });
+    expect(panels(events).at(-1)!.text).toContain('死因：窒息／鈍器重擊／失血過多／【中毒】／急病發作／意外事故');
+  });
+
+  it('12 人局面板文字少於 3000 字', () => {
+    const { events } = present1(12);
+    for (const p of panels(events)) expect(p.text.length).toBeLessThan(3000);
+  });
+});
+
+describe('deception/clues: 第 1 輪蒐證', () => {
+  it('選單只列沒子彈的板；選板後原地換成 6 個選項和「↩️ 換一張」', () => {
+    const s = day(6).state;
+    const m = menuOf(fsAct(s, { type: 'fsMenu' }).events, 'p6')!;
+    expect(m.replace).toBe(true);
+    const p = s.pseq;
+    expect(values(m)).toEqual([`fb:${p}:cause`, `fb:${p}:loc`, `fb:${p}:s0`, `fb:${p}:s1`, `fb:${p}:s2`, `fb:${p}:s3`]);
+    expect(labels(m)).toEqual(['死因', '案發地點（4 選 1）', ...SCENE_BOARDS.slice(0, 4).map((b) => b.title)]);
+    const b = menuOf(fsAct(s, { type: 'fsBoard', slot: 'cause' }).events, 'p6')!;
+    expect(b.replace).toBe(true);
+    expect(values(b)).toEqual([...[0, 1, 2, 3, 4, 5].map((o) => `fp:${p}:cause:${o}`), `fback:${p}`]);
+    expect(labels(b)).toEqual([...CAUSE_BOARD.options, '↩️ 換一張']);
+    expect(values(menuOf(fsAct(s, { type: 'fsBack' }).events, 'p6'))).toEqual(values(m));
+  });
+
+  it('放下子彈：面板原地更新、選單回到第 1 步且少了這張板；不能移動', () => {
+    const s = day(6).state;
+    const { state, events } = fsAct(s, { type: 'fsPlace', slot: 'cause', opt: 3 });
+    expect(state.cause.bullet).toBe(3);
+    expect(panels(events).map((x) => x.ref)).toEqual([`deception:panel:${s.pseq}`]);
+    expect(values(menuOf(events, 'p6'))).not.toContain(`fb:${s.pseq}:cause`);
+    expect(values(menuOf(events, 'p6'))).toHaveLength(5);
+    expect(fsAct(state, { type: 'fsPlace', slot: 'cause', opt: 1 }).state).toBe(state);
+  });
+
+  it('選地點：4 列各 6 顆，按下同時決定地點板和子彈', () => {
+    const s = day(6).state;
+    const m = menuOf(fsAct(s, { type: 'fsBoard', slot: 'loc' }).events, 'p6')!;
+    expect(m.perRow).toBe(6);
+    expect(values(m)).toHaveLength(25);
+    expect(values(m)[9]).toBe(`fl:${s.pseq}:1:3`);
+    expect(labels(m)[9]).toBe('醫院');
+    expect(values(m)[24]).toBe(`fback:${s.pseq}`);
+    const { state, events } = fsAct(s, { type: 'fsLocation', board: 1, opt: 3 });
+    expect(state.location).toEqual({ board: LOCATION_BOARDS[1], bullet: 3 });
+    const text = panels(events).at(-1)!.text;
+    expect(text).toContain('案發地點（公共場所）：餐廳／商場／電影院／【醫院】／學校／圖書館');
+    expect(text).not.toContain('居家');
+    expect(values(menuOf(events, 'p6'))).not.toContain(`fb:${s.pseq}:loc`);
+    expect(fsAct(state, { type: 'fsLocation', board: 0, opt: 0 }).state).toBe(state);
+  });
+
+  it('非鑑識官被拒', () => {
+    const s = day(6).state;
+    const r = fsAct(s, { type: 'fsMenu' }, 'p1');
+    expect(r.state).toBe(s);
+    expect(ephemeralTo(r.events, 'p1').join()).toContain('只有鑑識官可以放子彈');
+    expect(fsAct(s, { type: 'fsPlace', slot: 'cause', opt: 0 }, 'p1').state).toBe(s);
+  });
+
+  it('6 顆放完進入第 1 輪發言', () => {
+    const { state } = present1();
+    expect(state).toMatchObject({ phase: 'present', round: 1 });
+    expect([state.cause.bullet, state.location?.bullet, ...state.scenes.map((x) => x.bullet)]).toEqual([0, 0, 0, 0, 0, 0]);
+  });
+});
+
+describe('deception/clues: 第 2、3 輪換板', () => {
+  it('抽新板；只能換場景板；換掉後新板在原位、面板寫出換掉哪張、進入發言', () => {
+    const { state: s, events } = evidence2();
+    expect(s).toMatchObject({ phase: 'evidence', round: 2 });
+    expect(s.fresh).toEqual(SCENE_BOARDS[4]);
+    expect(panels(events).at(-1)!.text).toContain(SCENE_BOARDS[4].title);
+    const m = menuOf(fsAct(s, { type: 'fsMenu' }).events, 'p6')!;
+    expect(values(m)).toEqual([0, 1, 2, 3].map((i) => `fx:${s.pseq}:s${i}`));
+    const swap = menuOf(fsAct(s, { type: 'fsSwap', slot: 's3' }).events, 'p6')!;
+    expect(values(swap)).toEqual([...[0, 1, 2, 3, 4, 5].map((o) => `fn:${s.pseq}:s3:${o}`), `fs:${s.pseq}`]);
+    expect(labels(swap)).toEqual([...SCENE_BOARDS[4].options, '↩️ 換一張']);
+    const r = fsAct(s, { type: 'fsNew', slot: 's3', opt: 2 });
+    expect(r.state.scenes[3]).toEqual({ board: SCENE_BOARDS[4], bullet: 2 });
+    expect(r.state.scenes.slice(0, 3)).toEqual(s.scenes.slice(0, 3));
+    expect(r.state.fresh).toBeUndefined();
+    const updated = panels(r.events).find((p) => p.ref === `deception:panel:${s.pseq}`)!;
+    expect(updated.text).toContain(`換掉了${SCENE_BOARDS[3].title}`);
+    expect(r.state).toMatchObject({ phase: 'present', round: 2 });
+  });
+
+  it('第 2 輪不能用第 1 輪的放子彈動作', () => {
+    const s = evidence2().state;
+    expect(fsAct(s, { type: 'fsPlace', slot: 'cause', opt: 1 }).state).toBe(s);
+    expect(fsAct(s, { type: 'fsBoard', slot: 's0' }).state).toBe(s);
+  });
+});
+
+describe('deception/clues: 蒐證逾時與鑑識官掛機', () => {
+  it('第 1 輪放了 4 顆、沒選地點 → 沒放的板沒子彈、不用地點板，公告後進入發言', () => {
+    let r: Run = day(6);
+    for (const slot of ['cause', 's0', 's1', 's2']) r = fsAct(r.state, { type: 'fsPlace', slot, opt: 1 });
+    const { state, events } = timeout(r.state);
+    expect(state.scenes[3].bullet).toBeUndefined();
+    expect(state.location).toBeUndefined();
+    expect(announces(events).join()).toContain('鑑識官時間到，沒放子彈的板沒有提示');
+    expect(state.phase).toBe('present');
+    expect(panels(events).at(-1)!.text).toContain('案發地點：（沒有使用）');
+  });
+
+  it('第 1 輪 0 顆 → 中止、公告答案、沒有 result、沒有再來一局', () => {
+    const s = day(6).state;
+    const { state, events } = timeout(s);
+    expect(state.phase).toBe('ended');
+    const text = announces(events).join();
+    for (const w of ['鑑識官沒有回應，遊戲中止', '<@p1>', s.answer.means!, s.answer.clue!]) expect(text).toContain(w);
+    expect(events.some((e) => e.type === 'result')).toBe(false);
+    expect(prompts(events).some((p) => p.kind === 'rematch')).toBe(false);
+    expect(run([{ type: 'rematch', user: 'p1', channel: 'C1' }], state).events).toEqual([]);
+  });
+
+  it('第 2 輪逾時不換板並公告', () => {
+    const s = evidence2().state;
+    const { state, events } = timeout(s);
+    expect(state.scenes).toEqual(s.scenes);
+    expect(state.fresh).toBeUndefined();
+    expect(announces(events).join()).toContain('鑑識官這輪沒有換板');
+    expect(state).toMatchObject({ phase: 'present', round: 2 });
+  });
+});
+
+describe('deception/clues: 發言', () => {
+  it('從鑑識官下一位依座位、鑑識官不發言', () => {
+    const s = structuredClone(day(5).state);
+    const [p3, p5] = [s.players[2], s.players[4]];
+    Object.assign(p5, { role: 'investigator', means: p3.means, clues: p3.clues, badge: true });
+    Object.assign(p3, { role: 'scientist', means: [], clues: [], badge: false });
+    expect(placeAll(s).state.speakers).toEqual(['p4', 'p5', 'p1', 'p2']);
+  });
+
+  it('發言開始：新面板和「輪到 @X 發言（90 秒）」短訊息（不帶 ref）', () => {
+    const { state, events } = present1();
+    expect(state.speakers).toEqual(['p1', 'p2', 'p3', 'p4', 'p5']);
+    const panel = panels(events).at(-1)!;
+    expect(panel.ref).toBe(`deception:panel:${state.pseq}`);
+    expect(panel.text).toContain('第 1/3 輪．發言');
+    expect(panel.text).toContain('輪到 <@p1>');
+    expect(values(panel)).toEqual(['solve', 'me']);
+    const [msg] = shortMsgs(events);
+    expect(msg.text).toBe('輪到 <@p1> 發言（90 秒）');
+    expect(values(msg)).toEqual([`done:${state.tseq}`, 'solve']);
+    expect(labels(msg)).toEqual(['✅ 說完了', '🔍 破案']);
+  });
+
+  it('說完了換人，面板原地更新；別人按說完了回「還沒輪到你」', () => {
+    const s = present1().state;
+    const r = run([{ type: 'done', user: 'p1', tseq: s.tseq }], s);
+    expect(panels(r.events).map((p) => p.ref)).toEqual([`deception:panel:${s.pseq}`]);
+    expect(panels(r.events)[0].text).toContain('輪到 <@p2>');
+    expect(shortMsgs(r.events).map((p) => p.text)).toEqual(['輪到 <@p2> 發言（90 秒）']);
+    const other = run([{ type: 'done', user: 'p3', tseq: s.tseq }], s);
+    expect(other.state).toBe(s);
+    expect(ephemeralTo(other.events, 'p3')).toEqual(['還沒輪到你。']);
+  });
+
+  it('90 秒逾時換人；徽章用掉的人照常發言', () => {
+    const s = structuredClone(present1().state);
+    s.players[1].badge = false;
+    const r = timeout(s);
+    expect(r.state.speakers[r.state.speaker]).toBe('p2');
+    expect(shortMsgs(r.events).map((p) => p.text)).toEqual(['輪到 <@p2> 發言（90 秒）']);
+  });
+
+  it('第 1 輪最後一位說完進入第 2 輪蒐證', () => {
+    expect(evidence2().state).toMatchObject({ phase: 'evidence', round: 2 });
+  });
+
+  it('舊階段的按鈕回「這個階段已經結束了」且 state 不變', () => {
+    const d = day(6).state;
+    const s = present1().state;
+    const old = run([{ type: 'fsMenu', user: 'p6', pseq: d.pseq }], s);
+    expect(old.state).toBe(s);
+    expect(ephemeralTo(old.events, 'p6').join()).toContain('這個階段已經結束了');
+    const oldDone = run([{ type: 'done', user: 'p1', tseq: s.tseq - 1 }], s);
+    expect(oldDone.state).toBe(s);
+    expect(ephemeralTo(oldDone.events, 'p1').join()).toContain('這個階段已經結束了');
+  });
+});

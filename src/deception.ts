@@ -2,7 +2,7 @@
 // 介面和其他遊戲一樣：applyDeception(state, action, rng) → { state, events }。
 import { mention, type GameEvent, type Rng } from './engine.js';
 import { cancelGame, joinRoom, leaveRoom, lobbyEvent, reply, runGame, shuffle, startTimer } from './common.js';
-import { CAUSE_BOARD, CLUES, MEANS, SCENE_BOARDS, type Board } from './deceptionCards.js';
+import { CAUSE_BOARD, CLUES, LOCATION_BOARDS, MEANS, SCENE_BOARDS, type Board } from './deceptionCards.js';
 
 export const MIN_DECEPTION_PLAYERS = 4;
 export const MAX_DECEPTION_PLAYERS = 12;
@@ -11,6 +11,11 @@ const ROUNDS = 3;
 const CARDS = 4; // 每人手段、線索各幾張
 const SCENES = 4; // 場上的場景板張數
 const NIGHT_MS = 90_000;
+const FIRST_EVIDENCE_MS = 240_000;
+const EVIDENCE_MS = 120_000;
+const SPEAK_MS = 90_000;
+const STALE = '這個階段已經結束了。';
+const NOT_PLAYER = '你不在這局遊戲裡。';
 
 export type Role = 'scientist' | 'murderer' | 'accomplice' | 'witness' | 'investigator';
 const ROLE_NAME: Record<Role, string> = {
@@ -248,10 +253,256 @@ function nightTimeout(c: Ctx) {
 
 // ---------- 蒐證與發言 ----------
 
+// 一張板一行，子彈用【】標出
+const boardLine = (title: string, x: Placed) => `${title}：${x.board.options.map((o, i) => (i === x.bullet ? `【${o}】` : o)).join('／')}`;
+
+function boardLines(s: DState): string[] {
+  const loc = s.location
+    ? boardLine(`案發地點（${s.location.board.title}）`, s.location)
+    : `案發地點：${s.round === 1 && s.phase === 'evidence' ? '（還沒選）' : '（沒有使用）'}`;
+  return [
+    boardLine(s.cause.board.title, s.cause),
+    loc,
+    ...s.scenes.map((x) => boardLine(x.board.title, x)),
+    ...(s.fresh ? [`${boardLine(`新抽的板．${s.fresh.title}`, { board: s.fresh })}（還沒放子彈）`] : []),
+  ];
+}
+
+// 回合面板：同一個階段帶同一個 ref，原地更新
+function panel(s: DState): GameEvent {
+  const sci = mention(scientist(s).id);
+  const head =
+    s.phase === 'evidence'
+      ? `第 ${s.round}/${ROUNDS} 輪．蒐證｜輪到鑑識官 ${sci} 放子彈`
+      : `第 ${s.round}/${ROUNDS} 輪．發言｜輪到 ${mention(s.speakers[s.speaker])}（鑑識官：${sci}）`;
+  const badges = suspects(s).filter((p) => p.badge);
+  const lines = [
+    head,
+    ...boardLines(s),
+    ...(s.last ? [s.last] : []),
+    '',
+    '場上一覽',
+    ...tableLines(s),
+    `還有徽章：${badges.length ? badges.map((p) => mention(p.id)).join(' ') : '（沒有）'}`,
+  ];
+  const options = [
+    ...(s.phase === 'evidence' ? [{ value: `fs:${s.pseq}`, label: '🧪 鑑識官放子彈' }] : []),
+    { value: 'solve', label: '🔍 破案' },
+    { value: 'me', label: '🗂️ 我的身分' },
+  ];
+  return { type: 'prompt', kind: 'deception', audience: 'channel', ref: `deception:panel:${s.pseq}`, text: lines.join('\n'), options };
+}
+
+// 在私人選單上按的：回應取代那則選單
+const tell = (c: Ctx, to: string, text: string) => c.events.push({ type: 'ephemeral', to, text, replace: true });
+const deny = (c: Ctx, to: string, text: string) => (tell(c, to, text), false);
+const menu = (c: Ctx, user: string, text: string, options: { value: string; label: string }[], perRow = 5) => {
+  c.events.push({ type: 'prompt', kind: 'deception', audience: 'ephemeral', user, text, options, perRow, replace: true });
+  return false;
+};
+
 function startEvidence(c: Ctx) {
   const s = c.s;
   s.phase = 'evidence';
   s.pseq++;
+  s.last = undefined;
+  if (s.round > 1) s.fresh = s.sceneDeck.shift();
+  c.events.push(panel(s));
+  startTimer(c, s.round === 1 ? FIRST_EVIDENCE_MS : EVIDENCE_MS);
+}
+
+// 鑑識官操作前的共同檢查；回傳錯誤訊息或 null
+function fsCheck(s: DState, user: string, pseq: number): string | null {
+  const me = find(s, user);
+  if (!me) return NOT_PLAYER;
+  if (me.role !== 'scientist') return '只有鑑識官可以放子彈。';
+  if (s.phase !== 'evidence' || pseq !== s.pseq) return STALE;
+  return null;
+}
+
+// 第 1 輪還沒放子彈的板：[slot, 按鈕文字]
+function openSlots(s: DState): [string, string][] {
+  const list: [string, string][] = [];
+  if (s.cause.bullet === undefined) list.push(['cause', s.cause.board.title]);
+  if (!s.location) list.push(['loc', '案發地點（4 選 1）']);
+  s.scenes.forEach((x, i) => {
+    if (x.bullet === undefined) list.push([`s${i}`, x.board.title]);
+  });
+  return list;
+}
+
+// slot 是 cause 或 s0～s3
+const slotOf = (s: DState, slot: string): Placed | undefined => (slot === 'cause' ? s.cause : /^s[0-3]$/.test(slot) ? s.scenes[Number(slot[1])] : undefined);
+const sceneOf = (s: DState, slot: string) => (/^s[0-3]$/.test(slot) ? s.scenes[Number(slot[1])] : undefined);
+
+function fsMenu(c: Ctx, user: string, pseq: number): boolean {
+  const s = c.s;
+  const err = fsCheck(s, user, pseq);
+  if (err) return deny(c, user, err);
+  if (s.round === 1) {
+    const options = openSlots(s).map(([slot, label]) => ({ value: `fb:${pseq}:${slot}`, label }));
+    return menu(c, user, '🧪 選一張板放子彈（放下就不能移動）', options);
+  }
+  if (!s.fresh) return deny(c, user, STALE);
+  const options = s.scenes.map((x, i) => ({ value: `fx:${pseq}:s${i}`, label: x.board.title }));
+  return menu(c, user, `🧪 新抽的板是「${s.fresh.title}」：${s.fresh.options.join('／')}\n要換掉哪一張場景板？`, options);
+}
+
+function fsBoard(c: Ctx, user: string, pseq: number, slot: string): boolean {
+  const s = c.s;
+  const err = fsCheck(s, user, pseq);
+  if (err) return deny(c, user, err);
+  if (s.round !== 1) return deny(c, user, STALE);
+  const back = { value: `fback:${pseq}`, label: '↩️ 換一張' };
+  if (slot === 'loc') {
+    if (s.location) return deny(c, user, STALE);
+    const text = ['🧪 選案發地點：每一列是一張地點板，按下的選項就是子彈位置', ...LOCATION_BOARDS.map((b, i) => `第 ${i + 1} 列 ${b.title}：${b.options.join('／')}`)];
+    const options = LOCATION_BOARDS.flatMap((b, i) => b.options.map((label, o) => ({ value: `fl:${pseq}:${i}:${o}`, label })));
+    return menu(c, user, text.join('\n'), [...options, back], 6);
+  }
+  const x = slotOf(s, slot);
+  if (!x || x.bullet !== undefined) return deny(c, user, STALE);
+  const options = x.board.options.map((label, o) => ({ value: `fp:${pseq}:${slot}:${o}`, label }));
+  return menu(c, user, `🧪 「${x.board.title}」的子彈放在哪裡？`, [...options, back]);
+}
+
+// 放好一顆子彈：面板原地更新；6 顆都放好就進入發言，否則選單回到第 1 步
+function placed(c: Ctx, user: string) {
+  const s = c.s;
+  c.events.push(panel(s));
+  if (openSlots(s).length) fsMenu(c, user, s.pseq);
+  else {
+    tell(c, user, '✅ 6 顆子彈都放好了');
+    startPresent(c);
+  }
+}
+
+function fsPlace(c: Ctx, user: string, pseq: number, slot: string, opt: number): boolean {
+  const s = c.s;
+  const err = fsCheck(s, user, pseq);
+  if (err) return deny(c, user, err);
+  const x = slotOf(s, slot);
+  if (s.round !== 1 || !x || x.bullet !== undefined || !x.board.options[opt]) return deny(c, user, STALE);
+  x.bullet = opt;
+  placed(c, user);
+  return true;
+}
+
+function fsLocation(c: Ctx, user: string, pseq: number, board: number, opt: number): boolean {
+  const s = c.s;
+  const err = fsCheck(s, user, pseq);
+  if (err) return deny(c, user, err);
+  const b = LOCATION_BOARDS[board];
+  if (s.round !== 1 || s.location || !b?.options[opt]) return deny(c, user, STALE);
+  s.location = { board: b, bullet: opt };
+  placed(c, user);
+  return true;
+}
+
+// 第 2、3 輪：選要換掉的場景板
+function fsSwap(c: Ctx, user: string, pseq: number, slot: string): boolean {
+  const s = c.s;
+  const err = fsCheck(s, user, pseq);
+  if (err) return deny(c, user, err);
+  const x = sceneOf(s, slot);
+  if (!s.fresh || !x) return deny(c, user, STALE);
+  const options = s.fresh.options.map((label, o) => ({ value: `fn:${pseq}:${slot}:${o}`, label }));
+  return menu(c, user, `🧪 換掉「${x.board.title}」，新板「${s.fresh.title}」的子彈放在哪裡？`, [...options, { value: `fs:${pseq}`, label: '↩️ 換一張' }]);
+}
+
+// 第 2、3 輪：新板取代舊板的位置，進入發言
+function fsNew(c: Ctx, user: string, pseq: number, slot: string, opt: number): boolean {
+  const s = c.s;
+  const err = fsCheck(s, user, pseq);
+  if (err) return deny(c, user, err);
+  const x = sceneOf(s, slot);
+  if (!s.fresh || !x || !s.fresh.options[opt]) return deny(c, user, STALE);
+  s.last = `換掉了${x.board.title}`;
+  s.scenes[Number(slot[1])] = { board: s.fresh, bullet: opt };
+  s.fresh = undefined;
+  c.events.push(panel(s));
+  tell(c, user, `✅ ${s.last}`);
+  startPresent(c);
+  return true;
+}
+
+// 蒐證時間到：系統不替鑑識官放子彈
+function evidenceTimeout(c: Ctx) {
+  const s = c.s;
+  if (s.round === 1) {
+    if (openSlots(s).length === 6) {
+      s.phase = 'ended';
+      s.timers = {};
+      c.events.push({ type: 'announce', text: `🛑 鑑識官沒有回應，遊戲中止。答案：兇手 ${mention(withRole(s, 'murderer')!.id)}，${answerText(s)}` });
+      return;
+    }
+    c.events.push({ type: 'announce', text: '⏰ 鑑識官時間到，沒放子彈的板沒有提示。' });
+  } else {
+    s.fresh = undefined;
+    c.events.push({ type: 'announce', text: '⏰ 鑑識官這輪沒有換板。' });
+  }
+  startPresent(c);
+}
+
+// 發言：鑑識官以外的人從鑑識官的下一位開始依座位輪流
+function startPresent(c: Ctx) {
+  const s = c.s;
+  const n = s.players.length;
+  const sci = s.players.indexOf(scientist(s));
+  s.phase = 'present';
+  s.pseq++;
+  s.speakers = Array.from({ length: n - 1 }, (_, k) => s.players[(sci + 1 + k) % n].id);
+  s.speaker = 0;
+  c.events.push(panel(s));
+  speakerTurn(c);
+}
+
+function speakerTurn(c: Ctx) {
+  const s = c.s;
+  s.tseq++;
+  c.events.push({
+    type: 'prompt',
+    kind: 'deception',
+    audience: 'channel',
+    text: `輪到 ${mention(s.speakers[s.speaker])} 發言（${SPEAK_MS / 1000} 秒）`,
+    options: [
+      { value: `done:${s.tseq}`, label: '✅ 說完了' },
+      { value: 'solve', label: '🔍 破案' },
+    ],
+  });
+  startTimer(c, SPEAK_MS);
+}
+
+// 換下一位發言；這一輪說完了就進入下一輪蒐證，第 3 輪結束兇手陣營贏
+function nextSpeaker(c: Ctx) {
+  const s = c.s;
+  s.speaker++;
+  if (s.speaker < s.speakers.length) {
+    c.events.push(panel(s));
+    speakerTurn(c);
+  } else if (s.round < ROUNDS) {
+    s.round++;
+    startEvidence(c);
+  } else endGame(c, 'evil', `${ROUNDS} 輪結束，沒有人破案`);
+}
+
+function done(c: Ctx, user: string, tseq: number): boolean {
+  const s = c.s;
+  if (!find(s, user)) return reply(c, user, NOT_PLAYER);
+  if (s.phase !== 'present' || tseq !== s.tseq) return reply(c, user, STALE);
+  if (s.speakers[s.speaker] !== user) return reply(c, user, '還沒輪到你。');
+  nextSpeaker(c);
+  return true;
+}
+
+// ---------- 結束 ----------
+
+function endGame(c: Ctx, winner: 'good' | 'evil', why: string) {
+  const s = c.s;
+  s.phase = 'ended';
+  s.timers = {};
+  s.winner = winner;
+  c.events.push({ type: 'announce', text: why });
 }
 
 function handle(c: Ctx, action: GameAction): boolean {
@@ -271,9 +522,26 @@ function handle(c: Ctx, action: GameAction): boolean {
       return nightMeans(c, action.user, action.i);
     case 'nightClue':
       return nightClue(c, action.user, action.i);
+    case 'fsMenu':
+    case 'fsBack':
+      return fsMenu(c, action.user, action.pseq);
+    case 'fsBoard':
+      return fsBoard(c, action.user, action.pseq, action.slot);
+    case 'fsPlace':
+      return fsPlace(c, action.user, action.pseq, action.slot, action.opt);
+    case 'fsLocation':
+      return fsLocation(c, action.user, action.pseq, action.board, action.opt);
+    case 'fsSwap':
+      return fsSwap(c, action.user, action.pseq, action.slot);
+    case 'fsNew':
+      return fsNew(c, action.user, action.pseq, action.slot, action.opt);
+    case 'done':
+      return done(c, action.user, action.tseq);
     case 'timeout':
       if (action.id !== c.s.timers.phase) return false;
       if (c.s.phase === 'night') nightTimeout(c);
+      else if (c.s.phase === 'evidence') evidenceTimeout(c);
+      else if (c.s.phase === 'present') nextSpeaker(c);
       else return false;
       return true;
     default:
