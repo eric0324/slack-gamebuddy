@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isBot, type GameEvent } from '../src/engine.js';
-import { applyMachikoro, type MAction, type MState } from '../src/machikoro.js';
+import { applyMachikoro, autoMove, botDice, richest, type MAction, type MState } from '../src/machikoro.js';
 import {
   buildDeck,
   CARDS,
@@ -937,5 +937,140 @@ describe('machikoro/scoring: 勝負', () => {
     expect(results(events)).toEqual([]);
     expect(prompts(events).some((p) => p.kind === 'rematch')).toBe(false);
     expect(run([{ type: 'rematch', user: 'p1', channel: 'C1' }], state).state).toBe(state);
+  });
+});
+
+describe('machikoro/bots: 擲骰、重擲與港口', () => {
+  const me = (cards: Record<string, number>, landmarks: string[] = []) => ({ id: 'bot:1:B', coins: 0, cards, landmarks: ['cityhall', ...landmarks] });
+
+  it('有火車站而且有骰點 7 以上的藍綠建築才擲 2 顆', () => {
+    expect(botDice(me({ wheat: 1, bakery: 1, family: 1 }, ['station']))).toBe(1);
+    expect(botDice(me({ wheat: 1, mine: 1 }, ['station']))).toBe(2);
+    expect(botDice(me({ wheat: 1, mine: 1 }))).toBe(1);
+  });
+
+  it('有廣播塔：這次點數對自己沒收入才重擲', () => {
+    const radio = (n: number) => roll(setup((s) => P(s, 'p1').landmarks.push('radio')), 1, dice(n)).state;
+    expect(autoMove(radio(5), true)).toEqual({ type: 'reroll', user: 'p1', seq: radio(5).seq, n: 1 });
+    expect(autoMove(radio(3), true).type).toBe('keep');
+  });
+
+  it('有港口：+2 收入比較多才加', () => {
+    const harbor = (cards: Record<string, number>) =>
+      roll(
+        setup((s) => {
+          P(s, 'p1').landmarks.push('harbor', 'station');
+          Object.assign(P(s, 'p1').cards, cards);
+        }),
+        2,
+        dice(6, 5),
+      ).state;
+    expect(autoMove(harbor({ warehouse: 1, cafe: 2 }), true)).toMatchObject({ type: 'harbor', yes: true });
+    expect(autoMove(harbor({ produce: 1 }), true)).toMatchObject({ type: 'harbor', yes: false });
+  });
+});
+
+describe('machikoro/bots: 紫色建築與買建築', () => {
+  it('電視台選現金最多的對手，同樣多時從下一位開始', () => {
+    const s = setup((s) => {
+      P(s, 'p2').coins = 4;
+      P(s, 'p3').coins = 9;
+    });
+    expect(richest(s)).toBe('p3');
+    const tie = setup((s) => {
+      s.current = 2;
+      P(s, 'p1').coins = 9;
+      P(s, 'p2').coins = 9;
+    });
+    expect(richest(tie)).toBe('p1');
+  });
+
+  it('商業中心一律不換', () => {
+    const s = roll(setup((s) => (P(s, 'p1').cards.business = 1))).state;
+    expect(autoMove(s, true).type).toBe('bizSkip');
+  });
+
+  // 直接進到買建築這一步
+  const atBuy = (coins: number, market: Record<string, number>, mut: (p: MState['players'][number]) => void = () => {}) =>
+    setup((s) => {
+      s.turn!.step = 'buy';
+      s.market = market;
+      P(s, 'p1').coins = coins;
+      mut(P(s, 'p1'));
+    });
+  const choice = (s: MState) => {
+    const a = autoMove(s, true);
+    return a.type === 'buy' ? a.code : a.type;
+  };
+
+  it('先蓋買得起、費用最低的地標', () => {
+    expect(choice(atBuy(5, { mine: 1 }))).toBe('harbor');
+  });
+
+  it('少於 10 張時買用得到而且最貴的建築', () => {
+    const s = atBuy(6, { mine: 1, forest: 1, tuna: 1 }, (p) => {
+      p.landmarks.push('harbor', 'station');
+      p.cards = { wheat: 2, bakery: 2 };
+    });
+    expect(choice(s)).toBe('mine');
+  });
+
+  it('沒有火車站時不買大骰點建築', () => {
+    expect(choice(atBuy(3, { apple: 1, wheat: 1 }, (p) => p.landmarks.push('harbor')))).toBe('wheat');
+  });
+
+  it('有港口時船和壽司店用得到；自己有的紫色不算', () => {
+    expect(choice(atBuy(4, { sushi: 1, mackerel: 1, ranch: 1 }, (p) => p.landmarks.push('harbor', 'station')))).toBe('sushi');
+    const owned = atBuy(1, { tax: 1, wheat: 1 }, (p) => {
+      p.landmarks.push('harbor', 'station');
+      p.cards.tax = 1;
+      p.coins = 4;
+    });
+    expect(choice(owned)).toBe('wheat');
+  });
+
+  it('同價時取市場顯示順序在前的', () => {
+    expect(choice(atBuy(1, { ranch: 1, wheat: 1 }, (p) => p.landmarks.push('harbor')))).toBe('wheat');
+  });
+
+  it('建築夠多就存錢', () => {
+    const s = atBuy(9, { wheat: 3 }, (p) => {
+      p.landmarks.push('harbor', 'station');
+      p.cards = { wheat: 5, bakery: 5 };
+    });
+    expect(choice(s)).toBe('pass');
+  });
+});
+
+describe('machikoro/bots: 一個人也能玩完整局', () => {
+  // 固定種子的亂數，骰子點數有變化
+  const seeded = (seed: number) => () => {
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    return seed / 2147483648;
+  };
+
+  it('bot 輪到時立刻行動，直到輪到真人', () => {
+    const lobby = run([{ type: 'addBot', user: 'p1', count: 3 }], lobbyWith(1).state).state;
+    const { state } = run([{ type: 'start', user: 'p1' }], lobby, () => 0.5);
+    expect(state.phase).toBe('play');
+    expect(cur(state)).toBe('p1');
+  });
+
+  it('1 位真人 + 3 個 bot，真人每次都逾時，30 輪內結束並送出 result', () => {
+    for (const seed of [1, 2, 3]) {
+      const r = seeded(seed);
+      const lobby = run([{ type: 'addBot', user: 'p1', count: 3 }], lobbyWith(1).state).state;
+      let { state, events } = run([{ type: 'start', user: 'p1' }], lobby, r);
+      const all = [...events];
+      for (let i = 0; i < 200 && state.phase === 'play'; i++) {
+        expect(cur(state)).toBe('p1');
+        ({ state, events } = fire(state, r));
+        all.push(...events);
+      }
+      expect(state.phase).toBe('ended');
+      expect(state.round).toBeLessThanOrEqual(31);
+      expect(results(all)).toHaveLength(1);
+      expect(results(all)[0].players).toHaveLength(4);
+    }
   });
 });

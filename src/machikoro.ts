@@ -553,8 +553,36 @@ export function autoMove(s: MState, bot: boolean): GameAction {
     case 'bizPlayer':
     case 'bizTake':
       return { type: 'bizSkip', ...base };
-    default:
-      return { type: 'pass', ...base };
+    case 'buy': {
+      const code = bot ? botBuy(s) : undefined;
+      return code ? { type: 'buy', ...base, code } : { type: 'pass', ...base };
+    }
+  }
+}
+
+// 用得到：紫色自己還沒有；船和壽司店要有港口；沒有火車站時骰點全部 7 以上的不算
+function useful(me: MPlayer, code: string): boolean {
+  if (CARDS[code].color === 'purple') return !me.cards[code];
+  if (['mackerel', 'tuna', 'sushi'].includes(code) && !has(me, 'harbor')) return false;
+  return has(me, 'station') || !bigRoll(code);
+}
+
+// bot 買什麼：先蓋最便宜的地標；建築少於 10 張時買用得到、買得起裡最貴的；其他不買
+function botBuy(s: MState): string | undefined {
+  const me = current(s);
+  const options = buyOptions(s);
+  const landmark = LANDMARKS.find((l) => options.includes(l));
+  if (landmark) return landmark;
+  if (cardCount(me) >= 10) return undefined;
+  const cards = options.filter((code) => CARDS[code] && useful(me, code));
+  return cards.reduce<string | undefined>((best, code) => (!best || CARDS[code].cost > CARDS[best].cost ? code : best), undefined);
+}
+
+// state 有變之後：輪到 bot 就讓它行動，直到輪到真人或遊戲結束
+function botsAct(c: Ctx) {
+  for (let guard = 0; guard < 2000 && c.s.phase === 'play' && isBot(current(c.s).id); guard++) {
+    // 防禦：策略算出的動作萬一被拒，改用逾時策略，不會卡住
+    if (!handle(c, autoMove(c.s, true))) handle(c, autoMove(c.s, false));
   }
 }
 
@@ -611,6 +639,7 @@ export function applyMachikoro(state: MState | undefined, action: MAction, rng: 
     isPlayer: (s, user) => s.players.some((p) => p.id === user),
     createLobby,
     handle,
+    afterChange: botsAct,
   });
 }
 
