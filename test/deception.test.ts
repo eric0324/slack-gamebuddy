@@ -687,7 +687,9 @@ describe('deception/solve: 勝負與結束', () => {
     expect(announces(events).join()).toContain('兇手陣營獲勝');
     expect([...resultOf(events)!.winners].sort()).toEqual(['p1', 'p2']);
     expect(ephemeralTo(run([{ type: 'rematch', user: 'x', channel: 'C1' }], state).events, 'x').join()).toContain('只有上一局的玩家');
-    expect(run([{ type: 'rematch', user: 'p3', channel: 'C1' }], state).state).toMatchObject({ phase: 'lobby', host: 'p3' });
+    const again = run([{ type: 'rematch', user: 'p3', channel: 'C1' }], state).state;
+    expect(again).toMatchObject({ phase: 'lobby', host: 'p3' });
+    expect(again.players.map((p) => p.id)).toEqual(['p3']);
   });
 
   it('房主取消：公告答案、沒有 result、沒有再來一局；夜晚沒選完只公告取消；非房主被拒；結束後舊按鈕被忽略', () => {
