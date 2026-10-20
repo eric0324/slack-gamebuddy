@@ -6,5 +6,5 @@
 
 ## 2. 文件與驗證
 
-- [ ] 2.1 wiki 首頁和側邊欄加上英文頁面 (問過再 push)；確認含特殊字元的英文頁名 (例如 Wits & Wagers) 連結能打開
+- [x] 2.1 wiki 首頁和側邊欄加上英文頁面 (問過再 push)；確認含特殊字元的英文頁名 (例如 Wits & Wagers) 連結能打開
 - [x] 2.2 跑 `npm test` 和 `npm run typecheck`，確認全部綠燈
