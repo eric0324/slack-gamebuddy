@@ -1,4 +1,5 @@
 // 戰績：把全真人遊戲的結果存在 SQLite，依頻道和玩家計算場數與勝率；狼人殺另外記陣營和角色。
+import { t, type Lang } from './i18n/index.js';
 import Database from 'better-sqlite3';
 import { isWolf, ROLE_NAME, type Role } from './engine.js';
 
@@ -170,28 +171,30 @@ export function formatStats(who: string, stats: PlayerStats | null): string {
 
 const pct = (wins: number, games: number) => `${Math.round((wins / games) * 100)}%`;
 
-// label：遊戲代號 → 顯示名稱 (例如「💀 骷髏與玫瑰」)
-export function formatSummary(who: string, rows: GameSummary[], label: (kind: string) => string): string {
-  if (!rows.length) return `這個頻道還沒有 ${who} 的戰績。`;
+// label：遊戲代號 → 顯示名稱 (例如「💀 骷髏與玫瑰」)；lang：頻道語系
+export function formatSummary(who: string, rows: GameSummary[], label: (kind: string) => string, lang: Lang = 'zh-TW'): string {
+  if (!rows.length) return t(lang, 'stats.none', { who });
   const games = rows.reduce((n, r) => n + r.games, 0);
   const versus = rows.filter((r) => r.wins !== null);
   const vGames = versus.reduce((n, r) => n + r.games, 0);
   const vWins = versus.reduce((n, r) => n + r.wins!, 0);
-  const total = vGames ? `總計 ${games} 場，對戰 ${vGames} 場 ${vWins} 勝 (${pct(vWins, vGames)})` : `總計 ${games} 場`;
+  const total = vGames ? t(lang, 'stats.totalVersus', { games, vGames, vWins, pct: pct(vWins, vGames) }) : t(lang, 'stats.total', { games });
   const lines = rows.map((r) =>
-    r.wins === null ? `${label(r.kind)} ${r.games} 場，最高 ${r.best} 分` : `${label(r.kind)} ${r.games} 場 ${r.wins} 勝 (${pct(r.wins, r.games)})`,
+    r.wins === null
+      ? t(lang, 'stats.coopLine', { label: label(r.kind), games: r.games, best: r.best! })
+      : t(lang, 'stats.versusLine', { label: label(r.kind), games: r.games, wins: r.wins, pct: pct(r.wins, r.games) }),
   );
-  return [`📊 ${who} 在這個頻道的戰績`, total, ...lines].join('\n');
+  return [t(lang, 'stats.title', { who }), total, ...lines].join('\n');
 }
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
-export function formatLeaderboard(board: Leaderboard, title: string): string {
-  if (!board.rows.length) return '這個頻道還沒有戰績。';
+export function formatLeaderboard(board: Leaderboard, title: string, lang: Lang = 'zh-TW'): string {
+  if (!board.rows.length) return t(lang, 'rank.none');
   const rank = (i: number) => MEDALS[i] ?? `${i + 1}.`;
   const lines =
     board.by === 'wins'
-      ? board.rows.map((r, i) => `${rank(i)} <@${r.user}> ${r.wins} 勝／${r.games} 場 (${pct(r.wins, r.games)})`)
-      : board.rows.map((r, i) => `${rank(i)} <@${r.user}> 最高 ${r.best} 分 (${r.games} 場)`);
-  return [`🏆 ${title}`, ...lines].join('\n');
+      ? board.rows.map((r, i) => t(lang, 'rank.winsLine', { rank: rank(i), user: r.user, wins: r.wins, games: r.games, pct: pct(r.wins, r.games) }))
+      : board.rows.map((r, i) => t(lang, 'rank.scoreLine', { rank: rank(i), user: r.user, best: r.best, games: r.games }));
+  return [t(lang, 'rank.title', { title }), ...lines].join('\n');
 }

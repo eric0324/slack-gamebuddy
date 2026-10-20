@@ -1,5 +1,6 @@
 // 狼人殺以外的遊戲接上 Slack adapter 的共同介面：每款遊戲一個 GameDef，集中在 src/games/<遊戲>.ts
 import type { GameEvent, Rng } from '../engine.js';
+import type { Lang } from '../i18n/index.js';
 
 export const WIKI = 'https://github.com/eric0324/slack-gamebuddy/wiki';
 export const DISCUSSIONS = 'https://github.com/eric0324/slack-gamebuddy/discussions';
@@ -14,6 +15,7 @@ export interface GameDef<S extends { phase: string }, A extends { type: string }
   category: Category;
   desc: string; // 大廳的一句介紹
   noBots?: boolean; // 遊戲清單那一行加「(不支援 bot)」
+  locales?: Partial<Record<Lang, { name: string; players: string; desc: string }>>; // 有填的語系才算翻譯好；zh-TW 用上面的欄位
   help: string; // `/game <遊戲> help` 的指令說明
   apply(state: S | undefined, action: A, rng: Rng): { state: S; events: GameEvent[] };
   parse(text: string, user: string, channel: string): A | null;

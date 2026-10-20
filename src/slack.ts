@@ -4,6 +4,8 @@ import { GIFS } from './gifs.js';
 import { checkImage, LIBRARY_COMMANDS, memeLibraryCommand } from './memeLibrary.js';
 import type { MemeStore } from './memeStore.js';
 import type { CrewStore } from './crewStore.js';
+import { LANGS, langName, parseLang, t, type Lang } from './i18n/index.js';
+import { LangStore } from './langStore.js';
 import { formatLeaderboard, formatStats, formatSummary, type StatsStore } from './stats.js';
 import { GAMES, type GameKind, type StateOf } from './games/index.js';
 import { DISCUSSIONS, WIKI, type GameDef } from './games/types.js';
@@ -38,6 +40,7 @@ export interface HostOptions {
   respond?: (url: string, payload: object) => Promise<void>; // 用按鈕的 response_url 換掉 ephemeral 訊息
   memes?: MemeStore; // 梗圖大亂鬥的頻道梗圖庫
   crew?: CrewStore; // 星際探險隊的頻道戰役進度
+  langs?: LangStore; // 頻道語系；沒給就用記憶體 (測試用)
   checkImage?: (url: string) => Promise<boolean>; // 投稿梗圖時確認網址是圖片
 }
 
@@ -59,17 +62,13 @@ const HELP = [
   `📖 完整說明：<${encodeURI('https://github.com/eric0324/slack-gamebuddy/wiki/狼人殺-指令')}|指令>、<${RULES_URL}|遊戲規則>`,
 ].join('\n');
 
-const GAME_LIST = [
-  '*可以玩的遊戲*',
-  '• 🐺 *狼人殺* (`werewolf`)：6～12 人，開房 `/game werewolf new` (或 `/werewolf new`)',
-  ...GAMES.map((g) => `• ${g.emoji} *${g.name}* (\`${g.kind}\`)：${g.players}${'noBots' in g ? ' (不支援 bot)' : ''}，開房 \`/game ${g.kind} new\``),
-  '各遊戲的指令：`/game <遊戲代號> help`，例如 `/game liarsdice help`',
-  '📊 戰績：`/game stats [@某人]`；排行榜：`/game rank [遊戲代號]`',
-  `📖 完整說明：<${WIKI}|wiki>`,
-].join('\n');
-
-// 遊戲代號 → 顯示名稱 (戰績和排行榜用)
-const gameLabel = (kind: string) => (kind === 'werewolf' ? '🐺 狼人殺' : kind in DEFS ? `${DEFS[kind as GameKind].emoji} ${DEFS[kind as GameKind].name}` : kind);
+// 遊戲代號 → 顯示名稱 (戰績和排行榜用)；已移除的遊戲顯示代號
+const gameLabel = (lang: Lang) => (kind: string) => {
+  const g = CATALOG.find((x) => x.kind === kind);
+  if (!g) return kind;
+  const { name, tag } = gameText(g, lang);
+  return `${g.emoji} ${name}${tag}`;
+};
 
 // Slack 的 *粗體* 和 `程式碼` 標記外側不能緊貼文字；中文沒有空格，緊貼中文或全形標點時補一個空格
 const SAFE_EDGE = /[\s!-/:-@[-`{-~]/;
@@ -82,36 +81,64 @@ export function slackText(text: string): string {
 }
 
 // 遊戲大廳：每款遊戲一列，附「開房」按鈕
-const CATALOG: { kind: Kind; category: string; emoji: string; name: string; players: string; desc: string }[] = [
+type CatalogEntry = { kind: Kind; category: string; emoji: string; name: string; players: string; desc: string; noBots?: boolean; locales?: GameDef<any, any>['locales'] };
+const CATALOG: CatalogEntry[] = [
   { kind: 'werewolf', category: 'deduction', emoji: '🐺', name: '狼人殺', players: '6～12 人', desc: '陣營推理，夜晚私訊行動、白天輪流發言投票' },
-  ...GAMES.map(({ kind, category, emoji, name, players, desc }) => ({ kind, category, emoji, name, players, desc })),
+  ...GAMES.map((g) => g as GameDef<any, any> & { kind: GameKind }),
 ];
 
-// 大廳的分類：一次只顯示一類，按上面的分類按鈕切換
-const CATEGORIES = [
-  { key: 'deduction', label: '🔍 身分推理' },
-  { key: 'bluff', label: '🎭 吹牛心機' },
-  { key: 'party', label: '😂 派對創意' },
-  { key: 'team', label: '⚔️ 團隊對抗' },
-  { key: 'coop', label: '🤝 合作' },
-  { key: 'strategy', label: '🧩 策略桌遊' },
-];
+// 大廳的分類：一次只顯示一類，按上面的分類按鈕切換；按鈕文字照語系 (cat.<key>)
+const CATEGORIES = ['deduction', 'bluff', 'party', 'team', 'coop', 'strategy'] as const;
 
-function lobbyBlocks(channel: string, category = CATEGORIES[0].key) {
+// 遊戲在某個語系的名稱、人數、介紹；還沒有這個語系的翻譯時用中文，tag 是「 (中文)」標示
+function gameText(g: CatalogEntry, lang: Lang) {
+  const tr = lang === 'zh-TW' ? g : g.locales?.[lang];
+  return tr ? { ...tr, tag: '' } : { name: g.name, players: g.players, desc: g.desc, tag: t(lang, 'lobby.untranslated') };
+}
+
+// `/game help` 和大廳訊息的純文字版
+function gameList(lang: Lang): string {
+  const item = (g: CatalogEntry) => {
+    const { name, players, tag } = gameText(g, lang);
+    return t(lang, 'list.item', {
+      emoji: g.emoji,
+      name,
+      tag,
+      kind: g.kind,
+      players,
+      noBots: g.noBots ? t(lang, 'list.noBots') : '',
+      alias: g.kind === 'werewolf' ? t(lang, 'list.werewolfAlias') : '',
+    });
+  };
+  return [t(lang, 'list.title'), ...CATALOG.map(item), t(lang, 'list.helpHint'), t(lang, 'list.statsHint'), t(lang, 'list.wiki', { wiki: WIKI })].join('\n');
+}
+
+function lobbyBlocks(channel: string, lang: Lang, category: string = CATEGORIES[0]) {
   return [
-    { type: 'section', text: { type: 'mrkdwn', text: slackText('*🎮 遊戲大廳*：選分類，點「開房」就能開一局，你會是房主') } },
+    { type: 'section', text: { type: 'mrkdwn', text: slackText(t(lang, 'lobby.header')) } },
     {
       type: 'actions',
-      elements: CATEGORIES.map((c, i) => ({ ...button('lobbyTab', i, c.label, channel, c.key), ...(c.key === category ? { style: 'primary' } : {}) })),
+      elements: CATEGORIES.map((c, i) => ({ ...button('lobbyTab', i, t(lang, `cat.${c}`), channel, c), ...(c === category ? { style: 'primary' } : {}) })),
     },
-    ...CATALOG.map((g, i) => ({ g, i })).filter(({ g }) => g.category === category).map(({ g, i }) => ({
-      type: 'section',
-      text: { type: 'mrkdwn', text: slackText(`${g.emoji} *${g.name}* (\`${g.kind}\`) ${g.players}\n${g.desc}`) },
-      accessory: button('lobbyOpen', i, '開房', channel, g.kind),
-    })),
-    { type: 'context', elements: [{ type: 'mrkdwn', text: slackText(`看指令：\`/game <代號> help\`｜📖 <${WIKI}|wiki>｜<${DISCUSSIONS}|💬 社群討論>`) }] },
+    ...CATALOG.map((g, i) => ({ g, i })).filter(({ g }) => g.category === category).map(({ g, i }) => {
+      const { name, players, desc, tag } = gameText(g, lang);
+      return {
+        type: 'section',
+        text: { type: 'mrkdwn', text: slackText(`${g.emoji} *${name}*${tag} (\`${g.kind}\`) ${players}\n${desc}`) },
+        accessory: button('lobbyOpen', i, t(lang, 'lobby.open'), channel, g.kind),
+      };
+    }),
+    { type: 'context', elements: [{ type: 'mrkdwn', text: slackText(t(lang, 'lobby.footer', { wiki: WIKI, discussions: DISCUSSIONS })) }] },
   ];
 }
+
+// 各遊戲共用的「再來一局」prompt：engine 送中文，送出時照這局的語系翻譯
+const REMATCH_ASK = '要再來一局嗎？';
+const rematchPrompt = (e: Extract<GameEvent, { type: 'prompt' }>, lang: Lang) => ({
+  ...e,
+  text: t(lang, 'rematch.ask'),
+  options: e.options.map((o) => (o.label === '再來一局' ? { ...o, label: t(lang, 'rematch.button') } : o)),
+});
 
 // 只有開房和再來一局會改變頻道目前的遊戲；舊遊戲留下的計時器之後才觸發時不能把按鈕搶回去
 const isCreation = (action: { type: string }) => action.type === 'new' || action.type === 'rematch';
@@ -194,6 +221,7 @@ export class GameHost {
   private stats?: StatsStore;
   private memes?: MemeStore;
   private crew?: CrewStore;
+  private langs: LangStore;
   private checkImage: (url: string) => Promise<boolean>;
   private setTimer: (fn: () => void, ms: number) => void;
   private respond: (url: string, payload: object) => Promise<void>;
@@ -207,6 +235,7 @@ export class GameHost {
     this.stats = opts.stats;
     this.memes = opts.memes;
     this.crew = opts.crew;
+    this.langs = opts.langs ?? new LangStore(':memory:');
     this.checkImage = opts.checkImage ?? checkImage;
     this.setTimer = opts.setTimer ?? ((fn, ms) => void setTimeout(fn, ms));
     this.respond = opts.respond ?? postJson;
@@ -262,6 +291,7 @@ export class GameHost {
     if (this.isOther(g)) return this.play(g, channel, user, restText);
     if (g === 'stats') return this.showSummary(channel, user, restText);
     if (g === 'rank') return this.showRank(channel, user, restText);
+    if (g === 'lang') return this.setLang(channel, user, restText);
     return this.showLobby(channel, user);
   }
 
@@ -280,10 +310,35 @@ export class GameHost {
 
 
 
+  // 頻道目前的語系
+  private lang(channel: string): Lang {
+    return this.langs.get(channel);
+  }
+
+  // 這局的語系：開房時存進 state 的；狼人殺和還沒開房的用頻道目前的語系
+  private gameLang(channel: string, kind: Kind): Lang {
+    const st = kind === 'werewolf' ? undefined : (this.states.get(kind)!.get(channel) as { lang?: Lang } | undefined);
+    return st?.lang ?? this.lang(channel);
+  }
+
+  // `/game lang [語系]`：查看或設定這個頻道的語系；進行中的遊戲不受影響，下一次開房才套用
+  private setLang(channel: string, user: string, arg: string): Promise<void> {
+    const list = LANGS.map((l) => `\`${l.code}\` ${l.name}`).join('、');
+    const current = this.lang(channel);
+    if (!arg) return this.reply(channel, user, t(current, 'lang.current', { name: langName(current), code: current, list }));
+    const lang = parseLang(arg);
+    if (!lang) return this.reply(channel, user, t(current, 'lang.unknown', { list }));
+    this.langs.set(channel, lang);
+    return this.deliver(channel, [{ type: 'announce', text: t(lang, 'lang.changed', { user: mention(user), name: langName(lang) }) }]);
+  }
+
   // `/game`：只讓輸入的人看到遊戲大廳
   private showLobby(channel: string, user: string, category?: string): Promise<void> {
     this.queue = this.queue
-      .then(() => this.client.chat.postEphemeral({ channel, user, text: slackText(GAME_LIST), blocks: lobbyBlocks(channel, category) }))
+      .then(() => {
+        const lang = this.lang(channel);
+        return this.client.chat.postEphemeral({ channel, user, text: slackText(gameList(lang)), blocks: lobbyBlocks(channel, lang, category) });
+      })
       .catch((err) => console.error('[werewolf] Slack API error', err));
     return this.queue;
   }
@@ -293,7 +348,7 @@ export class GameHost {
     const def = DEFS[kind];
     const action = def.parse(text, user, channel);
     if (!action) return this.reply(channel, user, def.help);
-    if (this.blocked(channel, kind)) return this.reply(channel, user, action.type === 'new' ? BUSY : NOT_APPLICABLE);
+    if (this.blocked(channel, kind)) return this.reply(channel, user, t(this.lang(channel), action.type === 'new' ? 'room.busy' : 'room.notApplicable'));
     return this.dispatchGame(kind, channel, action);
   }
 
@@ -308,6 +363,7 @@ export class GameHost {
     const def = DEFS[kind];
     if (['meme', 'dixit'].includes(kind) && action.type === 'start') action = { ...action, custom: this.memes?.list(channel) ?? [] } as typeof action; // 開局時帶入頻道的投稿梗圖
     if (kind === 'crew' && (action.type === 'new' || action.type === 'level')) action = { ...action, unlocked: this.crew?.get(channel) ?? 1 } as typeof action; // 帶入頻道已解鎖的關卡
+    if (isCreation(action)) action = { ...action, lang: this.lang(channel) } as typeof action; // 開房和再來一局採用當下的頻道語系
     const states = this.states.get(kind)!;
     const prev = states.get(channel);
     const { state, events } = def.apply(prev, action, this.rng);
@@ -320,8 +376,9 @@ export class GameHost {
 
   // 切換大廳分類：用 response_url 換掉原本那則大廳；失敗或沒有時改發一則新的
   private switchLobby(channel: string, user: string, category: string, responseUrl?: string): Promise<void> {
-    if (!CATEGORIES.some((c) => c.key === category)) return Promise.resolve();
-    const payload = { replace_original: true, text: slackText(GAME_LIST), blocks: lobbyBlocks(channel, category) };
+    if (!CATEGORIES.some((c) => c === category)) return Promise.resolve();
+    const lang = this.lang(channel);
+    const payload = { replace_original: true, text: slackText(gameList(lang)), blocks: lobbyBlocks(channel, lang, category) };
     const replaced = responseUrl ? this.respond(responseUrl, payload).then(() => true) : Promise.resolve(false);
     return replaced
       .catch((err) => (console.error('[werewolf] response_url failed', err), false))
@@ -364,20 +421,19 @@ export class GameHost {
   // `/game stats [@某人]`：這個頻道所有遊戲的戰績
   private showSummary(channel: string, user: string, arg: string): Promise<void> {
     const target = arg ? /^<@([A-Z0-9]+)(\|[^>]*)?>$/.exec(arg)?.[1] : user;
-    const text = target
-      ? formatSummary(mention(target), this.stats?.summary(channel, target) ?? [], gameLabel)
-      : '請用 @ 選擇要查詢的玩家，例如 `/game stats @某人`。';
+    const lang = this.lang(channel);
+    const text = target ? formatSummary(mention(target), this.stats?.summary(channel, target) ?? [], gameLabel(lang), lang) : t(lang, 'stats.needMention');
     return this.reply(channel, user, text);
   }
 
   // `/game rank [遊戲代號]`：這個頻道的排行榜
   private showRank(channel: string, user: string, arg: string): Promise<void> {
     const kind = arg.trim() || undefined;
-    if (kind && kind !== 'werewolf' && !(kind in DEFS)) {
-      return this.reply(channel, user, '用法：`/game rank` 看這個頻道的排行榜，`/game rank <遊戲代號>` 看單一遊戲，例如 `/game rank skull`。');
-    }
+    const lang = this.lang(channel);
+    if (kind && kind !== 'werewolf' && !(kind in DEFS)) return this.reply(channel, user, t(lang, 'rank.usage'));
     const board = this.stats?.leaderboard(channel, kind) ?? { by: 'wins' as const, rows: [] };
-    return this.reply(channel, user, formatLeaderboard(board, kind ? `${gameLabel(kind)}排行榜` : '這個頻道的排行榜'));
+    const title = kind ? t(lang, 'rank.game', { game: gameLabel(lang)(kind) }) : t(lang, 'rank.channel');
+    return this.reply(channel, user, formatLeaderboard(board, title, lang));
   }
 
   // `/werewolf stats [@某人]`：開啟 should_escape 後，mention 會是 <@U123> 或 <@U123|名字>
@@ -417,10 +473,15 @@ export class GameHost {
     this.queue = this.queue
       .then(async () => {
         const left = panel && { ...panel }; // 只取代一次
-        for (const e of events) await this.send(channel, e, kind, triggerId, left);
+        for (const e of events) await this.send(channel, this.localize(channel, e, kind), kind, triggerId, left);
       })
       .catch((err) => console.error('[werewolf] Slack API error', err));
     return this.queue;
+  }
+
+  // engine 送來的共用文字照這局的語系翻譯：目前只有各遊戲共用的「再來一局」
+  private localize(channel: string, e: GameEvent, kind: Kind): GameEvent {
+    return e.type === 'prompt' && e.kind === 'rematch' && e.text === REMATCH_ASK ? rematchPrompt(e, this.gameLang(channel, kind)) : e;
   }
 
   private async dm(user: string): Promise<string> {
@@ -592,14 +653,20 @@ export class GameHost {
         const rules = `${WIKI}/${encodeURI(`${title.replaceAll(' ', '-')}-遊戲規則`)}`;
         const def = kind === 'werewolf' ? undefined : DEFS[kind];
         const max = def ? Number(def.players.match(/(\d+) 人/)![1]) : MAX_PLAYERS; // 遊戲清單人數範圍的最大值
-        const name = title.endsWith(')') ? `${title} ` : title; // 名稱以括號結尾時補空白，例如「心電感應 (合作) 房間」
-        const text = `${name}房間 (房主 ${mention(e.host)})\n玩家 (${e.players.length}/${max})：${e.players.map(mention).join(' ')}\n📖 第一次玩？先看 <${rules}|${name}遊戲規則>`;
+        const lang = this.gameLang(channel, kind);
+        const shown = lang === 'zh-TW' ? title : (def?.locales?.[lang]?.name ?? `${title}${t(lang, 'lobby.untranslated')}`);
+        const name = lang === 'zh-TW' && title.endsWith(')') ? `${title} ` : shown; // 名稱以括號結尾時補空白，例如「心電感應 (合作) 房間」
+        const text = [
+          t(lang, 'room.title', { name, host: mention(e.host) }),
+          t(lang, 'room.players', { count: e.players.length, max, players: e.players.map(mention).join(' ') }),
+          t(lang, 'room.rules', { url: rules, name }),
+        ].join('\n');
         const blocks: unknown[] = [{ type: 'section', text: { type: 'mrkdwn', text } }];
         if (e.open) {
           const elements = [
-            button('join', 0, '加入', channel, 'join'),
-            button('leave', 1, '離開', channel, 'leave'),
-            { ...button('start', 2, '開始遊戲', channel, 'start'), style: 'primary' },
+            button('join', 0, t(lang, 'room.join'), channel, 'join'),
+            button('leave', 1, t(lang, 'room.leave'), channel, 'leave'),
+            { ...button('start', 2, t(lang, 'room.start'), channel, 'start'), style: 'primary' },
             ...(def?.noBots ? [] : [button('addbot', 3, '🤖 +', channel, 'addbot'), button('removebot', 4, '🤖 -', channel, 'removebot')]),
           ];
           blocks.push({ type: 'actions', elements });
