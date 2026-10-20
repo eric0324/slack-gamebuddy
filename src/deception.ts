@@ -2,7 +2,9 @@
 // 介面和其他遊戲一樣：applyDeception(state, action, rng) → { state, events }。
 import { mention, type GameEvent, type Rng } from './engine.js';
 import { cancelGame, joinRoom, leaveRoom, lobbyEvent, reply, runGame, shuffle, startTimer } from './common.js';
-import { CAUSE_BOARD, CLUES, LOCATION_BOARDS, MEANS, SCENE_BOARDS, type Board } from './deceptionCards.js';
+import { CAUSE_BOARD, DECKS, type Board } from './deceptionCards.js';
+import type { Lang } from './i18n/index.js';
+import { tx } from './i18n/games/deception.js';
 
 export const MIN_DECEPTION_PLAYERS = 4;
 export const MAX_DECEPTION_PLAYERS = 12;
@@ -15,24 +17,22 @@ const FIRST_EVIDENCE_MS = 240_000;
 const EVIDENCE_MS = 120_000;
 const SPEAK_MS = 90_000;
 const REVERSAL_MS = 120_000;
-const STALE = '這個階段已經結束了。';
-const NOT_PLAYER = '你不在這局遊戲裡。';
 
 export type Role = 'scientist' | 'murderer' | 'accomplice' | 'witness' | 'investigator';
-const ROLE_NAME: Record<Role, string> = {
-  scientist: '🔬 鑑識官',
-  murderer: '🔪 兇手',
-  accomplice: '🤝 共犯',
-  witness: '👀 目擊者',
-  investigator: '🕵️ 調查員',
-};
-const ROLE_INTRO: Record<Role, string> = {
-  scientist: '🔬 你是鑑識官 (好人陣營)。你只能用提示板上的子彈給提示，不能在頻道透露答案，也不發言、不能破案。天亮後會私下告訴你兇手、共犯和答案。',
-  murderer: '🔪 你是兇手。馬上會私訊你，從自己面前選 1 張手段和 1 張線索當答案；之後混在調查員裡誤導大家。',
-  accomplice: '🤝 你是共犯 (兇手陣營)。天亮後會私下告訴你兇手是誰和答案，幫兇手誤導大家。',
-  witness: '👀 你是目擊者 (好人陣營)。天亮後會私下告訴你兇手和共犯是哪兩位 (不知道誰是誰)；小心別被兇手發現，破案後兇手可以指認你翻盤。',
-  investigator: '🕵️ 你是調查員 (好人陣營)。目標：從大家面前的卡和鑑識官的子彈，找出兇手和他用的手段、線索。',
-};
+const ROLE_NAME = {
+  scientist: 'roleScientist',
+  murderer: 'roleMurderer',
+  accomplice: 'roleAccomplice',
+  witness: 'roleWitness',
+  investigator: 'roleInvestigator',
+} as const;
+const ROLE_INTRO = {
+  scientist: 'introScientist',
+  murderer: 'introMurderer',
+  accomplice: 'introAccomplice',
+  witness: 'introWitness',
+  investigator: 'introInvestigator',
+} as const;
 
 export interface DPlayer {
   id: string;
@@ -70,17 +70,18 @@ export interface DState {
   winner?: 'good' | 'evil';
   timerSeq: number;
   timers: { phase?: number };
+  lang?: Lang; // 開房時的頻道語系 (runGame 存進來)
 }
 
 export type DAction =
-  | { type: 'new'; user: string; channel: string }
+  | { type: 'new'; user: string; channel: string; lang?: Lang }
   | { type: 'join'; user: string }
   | { type: 'leave'; user: string }
   | { type: 'start'; user: string }
   | { type: 'cancel'; user: string }
   | { type: 'addBot'; user: string; count: number }
   | { type: 'removeBot'; user: string; count: number }
-  | { type: 'rematch'; user: string; channel: string }
+  | { type: 'rematch'; user: string; channel: string; lang?: Lang }
   | { type: 'me'; user: string }
   | { type: 'nightMeans'; user: string; i: number }
   | { type: 'nightClue'; user: string; i: number }
@@ -104,13 +105,17 @@ type GameAction = Exclude<DAction, { type: 'new' } | { type: 'rematch' }>;
 type Result = { state: DState; events: GameEvent[] };
 type Ctx = { s: DState; events: GameEvent[]; rng: Rng };
 
+// 這局語系的文字、詞庫和提示板
+const say = (s: DState, key: Parameters<typeof tx>[1], params?: Record<string, string | number>) => tx(s.lang, key, params);
+const deckOf = (s: DState) => DECKS[s.lang ?? 'zh-TW'];
 const find = (s: DState, id: string) => s.players.find((p) => p.id === id);
 const withRole = (s: DState, role: Role) => s.players.find((p) => p.role === role);
 const scientist = (s: DState) => withRole(s, 'scientist')!;
 const suspects = (s: DState) => s.players.filter((p) => p.role !== 'scientist');
 
 // 場上一覽：鑑識官以外每人一行
-const tableLines = (s: DState) => suspects(s).map((p) => `${mention(p.id)}　手段：${p.means.join('、')}　線索：${p.clues.join('、')}`);
+const tableLines = (s: DState) =>
+  suspects(s).map((p) => say(s, 'tableLine', { who: mention(p.id), means: p.means.join(say(s, 'listSep')), clues: p.clues.join(say(s, 'listSep')) }));
 
 // 人數 → 角色 (鑑識官另外選)；6 人以上一律有共犯和目擊者
 function roleDeck(n: number): Role[] {
@@ -119,30 +124,31 @@ function roleDeck(n: number): Role[] {
 }
 
 function rules(s: DState) {
-  const extra = withRole(s, 'witness') ? '這局有共犯和目擊者' : '這局沒有共犯和目擊者';
+  const extra = say(s, withRole(s, 'witness') ? 'extraYes' : 'extraNo');
   return [
-    `🔎 詭影神探開始！玩家：${s.players.map((p) => mention(p.id)).join('、')}`,
-    `${ROLE_NAME.scientist}：${mention(scientist(s).id)} (身分公開)｜${extra}｜共 ${ROUNDS} 輪`,
-    '兇手會暗中選自己面前的 1 張手段和 1 張線索；鑑識官知道答案，但只能用提示板上的子彈給暗示。',
-    '鑑識官以外每人整局只有一次破案機會，要選對嫌犯、手段和線索；3 輪都沒人破案，兇手贏。',
-    '身分已經用私訊傳給大家。',
+    say(s, 'rulesStart', { players: s.players.map((p) => mention(p.id)).join(say(s, 'listSep')) }),
+    say(s, 'rulesScientist', { role: say(s, ROLE_NAME.scientist), sci: mention(scientist(s).id), extra, rounds: ROUNDS }),
+    say(s, 'rules1'),
+    say(s, 'rules2'),
+    say(s, 'rules3'),
     '',
-    '場上一覽',
+    say(s, 'tableTitle'),
     ...tableLines(s),
   ].join('\n');
 }
 
 function start(c: Ctx, user: string): boolean {
   const s = c.s;
-  if (user !== s.host) return reply(c, user, '只有房主可以開始遊戲。');
+  if (user !== s.host) return reply(c, user, say(s, 'onlyHostStart'));
   if (s.phase !== 'lobby') return false;
   const n = s.players.length;
-  if (n < MIN_DECEPTION_PLAYERS) return reply(c, user, `目前 ${n} 人，至少需要 ${MIN_DECEPTION_PLAYERS} 人才能開始。`);
+  if (n < MIN_DECEPTION_PLAYERS) return reply(c, user, say(s, 'needMore', { n, min: MIN_DECEPTION_PLAYERS }));
   c.events.push(lobbyEvent(TITLE, { ...s, phase: 'night' }));
   const sci = Math.floor(c.rng() * n);
   const roles = shuffle(roleDeck(n), c.rng);
-  const means = shuffle(MEANS, c.rng);
-  const clues = shuffle(CLUES, c.rng);
+  const cards = deckOf(s);
+  const means = shuffle(cards.means, c.rng);
+  const clues = shuffle(cards.clues, c.rng);
   s.players.forEach((p, i) => {
     Object.assign(p, newPlayer(p.id));
     if (i === sci) p.role = 'scientist';
@@ -153,29 +159,29 @@ function start(c: Ctx, user: string): boolean {
       p.badge = true;
     }
   });
-  const deck = shuffle(SCENE_BOARDS, c.rng);
-  Object.assign(s, { round: 1, answer: {}, cause: { board: CAUSE_BOARD }, location: undefined, scenes: deck.splice(0, SCENES).map((board) => ({ board })), sceneDeck: deck, guesses: [] });
+  const deck = shuffle(cards.scenes, c.rng);
+  Object.assign(s, { round: 1, answer: {}, cause: { board: cards.cause }, location: undefined, scenes: deck.splice(0, SCENES).map((board) => ({ board })), sceneDeck: deck, guesses: [] });
   c.events.push({ type: 'announce', text: rules(s), gif: 'start' });
-  for (const p of s.players) c.events.push({ type: 'dm', to: p.id, text: ROLE_INTRO[p.role!] });
+  for (const p of s.players) c.events.push({ type: 'dm', to: p.id, text: say(s, ROLE_INTRO[p.role!]) });
   startNight(c);
   return true;
 }
 
 // ---------- 夜晚 ----------
 
-const answerText = (s: DState) => `手段「${s.answer.means}」、線索「${s.answer.clue}」`;
+const answerText = (s: DState) => say(s, 'answerText', { means: s.answer.means ?? '', clue: s.answer.clue ?? '' });
 
 function startNight(c: Ctx) {
   const s = c.s;
   s.phase = 'night';
   const m = withRole(s, 'murderer')!;
-  c.events.push({ type: 'announce', text: '🌙 天黑了，兇手正在選擇手段和線索。' });
+  c.events.push({ type: 'announce', text: say(s, 'nightFalls') });
   c.events.push({
     type: 'prompt',
     kind: 'deception',
     audience: 'user',
     user: m.id,
-    text: `🔪 選一張你面前的手段卡當作行兇手段 (${NIGHT_MS / 1000} 秒)`,
+    text: say(s, 'nightPickMeans', { sec: NIGHT_MS / 1000 }),
     options: m.means.map((label, i) => ({ value: `nm:${i}`, label })),
   });
   startTimer(c, NIGHT_MS);
@@ -184,8 +190,8 @@ function startNight(c: Ctx) {
 // 兇手選答案的共同檢查；回傳兇手或 null
 function nightCheck(c: Ctx, user: string, done: boolean): DPlayer | null {
   const me = find(c.s, user);
-  if (me?.role !== 'murderer') return (reply(c, user, '只有兇手可以選答案。'), null);
-  if (c.s.phase !== 'night' || done) return (reply(c, user, '已經選好了。'), null);
+  if (me?.role !== 'murderer') return (reply(c, user, say(c.s, 'onlyMurdererPick')), null);
+  if (c.s.phase !== 'night' || done) return (reply(c, user, say(c.s, 'alreadyPicked')), null);
   return me;
 }
 
@@ -198,7 +204,7 @@ function nightMeans(c: Ctx, user: string, i: number): boolean {
     kind: 'deception',
     audience: 'user',
     user,
-    text: `🔪 手段是「${me.means[i]}」。再選一張你面前的線索卡當作關鍵證物`,
+    text: say(c.s, 'nightPickClue', { means: me.means[i] }),
     options: me.clues.map((label, k) => ({ value: `nc:${k}`, label })),
   });
   return true;
@@ -218,13 +224,13 @@ function nightInfo(s: DState, p: DPlayer): string {
   const acc = withRole(s, 'accomplice');
   switch (p.role) {
     case 'scientist':
-      return `兇手：${m}${acc ? `｜共犯：${mention(acc.id)}` : ''}｜答案：${answerText(s)}`;
+      return say(s, 'infoScientist', { m, acc: acc ? say(s, 'infoAcc', { acc: mention(acc.id) }) : '', answer: answerText(s) });
     case 'accomplice':
-      return `兇手：${m}｜答案：${answerText(s)}`;
+      return say(s, 'infoAccomplice', { m, answer: answerText(s) });
     case 'witness':
-      return `${s.seen.map(mention).join(' 和 ')} 是兇手和共犯 (不知道誰是誰)`;
+      return say(s, 'infoWitness', { pair: s.seen.map(mention).join(say(s, 'pairSep')) });
     case 'murderer':
-      return `你選的答案：${answerText(s)}`;
+      return say(s, 'infoMurderer', { answer: answerText(s) });
     default:
       return '';
   }
@@ -237,9 +243,9 @@ function endNight(c: Ctx) {
   s.seen = withRole(s, 'witness') ? shuffle(pair, c.rng) : [];
   for (const p of s.players) {
     const info = nightInfo(s, p);
-    if (info) c.events.push({ type: 'dm', to: p.id, text: `🌅 天亮了。${info}` });
+    if (info) c.events.push({ type: 'dm', to: p.id, text: say(s, 'dawnDm', { info }) });
   }
-  c.events.push({ type: 'announce', text: '🌅 天亮了！鑑識官開始蒐證。' });
+  c.events.push({ type: 'announce', text: say(s, 'dawn') });
   startEvidence(c);
 }
 
@@ -255,17 +261,18 @@ function nightTimeout(c: Ctx) {
 // ---------- 蒐證與發言 ----------
 
 // 一張板一行，子彈用【】標出
-const boardLine = (title: string, x: Placed) => `${title}：${x.board.options.map((o, i) => (i === x.bullet ? `【${o}】` : o)).join('／')}`;
+const boardLine = (s: DState, title: string, x: Placed) =>
+  say(s, 'boardLine', { title, options: x.board.options.map((o, i) => (i === x.bullet ? say(s, 'bullet', { o }) : o)).join(say(s, 'optSep')) });
 
 function boardLines(s: DState): string[] {
   const loc = s.location
-    ? boardLine(`案發地點 (${s.location.board.title})`, s.location)
-    : `案發地點：${s.round === 1 && s.phase === 'evidence' ? '(還沒選)' : '(沒有使用)'}`;
+    ? boardLine(s, say(s, 'locTitle', { title: s.location.board.title }), s.location)
+    : say(s, 'locNone', { state: say(s, s.round === 1 && s.phase === 'evidence' ? 'notChosen' : 'notUsed') });
   return [
-    boardLine(s.cause.board.title, s.cause),
+    boardLine(s, s.cause.board.title, s.cause),
     loc,
-    ...s.scenes.map((x) => boardLine(x.board.title, x)),
-    ...(s.fresh ? [`${boardLine(`新抽的板．${s.fresh.title}`, { board: s.fresh })} (還沒放子彈)`] : []),
+    ...s.scenes.map((x) => boardLine(s, x.board.title, x)),
+    ...(s.fresh ? [say(s, 'freshLine', { line: boardLine(s, say(s, 'freshTitle', { title: s.fresh.title }), { board: s.fresh }) })] : []),
   ];
 }
 
@@ -274,22 +281,22 @@ function panel(s: DState): GameEvent {
   const sci = mention(scientist(s).id);
   const head =
     s.phase === 'evidence'
-      ? `第 ${s.round}/${ROUNDS} 輪．蒐證｜輪到鑑識官 ${sci} 放子彈`
-      : `第 ${s.round}/${ROUNDS} 輪．發言｜輪到 ${mention(s.speakers[s.speaker])} (鑑識官：${sci})`;
+      ? say(s, 'headEvidence', { round: s.round, rounds: ROUNDS, sci })
+      : say(s, 'headPresent', { round: s.round, rounds: ROUNDS, who: mention(s.speakers[s.speaker]), sci });
   const badges = suspects(s).filter((p) => p.badge);
   const lines = [
     head,
     ...boardLines(s),
     ...(s.last ? [s.last] : []),
     '',
-    '場上一覽',
+    say(s, 'tableTitle'),
     ...tableLines(s),
-    `還有徽章：${badges.length ? badges.map((p) => mention(p.id)).join(' ') : '(沒有)'}`,
+    say(s, 'badges', { list: badges.length ? badges.map((p) => mention(p.id)).join(' ') : say(s, 'noneParen') }),
   ];
   const options = [
-    ...(s.phase === 'evidence' ? [{ value: `fs:${s.pseq}`, label: '🧪 鑑識官放子彈' }] : []),
-    { value: 'solve', label: '🔍 破案' },
-    { value: 'me', label: '🗂️ 我的身分' },
+    ...(s.phase === 'evidence' ? [{ value: `fs:${s.pseq}`, label: say(s, 'btnPlace') }] : []),
+    { value: 'solve', label: say(s, 'btnSolve') },
+    { value: 'me', label: say(s, 'btnMe') },
   ];
   return { type: 'prompt', kind: 'deception', audience: 'channel', ref: `deception:panel:${s.pseq}`, text: lines.join('\n'), options };
 }
@@ -315,9 +322,9 @@ function startEvidence(c: Ctx) {
 // 鑑識官操作前的共同檢查；回傳錯誤訊息或 null
 function fsCheck(s: DState, user: string, pseq: number): string | null {
   const me = find(s, user);
-  if (!me) return NOT_PLAYER;
-  if (me.role !== 'scientist') return '只有鑑識官可以放子彈。';
-  if (s.phase !== 'evidence' || pseq !== s.pseq) return STALE;
+  if (!me) return say(s, 'notPlayer');
+  if (me.role !== 'scientist') return say(s, 'onlyScientist');
+  if (s.phase !== 'evidence' || pseq !== s.pseq) return say(s, 'stale');
   return null;
 }
 
@@ -325,7 +332,7 @@ function fsCheck(s: DState, user: string, pseq: number): string | null {
 function openSlots(s: DState): [string, string][] {
   const list: [string, string][] = [];
   if (s.cause.bullet === undefined) list.push(['cause', s.cause.board.title]);
-  if (!s.location) list.push(['loc', '案發地點 (4 選 1)']);
+  if (!s.location) list.push(['loc', say(s, 'locSlot')]);
   s.scenes.forEach((x, i) => {
     if (x.bullet === undefined) list.push([`s${i}`, x.board.title]);
   });
@@ -342,29 +349,30 @@ function fsMenu(c: Ctx, user: string, pseq: number): boolean {
   if (err) return deny(c, user, err);
   if (s.round === 1) {
     const options = openSlots(s).map(([slot, label]) => ({ value: `fb:${pseq}:${slot}`, label }));
-    return menu(c, user, '🧪 選一張板放子彈 (放下就不能移動)', options);
+    return menu(c, user, say(s, 'pickBoard'), options);
   }
-  if (!s.fresh) return deny(c, user, STALE);
+  if (!s.fresh) return deny(c, user, say(s, 'stale'));
   const options = s.scenes.map((x, i) => ({ value: `fx:${pseq}:s${i}`, label: x.board.title }));
-  return menu(c, user, `🧪 新抽的板是「${s.fresh.title}」：${s.fresh.options.join('／')}\n要換掉哪一張場景板？`, options);
+  return menu(c, user, say(s, 'freshAsk', { title: s.fresh.title, options: s.fresh.options.join(say(s, 'optSep')) }), options);
 }
 
 function fsBoard(c: Ctx, user: string, pseq: number, slot: string): boolean {
   const s = c.s;
   const err = fsCheck(s, user, pseq);
   if (err) return deny(c, user, err);
-  if (s.round !== 1) return deny(c, user, STALE);
-  const back = { value: `fback:${pseq}`, label: '↩️ 換一張' };
+  if (s.round !== 1) return deny(c, user, say(s, 'stale'));
+  const back = { value: `fback:${pseq}`, label: say(s, 'pickAnother') };
   if (slot === 'loc') {
-    if (s.location) return deny(c, user, STALE);
-    const text = ['🧪 選案發地點：每一列是一張地點板，按下的選項就是子彈位置', ...LOCATION_BOARDS.map((b, i) => `第 ${i + 1} 列 ${b.title}：${b.options.join('／')}`)];
-    const options = LOCATION_BOARDS.flatMap((b, i) => b.options.map((label, o) => ({ value: `fl:${pseq}:${i}:${o}`, label })));
-    return menu(c, user, text.join('\n'), [...options, back], 6);
+    if (s.location) return deny(c, user, say(s, 'stale'));
+    const locations = deckOf(s).locations;
+    const rows = locations.map((b, i) => say(s, 'locRow', { i: i + 1, title: b.title, options: b.options.join(say(s, 'optSep')) }));
+    const options = locations.flatMap((b, i) => b.options.map((label, o) => ({ value: `fl:${pseq}:${i}:${o}`, label })));
+    return menu(c, user, [say(s, 'locAsk'), ...rows].join('\n'), [...options, back], 6);
   }
   const x = slotOf(s, slot);
-  if (!x || x.bullet !== undefined) return deny(c, user, STALE);
+  if (!x || x.bullet !== undefined) return deny(c, user, say(s, 'stale'));
   const options = x.board.options.map((label, o) => ({ value: `fp:${pseq}:${slot}:${o}`, label }));
-  return menu(c, user, `🧪 「${x.board.title}」的子彈放在哪裡？`, [...options, back]);
+  return menu(c, user, say(s, 'whereBullet', { title: x.board.title }), [...options, back]);
 }
 
 // 放好一顆子彈：面板原地更新；6 顆都放好就進入發言，否則選單回到第 1 步
@@ -373,7 +381,7 @@ function placed(c: Ctx, user: string) {
   c.events.push(panel(s));
   if (openSlots(s).length) fsMenu(c, user, s.pseq);
   else {
-    tell(c, user, '✅ 6 顆子彈都放好了');
+    tell(c, user, say(s, 'allPlaced'));
     startPresent(c);
   }
 }
@@ -383,7 +391,7 @@ function fsPlace(c: Ctx, user: string, pseq: number, slot: string, opt: number):
   const err = fsCheck(s, user, pseq);
   if (err) return deny(c, user, err);
   const x = slotOf(s, slot);
-  if (s.round !== 1 || !x || x.bullet !== undefined || !x.board.options[opt]) return deny(c, user, STALE);
+  if (s.round !== 1 || !x || x.bullet !== undefined || !x.board.options[opt]) return deny(c, user, say(s, 'stale'));
   x.bullet = opt;
   placed(c, user);
   return true;
@@ -393,8 +401,8 @@ function fsLocation(c: Ctx, user: string, pseq: number, board: number, opt: numb
   const s = c.s;
   const err = fsCheck(s, user, pseq);
   if (err) return deny(c, user, err);
-  const b = LOCATION_BOARDS[board];
-  if (s.round !== 1 || s.location || !b?.options[opt]) return deny(c, user, STALE);
+  const b = deckOf(s).locations[board];
+  if (s.round !== 1 || s.location || !b?.options[opt]) return deny(c, user, say(s, 'stale'));
   s.location = { board: b, bullet: opt };
   placed(c, user);
   return true;
@@ -406,9 +414,9 @@ function fsSwap(c: Ctx, user: string, pseq: number, slot: string): boolean {
   const err = fsCheck(s, user, pseq);
   if (err) return deny(c, user, err);
   const x = sceneOf(s, slot);
-  if (!s.fresh || !x) return deny(c, user, STALE);
+  if (!s.fresh || !x) return deny(c, user, say(s, 'stale'));
   const options = s.fresh.options.map((label, o) => ({ value: `fn:${pseq}:${slot}:${o}`, label }));
-  return menu(c, user, `🧪 換掉「${x.board.title}」，新板「${s.fresh.title}」的子彈放在哪裡？`, [...options, { value: `fs:${pseq}`, label: '↩️ 換一張' }]);
+  return menu(c, user, say(s, 'swapAsk', { old: x.board.title, title: s.fresh.title }), [...options, { value: `fs:${pseq}`, label: say(s, 'pickAnother') }]);
 }
 
 // 第 2、3 輪：新板取代舊板的位置，進入發言
@@ -417,12 +425,12 @@ function fsNew(c: Ctx, user: string, pseq: number, slot: string, opt: number): b
   const err = fsCheck(s, user, pseq);
   if (err) return deny(c, user, err);
   const x = sceneOf(s, slot);
-  if (!s.fresh || !x || !s.fresh.options[opt]) return deny(c, user, STALE);
-  s.last = `換掉了${x.board.title}`;
+  if (!s.fresh || !x || !s.fresh.options[opt]) return deny(c, user, say(s, 'stale'));
+  s.last = say(s, 'swapped', { title: x.board.title });
   s.scenes[Number(slot[1])] = { board: s.fresh, bullet: opt };
   s.fresh = undefined;
   c.events.push(panel(s));
-  tell(c, user, `✅ ${s.last}`);
+  tell(c, user, say(s, 'swappedDone', { last: s.last }));
   startPresent(c);
   return true;
 }
@@ -434,13 +442,13 @@ function evidenceTimeout(c: Ctx) {
     if (openSlots(s).length === 6) {
       s.phase = 'ended';
       s.timers = {};
-      c.events.push({ type: 'announce', text: `🛑 鑑識官沒有回應，遊戲中止。答案：兇手 ${mention(withRole(s, 'murderer')!.id)}，${answerText(s)}` });
+      c.events.push({ type: 'announce', text: say(s, 'aborted', { m: mention(withRole(s, 'murderer')!.id), answer: answerText(s) }) });
       return;
     }
-    c.events.push({ type: 'announce', text: '⏰ 鑑識官時間到，沒放子彈的板沒有提示。' });
+    c.events.push({ type: 'announce', text: say(s, 'evidenceTimeout') });
   } else {
     s.fresh = undefined;
-    c.events.push({ type: 'announce', text: '⏰ 鑑識官這輪沒有換板。' });
+    c.events.push({ type: 'announce', text: say(s, 'noSwap') });
   }
   startPresent(c);
 }
@@ -465,10 +473,10 @@ function speakerTurn(c: Ctx) {
     type: 'prompt',
     kind: 'deception',
     audience: 'channel',
-    text: `輪到 ${mention(s.speakers[s.speaker])} 發言 (${SPEAK_MS / 1000} 秒)`,
+    text: say(s, 'speakTurn', { who: mention(s.speakers[s.speaker]), sec: SPEAK_MS / 1000 }),
     options: [
-      { value: `done:${s.tseq}`, label: '✅ 說完了' },
-      { value: 'solve', label: '🔍 破案' },
+      { value: `done:${s.tseq}`, label: say(s, 'btnDone') },
+      { value: 'solve', label: say(s, 'btnSolve') },
     ],
   });
   startTimer(c, SPEAK_MS);
@@ -484,14 +492,14 @@ function nextSpeaker(c: Ctx) {
   } else if (s.round < ROUNDS) {
     s.round++;
     startEvidence(c);
-  } else endGame(c, 'evil', `${ROUNDS} 輪結束，沒有人破案`);
+  } else endGame(c, 'evil', say(s, 'whyRounds', { rounds: ROUNDS }));
 }
 
 function done(c: Ctx, user: string, tseq: number): boolean {
   const s = c.s;
-  if (!find(s, user)) return reply(c, user, NOT_PLAYER);
-  if (s.phase !== 'present' || tseq !== s.tseq) return reply(c, user, STALE);
-  if (s.speakers[s.speaker] !== user) return reply(c, user, '還沒輪到你。');
+  if (!find(s, user)) return reply(c, user, say(s, 'notPlayer'));
+  if (s.phase !== 'present' || tseq !== s.tseq) return reply(c, user, say(s, 'stale'));
+  if (s.speakers[s.speaker] !== user) return reply(c, user, say(s, 'notYourTurn'));
   nextSpeaker(c);
   return true;
 }
@@ -501,10 +509,10 @@ function done(c: Ctx, user: string, tseq: number): boolean {
 // 能不能破案；回傳錯誤訊息或 null
 function solveCheck(s: DState, user: string): string | null {
   const me = find(s, user);
-  if (!me) return NOT_PLAYER;
-  if (me.role === 'scientist') return '鑑識官不能破案。';
-  if (s.phase !== 'evidence' && s.phase !== 'present') return '現在不能破案。';
-  if (!me.badge) return '你已經用過破案機會了。';
+  if (!me) return say(s, 'notPlayer');
+  if (me.role === 'scientist') return say(s, 'scientistCantSolve');
+  if (s.phase !== 'evidence' && s.phase !== 'present') return say(s, 'cantSolveNow');
+  if (!me.badge) return say(s, 'badgeUsed');
   return null;
 }
 
@@ -517,31 +525,32 @@ function solveMenu(c: Ctx, user: string): boolean {
   const options = suspects(c.s)
     .filter((p) => p.id !== user)
     .map((p) => ({ value: `sus:${p.id}`, label: p.id }));
-  return menu(c, user, '🔍 破案 (整局只有一次機會)：嫌犯是誰？', options);
+  return menu(c, user, say(c.s, 'solveAsk'), options);
 }
 
 function suspect(c: Ctx, user: string, target: string): boolean {
   const err = solveCheck(c.s, user);
   if (err) return deny(c, user, err);
   const p = suspectOf(c.s, user, target);
-  if (!p) return deny(c, user, STALE);
+  if (!p) return deny(c, user, say(c.s, 'stale'));
   const options = p.means.map((label, mi) => ({ value: `sm:${target}:${mi}`, label }));
-  return menu(c, user, `🔍 嫌犯 ${mention(target)}：用了哪一張手段？`, [...options, { value: 'sback:', label: '↩️ 重選嫌犯' }]);
+  return menu(c, user, say(c.s, 'suspectAsk', { who: mention(target) }), [...options, { value: 'sback:', label: say(c.s, 'backSuspect') }]);
 }
 
 function solveMeans(c: Ctx, user: string, target: string, mi: number): boolean {
   const err = solveCheck(c.s, user);
   if (err) return deny(c, user, err);
   const p = suspectOf(c.s, user, target);
-  if (!p?.means[mi]) return deny(c, user, STALE);
+  if (!p?.means[mi]) return deny(c, user, say(c.s, 'stale'));
   const options = p.clues.map((label, ci) => ({ value: `sc:${target}:${mi}:${ci}`, label }));
-  return menu(c, user, `🔍 嫌犯 ${mention(target)}，手段「${p.means[mi]}」：留下哪一張線索？按下就送出`, [
+  return menu(c, user, say(c.s, 'meansAsk', { who: mention(target), means: p.means[mi] }), [
     ...options,
-    { value: `sback:${target}`, label: '↩️ 重選手段' },
+    { value: `sback:${target}`, label: say(c.s, 'backMeans') },
   ]);
 }
 
-const guessText = (g: DState['guesses'][number]) => `${mention(g.by)} 破案：嫌犯 ${mention(g.suspect)}，手段「${g.means}」，線索「${g.clue}」`;
+const guessText = (s: DState, g: DState['guesses'][number]) =>
+  say(s, 'guess', { by: mention(g.by), who: mention(g.suspect), means: g.means, clue: g.clue });
 
 // 送出破案：系統判定，錯了只說「不對」
 function solve(c: Ctx, user: string, target: string, mi: number, ci: number): boolean {
@@ -549,18 +558,18 @@ function solve(c: Ctx, user: string, target: string, mi: number, ci: number): bo
   const err = solveCheck(s, user);
   if (err) return deny(c, user, err);
   const p = suspectOf(s, user, target);
-  if (!p?.means[mi] || !p.clues[ci]) return deny(c, user, STALE);
+  if (!p?.means[mi] || !p.clues[ci]) return deny(c, user, say(s, 'stale'));
   const ok = p.role === 'murderer' && p.means[mi] === s.answer.means && p.clues[ci] === s.answer.clue;
   const g = { by: user, suspect: target, means: p.means[mi], clue: p.clues[ci], ok };
   s.guesses.push(g);
   find(s, user)!.badge = false;
-  tell(c, user, '✅ 已送出破案');
-  c.events.push({ type: 'announce', text: `🔍 ${guessText(g)}\n${ok ? '🎯 對了！' : '❌ 不對。'}` });
+  tell(c, user, say(s, 'solveSent'));
+  c.events.push({ type: 'announce', text: say(s, 'solveAnnounce', { guess: guessText(s, g), verdict: say(s, ok ? 'right' : 'wrong') }) });
   if (ok) {
     if (withRole(s, 'witness')) startReversal(c);
-    else endGame(c, 'good', `${mention(user)} 破案成功`);
+    else endGame(c, 'good', say(s, 'whySolved', { who: mention(user) }));
   } else if (!s.players.some((x) => (x.role === 'investigator' || x.role === 'witness') && x.badge)) {
-    endGame(c, 'evil', '調查員和目擊者的破案機會都用完了');
+    endGame(c, 'evil', say(s, 'whyNoBadges'));
   } else c.events.push(panel(s));
   return true;
 }
@@ -571,28 +580,28 @@ function startReversal(c: Ctx) {
   const s = c.s;
   const m = withRole(s, 'murderer')!;
   s.phase = 'reversal';
-  c.events.push({ type: 'announce', text: `🎯 破案成功！兇手是 ${mention(m.id)}，但兇手還有最後機會指認目擊者 (${REVERSAL_MS / 1000} 秒)。` });
+  c.events.push({ type: 'announce', text: say(s, 'reversal', { m: mention(m.id), sec: REVERSAL_MS / 1000 }) });
   c.events.push({
     type: 'prompt',
     kind: 'deception',
     audience: 'user',
     user: m.id,
-    text: `🔪 你被抓到了！指認一位玩家，指到目擊者你們就翻盤獲勝 (${REVERSAL_MS / 1000} 秒)`,
+    text: say(s, 'reversalPick', { sec: REVERSAL_MS / 1000 }),
     options: s.players.filter((p) => p.role !== 'scientist' && p.role !== 'murderer' && p.role !== 'accomplice').map((p) => ({ value: `wit:${p.id}`, label: p.id })),
   });
   const acc = withRole(s, 'accomplice');
-  if (acc) c.events.push({ type: 'dm', to: acc.id, text: `🤝 ${mention(m.id)} 被抓到了，兇手正在指認目擊者。` });
+  if (acc) c.events.push({ type: 'dm', to: acc.id, text: say(s, 'reversalAccomplice', { m: mention(m.id) }) });
   startTimer(c, REVERSAL_MS);
 }
 
 function witness(c: Ctx, user: string, target: string): boolean {
   const s = c.s;
-  if (find(s, user)?.role !== 'murderer') return reply(c, user, '只有兇手可以指認目擊者。');
-  if (s.phase !== 'reversal') return reply(c, user, '現在不能指認目擊者。');
+  if (find(s, user)?.role !== 'murderer') return reply(c, user, say(s, 'onlyMurdererWitness'));
+  if (s.phase !== 'reversal') return reply(c, user, say(s, 'cantWitnessNow'));
   const p = find(s, target);
-  if (!p || p.role === 'scientist' || p.role === 'murderer' || p.role === 'accomplice') return reply(c, user, STALE);
-  if (p.role === 'witness') endGame(c, 'evil', `兇手指認 ${mention(target)}，指到了目擊者`);
-  else endGame(c, 'good', `兇手指認 ${mention(target)}，沒指到目擊者`);
+  if (!p || p.role === 'scientist' || p.role === 'murderer' || p.role === 'accomplice') return reply(c, user, say(s, 'stale'));
+  if (p.role === 'witness') endGame(c, 'evil', say(s, 'whyWitnessHit', { who: mention(target) }));
+  else endGame(c, 'good', say(s, 'whyWitnessMiss', { who: mention(target) }));
   return true;
 }
 
@@ -610,11 +619,13 @@ function endGame(c: Ctx, winner: 'good' | 'evil', why: string) {
     {
       type: 'announce',
       text: [
-        `${winner === 'good' ? '🎉 好人陣營獲勝！' : '🔪 兇手陣營獲勝！'}${why}。`,
-        `答案：兇手 ${mention(withRole(s, 'murderer')!.id)}，${answerText(s)}`,
-        `角色：${s.players.map((p) => `${mention(p.id)} ${ROLE_NAME[p.role!]}`).join('、')}`,
-        '破案紀錄：',
-        ...(s.guesses.length ? s.guesses.map((g) => `${guessText(g)} → ${g.ok ? '對' : '不對'}`) : ['(沒有人破案)']),
+        say(s, winner === 'good' ? 'goodWins' : 'evilWins', { why }),
+        say(s, 'endAnswer', { m: mention(withRole(s, 'murderer')!.id), answer: answerText(s) }),
+        say(s, 'endRoles', { list: s.players.map((p) => say(s, 'rolePair', { who: mention(p.id), role: say(s, ROLE_NAME[p.role!]) })).join(say(s, 'listSep')) }),
+        say(s, 'guessLog'),
+        ...(s.guesses.length
+          ? s.guesses.map((g) => say(s, 'guessResult', { guess: guessText(s, g), ok: say(s, g.ok ? 'resultRight' : 'resultWrong') }))
+          : [say(s, 'noGuesses')]),
       ].join('\n'),
       gif: winner === 'good' ? 'goodWin' : 'wolvesWin',
     },
@@ -626,9 +637,9 @@ function endGame(c: Ctx, winner: 'good' | 'evil', why: string) {
 function showMe(c: Ctx, user: string): boolean {
   const s = c.s;
   const me = find(s, user);
-  if (!me?.role) return reply(c, user, NOT_PLAYER);
+  if (!me?.role) return reply(c, user, say(s, 'notPlayer'));
   const info = s.answer.clue ? nightInfo(s, me) : '';
-  return reply(c, user, [ROLE_INTRO[me.role], ...(info ? [info] : [])].join('\n'));
+  return reply(c, user, [say(s, ROLE_INTRO[me.role]), ...(info ? [info] : [])].join('\n'));
 }
 
 function handle(c: Ctx, action: GameAction): boolean {
@@ -639,12 +650,12 @@ function handle(c: Ctx, action: GameAction): boolean {
       return leaveRoom(c, TITLE, action.user);
     case 'addBot':
     case 'removeBot':
-      return reply(c, action.user, '詭影神探不支援 bot。');
+      return reply(c, action.user, say(c.s, 'noBots'));
     case 'start':
       return start(c, action.user);
     case 'cancel': {
       const s = c.s;
-      const answer = s.answer.clue ? `\n答案：兇手 ${mention(withRole(s, 'murderer')!.id)}，${answerText(s)}` : '';
+      const answer = s.answer.clue ? say(s, 'cancelAnswer', { m: mention(withRole(s, 'murderer')!.id), answer: answerText(s) }) : '';
       return cancelGame(c, action.user, answer);
     }
     case 'me':
@@ -685,7 +696,8 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (c.s.phase === 'night') nightTimeout(c);
       else if (c.s.phase === 'evidence') evidenceTimeout(c);
       else if (c.s.phase === 'present') nextSpeaker(c);
-      else if (c.s.phase === 'reversal') endGame(c, 'good', '兇手沒有指認目擊者');
+      else if (c.s.phase === 'reversal') endGame(c, 'good', say(c.s, 'whyNoReversal'));
+
       else return false;
       return true;
     default:

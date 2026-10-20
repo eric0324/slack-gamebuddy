@@ -4,10 +4,14 @@ import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply
 import {
   buildDeck,
   cardLabel,
+  cardName,
+  cardText,
   CARDS,
   fillMarket,
   income,
   LANDMARK,
+  landmarkName,
+  landmarkText,
   LANDMARKS,
   marketOrder,
   settleBlueGreen,
@@ -15,6 +19,8 @@ import {
   settleRed,
   type Line,
 } from './machikoroCards.js';
+import type { Lang } from './i18n/index.js';
+import { tx } from './i18n/games/machikoro.js';
 
 export const MIN_MACHIKORO_PLAYERS = 2;
 export const MAX_MACHIKORO_PLAYERS = 5;
@@ -58,10 +64,11 @@ export interface MState {
   reason?: 'landmarks' | 'limit';
   timerSeq: number;
   timers: { phase?: number };
+  lang?: Lang; // 開房時的頻道語系 (runGame 存進來)
 }
 
 export type MAction =
-  | { type: 'new'; user: string; channel: string }
+  | { type: 'new'; user: string; channel: string; lang?: Lang }
   | { type: 'join'; user: string }
   | { type: 'leave'; user: string }
   | { type: 'start'; user: string }
@@ -82,16 +89,16 @@ export type MAction =
   | { type: 'buy'; user: string; seq: number; code: string }
   | { type: 'pass'; user: string; seq: number }
   | { type: 'timeout'; id: number }
-  | { type: 'rematch'; user: string; channel: string };
+  | { type: 'rematch'; user: string; channel: string; lang?: Lang };
 
 type GameAction = Exclude<MAction, { type: 'new' } | { type: 'rematch' }>;
 type Result = { state: MState; events: GameEvent[] };
 type Ctx = { s: MState; events: GameEvent[]; rng: Rng };
 
-const NOT_PLAYER = '你不在這局遊戲中';
-const NOT_YET = '還沒輪到你。';
-const STALE = '這個選單已經過期，請重新按「🏘️ 行動」。';
-const COLOR_WORD = { blue: '藍', green: '綠', red: '紅', purple: '紫' } as const;
+// 這局語系的文字、建築名稱和地標名稱
+const say = (s: MState, key: Parameters<typeof tx>[1], params?: Record<string, string | number>) => tx(s.lang, key, params);
+const cn = (s: MState, code: string) => cardName(code, s.lang);
+const ln = (s: MState, l: keyof typeof LANDMARK) => landmarkName(l, s.lang);
 
 const find = (s: MState, id: string) => s.players.find((p) => p.id === id);
 const current = (s: MState) => s.players[s.current];
@@ -106,20 +113,25 @@ const menu = (c: Ctx, user: string, text: string, options: { value: string; labe
 };
 const built = (p: MPlayer) => LANDMARKS.filter((l) => p.landmarks.includes(l));
 const cardCount = (p: MPlayer) => Object.values(p.cards).reduce((a, b) => a + b, 0);
-const marketLines = (s: MState) => marketOrder(s.market).map((code) => `• ${cardLabel(code)} 剩 ${s.market[code]} 張`);
-const playerLine = (p: MPlayer) =>
-  `${quiet(p.id)} ${p.coins} 元｜地標：${built(p).map((l) => LANDMARK[l].name).join('、') || '(沒有)'}｜建築 ${cardCount(p)} 張`;
-const roundText = (s: MState) => (s.round >= 25 ? `第 ${s.round}/${MAX_ROUNDS} 輪` : `第 ${s.round} 輪`);
+const marketLines = (s: MState) => marketOrder(s.market).map((code) => say(s, 'marketLine', { card: cardLabel(code, s.lang), n: s.market[code] }));
+const playerLine = (s: MState, p: MPlayer) =>
+  say(s, 'playerLine', {
+    who: quiet(p.id),
+    coins: p.coins,
+    landmarks: built(p).map((l) => ln(s, l)).join(say(s, 'listSep')) || say(s, 'noneParen'),
+    cards: cardCount(p),
+  });
+const roundText = (s: MState) => (s.round >= 25 ? say(s, 'roundOf', { round: s.round, max: MAX_ROUNDS }) : say(s, 'round', { round: s.round }));
 
 // 回合面板：只 @ 輪到的人；ended 時拿掉按鈕
 function board(s: MState, ended = false): GameEvent {
   const me = current(s);
   const lines = [
-    ended ? `✅ ${roundText(s)}｜${quiet(me.id)} 的回合結束` : `*🏘️ ${roundText(s)}｜👉 輪到 ${mention(me.id)} (${TURN_MS / 1000} 秒)*`,
+    ended ? say(s, 'turnEnded', { round: roundText(s), who: quiet(me.id) }) : say(s, 'turnHeader', { round: roundText(s), who: mention(me.id), sec: TURN_MS / 1000 }),
     ...(s.turn?.log ?? []),
-    '市場：',
+    say(s, 'market'),
     ...marketLines(s),
-    ...s.players.map((p) => (p === me ? `👉 ${playerLine(p)}` : playerLine(p))),
+    ...s.players.map((p) => (p === me ? `👉 ${playerLine(s, p)}` : playerLine(s, p))),
   ];
   return {
     type: 'prompt',
@@ -127,31 +139,37 @@ function board(s: MState, ended = false): GameEvent {
     audience: 'channel',
     ref: `machikoro:turn:${s.seq}`,
     text: lines.join('\n'),
-    options: ended ? [] : [{ value: `turnMenu:${s.seq}`, label: '🏘️ 行動' }, { value: 'town', label: '📋 城鎮一覽' }],
+    options: ended
+      ? []
+      : [
+          { value: `turnMenu:${s.seq}`, label: say(s, 'btnAction') },
+          { value: 'town', label: say(s, 'btnTown') },
+        ],
   };
 }
 
 // 城鎮一覽：每位玩家的現金、依顏色分組的建築、已蓋和還沒蓋的地標
 function townText(s: MState): string {
-  const lines = ['📋 城鎮一覽'];
+  const lines = [say(s, 'townTitle')];
+  const sep = say(s, 'listSep');
   for (const p of s.players) {
-    lines.push(`${quiet(p.id)} ${p.coins} 元`);
+    lines.push(say(s, 'townCoins', { who: quiet(p.id), coins: p.coins }));
     for (const color of ['blue', 'green', 'red', 'purple'] as const) {
       const cards = Object.keys(CARDS).filter((code) => p.cards[code] && CARDS[code].color === color);
-      if (cards.length) lines.push(`　${COLOR_WORD[color]}：${cards.map((code) => `${CARDS[code].name} ×${p.cards[code]}`).join('、')}`);
+      if (cards.length) lines.push(say(s, 'townColor', { color: say(s, color), cards: cards.map((code) => `${cn(s, code)} ×${p.cards[code]}`).join(sep) }));
     }
     const missing = LANDMARKS.filter((l) => !has(p, l));
-    lines.push(`　已蓋：${['cityhall' as const, ...built(p)].map((l) => LANDMARK[l].name).join('、')}`);
-    lines.push(`　還沒蓋：${missing.map((l) => LANDMARK[l].name).join('、') || '(全部蓋好了)'}`);
+    lines.push(say(s, 'townBuilt', { list: ['cityhall' as const, ...built(p)].map((l) => ln(s, l)).join(sep) }));
+    lines.push(say(s, 'townMissing', { list: missing.map((l) => ln(s, l)).join(sep) || say(s, 'allBuilt') }));
   }
   return lines.join('\n');
 }
 
 // 輪到的人操作前的共同檢查；step 是這個 action 對應的步驟；回傳錯誤訊息或 null
 function turnCheck(s: MState, user: string, seq: number, step?: Step): string | null {
-  if (!find(s, user)) return NOT_PLAYER;
-  if (s.phase !== 'play' || current(s).id !== user) return NOT_YET;
-  if (seq !== s.seq || (step && s.turn!.step !== step)) return STALE;
+  if (!find(s, user)) return say(s, 'notPlayer');
+  if (s.phase !== 'play' || current(s).id !== user) return say(s, 'notYet');
+  if (seq !== s.seq || (step && s.turn!.step !== step)) return say(s, 'stale');
   return null;
 }
 
@@ -172,47 +190,47 @@ function stepMenu(c: Ctx) {
   const t = s.turn!;
   const me = current(s);
   const o = (act: string, rest: string, label: string) => ({ value: rest ? `${act}:${s.seq}:${rest}` : `${act}:${s.seq}`, label });
-  const head = `🏘️ 你的回合｜現金 ${me.coins} 元`;
+  const head = say(s, 'yourTurn', { coins: me.coins });
+  const ask = (key: Parameters<typeof tx>[1], params?: Record<string, string | number>) => `${head}\n${say(s, key, params)}`;
+  const skip = o('bizSkip', '', say(s, 'bizSkip'));
   const station = has(me, 'station');
   switch (t.step) {
     case 'roll':
-      return menu(c, me.id, `${head}\n要擲幾顆骰子？`, [o('roll', '1', '擲 1 顆'), ...(station ? [o('roll', '2', '擲 2 顆')] : [])]);
+      return menu(c, me.id, ask('askRoll'), [o('roll', '1', say(s, 'roll1')), ...(station ? [o('roll', '2', say(s, 'roll2'))] : [])]);
     case 'reroll':
-      return menu(c, me.id, `${head}\n擲出 ${diceText(t.dice)}。要保留還是重擲？(廣播塔，每回合一次)`, [
-        o('keep', '', '保留'),
-        ...(station ? [o('reroll', '1', '重擲 1 顆'), o('reroll', '2', '重擲 2 顆')] : [o('reroll', '1', '重擲')]),
+      return menu(c, me.id, ask('askReroll', { dice: diceText(t.dice) }), [
+        o('keep', '', say(s, 'keep')),
+        ...(station ? [o('reroll', '1', say(s, 'reroll1')), o('reroll', '2', say(s, 'reroll2'))] : [o('reroll', '1', say(s, 'reroll'))]),
       ]);
     case 'harbor':
-      return menu(c, me.id, `${head}\n擲出 ${t.total}。要用港口 +2 嗎？`, [o('harbor', 'yes', `+2 (變成 ${t.total + 2})`), o('harbor', 'no', '不加')]);
+      return menu(c, me.id, ask('askHarbor', { total: t.total }), [o('harbor', 'yes', say(s, 'harborYes', { n: t.total + 2 })), o('harbor', 'no', say(s, 'harborNo'))]);
     case 'tv':
-      return menu(c, me.id, `${head}\n電視台：要向誰收 5 元？(不夠就收他現有的)`, others(s).map((p) => o('tv', p.id, `${p.id} (${p.coins} 元)`)));
+      return menu(c, me.id, ask('askTv'), others(s).map((p) => o('tv', p.id, say(s, 'tvOption', { who: p.id, coins: p.coins }))));
     case 'bizGive':
-      return menu(c, me.id, `${head}\n商業中心：要給出自己的哪一張建築？(紫色建築和地標不能換)`, [
-        ...tradable(me).map((code) => o('bizGive', code, CARDS[code].name)),
-        o('bizSkip', '', '不換'),
-      ]);
+      return menu(c, me.id, ask('askBizGive'), [...tradable(me).map((code) => o('bizGive', code, cn(s, code))), skip]);
     case 'bizPlayer':
-      return menu(c, me.id, `${head}\n商業中心：要用${CARDS[t.give!].name}和誰交換？`, [
+      return menu(c, me.id, ask('askBizPlayer', { card: cn(s, t.give!) }), [
         ...others(s).filter((p) => tradable(p).length).map((p) => o('bizPlayer', `${t.give}:${p.id}`, p.id)),
-        o('bizSkip', '', '不換'),
+        skip,
       ]);
     case 'bizTake': {
       const target = find(s, t.target!)!;
-      return menu(c, me.id, `${head}\n商業中心：要換走 ${quiet(target.id)} 的哪一張建築？`, [
-        ...tradable(target).map((code) => o('bizTake', `${t.give}:${code}:${target.id}`, CARDS[code].name)),
-        o('bizSkip', '', '不換'),
+      return menu(c, me.id, ask('askBizTake', { who: quiet(target.id) }), [
+        ...tradable(target).map((code) => o('bizTake', `${t.give}:${code}:${target.id}`, cn(s, code))),
+        skip,
       ]);
     }
     case 'buy': {
       const info = [
-        ...marketOrder(s.market).map((code) => `• ${cardLabel(code)}：${CARDS[code].text}`),
-        ...LANDMARKS.filter((l) => !has(me, l)).map((l) => `• 地標 ${LANDMARK[l].name} (${LANDMARK[l].cost} 元)：${LANDMARK[l].text}`),
+        ...marketOrder(s.market).map((code) => say(s, 'buyInfo', { card: cardLabel(code, s.lang), text: cardText(code, s.lang) })),
+        ...LANDMARKS.filter((l) => !has(me, l)).map((l) => say(s, 'buyLandmarkInfo', { name: ln(s, l), cost: LANDMARK[l].cost, text: landmarkText(l, s.lang) })),
       ];
       const options = buyOptions(s).map((code) => {
-        const x = CARDS[code] ?? LANDMARK[code as keyof typeof LANDMARK];
-        return o('buy', code, `${x.name} (${x.cost} 元)`);
+        const name = CARDS[code] ? cn(s, code) : ln(s, code as keyof typeof LANDMARK);
+        const cost = (CARDS[code] ?? LANDMARK[code as keyof typeof LANDMARK]).cost;
+        return o('buy', code, say(s, 'buyOption', { name, cost }));
       });
-      return menu(c, me.id, [head, '要買什麼？(每回合最多 1 棟建築或 1 個地標)', ...info].join('\n'), [...options, o('pass', '', '不買')]);
+      return menu(c, me.id, [head, say(s, 'askBuy'), ...info].join('\n'), [...options, o('pass', '', say(s, 'pass'))]);
     }
   }
 }
@@ -234,10 +252,10 @@ function afterStep(c: Ctx, seq: number) {
 function roll(c: Ctx, a: Extract<MAction, { type: 'roll' }>): boolean {
   const err = turnCheck(c.s, a.user, a.seq, 'roll');
   if (err) return deny(c, a.user, err);
-  if (a.n === 2 && !has(current(c.s), 'station')) return deny(c, a.user, STALE);
+  if (a.n === 2 && !has(current(c.s), 'station')) return deny(c, a.user, say(c.s, 'stale'));
   const t = c.s.turn!;
   t.dice = rollDice(c, a.n);
-  t.log = [`擲出 ${diceText(t.dice)}`];
+  t.log = [say(c.s, 'logRoll', { dice: diceText(t.dice) })];
   if (has(current(c.s), 'radio')) t.step = 'reroll';
   else toHarbor(c);
   afterStep(c, a.seq);
@@ -249,10 +267,10 @@ function reroll(c: Ctx, a: Extract<MAction, { type: 'reroll' } | { type: 'keep' 
   if (err) return deny(c, a.user, err);
   const t = c.s.turn!;
   if (a.type === 'reroll') {
-    if (a.n === 2 && !has(current(c.s), 'station')) return deny(c, a.user, STALE);
+    if (a.n === 2 && !has(current(c.s), 'station')) return deny(c, a.user, say(c.s, 'stale'));
     t.dice = rollDice(c, a.n);
     t.rerolled = true;
-    t.log[0] += `，重擲 ${diceText(t.dice)}`;
+    t.log[0] += say(c.s, 'logReroll', { dice: diceText(t.dice) });
   }
   toHarbor(c);
   afterStep(c, a.seq);
@@ -274,15 +292,17 @@ function harbor(c: Ctx, a: Extract<MAction, { type: 'harbor' }>): boolean {
   if (a.yes) {
     t.total += 2;
     t.harbor = true;
-    t.log[0] += `，港口 +2 = ${t.total}`;
+    t.log[0] += say(c.s, 'logHarbor', { total: t.total });
   }
   settle(c);
   afterStep(c, a.seq);
   return true;
 }
 
-const lineText = (l: Line) =>
-  l.from ? `${quiet(l.to)} 的${CARDS[l.card].name}向 ${quiet(l.from)} 收 ${l.amount} 元` : `${quiet(l.to)} 的${CARDS[l.card].name} +${l.amount} 元`;
+const lineText = (s: MState, l: Line) =>
+  l.from
+    ? say(s, 'lineTake', { to: quiet(l.to), card: cn(s, l.card), from: quiet(l.from), n: l.amount })
+    : say(s, 'lineGain', { to: quiet(l.to), card: cn(s, l.card), n: l.amount });
 
 // 結算：紅 → 藍綠 → 紫 (不用選擇的)，明細寫進面板
 function settle(c: Ctx) {
@@ -290,9 +310,9 @@ function settle(c: Ctx) {
   const t = s.turn!;
   const lines = settleRed(s.players, s.current, t.total);
   const blueGreen = settleBlueGreen(s.players, s.current, t.total, () => rollDice(c, 2));
-  if (blueGreen.tuna) t.log.push(`鮪魚船擲出 ${diceText(blueGreen.tuna)}`);
+  if (blueGreen.tuna) t.log.push(say(s, 'logTuna', { dice: diceText(blueGreen.tuna) }));
   lines.push(...blueGreen.lines, ...settlePurple(s.players, s.current, t.total));
-  t.log.push(...(lines.length ? lines.map(lineText) : ['(沒有建築收錢)']));
+  t.log.push(...(lines.length ? lines.map((l) => lineText(s, l)) : [say(s, 'noIncome')]));
   if (t.total === 6 && current(s).cards.tv) t.step = 'tv';
   else toBusiness(c);
 }
@@ -314,12 +334,12 @@ function tv(c: Ctx, a: Extract<MAction, { type: 'tv' }>): boolean {
   const err = turnCheck(s, a.user, a.seq, 'tv');
   if (err) return deny(c, a.user, err);
   const target = others(s).find((p) => p.id === a.target);
-  if (!target) return deny(c, a.user, STALE);
+  if (!target) return deny(c, a.user, say(s, 'stale'));
   const me = current(s);
   const paid = Math.min(5, target.coins);
   target.coins -= paid;
   me.coins += paid;
-  s.turn!.log.push(lineText({ from: target.id, to: me.id, amount: paid, card: 'tv' }));
+  s.turn!.log.push(lineText(s, { from: target.id, to: me.id, amount: paid, card: 'tv' }));
   toBusiness(c);
   afterStep(c, a.seq);
   return true;
@@ -337,26 +357,26 @@ function business(c: Ctx, a: BizAction): boolean {
   const target = 'target' in a ? others(s).find((p) => p.id === a.target) : undefined;
   switch (a.type) {
     case 'bizSkip':
-      if (!t.step.startsWith('biz')) return deny(c, a.user, STALE);
+      if (!t.step.startsWith('biz')) return deny(c, a.user, say(s, 'stale'));
       toBuy(c);
       break;
     case 'bizGive':
-      if (!tradable(me).includes(a.card)) return deny(c, a.user, STALE);
+      if (!tradable(me).includes(a.card)) return deny(c, a.user, say(s, 'stale'));
       t.give = a.card;
       t.step = 'bizPlayer';
       break;
     case 'bizPlayer':
-      if (a.give !== t.give || !target || !tradable(target).length) return deny(c, a.user, STALE);
+      if (a.give !== t.give || !target || !tradable(target).length) return deny(c, a.user, say(s, 'stale'));
       t.target = target.id;
       t.step = 'bizTake';
       break;
     case 'bizTake':
-      if (a.give !== t.give || !target || target.id !== t.target || !tradable(target).includes(a.take)) return deny(c, a.user, STALE);
+      if (a.give !== t.give || !target || target.id !== t.target || !tradable(target).includes(a.take)) return deny(c, a.user, say(s, 'stale'));
       for (const [from, to, code] of [[me, target, a.give], [target, me, a.take]] as const) {
         if (!--from.cards[code]) delete from.cards[code];
         to.cards[code] = (to.cards[code] ?? 0) + 1;
       }
-      t.log.push(`${quiet(me.id)} 用${CARDS[a.give].name}換走 ${quiet(target.id)} 的${CARDS[a.take].name}`);
+      t.log.push(say(s, 'logTrade', { me: quiet(me.id), give: cn(s, a.give), target: quiet(target.id), take: cn(s, a.take) }));
       toBuy(c);
       break;
   }
@@ -371,7 +391,7 @@ function toBuy(c: Ctx) {
   t.step = 'buy';
   if (me.coins === 0) {
     me.coins = 1;
-    t.log.push(`${quiet(me.id)} 的市政廳 +1 元`);
+    t.log.push(say(c.s, 'logCityHall', { who: quiet(me.id) }));
   }
 }
 
@@ -379,7 +399,7 @@ function buy(c: Ctx, a: Extract<MAction, { type: 'buy' }>): boolean {
   const s = c.s;
   const err = turnCheck(s, a.user, a.seq, 'buy');
   if (err) return deny(c, a.user, err);
-  if (!buyOptions(s).includes(a.code)) return deny(c, a.user, STALE);
+  if (!buyOptions(s).includes(a.code)) return deny(c, a.user, say(s, 'stale'));
   const me = current(s);
   const t = s.turn!;
   t.bought = true;
@@ -390,14 +410,15 @@ function buy(c: Ctx, a: Extract<MAction, { type: 'buy' }>): boolean {
       delete s.market[a.code];
       fillMarket(s.market, s.deck);
     }
-    t.log.push(`${quiet(me.id)} 買了${CARDS[a.code].name}`);
-    tell(c, a.user, `✅ 你買了${CARDS[a.code].name}`);
+    t.log.push(say(s, 'logBought', { who: quiet(me.id), card: cn(s, a.code) }));
+    tell(c, a.user, say(s, 'youBought', { card: cn(s, a.code) }));
   } else {
     const l = LANDMARK[a.code as keyof typeof LANDMARK];
+    const name = ln(s, a.code as keyof typeof LANDMARK);
     me.coins -= l.cost;
     me.landmarks.push(a.code);
-    t.log.push(`${quiet(me.id)} 蓋了${l.name}`);
-    tell(c, a.user, `✅ 你蓋了${l.name}`);
+    t.log.push(say(s, 'logBuilt', { who: quiet(me.id), name }));
+    tell(c, a.user, say(s, 'youBuilt', { name }));
     if (built(me).length === LANDMARKS.length) {
       c.events.push(board(s, true));
       endGame(c, 'landmarks');
@@ -411,7 +432,7 @@ function buy(c: Ctx, a: Extract<MAction, { type: 'buy' }>): boolean {
 function pass(c: Ctx, a: Extract<MAction, { type: 'pass' }>): boolean {
   const err = turnCheck(c.s, a.user, a.seq, 'buy');
   if (err) return deny(c, a.user, err);
-  tell(c, a.user, '✅ 你這回合不買');
+  tell(c, a.user, say(c.s, 'youPassed'));
   endTurn(c);
   return true;
 }
@@ -423,17 +444,17 @@ function endTurn(c: Ctx) {
   const me = current(s);
   if (!t.bought && has(me, 'airport')) {
     me.coins += 10;
-    t.log.push(`${quiet(me.id)} 的機場 +10 元`);
+    t.log.push(say(s, 'logAirport', { who: quiet(me.id) }));
   }
   c.events.push(board(s, true));
   if (has(me, 'park') && t.dice.length === 2 && t.dice[0] === t.dice[1]) {
-    c.events.push({ type: 'announce', text: `${quiet(me.id)} 擲出相同點數，再一回合！` });
+    c.events.push({ type: 'announce', text: say(s, 'doubles', { who: quiet(me.id) }) });
     return beginTurn(c);
   }
   s.current = (s.current + 1) % s.players.length;
   if (s.current === s.first) s.round++;
   if (s.round > MAX_ROUNDS) {
-    c.events.push({ type: 'announce', text: `已達 ${MAX_ROUNDS} 輪上限，比地標數，再比金錢。` });
+    c.events.push({ type: 'announce', text: say(s, 'limitReached', { max: MAX_ROUNDS }) });
     return endGame(c, 'limit');
   }
   beginTurn(c);
@@ -449,14 +470,14 @@ function endGame(c: Ctx, reason: 'landmarks' | 'limit') {
   const leaders = s.players.filter((p) => built(p).length === most);
   const rich = Math.max(...leaders.map((p) => p.coins));
   s.winners = reason === 'landmarks' ? [current(s).id] : leaders.filter((p) => p.coins === rich).map((p) => p.id);
-  const why = reason === 'landmarks' ? '蓋好全部 6 個地標' : `已達 ${MAX_ROUNDS} 輪上限，地標數和金錢最多`;
+  const why = reason === 'landmarks' ? say(s, 'whyLandmarks') : say(s, 'whyLimit', { max: MAX_ROUNDS });
   c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: s.winners });
   c.events.push(
     {
       type: 'announce',
       text: [
-        `🏆 遊戲結束，${s.winners.map(mention).join('、')} 獲勝！(${why})`,
-        ...s.players.map((p) => `${mention(p.id)} 地標 ${built(p).length} 個｜${p.coins} 元｜建築 ${cardCount(p)} 張`),
+        say(s, 'gameOver', { winners: s.winners.map(mention).join(say(s, 'listSep')), why }),
+        ...s.players.map((p) => say(s, 'resultLine', { who: mention(p.id), landmarks: built(p).length, coins: p.coins, cards: cardCount(p) })),
       ].join('\n'),
       gif: 'goodWin',
     },
@@ -468,7 +489,7 @@ function endGame(c: Ctx, reason: 'landmarks' | 'limit') {
 function timeout(c: Ctx) {
   const s = c.s;
   const seq = s.seq;
-  c.events.push({ type: 'announce', text: `${quiet(current(s).id)} 逾時，系統代為完成這回合` });
+  c.events.push({ type: 'announce', text: say(s, 'timedOut', { who: quiet(current(s).id) }) });
   for (let guard = 0; guard < 20 && s.phase === 'play' && s.seq === seq; guard++) handle(c, autoMove(s, false));
 }
 
@@ -480,18 +501,13 @@ function beginTurn(c: Ctx) {
   startTimer(c, TURN_MS);
 }
 
-const RULES = [
-  '輪到時擲骰，大家的建築依骰點收錢：紅色向擲骰的人收、藍色任何人擲都收、綠色和紫色只有自己擲時收。',
-  '之後可以從市場買 1 棟建築或蓋 1 個地標，也可以不買。',
-  '先蓋好港口、火車站、購物中心、遊樂園、廣播塔、機場 6 個地標的人獲勝；第 30 輪結束還沒人蓋完就比地標數，再比金錢。',
-].join('\n');
 
 function start(c: Ctx, user: string): boolean {
   const s = c.s;
-  if (user !== s.host) return reply(c, user, '只有房主可以開始遊戲。');
+  if (user !== s.host) return reply(c, user, say(s, 'onlyHostStart'));
   if (s.phase !== 'lobby') return false;
   const n = s.players.length;
-  if (n < MIN_MACHIKORO_PLAYERS) return reply(c, user, `目前 ${n} 人，至少需要 ${MIN_MACHIKORO_PLAYERS} 人才能開始。`);
+  if (n < MIN_MACHIKORO_PLAYERS) return reply(c, user, say(s, 'needMore', { n, min: MIN_MACHIKORO_PLAYERS }));
   c.events.push(lobbyEvent(TITLE, { ...s, phase: 'play' }));
   for (const p of s.players) Object.assign(p, newPlayer(p.id));
   s.deck = shuffle(buildDeck(n), c.rng);
@@ -502,10 +518,11 @@ function start(c: Ctx, user: string): boolean {
   c.events.push({
     type: 'announce',
     text: [
-      `🏘️ 骰子街開始！玩家 (依座位)：${s.players.map((p) => mention(p.id)).join('、')}`,
-      '每人起始 3 元、麥田、麵包店和蓋好的市政廳。',
-      RULES,
-      '市場：',
+      say(s, 'started', { players: s.players.map((p) => mention(p.id)).join(say(s, 'listSep')) }),
+      say(s, 'startKit'),
+      say(s, 'rules'),
+      say(s, 'market'),
+
       ...marketLines(s),
     ].join('\n'),
   });

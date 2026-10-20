@@ -1,4 +1,7 @@
 // 骰子街的建築與地標資料、市場翻牌，以及擲骰後結算的純函式 (紅 → 藍綠 → 紫)
+import type { Lang } from './i18n/index.js';
+import { tx } from './i18n/games/machikoro.js';
+
 export type Color = 'blue' | 'green' | 'red' | 'purple';
 export type Tag = 'wheat' | 'cow' | 'gear' | 'boat' | 'bread' | 'factory' | 'fruit' | 'cup' | 'major';
 
@@ -54,15 +57,60 @@ export const LANDMARK: Record<Landmark | 'cityhall', { name: string; cost: numbe
   airport: { name: '機場', cost: 30, text: '沒買東西時拿 10 元' },
 };
 
+// 英文版的建築名稱和效果摘要 (原版英文名稱)
+const CARDS_EN: Record<string, { name: string; text: string }> = {
+  wheat: { name: 'Wheat Field', text: 'Anyone rolls 1: get 1 coin' },
+  ranch: { name: 'Ranch', text: 'Anyone rolls 2: get 1 coin' },
+  flower: { name: 'Flower Orchard', text: 'Anyone rolls 4: get 1 coin' },
+  forest: { name: 'Forest', text: 'Anyone rolls 5: get 1 coin' },
+  mackerel: { name: 'Mackerel Boat', text: 'Anyone rolls 8: get 3 coins if you have the Harbor' },
+  mine: { name: 'Mine', text: 'Anyone rolls 9: get 5 coins' },
+  apple: { name: 'Apple Orchard', text: 'Anyone rolls 10: get 3 coins' },
+  tuna: { name: 'Tuna Boat', text: 'Anyone rolls 12-14: with the Harbor, roll 2 dice and get that many coins' },
+  bakery: { name: 'Bakery', text: 'You roll 2-3: get 1 coin' },
+  store: { name: 'Convenience Store', text: 'You roll 4: get 3 coins' },
+  florist: { name: 'Flower Shop', text: 'You roll 6: get 1 coin per Flower Orchard' },
+  cheese: { name: 'Cheese Factory', text: 'You roll 7: get 3 coins per Ranch' },
+  furniture: { name: 'Furniture Factory', text: 'You roll 8: get 3 coins per Forest and Mine' },
+  produce: { name: 'Fruit and Vegetable Market', text: 'You roll 11-12: get 2 coins per Wheat Field, Flower Orchard and Apple Orchard' },
+  warehouse: { name: 'Food Warehouse', text: 'You roll 12-13: get 2 coins per red establishment' },
+  sushi: { name: 'Sushi Bar', text: 'Others roll 1: take 3 coins from them if you have the Harbor' },
+  cafe: { name: 'Cafe', text: 'Others roll 3: take 1 coin from them' },
+  pizza: { name: 'Pizza Joint', text: 'Others roll 7: take 1 coin from them' },
+  burger: { name: 'Hamburger Stand', text: 'Others roll 8: take 1 coin from them' },
+  family: { name: 'Family Restaurant', text: 'Others roll 9-10: take 2 coins from them' },
+  stadium: { name: 'Stadium', text: 'You roll 6: take 2 coins from each player' },
+  tv: { name: 'TV Station', text: 'You roll 6: take 5 coins from one player' },
+  business: { name: 'Business Center', text: 'You roll 6: trade one non-purple establishment with a player' },
+  publisher: { name: 'Publisher', text: 'You roll 7: take 1 coin from each player per cup and bread establishment they own' },
+  tax: { name: 'Tax Office', text: 'You roll 8-9: take half the coins of each player with 10 or more' },
+};
+const LANDMARK_EN: Record<Landmark | 'cityhall', { name: string; text: string }> = {
+  cityhall: { name: 'City Hall', text: 'Get 1 coin if you have 0 before buying' },
+  harbor: { name: 'Harbor', text: 'Add 2 to a roll of 10 or more' },
+  station: { name: 'Train Station', text: 'Roll 2 dice' },
+  mall: { name: 'Shopping Mall', text: '+1 coin per cup and bread establishment' },
+  park: { name: 'Amusement Park', text: 'Take another turn after rolling doubles' },
+  radio: { name: 'Radio Tower', text: 'Reroll once per turn' },
+  airport: { name: 'Airport', text: 'Get 10 coins if you build nothing' },
+};
+
+// 依語系的建築、地標名稱和效果摘要；沒指定語系用中文
+const en = (lang?: Lang) => lang === 'en';
+export const cardName = (code: string, lang?: Lang) => (en(lang) ? CARDS_EN[code].name : CARDS[code].name);
+export const cardText = (code: string, lang?: Lang) => (en(lang) ? CARDS_EN[code].text : CARDS[code].text);
+export const landmarkName = (l: Landmark | 'cityhall', lang?: Lang) => (en(lang) ? LANDMARK_EN[l].name : LANDMARK[l].name);
+export const landmarkText = (l: Landmark | 'cityhall', lang?: Lang) => (en(lang) ? LANDMARK_EN[l].text : LANDMARK[l].text);
+
 export const MARKET_KINDS = 10;
-const COLOR_WORD: Record<Color, string> = { blue: '藍', green: '綠', red: '紅', purple: '紫' };
 
 // 例如「咖啡館 (紅｜2 元｜骰 3)」
-export function cardLabel(code: string): string {
+export function cardLabel(code: string, lang?: Lang): string {
   const c = CARDS[code];
-  const rolls = c.rolls.length > 1 ? `${c.rolls[0]}～${c.rolls[c.rolls.length - 1]}` : `${c.rolls[0]}`;
-  return `${c.name} (${COLOR_WORD[c.color]}｜${c.cost} 元｜骰 ${rolls})`;
+  const rolls = c.rolls.length > 1 ? tx(lang, 'rollRange', { a: c.rolls[0], b: c.rolls[c.rolls.length - 1] }) : `${c.rolls[0]}`;
+  return tx(lang, 'cardLabel', { name: cardName(code, lang), color: tx(lang, c.color), cost: c.cost, rolls });
 }
+
 
 // 還沒洗的牌堆：非紫色各 6 張，紫色張數＝玩家人數 (起始的麥田、麵包店另外準備)
 export function buildDeck(players: number): string[] {

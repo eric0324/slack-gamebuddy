@@ -15,6 +15,18 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Machi Koro commands*',
+  '• `/game machikoro new`: open a room (anyone)',
+  '• `/game machikoro addbot [count]`: add bots to fill seats (host, before start)',
+  '• `/game machikoro removebot [count]`: remove bots (host, before start)',
+  '• `/game machikoro start`: start the game, needs 2-5 players (host)',
+  '• `/game machikoro cancel`: cancel the game (host)',
+  '• "🏘️ Action": press on your turn to roll, reroll, use the Harbor +2, the TV Station, the Business Center and buy (60 seconds per turn; on timeout the system finishes your turn without buying)',
+  '• "📋 Towns": privately check everyone\'s coins, establishments and landmarks anytime',
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 // 骰子街只有房間指令，遊戲中都用按鈕
 export function parseMachikoroCommand(text: string, user: string, channel: string): MAction | null {
   return parseRoomCommand(text, user, channel) as MAction | null;
@@ -68,6 +80,14 @@ export const machikoro = {
   category: 'strategy',
   desc: '輪流擲骰，大家的建築依點數收錢，再買建築擴張城鎮，先蓋好 6 個地標的人贏',
   help: HELP,
+  locales: {
+    en: {
+      name: 'Machi Koro',
+      players: '2-5 players',
+      desc: 'Roll the dice, collect from your establishments, expand your town and be the first to build all 6 landmarks',
+      help: HELP_EN,
+    },
+  },
   apply: applyMachikoro,
   parse: parseMachikoroCommand,
   button: machikoroButton,

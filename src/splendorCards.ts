@@ -1,4 +1,7 @@
 // 璀璨寶石 (Splendor 基本版) 的牌組資料：90 張發展卡、10 張貴族、顏色代號和顯示文字、付款計算 (純函式)
+import type { Lang } from './i18n/index.js';
+import { tx } from './i18n/games/splendor.js';
+
 export type Color = 'w' | 'b' | 'g' | 'r' | 'k';
 export type Gem = Color | 'o'; // o 是黃金 (萬用)
 export type Gems = Record<Gem, number>;
@@ -6,7 +9,9 @@ export type Level = 1 | 2 | 3;
 
 export const COLORS: Color[] = ['w', 'b', 'g', 'r', 'k'];
 export const GEMS: Gem[] = [...COLORS, 'o'];
-export const GEM_WORD: Record<Gem, string> = { w: '白', b: '藍', g: '綠', r: '紅', k: '黑', o: '金' };
+const GEM_KEY = { w: 'gemW', b: 'gemB', g: 'gemG', r: 'gemR', k: 'gemK', o: 'gemO' } as const;
+// 寶石顏色的顯示文字：中文「白」、英文「White」
+export const gemWord = (x: Gem, lang?: Lang) => tx(lang, GEM_KEY[x]);
 
 export interface Card {
   id: number;
@@ -162,13 +167,14 @@ export function payment(cost: Record<Color, number>, discount: Record<Color, num
   return pay.o <= tokens.o ? pay : null;
 }
 
-// 「白2 藍1」：只列不為 0 的，依白藍綠紅黑金的順序；全 0 寫「無」
-export function gemsText(g: Partial<Gems>): string {
-  const parts = GEMS.filter((x) => (g[x] ?? 0) > 0).map((x) => `${GEM_WORD[x]}${g[x]}`);
-  return parts.length ? parts.join(' ') : '無';
+// 「白2 藍1」：只列不為 0 的，依白藍綠紅黑金的順序；全 0 寫「無」 (英文「White 2, Blue 1」)
+export function gemsText(g: Partial<Gems>, lang?: Lang): string {
+  const parts = GEMS.filter((x) => (g[x] ?? 0) > 0).map((x) => tx(lang, 'gemAmount', { gem: gemWord(x, lang), n: g[x]! }));
+  return parts.length ? parts.join(tx(lang, 'gemSep')) : tx(lang, 'none');
 }
 
 // 「1-2 綠 1分｜白4」；沒有位置時只有卡片本身
-export const cardText = (card: Card, slot?: string) => `${slot ? `${slot} ` : ''}${GEM_WORD[card.color]} ${card.points}分｜${gemsText(card.cost)}`;
+export const cardText = (card: Card, slot?: string, lang?: Lang) =>
+  tx(lang, 'card', { slot: slot ? `${slot} ` : '', color: gemWord(card.color, lang), points: card.points, cost: gemsText(card.cost, lang) });
 
-export const nobleText = (n: Noble) => n.need.map(([c, v]) => `${GEM_WORD[c]}${v}`).join(' ');
+export const nobleText = (n: Noble, lang?: Lang) => n.need.map(([c, v]) => tx(lang, 'gemAmount', { gem: gemWord(c, lang), n: v })).join(tx(lang, 'gemSep'));
