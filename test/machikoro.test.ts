@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { isBot, type GameEvent } from '../src/engine.js';
+import { applyMachikoro, type MAction, type MState } from '../src/machikoro.js';
 import {
   buildDeck,
   CARDS,
@@ -264,5 +266,135 @@ describe('machikoro/bots: 這次點數對自己的收入', () => {
     expect(ps).toEqual(before);
     const tv = [town('A', 0, { tv: 1, stadium: 1 }), town('B', 9)];
     expect(income(tv, 0, 6)).toBe(7);
+  });
+});
+
+// ---------- engine ----------
+
+const rng = () => 0.99999; // 洗牌不動；從最後一位開始；骰子都是 6
+
+function run(actions: MAction[], start?: MState, r: () => number = rng) {
+  let state = start;
+  let events: GameEvent[] = [];
+  for (const action of actions) {
+    const result = applyMachikoro(state, action, r);
+    state = result.state;
+    events = result.events;
+  }
+  return { state: state!, events };
+}
+
+const lobbyWith = (n: number) =>
+  run([
+    { type: 'new', user: 'p1', channel: 'C1' },
+    ...Array.from({ length: n - 1 }, (_, i) => ({ type: 'join', user: `p${i + 2}` }) as MAction),
+  ]);
+const started = (n: number, r: () => number = rng) => run([{ type: 'start', user: 'p1' }], lobbyWith(n).state, r);
+const ephemeralTo = (events: GameEvent[], user: string) =>
+  events.filter((e) => e.type === 'ephemeral' && e.to === user).map((e) => (e as { text: string }).text);
+const announces = (events: GameEvent[]) => events.filter((e) => e.type === 'announce').map((e) => (e as { text: string }).text);
+const prompts = (events: GameEvent[]) => events.filter((e) => e.type === 'prompt') as Extract<GameEvent, { type: 'prompt' }>[];
+const boards = (events: GameEvent[]) => prompts(events).filter((p) => p.kind === 'machikoro' && p.audience === 'channel');
+const menuOf = (events: GameEvent[], user: string) => prompts(events).find((p) => p.audience === 'ephemeral' && p.user === user);
+const labels = (events: GameEvent[], user: string) => menuOf(events, user)?.options.map((o) => o.label) ?? [];
+const values = (events: GameEvent[], user: string) => menuOf(events, user)?.options.map((o) => o.value) ?? [];
+// 除了允許的 🏘️、👉、📋、✅、🤖 之外不該有 emoji
+const otherEmoji = (text: string) => text.replace(/🏘️|👉|📋|✅|🤖/gu, '').match(/\p{Extended_Pictographic}/gu);
+
+describe('machikoro/setup: 骰子街的房間', () => {
+  it('開房：公告標示骰子街', () => {
+    const { state, events } = run([{ type: 'new', user: 'A', channel: 'C1' }]);
+    expect(state).toMatchObject({ game: 'machikoro', host: 'A', phase: 'lobby' });
+    expect(events).toContainEqual({ type: 'lobby', title: '骰子街', host: 'A', players: ['A'], open: true });
+  });
+
+  it('人數不足 2 人不能開始', () => {
+    const { state, events } = run([{ type: 'start', user: 'p1' }], lobbyWith(1).state);
+    expect(state.phase).toBe('lobby');
+    expect(ephemeralTo(events, 'p1').join()).toContain('至少需要 2 人');
+  });
+
+  it('房間已滿（5 人）時拒絕加入', () => {
+    const { state, events } = run([{ type: 'join', user: 'x' }], lobbyWith(5).state);
+    expect(state.players).toHaveLength(5);
+    expect(ephemeralTo(events, 'x').join()).toContain('房間已滿');
+  });
+
+  it('加入、離開、房主離開取消、頻道已經有遊戲', () => {
+    const lobby = lobbyWith(3).state;
+    expect(run([{ type: 'leave', user: 'p2' }], lobby).state.players.map((p) => p.id)).toEqual(['p1', 'p3']);
+    const hostLeft = run([{ type: 'leave', user: 'p1' }], lobby);
+    expect(hostLeft.state.phase).toBe('ended');
+    expect(announces(hostLeft.events).join()).toContain('取消');
+    const busy = run([{ type: 'new', user: 'x', channel: 'C1' }], lobby);
+    expect(ephemeralTo(busy.events, 'x')).toEqual(['這個頻道已經有遊戲了。']);
+  });
+});
+
+describe('machikoro/setup: 加入與移除 bot', () => {
+  it('一個人加 3 個 bot 就能開始；removebot 從最後加入的移除', () => {
+    const added = run([{ type: 'addBot', user: 'p1', count: 3 }], lobbyWith(1).state).state;
+    expect(added.players).toHaveLength(4);
+    expect(added.players.slice(1).every((p) => isBot(p.id))).toBe(true);
+    const removed = run([{ type: 'removeBot', user: 'p1', count: 1 }], added).state;
+    expect(removed.players.map((p) => p.id)).toEqual(added.players.slice(0, 3).map((p) => p.id));
+    expect(run([{ type: 'start', user: 'p1' }], added).state.phase).not.toBe('lobby');
+  });
+
+  it('超過 5 人只加到 5 人；非房主被拒；開始後被拒', () => {
+    const { state, events } = run([{ type: 'addBot', user: 'p1', count: 3 }], lobbyWith(4).state);
+    expect(state.players).toHaveLength(5);
+    expect(ephemeralTo(events, 'p1').join()).toContain('房間已滿');
+    const other = run([{ type: 'addBot', user: 'p2', count: 1 }], lobbyWith(3).state);
+    expect(ephemeralTo(other.events, 'p2').join()).toContain('只有房主可以加入 bot');
+    const late = run([{ type: 'addBot', user: 'p1', count: 1 }], started(2).state);
+    expect(late.state.players).toHaveLength(2);
+    expect(ephemeralTo(late.events, 'p1').join()).toContain('遊戲已經開始了');
+  });
+});
+
+describe('machikoro/setup: 開局', () => {
+  it('每人 3 元、麥田、麵包店和市政廳；市場 10 種；牌堆扣掉翻出來的', () => {
+    const { state } = started(3);
+    expect(state.phase).toBe('play');
+    for (const p of state.players) expect(p).toMatchObject({ coins: 3, cards: { wheat: 1, bakery: 1 }, landmarks: ['cityhall'] });
+    expect(Object.keys(state.market)).toHaveLength(10);
+    expect(state.market.wheat).toBe(6);
+    const inMarket = Object.values(state.market).reduce((a, b) => a + b, 0);
+    expect(state.deck.length + inMarket).toBe(20 * 6 + 5 * 3);
+  });
+
+  it('隨機選起始玩家', () => {
+    expect(started(4).state.current).toBe(3);
+    expect(started(4, () => 0).state.current).toBe(0);
+    expect(started(4).state).toMatchObject({ first: 3, round: 1 });
+  });
+
+  it('開局公告玩家、起始資源、規則摘要和市場', () => {
+    const text = announces(started(4).events).join('\n');
+    expect(text).toContain('骰子街開始');
+    expect(text).toContain('<@p1>、<@p2>、<@p3>、<@p4>');
+    expect(text).toContain('3 元');
+    expect(text).toContain('紅色');
+    expect(text).toContain('港口、火車站、購物中心、遊樂園、廣播塔、機場');
+    expect(text).toContain('30 輪');
+    expect(text).toContain('麥田（藍｜1 元｜骰 1）');
+    expect(otherEmoji(text)).toBeNull();
+  });
+
+  it('第一個回合面板：輪到誰、市場、每人一行、兩顆按鈕，不用 emoji 代表建築或錢', () => {
+    const { state, events } = started(4);
+    const [board] = boards(events);
+    expect(board.ref).toBe(`machikoro:turn:${state.seq}`);
+    expect(board.text).toContain('👉 輪到 <@p4>');
+    expect(board.text).toContain('第 1 輪');
+    expect(board.text).toContain('麥田（藍｜1 元｜骰 1）剩 6 張');
+    expect(board.text).toContain('{{name:p1}} 3 元｜地標：（沒有）｜建築 2 張');
+    expect(board.text).toContain('👉 {{name:p4}} 3 元');
+    expect(board.options).toEqual([
+      { value: `turnMenu:${state.seq}`, label: '🏘️ 行動' },
+      { value: 'town', label: '📋 城鎮一覽' },
+    ]);
+    expect(otherEmoji(board.text)).toBeNull();
   });
 });
