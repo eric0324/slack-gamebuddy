@@ -30,8 +30,8 @@
 
 ## 7. 妙語說書人 (dixit)
 
-- [ ] 7.1 先寫失敗的英文測試：英文局的主要公告、prompt 和按鈕是英文，help 和 `locales.en` 是英文
-- [ ] 7.2 新增 `src/i18n/games/dixit.ts`，engine 和 GameDef 改用字典，讓 7.1 綠燈
+- [x] 7.1 先寫失敗的英文測試：英文局的主要公告、prompt 和按鈕是英文，help 和 `locales.en` 是英文
+- [x] 7.2 新增 `src/i18n/games/dixit.ts`，engine 和 GameDef 改用字典，讓 7.1 綠燈
 
 ## 8. 收尾
 

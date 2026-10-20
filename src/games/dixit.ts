@@ -15,6 +15,18 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Dixit commands*',
+  '• `/game dixit new`: open a room (anyone)',
+  '• `/game dixit start`: start the game, needs 3-8 human players (host)',
+  '• `/game dixit clue <number> <clue>`: as storyteller, give a clue (1-50 characters) for that card in your hand; same as picking a card in "🃏 My hand" and typing the clue',
+  '• `/game dixit cancel`: cancel the game (host)',
+  'Press "🃏 My hand" to see your cards (only you can see them): the storyteller picks a card there, everyone else plays cards there',
+  "The storyteller gives a one-line clue, everyone else slips in the card that best fits, then everyone anonymously guesses which card is the storyteller's; if everyone or nobody finds it the storyteller scores 0. The game ends when someone reaches 20 points or the deck can't refill hands",
+  'Cards come from the Meme Battle meme library; add your own to this channel with `/game meme add <image URL>`',
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 // 妙語說書人的子指令：clue <編號> <提示> (提示可以有空白)
 export function parseDixitCommand(text: string, user: string, channel: string): DixitAction | null {
   const m = text.trim().match(/^clue\s+(\S+)(?:\s+([\s\S]*))?$/);
@@ -41,6 +53,7 @@ export const dixit = {
   category: 'party',
   desc: '說書人看自己的梗圖給一句提示，大家出牌混淆，再猜哪張是說書人的',
   noBots: true,
+  locales: { en: { name: 'Dixit', players: '3-8 players', desc: "The storyteller gives a one-line clue for one of their memes, everyone slips in a decoy, then guesses which card is the storyteller's", help: HELP_EN } },
   help: HELP,
   apply: applyDixit,
   parse: parseDixitCommand,
