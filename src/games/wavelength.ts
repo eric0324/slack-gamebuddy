@@ -13,6 +13,16 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Wavelength commands*',
+  '• `/game wavelength new`: open a room (anyone)',
+  '• `/game wavelength start`: start the game, needs 4-12 human players (host)',
+  '• Giving a clue: on your turn press "✍️ Write a clue"; or type `/game wavelength clue <clue>`',
+  '• `/game wavelength cancel`: cancel the game (host)',
+  'Guessing the spot and left/right both use the channel buttons',
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 // 心電感應的子指令：clue <提示> (提示可以有空白)
 export function parseWavelengthCommand(text: string, user: string, channel: string): WAction | null {
   const [sub, ...rest] = text.trim().split(/\s+/);
@@ -39,6 +49,7 @@ export const wavelength = {
   category: 'team',
   desc: '兩隊對抗，出題者用一個詞讓隊友猜光譜上的位置',
   noBots: true,
+  locales: { en: { name: 'Wavelength', players: '4-12 players', desc: 'Two teams compete: the psychic gives one clue so teammates can find a spot on the spectrum', help: HELP_EN } },
   help: HELP,
   apply: applyWavelength,
   parse: parseWavelengthCommand,

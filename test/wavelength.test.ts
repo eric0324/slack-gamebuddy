@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { type GameEvent } from '../src/engine.js';
 import { applyWavelength, type WAction, type WState } from '../src/wavelength.js';
+import { SPECTRUMS, SPECTRUMS_EN } from '../src/wavelengthCards.js';
+import { wavelength } from '../src/games/wavelength.js';
 
 const rng = () => 0.99999;
 
@@ -258,5 +260,56 @@ describe('wavelength/rounds: 結束', () => {
     const cancelled = run([{ type: 'cancel', user: 'p1' }], started(4).state);
     expect(prompts(cancelled.events, 'rematch')).toEqual([]);
     expect(run([{ type: 'rematch', user: 'p1', channel: 'C1' }], cancelled.state).state.phase).toBe('ended');
+  });
+});
+
+describe('wavelength/i18n: 英文局', () => {
+  const enLobby = (n: number) =>
+    run([
+      { type: 'new', user: 'p1', channel: 'C1', lang: 'en' },
+      ...Array.from({ length: n - 1 }, (_, i) => ({ type: 'join', user: `p${i + 2}` }) as WAction),
+    ]);
+  const enStarted = (n: number) => run([{ type: 'start', user: 'p1' }], enLobby(n).state);
+
+  it('開局公告、出題 DM 和寫提示按鈕是英文，光譜取英文版', () => {
+    const { state, events } = enStarted(4);
+    expect(state.lang).toBe('en');
+    expect(SPECTRUMS_EN.map((c) => c.join('|'))).toContain(state.spectrum!.join('|'));
+    expect(announces(events)[0]).toContain('📡 Wavelength begins!');
+    expect(announces(events)[0]).toContain('🟠 Orange: <@p1>, <@p3>');
+    const dm = events.find((e) => e.type === 'dm') as { text: string };
+    expect(dm.text).toContain('the target is 10');
+    expect(announces(events).at(-1)).toContain('Clue 1/4');
+    expect(prompts(events, 'wavelength').at(-1)!.options[0].label).toBe('✍️ Write a clue');
+  });
+
+  it('視窗、提示、猜左右按鈕和私下回覆是英文', () => {
+    const s = enStarted(4).state;
+    expect(run([{ type: 'openClue', user: 'p2' }], s).events[0]).toMatchObject({ title: 'Write a clue', label: 'Clue (1-30 characters)' });
+    expect(ephemeralTo(run([{ type: 'openClue', user: 'p1' }], s).events, 'p1')!.text).toBe("It's not your turn to give a clue.");
+    const clued = run([{ type: 'clue', user: 'p2', text: 'hot pot' }], s);
+    expect(announces(clued.events)[0]).toContain(`<@p2>'s clue: "hot pot"`);
+    const sided = run([{ type: 'guess', user: 'p4', value: 5 }], clued.state);
+    expect(prompts(sided.events, 'wavelength').at(-1)!.options.map((o) => o.label)).toEqual(['⬅️ Left', 'Right ➡️']);
+  });
+
+  it('人數不足和不支援 bot 的回覆是英文', () => {
+    expect(ephemeralTo(run([{ type: 'start', user: 'p1' }], enLobby(3).state).events, 'p1')!.text).toBe('There are 3 players; you need at least 4 to start.');
+    expect(ephemeralTo(run([{ type: 'addBot', user: 'p1', count: 1 }], enLobby(4).state).events, 'p1')!.text).toBe("Wavelength doesn't support bots.");
+  });
+
+  it('結束公告和再來一局按鈕是英文', () => {
+    const s = enStarted(4).state;
+    const last = { ...s, round: s.order.length - 1, scores: { orange: 15, purple: 12 } };
+    const { events } = run([{ type: 'timeout', id: last.timers.phase! }], last);
+    expect(announces(events).join('\n')).toContain('🎉 🟠 Orange wins!');
+    expect(prompts(events, 'rematch')[0].options[0].label).toBe('Play again');
+  });
+
+  it('英文光譜卡和中文版一樣多，GameDef 有英文名稱和說明', () => {
+    expect(SPECTRUMS_EN).toHaveLength(SPECTRUMS.length);
+    expect(new Set(SPECTRUMS_EN.map((c) => c.join('|'))).size).toBe(SPECTRUMS.length);
+    expect(wavelength.locales.en).toMatchObject({ name: 'Wavelength', players: '4-12 players' });
+    expect(wavelength.locales.en.help).toContain('/game wavelength clue <clue>');
   });
 });
