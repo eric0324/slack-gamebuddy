@@ -28,7 +28,7 @@ bot 的名字和顯示方式 SHALL 和其他遊戲相同。bot 在一個回合�
 - **THEN** bot 在 `D5` 放「橫」，不放在 `B5`
 
 #### Scenario: 先修自己
-- **WHEN** 金礦工 bot 的 ⛏️ 壞了，手上有 🔧 ⛏️ 鎬子
+- **WHEN** 金礦工 bot 的 ⛏️ 壞了，手上有 「修理 鎬子」
 - **THEN** bot 修好自己的 ⛏️
 
 #### Scenario: 沒有好牌就蓋死路
@@ -47,7 +47,7 @@ bot 的名字和顯示方式 SHALL 和其他遊戲相同。bot 在一個回合�
 - **THEN** bot 放在 `I5`
 
 #### Scenario: 弄壞下一位的工具
-- **WHEN** 座位是 A、B、C，破壞者 bot 是 A，手上只有 🔨 ⛏️ 鎬子和藏寶圖，B 和 C 的工具都好
+- **WHEN** 座位是 A、B、C，破壞者 bot 是 A，手上只有 「破壞 鎬子」和藏寶圖，B 和 C 的工具都好
 - **THEN** bot 弄壞 B 的 ⛏️
 
 ### Requirement: bot 的其他行為
