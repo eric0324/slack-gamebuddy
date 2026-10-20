@@ -14,6 +14,17 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Cockroach Poker commands*',
+  '• `/game cockroach new`: open a room (anyone)',
+  '• `/game cockroach addbot [count]`: add bots to fill seats (host, before start)',
+  '• `/game cockroach removebot [count]`: remove bots (host, before start)',
+  '• `/game cockroach start`: start the game, needs 2-6 players (host)',
+  '• `/game cockroach cancel`: cancel the game (host)',
+  'On your turn press "🪳 Play a card" to pick a card, who to pass it to, and what to call it; when you receive a card press "✅ Yes, a …", "❌ Not a …" or "👀 Peek & pass"; press "🃏 My hand" anytime (only you can see it)',
+  `📖 Full guide: <${WIKI}/Cockroach-Poker|wiki>`,
+].join('\n');
+
 // 蟑螂撲克只有房間指令，遊戲中都用按鈕
 export function parseCockroachCommand(text: string, user: string, channel: string): CrAction | null {
   return parseRoomCommand(text, user, channel) as CrAction | null;
@@ -47,6 +58,14 @@ export const cockroach = {
   category: 'bluff',
   desc: '蓋著傳一張害蟲牌說「這是蟑螂」，猜錯的人收下，同種 4 張就輸',
   help: HELP,
+  locales: {
+    en: {
+      name: 'Cockroach Poker',
+      players: '2-6 players',
+      desc: 'Pass a critter card face down and claim "This is a Cockroach". Guess wrong and you keep it; 4 of a kind and you lose',
+      help: HELP_EN,
+    },
+  },
   apply: applyCockroach,
   parse: parseCockroachCommand,
   button: cockroachButton,

@@ -1,6 +1,8 @@
 // 印加寶藏 (Incan Gold) 遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyIncan(state, action, rng) → { state, events }。
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
+import type { Lang } from './i18n/index.js';
+import { tx } from './i18n/games/incan.js';
 
 export const MIN_INCAN_PLAYERS = 3;
 export const MAX_INCAN_PLAYERS = 8;
@@ -13,14 +15,15 @@ export type Hazard = (typeof HAZARDS)[number];
 export type Card = `gem:${number}` | Hazard | 'relic';
 
 const GEMS = [1, 2, 3, 4, 5, 5, 7, 7, 9, 11, 11, 13, 14, 15, 17];
-const HAZARD_NAME: Record<Hazard, string> = { spider: '🕷️ 蜘蛛', snake: '🐍 毒蛇', fire: '🔥 火焰', rock: '🪨 落石', mummy: '🧟 木乃伊' };
 
 // 探險卡 30 張 (不含神器)：寶藏依寶石數、危險每種 3 張
 export const newDeck = (): Card[] => [...GEMS.map((n) => `gem:${n}` as Card), ...HAZARDS.flatMap((h) => [h, h, h])];
 
 const gemsOf = (card: Card) => (card.startsWith('gem:') ? Number(card.slice(4)) : 0);
 const isHazard = (card: Card): card is Hazard => (HAZARDS as readonly string[]).includes(card);
-export const cardName = (card: Card) => (card === 'relic' ? '🏺 神器' : isHazard(card) ? HAZARD_NAME[card] : `💎 ${gemsOf(card)} 顆寶石`);
+const hazardName = (lang: Lang | undefined, h: Hazard) => tx(lang, h);
+export const cardName = (card: Card, lang?: Lang) =>
+  card === 'relic' ? tx(lang, 'relic') : isHazard(card) ? hazardName(lang, card) : tx(lang, gemsOf(card) === 1 ? 'gem' : 'gems', { n: gemsOf(card) });
 
 export interface IPlayer {
   id: string;
@@ -50,6 +53,7 @@ export interface IState {
   winners?: string[];
   timerSeq: number;
   timers: { phase?: number };
+  lang?: Lang;
 }
 
 export type IAction =
@@ -70,7 +74,8 @@ type Ctx = { s: IState; events: GameEvent[]; rng: Rng };
 
 const inCave = (s: IState) => s.players.filter((p) => p.inCave);
 
-const CHOICE_NAME = { go: '🔦 繼續探險', camp: '⛺ 回營地' } as const;
+const choiceName = (s: IState, choice: 'go' | 'camp') => tx(s.lang, choice);
+const list = (s: IState, xs: string[]) => xs.join(tx(s.lang, 'sep'));
 
 // 步驟訊息：揭曉前不顯示任何人的選擇；任何時候都不顯示帳篷
 function board(s: IState, revealed = false): GameEvent {
@@ -78,15 +83,21 @@ function board(s: IState, revealed = false): GameEvent {
   const waiting = cave.filter((p) => !p.choice);
   const camp = s.players.filter((p) => !p.inCave);
   const last = s.revealed[s.revealed.length - 1];
+  const none = tx(s.lang, 'none');
   const lines = [
-    `💎 第 ${s.temple}/${TEMPLES} 座神殿第 ${s.step} 步：翻到 ${cardName(last)}`,
-    `🛤️ 路上的牌：${s.revealed.map(cardName).join(' → ')}`,
-    `路上剩 ${s.path} 顆寶石、神器 ${s.pathRelics} 個｜已出現危險：${s.seen.map((h) => HAZARD_NAME[h]).join('、') || '(無)'}｜牌庫剩 ${s.deck.length} 張`,
-    `🔦 洞裡：${cave.map((p) => `${mention(p.id)} ${p.carry} 顆`).join('、')}`,
-    `⛺ 營地：${camp.map((p) => mention(p.id)).join('、') || '(無)'}`,
+    tx(s.lang, 'boardHead', { temple: s.temple, temples: TEMPLES, step: s.step, card: cardName(last, s.lang) }),
+    tx(s.lang, 'boardPath', { cards: s.revealed.map((card) => cardName(card, s.lang)).join(' → ') }),
+    tx(s.lang, 'boardStatus', { path: s.path, relics: s.pathRelics, hazards: list(s, s.seen.map((h) => hazardName(s.lang, h))) || none, deck: s.deck.length }),
+    tx(s.lang, 'boardCave', { list: list(s, cave.map((p) => tx(s.lang, 'caveEntry', { who: mention(p.id), n: p.carry }))) }),
+    tx(s.lang, 'boardCamp', { list: list(s, camp.map((p) => mention(p.id))) || none }),
     revealed
-      ? `揭曉：${cave.map((p) => `${mention(p.id)} ${CHOICE_NAME[p.choice!]}${p.auto ? ' (逾時，自動回營)' : ''}`).join('、')}`
-      : `已選 ${cave.length - waiting.length}/${cave.length}${waiting.length ? `，還沒選：${waiting.map((p) => mention(p.id)).join(' ')}` : ''} (${CHOOSE_MS / 1000} 秒)`,
+      ? tx(s.lang, 'revealLine', { list: list(s, cave.map((p) => `${mention(p.id)} ${choiceName(s, p.choice!)}${p.auto ? tx(s.lang, 'autoCamp') : ''}`)) })
+      : tx(s.lang, 'waitLine', {
+          done: cave.length - waiting.length,
+          total: cave.length,
+          waiting: waiting.length ? tx(s.lang, 'waiting', { list: waiting.map((p) => mention(p.id)).join(' ') }) : '',
+          secs: CHOOSE_MS / 1000,
+        }),
   ];
   return {
     type: 'prompt',
@@ -97,8 +108,8 @@ function board(s: IState, revealed = false): GameEvent {
     options: revealed
       ? []
       : [
-          { value: `go:${s.seq}`, label: CHOICE_NAME.go },
-          { value: `camp:${s.seq}`, label: CHOICE_NAME.camp },
+          { value: `go:${s.seq}`, label: choiceName(s, 'go') },
+          { value: `camp:${s.seq}`, label: choiceName(s, 'camp') },
         ],
   };
 }
@@ -110,7 +121,7 @@ function startTemple(c: Ctx) {
   s.deck = shuffle([...s.deck, 'relic'], c.rng);
   Object.assign(s, { revealed: [], seen: [], path: 0, pathRelics: 0 });
   for (const p of s.players) Object.assign(p, { carry: 0, inCave: true, choice: undefined, auto: false });
-  c.events.push({ type: 'announce', text: `🏛️ 第 ${s.temple}/${TEMPLES} 座神殿開始！牌庫加入 1 個神器，共 ${s.deck.length} 張。` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'templeStart', { temple: s.temple, temples: TEMPLES, deck: s.deck.length }) });
   nextStep(c);
 }
 
@@ -120,7 +131,7 @@ function nextStep(c: Ctx) {
   const cave = inCave(s);
   // 照原版牌數不會發生，防禦用
   if (!s.deck.length) {
-    c.events.push({ type: 'announce', text: '🃏 牌庫翻完了，洞裡的人全部回營地。' });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'deckOut') });
     settle(c, cave);
     return endTemple(c);
   }
@@ -158,18 +169,16 @@ export function botChoice(s: IState, me: IPlayer): 'go' | 'camp' {
   return 'go';
 }
 
-const NOT_PLAYER = '你不在這局遊戲裡。';
-
 function choose(c: Ctx, user: string, seq: number, choice: 'go' | 'camp'): boolean {
   const s = c.s;
   const me = s.players.find((p) => p.id === user);
-  if (!me) return reply(c, user, NOT_PLAYER);
-  if (s.phase !== 'choose') return reply(c, user, '遊戲還沒開始。');
-  if (!me.inCave) return reply(c, user, '你已經回營地了。');
-  if (seq !== s.seq) return reply(c, user, '這個按鈕已經過期了。');
+  if (!me) return reply(c, user, tx(s.lang, 'notPlayer'));
+  if (s.phase !== 'choose') return reply(c, user, tx(s.lang, 'notStarted'));
+  if (!me.inCave) return reply(c, user, tx(s.lang, 'alreadyCamp'));
+  if (seq !== s.seq) return reply(c, user, tx(s.lang, 'expired'));
   const first = !me.choice;
   me.choice = choice;
-  c.events.push({ type: 'ephemeral', to: user, text: `你選了 ${CHOICE_NAME[choice]} (揭曉前可以改)` });
+  c.events.push({ type: 'ephemeral', to: user, text: tx(s.lang, 'chose', { choice: choiceName(s, choice) }) });
   if (inCave(s).every((p) => p.choice)) reveal(c);
   else if (first) c.events.push(board(s));
   return true;
@@ -196,21 +205,22 @@ function settle(c: Ctx, campers: IPlayer[]) {
   const share = Math.floor(s.path / campers.length);
   s.path -= share * campers.length;
   for (const p of campers) Object.assign(p, { tent: p.tent + p.carry + share, carry: 0, inCave: false });
-  const lines = [`⛺ ${campers.map((p) => mention(p.id)).join('、')} 回營地，每人從路上分到 ${share} 顆寶石 (路上剩 ${s.path} 顆)。`];
+  const lines = [tx(s.lang, 'settle', { who: list(s, campers.map((p) => mention(p.id))), share, path: s.path })];
   if (campers.length === 1 && s.pathRelics) {
     const got = Array.from({ length: s.pathRelics }, () => (s.relicsTaken++ < 3 ? 5 : 10));
     campers[0].relics.push(...got);
     s.pathRelics = 0;
-    lines.push(`🏺 ${mention(campers[0].id)} 一人回營，帶走 ${got.length} 個神器 (${got.join('＋')} 分)！`);
-  } else if (s.pathRelics) lines.push(`🏺 不只一人回營，路上的 ${s.pathRelics} 個神器沒人拿。`);
+    lines.push(tx(s.lang, 'relicTaken', { who: mention(campers[0].id), n: got.length, points: got.join(tx(s.lang, 'plus')) }));
+  } else if (s.pathRelics) lines.push(tx(s.lang, 'relicLeft', { n: s.pathRelics }));
   c.events.push({ type: 'announce', text: lines.join('\n') });
 }
 
 // 同種危險第二張：洞裡的人失去這座神殿的寶石，這張危險移出這局 (不放回 revealed)
 function fail(c: Ctx, hazard: Hazard) {
-  const cave = inCave(c.s);
+  const s = c.s;
+  const cave = inCave(s);
   for (const p of cave) p.carry = 0;
-  c.events.push({ type: 'announce', text: `💥 又是 ${HAZARD_NAME[hazard]}！探險失敗，${cave.map((p) => mention(p.id)).join('、')} 空手而回。這張 ${HAZARD_NAME[hazard]} 移出這局。` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'fail', { hazard: hazardName(s.lang, hazard), who: list(s, cave.map((p) => mention(p.id))) }) });
   endTemple(c);
 }
 
@@ -219,12 +229,12 @@ const scoreOf = (p: IPlayer) => p.tent + p.relics.reduce((a, b) => a + b, 0);
 // 神殿結束：路上的神器移出這局，其他翻開的牌洗回牌庫
 function endTemple(c: Ctx) {
   const s = c.s;
-  const lost = s.pathRelics ? `路上 ${s.pathRelics} 個神器沒人拿走，移出這局。` : '';
+  const lost = s.pathRelics ? tx(s.lang, 'relicLost', { n: s.pathRelics }) : '';
   s.deck.push(...s.revealed.filter((card) => card !== 'relic'));
   s.pathRelics = 0;
-  c.events.push({ type: 'announce', text: `🏛️ 第 ${s.temple}/${TEMPLES} 座神殿結束。${lost}` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'templeEnd', { temple: s.temple, temples: TEMPLES, lost }) });
   for (const p of s.players) {
-    if (!isBot(p.id)) c.events.push({ type: 'ephemeral', to: p.id, text: `你的帳篷：${p.tent} 顆寶石、神器 ${p.relics.length} 個，共 ${scoreOf(p)} 分` });
+    if (!isBot(p.id)) c.events.push({ type: 'ephemeral', to: p.id, text: tx(s.lang, 'tent', { gems: p.tent, relics: p.relics.length, score: scoreOf(p) }) });
   }
   if (s.temple < TEMPLES) startTemple(c);
   else endGame(c);
@@ -245,32 +255,30 @@ function endGame(c: Ctx) {
     {
       type: 'announce',
       text: [
-        `🏆 遊戲結束，${s.winners.map(mention).join('、')} 獲勝！`,
-        ...ranking.map((p, i) => `${i + 1}. ${mention(p.id)} ${scoreOf(p)} 分 (寶石 ${p.tent}、神器 ${p.relics.length} 個 ${relicPoints(p)} 分)${won(p) ? ' 🏆' : ''}`),
+        tx(s.lang, 'winner', { who: list(s, s.winners.map(mention)) }),
+        ...ranking.map((p, i) =>
+          tx(s.lang, 'rankLine', { rank: i + 1, who: mention(p.id), score: scoreOf(p), gems: p.tent, relics: p.relics.length, relicPoints: relicPoints(p), crown: won(p) ? ' 🏆' : '' }),
+        ),
       ].join('\n'),
       gif: 'goodWin',
     },
-    { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },
+    { type: 'prompt', kind: 'rematch', audience: 'channel', text: tx(s.lang, 'rematch'), options: [{ value: 'rematch', label: tx(s.lang, 'rematchBtn') }] },
   );
 }
 
-const RULES = [
-  `共 ${TEMPLES} 座神殿。每一步翻一張探險卡，洞裡的人同時私下選「🔦 繼續探險」或「⛺ 回營地」(${CHOOSE_MS / 1000} 秒，沒選視為回營地)。`,
-  '💎 寶藏：洞裡的人平分，餘數留在路上｜⛺ 回營的人平分路上剩下的寶石，連同這座神殿拿到的寶石放進帳篷；恰好一人回營才拿到路上的 🏺 神器',
-  '⚠️ 同種危險出現第二張，洞裡的人失去這座神殿的寶石。',
-  `${TEMPLES} 座神殿後帳篷寶石加神器分數最高的人贏 (神器：前 3 個各 5 分、第 4、5 個各 10 分)，同分比神器多。`,
-].join('\n');
+const rules = (lang: Lang | undefined) =>
+  (['rules1', 'rules2', 'rules3', 'rules4'] as const).map((k) => tx(lang, k, { temples: TEMPLES, secs: CHOOSE_MS / 1000 })).join('\n');
 
 function start(c: Ctx, user: string): boolean {
   const s = c.s;
-  if (user !== s.host) return reply(c, user, '只有房主可以開始遊戲。');
+  if (user !== s.host) return reply(c, user, tx(s.lang, 'onlyHostStart'));
   if (s.phase !== 'lobby') return false;
   const n = s.players.length;
-  if (n < MIN_INCAN_PLAYERS) return reply(c, user, `目前 ${n} 人，至少需要 ${MIN_INCAN_PLAYERS} 人才能開始。`);
+  if (n < MIN_INCAN_PLAYERS) return reply(c, user, tx(s.lang, 'tooFew', { n, min: MIN_INCAN_PLAYERS }));
   c.events.push(lobbyEvent(TITLE, { ...s, phase: 'choose' }));
   for (const p of s.players) Object.assign(p, newPlayer(p.id));
   Object.assign(s, { phase: 'choose', deck: newDeck(), temple: 0, relicsTaken: 0 });
-  c.events.push({ type: 'announce', text: `💎 印加寶藏開始！玩家：${s.players.map((p) => mention(p.id)).join('、')}，每人 0 分。\n${RULES}` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'startAnn', { players: list(s, s.players.map((p) => mention(p.id))), rules: rules(s.lang) }) });
   startTemple(c);
   return true;
 }

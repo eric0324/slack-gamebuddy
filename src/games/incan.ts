@@ -14,6 +14,17 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Incan Gold commands*',
+  '• `/game incan new`: open a room (anyone)',
+  '• `/game incan addbot [count]`: add bots to fill seats (host, before start)',
+  '• `/game incan removebot [count]`: remove bots (host, before start)',
+  '• `/game incan start`: start the game, needs 3-8 players (host)',
+  '• `/game incan cancel`: cancel the game (host)',
+  'Each step, press "🔦 Continue" or "⛺ Return to camp" on the step message (30 seconds, you can change it before the reveal; no choice counts as returning to camp)',
+  `📖 Full guide: <${WIKI}/Incan-Gold|wiki>`,
+].join('\n');
+
 // 印加寶藏：沒有遊戲中的打字指令，全部用按鈕
 export function parseIncanCommand(text: string, user: string, channel: string): IAction | null {
   return parseRoomCommand(text, user, channel) as IAction | null;
@@ -36,6 +47,14 @@ export const incan = {
   category: 'strategy',
   desc: '一張張翻探險卡，大家同時決定繼續挖寶還是帶寶石回營地，同種危險出現兩次就泡湯，5 座神殿後寶石最多的人贏',
   help: HELP,
+  locales: {
+    en: {
+      name: 'Incan Gold',
+      players: '3-8 players',
+      desc: 'Flip expedition cards and decide together whether to push deeper or head back to camp with your gems. A second matching hazard ruins the run; most gems after 5 temples wins',
+      help: HELP_EN,
+    },
+  },
   apply: applyIncan,
   parse: parseIncanCommand,
   button: incanButton,

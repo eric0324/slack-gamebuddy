@@ -507,3 +507,70 @@ describe('sushigo/bots: bot 行動', () => {
     expect(events.find((e) => e.type === 'result')).toMatchObject({ players: state.players.map((p) => p.id) });
   });
 });
+
+describe('sushigo/en: 英文版', () => {
+  const HAN = /[一-鿿]/;
+  const enLobby = (n: number) =>
+    run([
+      { type: 'new', user: 'p1', channel: 'C1', lang: 'en' } as SGAction,
+      ...Array.from({ length: n - 1 }, (_, i) => ({ type: 'join', user: `p${i + 2}` }) as SGAction),
+    ]);
+  const enStarted = (n: number) => run([{ type: 'start', user: 'p1' }], enLobby(n).state);
+  const textsOf = (events: GameEvent[]) => events.map((e) => ('text' in e ? String(e.text) : '') + ('options' in e ? e.options.map((o) => o.label).join(' ') : ''));
+
+  it('開局公告、規則私訊、牌桌訊息和按鈕都是英文', () => {
+    const { events } = enStarted(2);
+    const ann = announces(events);
+    expect(ann[0]).toContain('🍣 Sushi Go! begins!');
+    expect(ann[1]).toContain('🍣 Round 1/3 begins! Everyone has 10 cards.');
+    const dm = events.find((e) => e.type === 'dm') as { text: string };
+    expect(dm.text).toContain('Sushi Go! rules');
+    const board = boards(events).at(-1)!;
+    expect(board.text).toContain('Round 1/3, turn 1/10');
+    expect(board.options.map((o) => o.label)).toEqual(['🍣 My hand']);
+    for (const t of textsOf(events)) expect(t).not.toMatch(HAN);
+  });
+
+  it('手牌選單、選牌回覆用英文卡名', () => {
+    const { state } = enStarted(2);
+    const menu = menus(run([{ type: 'hand', user: 'p1' }], state).events, 'p1')[0];
+    expect(menu.text).toContain('Pick a card');
+    expect(menu.options[0].label).toBe('🍤 Tempura ×10');
+    const { events } = run([{ type: 'pick', user: 'p1', seq: state.seq, card: 'tempura' }], state);
+    expect(ephemeralTo(events, 'p1')?.text).toBe('You picked 🍤 Tempura (you can change it before the reveal)');
+    expect(ephemeralTo(run([{ type: 'hand', user: 'x' }], state).events, 'x')?.text).toBe("You're not in this game.");
+  });
+
+  it('筷子選單、揭曉、計分和結束公告都是英文', () => {
+    const { state } = enStarted(2);
+    const s = structuredClone(state);
+    s.players[0].table = ['chopsticks'];
+    const chop = menus(run([{ type: 'pick', user: 'p1', seq: s.seq, card: s.players[0].hand[0] }], s).events, 'p1').at(-1)!;
+    expect(chop.text).toContain('🥢 Use chopsticks to play another card?');
+    expect(chop.options.at(-1)!.label).toBe("Don't use chopsticks");
+    let cur = state;
+    let all: GameEvent[] = [];
+    while (cur.phase !== 'ended') {
+      const r = run([{ type: 'timeout', id: cur.timers.phase! }], cur);
+      cur = r.state;
+      all = all.concat(r.events);
+    }
+    const ann = announces(all);
+    expect(ann.some((t) => t.startsWith('🍣 Reveal:') && t.includes('(auto-played on timeout)'))).toBe(true);
+    expect(ann.some((t) => t.startsWith('🍣 Round 1 scores:'))).toBe(true);
+    expect(ann.at(-1)).toMatch(/^🏆 Game over! .* wins?!/);
+    expect(prompts(all).find((p) => p.kind === 'rematch')).toMatchObject({ text: 'Play again?', options: [{ label: 'Play again' }] });
+    for (const t of textsOf(all)) expect(t).not.toMatch(HAN);
+  });
+
+  it('GameDef 有英文名稱、人數、介紹和指令說明', async () => {
+    const { sushiGo } = await import('../src/games/sushigo.js');
+    const en = (sushiGo as { locales?: Record<string, { name: string; players: string; desc: string; help: string }> }).locales!.en;
+    expect(en.name).toBe('Sushi Go!');
+    expect(en.players).toBe('2-5 players');
+    expect(en.desc).not.toMatch(HAN);
+    expect(en.help).toContain('*Sushi Go! commands*');
+    expect(en.help).toContain('/game sushigo new');
+    expect(en.help).not.toMatch(HAN);
+  });
+});

@@ -619,3 +619,84 @@ describe('forsale/setup: 指令解析與按鈕 (GameDef)', () => {
     expect(forsale.button('incan', 'pass:7', 'u', 'C1')).toBeNull();
   });
 });
+
+describe('forsale/en: 英文版', () => {
+  const CJK = /[一-鿿]/;
+  const enLobby = () =>
+    run([
+      { type: 'new', user: 'p1', channel: 'C1', lang: 'en' } as FAction,
+      { type: 'join', user: 'p2' },
+      { type: 'join', user: 'p3' },
+    ]);
+  const enStarted = () => run([{ type: 'start', user: 'p1' }], enLobby().state);
+  const texts = (events: GameEvent[]) =>
+    events.flatMap((e) => ('text' in e ? [e.text as string] : [])).concat(prompts(events).flatMap((p) => labels(p)));
+
+  it('開局公告、規則摘要和喊價面板、按鈕都是英文', () => {
+    const { state, events } = enStarted();
+    expect(state.lang).toBe('en');
+    expect(announces(events)[0]).toContain('🏠 For Sale begins! Players: <@p1>, <@p2>, <@p3>');
+    expect(announces(events)[0]).toContain('Phase 1:');
+    const board = lastBoard(events);
+    expect(board.text).toContain('Phase 1, round 1/');
+    expect(board.text).toContain('🏠 On the table:');
+    expect(board.text).toContain('No bids yet');
+    expect(labels(board)).toEqual(['Bid $1,000 (+1)', 'Bid $2,000 (+2)', 'Bid $5,000 (+5)', '🔢 Other amount', '🙅 Pass', '💰 My status']);
+    for (const text of texts(events)) expect(text).not.toMatch(CJK);
+  });
+
+  it('私下訊息和錯誤回覆是英文', () => {
+    const { state } = enStarted();
+    const who = state.players[state.turn].id;
+    const other = state.players.find((p) => p.id !== who)!.id;
+    expect(ephemeralTo(run([{ type: 'status', user: who }], state).events, who)?.text).toContain('💰 Coins $18,000');
+    expect(ephemeralTo(run([{ type: 'pass', user: other, seq: state.seq }], state).events, other)?.text).toBe("It's not your turn.");
+    expect(ephemeralTo(run([{ type: 'status', user: 'x' }], state).events, 'x')?.text).toBe("You're not in this game.");
+    expect(menuTo(run([{ type: 'bidMenu', user: who, seq: state.seq }], state).events, who)?.text).toBe('🔢 Choose your bid (current high $0)');
+  });
+
+  it('人數不足的回覆是英文', () => {
+    const lobby = run([{ type: 'new', user: 'p1', channel: 'C1', lang: 'en' } as FAction]);
+    expect(ephemeralTo(run([{ type: 'start', user: 'p1' }], lobby.state).events, 'p1')?.text).toBe('Only 1 in the room; at least 3 players are needed to start.');
+  });
+
+  it('整局逾時跑完：兩個階段的面板、結束公告和再來一局都是英文', () => {
+    let { state, events } = enStarted();
+    const seen: GameEvent[] = [...events];
+    for (let i = 0; i < 100 && state.phase !== 'ended'; i++) {
+      ({ state, events } = run([{ type: 'timeout', id: state.timers.phase! }], state));
+      seen.push(...events);
+    }
+    expect(state.phase).toBe('ended');
+    expect(announces(seen).join('\n')).toContain('Phase 1 is over');
+    expect(boards(seen).some((b) => b.text.includes('passed') && b.text.includes('timed out, auto-pass'))).toBe(true);
+    expect(boards(seen).some((b) => b.text.includes('Phase 2, round 1/'))).toBe(true);
+    expect(announces(seen).at(-1)).toMatch(/^🏆 Game over! .* wins?!/);
+    expect(announces(seen).at(-1)).toContain('checks');
+    const rematch = prompts(seen).find((p) => p.kind === 'rematch')!;
+    expect(rematch.text).toBe('Play again?');
+    expect(labels(rematch)).toEqual(['Play again']);
+    for (const text of texts(seen)) expect(text).not.toMatch(CJK);
+  });
+
+  it('第二階段：選房產選單和確認是英文', () => {
+    const s = structuredClone(enStarted().state);
+    Object.assign(s, { phase: 'sell', checks: [9, 4, 0], seq: s.seq + 1 });
+    s.players.forEach((p, i) => (p.props = [i + 1, i + 10]));
+    const menu = menuTo(run([{ type: 'sellMenu', user: 'p1', seq: s.seq }], s).events, 'p1')!;
+    expect(menu.text).toBe('🏠 Choose a property to sell (you can change it before the reveal)');
+    expect(labels(menu)).toEqual(['Property 1', 'Property 10']);
+    expect(ephemeralTo(run([sell(s, 'p1', 10)], s).events, 'p1')?.text).toBe('You chose Property 10 (you can change it before the reveal)');
+  });
+
+  it('GameDef 有英文名稱、人數、介紹和英文說明', () => {
+    const en = forsale.locales!.en!;
+    expect(en.name).toBe('For Sale');
+    expect(en.players).toBe('3-6 players');
+    expect(en.desc).not.toMatch(CJK);
+    expect(en.help).toContain('*For Sale commands*');
+    expect(en.help).toContain('`/game forsale new`');
+    expect(en.help).toContain('For-Sale');
+    expect(en.help).not.toMatch(CJK);
+  });
+});
