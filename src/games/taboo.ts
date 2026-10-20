@@ -15,6 +15,18 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Taboo commands*',
+  '• `/game taboo new`: open a room (anyone)',
+  '• `/game taboo start`: start the game, needs 4-12 human players (host)',
+  '• When it\'s your turn to describe, press "▶️ Start". Only you see the word and its taboo words; describe it by typing in the channel, and teammates type their guesses in the channel',
+  '• `/game taboo skip`: skip the current card, the other team gets +1 (describer; or press "⏭️ Skip")',
+  '• `/game taboo card`: see the current card again (describer)',
+  '• `/game taboo cancel`: cancel the game (host)',
+  'Saying the word or a taboo word is a foul and gives the other team +1; using symbols like ○ or * to stand in for letters (e.g. "w*ter") is also a foul',
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 // 禁語的子指令：skip (跳過目前的卡)、card (再看一次)
 export function parseTabooCommand(text: string, user: string, channel: string): TAction | null {
   const sub = text.trim().split(/\s+/)[0];
@@ -40,6 +52,7 @@ export const taboo = {
   category: 'team',
   desc: '兩隊對抗，在頻道打字描述題目詞讓隊友猜，但不能說出禁語',
   noBots: true,
+  locales: { en: { name: 'Taboo', players: '4-12 players', desc: 'Team vs. team: describe the word in chat for your team without saying the taboo words', help: HELP_EN } },
   help: HELP,
   apply: applyTaboo,
   parse: parseTabooCommand,
