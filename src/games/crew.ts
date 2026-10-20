@@ -17,6 +17,20 @@ const HELP = [
   `📖 完整說明：<${WIKI}/${encodeURI('星際探險隊-指令')}|指令>、<${WIKI}/${encodeURI('星際探險隊-遊戲規則')}|遊戲規則>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*The Crew commands*',
+  '• `/game crew new`: open a room (anyone); defaults to the highest mission unlocked in this channel',
+  '• `/game crew start`: start the game, needs 3-5 players (host); bots not supported',
+  '• `/game crew level`: list the missions unlocked in this channel (anyone)',
+  '• `/game crew level <n>`: switch to mission n, unlocked missions only (host, before start)',
+  '• `/game crew reset`: reset this channel\'s progress; press again to confirm (host, before start)',
+  '• `/game crew cancel`: cancel the game (host)',
+  '• Play: press "🃏 Hand" on the table message and pick a legal card on your turn; the first 10 seconds of each trick are communication time, no playing',
+  '• Communicate: once per player per mission, before the first card of a trick, press "📡 Communicate" to reveal your highest, lowest, or only card of a color (no rockets)',
+  "🤫 Don't discuss your hand in the channel. Communicate only through your plays and your one communication",
+  `📖 Full guide: <${WIKI}/The-Crew-Commands|Commands>, <${WIKI}/The-Crew-Rules|Rules>`,
+].join('\n');
+
 // 星際探險隊的子指令：level [n]、reset，其他是房間指令
 export function parseCrewCommand(text: string, user: string, channel: string): CAction | null {
   const [sub, arg, ...extra] = text.trim().split(/\s+/);
@@ -64,6 +78,14 @@ export const crew = {
   desc: '合作吃墩：不能討論手牌，靠出牌和一次通訊讓指定的人吃下任務牌，一關一關往第九行星前進',
   noBots: true,
   help: HELP,
+  locales: {
+    en: {
+      name: 'The Crew',
+      players: '3-5 players',
+      desc: "Co-op trick-taking: no talking about your hand. Use your plays and one communication to get each task won by the right player, mission by mission, on the way to Planet Nine",
+      help: HELP_EN,
+    },
+  },
   apply: (state: CState | undefined, action: CAction, rng: () => number) => applyCrew(state, action, rng, Date.now()), // 帶入現在的時間，顯示通訊時間還剩幾秒
   parse: parseCrewCommand,
   button: crewButton,

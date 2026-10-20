@@ -1,6 +1,8 @@
 import { reply, shuffle } from './common.js';
 import { parseChat } from './chatParser.js';
 import { botLine, counterClaim, followClaim, knightReveal, randomBotName, seerClaim, witchReveal } from './botLines.js';
+import { t, type Lang } from './i18n/index.js';
+import { tx, wikiUrl } from './i18n/games/werewolf.js';
 
 // 狼人殺遊戲引擎：純邏輯，不碰任何 I/O。
 // applyAction(state, action, rng) → { state, events }，由 adapter 把 events 轉成 Slack 訊息。
@@ -31,14 +33,8 @@ export const ROLE_NAME: Record<Role, string> = {
   villager: '村民',
 };
 
-const ROLE_HELP: Record<Role, string> = {
-  werewolf: '每晚和其他狼人一起選一位玩家擊殺。殺光所有村民或所有神職就獲勝。',
-  wolfKing: '你是狼人陣營，每晚和其他狼人一起擊殺。死亡時 (被毒死除外) 可以開槍帶走一位玩家。',
-  seer: '每晚可以查驗一位玩家是好人還是狼人。',
-  witch: '有一瓶解藥和一瓶毒藥，各能用一次，一晚最多用一瓶。解藥只有第一夜可以救自己。',
-  knight: '整局一次，白天輪流發言時可以翻牌向一位玩家決鬥：對方是狼人就出局並直接入夜，對方是好人則你出局。',
-  villager: '沒有特殊能力，靠白天的推理和投票找出狼人。',
-};
+// 角色名稱和說明依語系 (字典在 src/i18n/games/werewolf.ts)；ROLE_NAME 是中文版
+export const roleName = (lang: Lang | undefined, role: Role) => tx(lang, `role.${role}`);
 
 // bot 玩家的 id 是 `bot:<編號>:<名字>`，沒有 Slack 帳號，所以不能用 <@id>，改顯示成 🤖<名字>
 export const isBot = (id: string) => id.startsWith('bot:');
@@ -51,7 +47,7 @@ export const mention = (id: string) => {
   return `🤖${name ?? `Bot${n}`}`;
 };
 
-export const RULES_URL = encodeURI('https://github.com/eric0324/slack-gamebuddy/wiki/狼人殺-遊戲規則');
+export const RULES_URL = wikiUrl('zh-TW', 'rules');
 export const ACTION_MS = 60_000;
 const WOLF_REMIND_BEFORE_MS = 30_000;
 export const SPEECH_MS = 40_000; // 輪流發言每人的時間
@@ -103,11 +99,12 @@ export interface GameState {
   candidates: string[]; // 這輪可以被投的人
   voters: string[]; // 這輪可以投票的人
   shooter?: { id: string; next: 'speech' | 'night' }; // 正在等待開槍的狼王
+  lang?: Lang; // 開房時的頻道語系，整局都用它
 }
 
 export type Action =
-  | { type: 'new'; user: string; channel: string }
-  | { type: 'rematch'; user: string; channel: string }
+  | { type: 'new'; user: string; channel: string; lang?: Lang } // lang：開房當下的頻道語系
+  | { type: 'rematch'; user: string; channel: string; lang?: Lang }
   | { type: 'join'; user: string }
   | { type: 'leave'; user: string }
   | { type: 'start'; user: string }
@@ -233,25 +230,26 @@ function mostVoted(votes: string[]): string[] {
 
 function announceStart(c: Ctx) {
   const s = c.s;
+  const L = s.lang;
   const setup = Object.entries(ROLE_TABLE[s.players.length])
-    .map(([role, k]) => `${k} ${ROLE_NAME[role as Role]}`)
-    .join('、');
+    .map(([role, k]) => tx(L, 'setupItem', { k, role: roleName(L, role as Role) }))
+    .join(tx(L, 'sep'));
   const wolves = wolfIds(s);
   c.events.push(
     {
       type: 'announce',
-      text: `🎲 遊戲開始！玩家：${s.players.map((p) => mention(p.id)).join(' ')}\n角色配置：${setup}\n身分已經用私訊傳給每個人，請到和 bot 的私訊查看。\n📖 第一次玩？先看 <${RULES_URL}|遊戲規則>`,
+      text: tx(L, 'start', { players: s.players.map((p) => mention(p.id)).join(' '), setup, rules: wikiUrl(L, 'rules') }),
       gif: 'start',
     },
     ...s.players.map((p): GameEvent => ({
       type: 'dm',
       to: p.id,
-      text: `你的身分是「${ROLE_NAME[p.role!]}」。${ROLE_HELP[p.role!]}`,
+      text: tx(L, 'yourRole', { role: roleName(L, p.role!), help: tx(L, `roleHelp.${p.role!}`) }),
     })),
     {
       type: 'wolfChat',
       wolves,
-      text: `這裡是狼人的私密對話。狼人：${wolves.map((id) => mention(id) + (player(s, id).role === 'wolfKing' ? ' (狼王)' : '')).join(' ')}`,
+      text: tx(L, 'wolfChatIntro', { wolves: wolves.map((id) => mention(id) + (player(s, id).role === 'wolfKing' ? tx(L, 'kingTag') : '')).join(' ') }),
     },
   );
 }
@@ -265,13 +263,13 @@ function enterNight(c: Ctx) {
   s.night = { wolfVotes: {}, seerDone: !seer, witchDone: false, saved: false, poisoned: null };
   const living = alive(s).map((p) => p.id);
   c.events.push(
-    { type: 'announce', text: `🌙 第 ${s.day} 夜，天黑請閉眼。`, gif: 'night' },
+    { type: 'announce', text: tx(s.lang, 'night', { day: s.day }), gif: 'night' },
     {
       type: 'prompt',
       kind: 'wolfKill',
       audience: 'wolves',
-      text: '請選擇今晚要擊殺的玩家。',
-      options: [...options(living), { value: 'none', label: '不殺人' }],
+      text: tx(s.lang, 'wolfPrompt'),
+      options: [...options(living), { value: 'none', label: tx(s.lang, 'noKill') }],
     },
   );
   if (seer) {
@@ -280,7 +278,7 @@ function enterNight(c: Ctx) {
       kind: 'seerCheck',
       audience: 'user',
       user: seer.id,
-      text: '請選擇今晚要查驗的玩家。',
+      text: tx(s.lang, 'seerPrompt'),
       options: options(living.filter((id) => id !== seer.id)),
     });
   }
@@ -294,7 +292,7 @@ function decideWolves(c: Ctx) {
   const choice = top.length ? top[Math.floor(c.rng() * top.length)] : null;
   n.wolfTarget = choice === 'none' ? null : choice;
   const text =
-    choice === 'none' ? '今晚不殺人。' : n.wolfTarget ? `今晚的目標是 ${mention(n.wolfTarget)}。` : '今晚沒有擊殺目標。';
+    choice === 'none' ? tx(c.s.lang, 'decideNone') : n.wolfTarget ? tx(c.s.lang, 'decideTarget', { who: mention(n.wolfTarget) }) : tx(c.s.lang, 'decideNoTarget');
   c.events.push({ type: 'wolfChat', wolves: wolfIds(c.s), text });
   startTimer(c, 'witch', ACTION_MS);
   promptWitch(c);
@@ -315,19 +313,19 @@ function promptWitch(c: Ctx) {
   }
   const target = s.night!.wolfTarget;
   const lines: string[] = [];
-  if (s.potions.antidote) lines.push(target ? `今晚被殺的是 ${mention(target)}。` : '今晚沒有人被殺。');
-  lines.push('一晚最多使用一瓶藥。');
+  if (s.potions.antidote) lines.push(target ? tx(s.lang, 'witchKilled', { who: mention(target) }) : tx(s.lang, 'witchNobody'));
+  lines.push(tx(s.lang, 'witchOne'));
   const opts = witchOptions(s, witch.id);
   c.events.push({ type: 'prompt', kind: 'witch', audience: 'user', user: witch.id, text: lines.join('\n'), options: opts });
 }
 
 function witchOptions(s: GameState, witch: string): Option[] {
   const opts: Option[] = [];
-  if (canSave(s, witch)) opts.push({ value: 'save', label: '使用解藥' });
+  if (canSave(s, witch)) opts.push({ value: 'save', label: tx(s.lang, 'antidote') });
   if (s.potions.poison) {
-    for (const p of alive(s)) if (p.id !== witch) opts.push({ value: `poison:${p.id}`, label: `毒 ${p.id}` });
+    for (const p of alive(s)) if (p.id !== witch) opts.push({ value: `poison:${p.id}`, label: tx(s.lang, 'poison', { id: p.id }) });
   }
-  opts.push({ value: 'skip', label: '不使用' });
+  opts.push({ value: 'skip', label: tx(s.lang, 'noPotion') });
   return opts;
 }
 
@@ -399,9 +397,8 @@ function maybeResolveNight(c: Ctx) {
 
 function dawn(c: Ctx) {
   const deaths = c.s.lastDeaths;
-  const text = deaths.length
-    ? `☀️ 天亮了。昨晚死亡的是 ${deaths.map(mention).join('、')}。死亡的玩家請不要再發言。`
-    : '☀️ 天亮了。昨晚是平安夜。';
+  const L = c.s.lang;
+  const text = deaths.length ? tx(L, 'dawnDeath', { deaths: deaths.map(mention).join(tx(L, 'sep')) }) : tx(L, 'dawnPeace');
   c.events.push({ type: 'announce', text, gif: deaths.length ? 'dawnDeath' : 'dawnPeace' });
   if (checkGameOver(c)) return;
   startLastWords(c, c.s.day === 1 ? deaths : [], { kind: 'dawn' });
@@ -421,15 +418,15 @@ function nextLastWords(c: Ctx) {
   for (let id = s.lastWords.shift(); id; id = s.lastWords.shift()) {
     s.speaker = id;
     if (isBot(id)) {
-      c.events.push({ type: 'announce', text: `${mention(id)}：${botLastWords(s, id, c.rng)}` });
+      c.events.push({ type: 'announce', text: tx(s.lang, 'botSays', { who: mention(id), text: botLastWords(s, id, c.rng) }) });
       continue;
     }
     c.events.push({
       type: 'prompt',
       kind: 'endSpeech',
       audience: 'channel',
-      text: `🕯️ ${mention(id)} 的遺言 (${LAST_WORDS_MS / 1000} 秒)`,
-      options: [{ value: id, label: '結束發言' }],
+      text: tx(s.lang, 'lastWords', { who: mention(id), sec: LAST_WORDS_MS / 1000 }),
+      options: [{ value: id, label: tx(s.lang, 'endSpeech') }],
     });
     startTimer(c, 'phase', LAST_WORDS_MS);
     return;
@@ -467,8 +464,8 @@ function startShooter(c: Ctx, id: string, next: 'speech' | 'night') {
     kind: 'shoot',
     audience: 'user',
     user: id,
-    text: '你死亡了，可以開槍帶走一位玩家。',
-    options: [...options(alive(s).map((p) => p.id)), { value: 'none', label: '不開槍' }],
+    text: tx(s.lang, 'shootPrompt'),
+    options: [...options(alive(s).map((p) => p.id)), { value: 'none', label: tx(s.lang, 'noShoot') }],
   });
   startTimer(c, 'phase', ACTION_MS);
 }
@@ -480,7 +477,7 @@ function finishShooter(c: Ctx, target: string) {
   if (target !== 'none') {
     player(s, target).alive = false;
     const role = player(s, id).role!;
-    c.events.push({ type: 'announce', text: `🔫 ${ROLE_NAME[role]} ${mention(id)} 開槍帶走了 ${mention(target)}。`, gif: 'wolfKingShot' });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'shot', { role: roleName(s.lang, role), who: mention(id), target: mention(target) }), gif: 'wolfKingShot' });
     if (checkGameOver(c)) return;
   }
   if (next === 'speech') startSpeeches(c);
@@ -495,7 +492,7 @@ function startSpeeches(c: Ctx) {
   s.phase = 'speech';
   s.suspects = {};
   s.speakers = [...living.slice(first), ...living.slice(0, first)];
-  c.events.push({ type: 'announce', text: `💬 開始輪流發言，順序：${s.speakers.map(mention).join(' → ')}` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'speeches', { order: s.speakers.map(mention).join(' → ') }) });
   promptKnight(c);
   nextSpeaker(c);
 }
@@ -511,6 +508,7 @@ function readChat(s: GameState, user: string, text: string): boolean {
   const info = parseChat(
     text,
     s.players.map((p) => p.id),
+    s.lang,
   );
   const others = (ids: string[]) => ids.filter((id) => id !== user);
   let changed = false;
@@ -544,12 +542,12 @@ function botLastWords(s: GameState, id: string, rng: Rng): string {
   const role = player(s, id).role!;
   if (role === 'seer' && s.checks.length) {
     recordClaims(s, id, s.checks);
-    return seerClaim(checkLines(s.checks)) + '大家加油。';
+    return seerClaim(checkLines(s.checks), s.lang) + tx(s.lang, 'goodLuck');
   }
-  if (s.fakeSeer === id) return seerClaim(checkLines(s.claims.filter((k) => k.by === id))) + '大家相信我。';
+  if (s.fakeSeer === id) return seerClaim(checkLines(s.claims.filter((k) => k.by === id)), s.lang) + tx(s.lang, 'trustMe');
   const pool = alive(s).map((p) => p.id);
   const target = isWolf(role) ? wolfSuspect(s, id, pool, rng).target : goodSuspect(s, id, pool, rng).target;
-  return botLine('lastWords', mention(target), rng);
+  return botLine('lastWords', mention(target), rng, s.lang);
 }
 
 // bot 依身分發言：預言家報查驗、狼人假裝好人 (可能悍跳)、神職被懷疑時亮身分、好人跟著查殺
@@ -560,15 +558,15 @@ function botSpeak(c: Ctx, id: string) {
   const pool = (pk ? s.candidates : alive(s).map((p) => p.id)).filter((p) => p !== id);
   const say = (text: string, target: string) => {
     if (!pk) s.suspects[id] = target;
-    c.events.push({ type: 'announce', text: `${mention(id)}：${text}` });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'botSays', { who: mention(id), text }) });
   };
 
   if (role === 'seer' && s.checks.length) {
     recordClaims(s, id, s.checks);
     const found = s.checks.filter((k) => k.wolf && pool.includes(k.target)).at(-1)?.target;
     const target = found ?? goodSuspect(s, id, pool, c.rng).target;
-    const tail = found ? `今天大家跟我投 ${mention(found)}。` : `目前還沒查到狼，我先看 ${mention(target)}。`;
-    say(seerClaim(checkLines(s.checks)) + tail, target);
+    const tail = found ? tx(s.lang, 'voteWithMe', { who: mention(found) }) : tx(s.lang, 'noWolfYet', { who: mention(target) });
+    say(seerClaim(checkLines(s.checks), s.lang) + tail, target);
     return;
   }
 
@@ -580,18 +578,18 @@ function botSpeak(c: Ctx, id: string) {
     if (s.fakeSeer === id) {
       const fake = fakeCheck(s, id, c.rng);
       const target = fake && pool.includes(fake) ? fake : wolfSuspect(s, id, pool, c.rng).target;
-      say(seerClaim(checkLines(s.claims.filter((k) => k.by === id))) + `今天大家跟我投 ${mention(target)}。`, target);
+      say(seerClaim(checkLines(s.claims.filter((k) => k.by === id)), s.lang) + tx(s.lang, 'voteWithMe', { who: mention(target) }), target);
       return;
     }
     const { target, counter } = wolfSuspect(s, id, pool, c.rng);
-    say(counter ? counterClaim(mention(target), c.rng) : botLine(pk ? 'pk' : 'speech', mention(target), c.rng), target);
+    say(counter ? counterClaim(mention(target), c.rng, s.lang) : botLine(pk ? 'pk' : 'speech', mention(target), c.rng, s.lang), target);
     return;
   }
 
   const { target, followed } = goodSuspect(s, id, pool, c.rng);
   const accused = pk || Object.values(s.suspects).includes(id);
   const reveal = accused ? godReveal(s, id, role) : '';
-  say(reveal + (followed ? followClaim(mention(target), c.rng) : botLine(pk ? 'pk' : 'speech', mention(target), c.rng)), target);
+  say(reveal + (followed ? followClaim(mention(target), c.rng, s.lang) : botLine(pk ? 'pk' : 'speech', mention(target), c.rng, s.lang)), target);
 }
 
 const checkLines = (list: { night: number; target: string; wolf: boolean }[]) =>
@@ -639,9 +637,9 @@ function wolfSuspect(s: GameState, id: string, pool: string[], rng: Rng) {
 // 女巫、騎士被懷疑或進 PK 時亮身分
 function godReveal(s: GameState, id: string, role: Role): string {
   if (role === 'witch') {
-    return witchReveal(s.witchLog.map((l) => ({ night: l.night, saved: l.saved && mention(l.saved), poisoned: l.poisoned && mention(l.poisoned) })));
+    return witchReveal(s.witchLog.map((l) => ({ night: l.night, saved: l.saved && mention(l.saved), poisoned: l.poisoned && mention(l.poisoned) })), s.lang);
   }
-  if (role === 'knight') return knightReveal(s.knightUsed);
+  if (role === 'knight') return knightReveal(s.knightUsed, s.lang);
   return '';
 }
 
@@ -655,7 +653,7 @@ function promptKnight(c: Ctx) {
     kind: 'duel',
     audience: 'user',
     user: knight.id,
-    text: '🗡️ 你可以在輪流發言時翻牌決鬥 (整局一次)。選擇決鬥對象：',
+    text: tx(s.lang, 'knightPrompt'),
     options: options(alive(s).filter((p) => p.id !== knight.id).map((p) => p.id)),
   });
 }
@@ -663,17 +661,17 @@ function promptKnight(c: Ctx) {
 function duel(c: Ctx, knight: string, target: string) {
   const s = c.s;
   s.knightUsed = true;
-  c.events.push({ type: 'announce', text: `🗡️ 騎士 ${mention(knight)} 翻牌，向 ${mention(target)} 發起決鬥！` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'duel', { knight: mention(knight), target: mention(target) }) });
   if (isWolf(player(s, target).role)) {
     player(s, target).alive = false;
-    c.events.push({ type: 'announce', text: `${mention(target)} 是狼人，出局！直接進入黑夜。`, gif: 'duelWin' });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'duelWin', { target: mention(target) }), gif: 'duelWin' });
     if (checkGameOver(c)) return;
     if (canShoot(s, target, 'duel')) startShooter(c, target, 'night');
     else enterNight(c);
     return;
   }
   player(s, knight).alive = false;
-  c.events.push({ type: 'announce', text: `${mention(target)} 是好人，騎士 ${mention(knight)} 出局。`, gif: 'duelLose' });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'duelLose', { target: mention(target), knight: mention(knight) }), gif: 'duelLose' });
   if (checkGameOver(c)) return;
   s.speakers = s.speakers.filter((id) => id !== knight);
   if (s.phase === 'speech' && s.speaker === knight) nextSpeaker(c);
@@ -693,8 +691,8 @@ function nextSpeaker(c: Ctx) {
       type: 'prompt',
       kind: 'endSpeech',
       audience: 'channel',
-      text: `🎤 輪到 ${mention(id)} 發言 (${SPEECH_MS / 1000} 秒)`,
-      options: [{ value: id, label: '結束發言' }],
+      text: tx(s.lang, 'speaker', { who: mention(id), sec: SPEECH_MS / 1000 }),
+      options: [{ value: id, label: tx(s.lang, 'endSpeech') }],
     });
     startTimer(c, 'phase', SPEECH_MS);
     return;
@@ -724,8 +722,8 @@ function openVote(c: Ctx, phase: 'vote' | 'pkVote', candidates: string[], voters
     type: 'prompt',
     kind: phase === 'vote' ? 'dayVote' : 'pkVote',
     audience: 'channel',
-    text: phase === 'vote' ? '🗳️ 請投票選出要放逐的玩家。' : '⚔️ PK 投票：請在平票的玩家中選出要放逐的人 (PK 中的玩家不能投票)。',
-    options: [...options(candidates), { value: 'abstain', label: '棄票' }],
+    text: tx(s.lang, phase === 'vote' ? 'votePrompt' : 'pkPrompt'),
+    options: [...options(candidates), { value: 'abstain', label: tx(s.lang, 'abstain') }],
   });
   startTimer(c, 'phase', ACTION_MS);
   if (voters.length === 0) endVote(c);
@@ -736,7 +734,7 @@ function startPk(c: Ctx, tied: string[]) {
   s.phase = 'pkSpeech';
   s.candidates = tied;
   s.speakers = s.players.map((p) => p.id).filter((id) => tied.includes(id));
-  c.events.push({ type: 'announce', text: `⚔️ 平票！${tied.map(mention).join('、')} 進入 PK，依序再發言一次。`, gif: 'pk' });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'pk', { tied: tied.map(mention).join(tx(s.lang, 'sep')) }), gif: 'pk' });
   nextSpeaker(c);
 }
 
@@ -744,16 +742,16 @@ function endVote(c: Ctx) {
   const s = c.s;
   const lines = s.voters.map((v) => {
     const t = s.votes[v] ?? 'abstain';
-    return `${mention(v)} → ${t === 'abstain' ? '棄票' : mention(t)}`;
+    return `${mention(v)} → ${t === 'abstain' ? tx(s.lang, 'abstain') : mention(t)}`;
   });
-  c.events.push({ type: 'announce', text: `🗳️ 投票結果：\n${lines.join('\n')}` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'voteResults', { lines: lines.join('\n') }) });
   const top = mostVoted(Object.values(s.votes).filter((t) => t !== 'abstain'));
   if (top.length > 1 && s.phase === 'vote') {
     startPk(c, top);
     return;
   }
   if (top.length !== 1) {
-    c.events.push({ type: 'announce', text: '🗳️ 今天沒有人被放逐。' });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'noExile') });
     enterNight(c);
     return;
   }
@@ -762,7 +760,7 @@ function endVote(c: Ctx) {
 
 function exile(c: Ctx, id: string) {
   player(c.s, id).alive = false;
-  c.events.push({ type: 'announce', text: `🚪 ${mention(id)} 被放逐了。`, gif: 'exile' });
+  c.events.push({ type: 'announce', text: tx(c.s.lang, 'exile', { who: mention(id) }), gif: 'exile' });
   if (checkGameOver(c)) return;
   startLastWords(c, [id], { kind: 'exile', id });
 }
@@ -773,10 +771,11 @@ function checkGameOver(c: Ctx): boolean {
   if (!winner) return false;
   c.s.phase = 'ended';
   c.s.timers = {};
+  const L = c.s.lang;
   const roster = c.s.players
-    .map((p) => `${mention(p.id)}：${ROLE_NAME[p.role!]} (${p.alive ? '存活' : '死亡'})`)
+    .map((p) => tx(L, 'rosterLine', { who: mention(p.id), role: roleName(L, p.role!), status: tx(L, p.alive ? 'alive' : 'dead') }))
     .join('\n');
-  const title = winner === 'good' ? '🎉 遊戲結束，好人陣營獲勝！' : '🐺 遊戲結束，狼人陣營獲勝！';
+  const title = tx(L, winner === 'good' ? 'goodWin' : 'wolvesWin');
   c.s.winner = winner;
   // 只記錄全真人的遊戲 (戰績查詢用)
   if (!c.s.players.some((p) => isBot(p.id))) {
@@ -788,8 +787,8 @@ function checkGameOver(c: Ctx): boolean {
       type: 'prompt',
       kind: 'rematch',
       audience: 'channel',
-      text: '要再來一局嗎？',
-      options: [{ value: 'rematch', label: '再來一局' }],
+      text: t(L, 'rematch.ask'),
+      options: [{ value: 'rematch', label: t(L, 'rematch.button') }],
     },
   );
   return true;
@@ -807,23 +806,23 @@ const PLAYER_ACTIONS: GameAction['type'][] = ['wolfVote', 'seerCheck', 'witchAct
 function handle(c: Ctx, action: GameAction): boolean {
   const s = c.s;
   if (PLAYER_ACTIONS.includes(action.type) && 'user' in action && !s.players.some((p) => p.id === action.user)) {
-    return reply(c, action.user, '你不在這局遊戲中。');
+    return reply(c, action.user, tx(s.lang, 'notInGame'));
   }
   switch (action.type) {
     case 'join': {
-      if (s.phase !== 'lobby') return reply(c, action.user, '遊戲已經開始了。');
-      if (s.players.some((p) => p.id === action.user)) return reply(c, action.user, '你已經在房間裡了。');
-      if (s.players.length >= MAX_PLAYERS) return reply(c, action.user, '房間已滿。');
+      if (s.phase !== 'lobby') return reply(c, action.user, t(s.lang, 'room.started'));
+      if (s.players.some((p) => p.id === action.user)) return reply(c, action.user, t(s.lang, 'room.alreadyIn'));
+      if (s.players.length >= MAX_PLAYERS) return reply(c, action.user, t(s.lang, 'room.full'));
       s.players.push({ id: action.user, alive: true });
       c.events.push(lobbyEvent(s));
       return true;
     }
     case 'leave': {
       if (!s.players.some((p) => p.id === action.user)) return false;
-      if (s.phase !== 'lobby') return reply(c, action.user, '遊戲已經開始了，不能離開。');
+      if (s.phase !== 'lobby') return reply(c, action.user, t(s.lang, 'room.cannotLeave'));
       if (action.user === s.host) {
         s.phase = 'ended';
-        c.events.push(lobbyEvent(s), { type: 'announce', text: '🛑 房主離開，遊戲已取消。' });
+        c.events.push(lobbyEvent(s), { type: 'announce', text: t(s.lang, 'room.hostLeft') });
         return true;
       }
       s.players = s.players.filter((p) => p.id !== action.user);
@@ -831,10 +830,10 @@ function handle(c: Ctx, action: GameAction): boolean {
       return true;
     }
     case 'start': {
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以開始遊戲。');
+      if (action.user !== s.host) return reply(c, action.user, tx(s.lang, 'onlyHostStart'));
       if (s.phase !== 'lobby') return false;
       const n = s.players.length;
-      if (n < MIN_PLAYERS) return reply(c, action.user, `目前 ${n} 人，至少需要 ${MIN_PLAYERS} 人才能開始。`);
+      if (n < MIN_PLAYERS) return reply(c, action.user, tx(s.lang, 'needPlayers', { n, min: MIN_PLAYERS }));
       const roles = dealRoles(n, c.rng);
       s.players.forEach((p, i) => (p.role = roles[i]));
       s.phase = 'night';
@@ -844,8 +843,8 @@ function handle(c: Ctx, action: GameAction): boolean {
       return true;
     }
     case 'addBot': {
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以加入 bot。');
-      if (s.phase !== 'lobby') return reply(c, action.user, '遊戲已經開始了。');
+      if (action.user !== s.host) return reply(c, action.user, t(s.lang, 'room.onlyHostAddBot'));
+      if (s.phase !== 'lobby') return reply(c, action.user, t(s.lang, 'room.started'));
       const room = MAX_PLAYERS - s.players.length;
       const bots = s.players.filter((p) => isBot(p.id)).length;
       const taken = new Set(s.players.filter((p) => isBot(p.id)).map((p) => p.id.split(':')[2]));
@@ -855,23 +854,23 @@ function handle(c: Ctx, action: GameAction): boolean {
         s.players.push({ id: `bot:${bots + i}:${name}`, alive: true });
       }
       if (room > 0) c.events.push(lobbyEvent(s));
-      if (action.count > room) reply(c, action.user, '房間已滿。');
+      if (action.count > room) reply(c, action.user, t(s.lang, 'room.full'));
       return room > 0;
     }
     case 'removeBot': {
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以移除 bot。');
-      if (s.phase !== 'lobby') return reply(c, action.user, '遊戲已經開始了。');
+      if (action.user !== s.host) return reply(c, action.user, t(s.lang, 'room.onlyHostRemoveBot'));
+      if (s.phase !== 'lobby') return reply(c, action.user, t(s.lang, 'room.started'));
       const bots = s.players.filter((p) => isBot(p.id));
-      if (!bots.length) return reply(c, action.user, '房間裡沒有 bot。');
+      if (!bots.length) return reply(c, action.user, t(s.lang, 'room.noBots'));
       const removed = new Set(bots.slice(-action.count).map((p) => p.id));
       s.players = s.players.filter((p) => !removed.has(p.id));
       c.events.push(lobbyEvent(s));
       return true;
     }
     case 'cancel': {
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以取消遊戲。');
+      if (action.user !== s.host) return reply(c, action.user, t(s.lang, 'room.onlyHostCancel'));
       s.phase = 'ended';
-      c.events.push({ type: 'announce', text: '🛑 房主已取消遊戲。' });
+      c.events.push({ type: 'announce', text: t(s.lang, 'room.cancelled', { extra: '' }) });
       return true;
     }
     case 'wolfVote': {
@@ -882,8 +881,8 @@ function handle(c: Ctx, action: GameAction): boolean {
       n.wolfVotes[action.user] = action.target;
       const picked =
         action.target === 'none'
-          ? `${mention(action.user)} 選擇不殺人。`
-          : `${mention(action.user)} 選擇擊殺 ${mention(action.target)}。`;
+          ? tx(s.lang, 'pickedNone', { who: mention(action.user) })
+          : tx(s.lang, 'pickedKill', { who: mention(action.user), target: mention(action.target) });
       c.events.push({ type: 'wolfChat', wolves: wolfIds(s), text: picked });
       if (aliveWolves(s).every((w) => n.wolfVotes[w.id])) decideWolves(c);
       return true;
@@ -896,8 +895,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       n.seerDone = true;
       const target = player(s, action.target);
       s.checks.push({ night: s.day, target: target.id, wolf: isWolf(target.role) });
-      const side = isWolf(target.role) ? '狼人' : '好人';
-      c.events.push({ type: 'dm', to: action.user, text: `${mention(target.id)} 是${side}。` });
+      c.events.push({ type: 'dm', to: action.user, text: tx(s.lang, isWolf(target.role) ? 'seerWolf' : 'seerGood', { who: mention(target.id) }) });
       return true;
     }
     case 'witchAct': {
@@ -909,16 +907,16 @@ function handle(c: Ctx, action: GameAction): boolean {
         n.saved = true;
         s.potions.antidote = false;
         s.witchLog.push({ night: s.day, saved: n.wolfTarget! });
-        c.events.push({ type: 'dm', to: action.user, text: `你對 ${mention(n.wolfTarget!)} 使用了解藥。` });
+        c.events.push({ type: 'dm', to: action.user, text: tx(s.lang, 'usedAntidote', { who: mention(n.wolfTarget!) }) });
       } else if (action.choice.startsWith('poison:')) {
         const target = action.choice.slice('poison:'.length);
         if (!s.potions.poison || target === action.user || !isAlive(s, target)) return false;
         n.poisoned = target;
         s.potions.poison = false;
         s.witchLog.push({ night: s.day, poisoned: target });
-        c.events.push({ type: 'dm', to: action.user, text: `你對 ${mention(target)} 使用了毒藥。` });
+        c.events.push({ type: 'dm', to: action.user, text: tx(s.lang, 'usedPoison', { who: mention(target) }) });
       } else if (action.choice === 'skip') {
-        c.events.push({ type: 'dm', to: action.user, text: '你今晚不使用藥。' });
+        c.events.push({ type: 'dm', to: action.user, text: tx(s.lang, 'skipPotion') });
       } else {
         return false;
       }
@@ -927,7 +925,7 @@ function handle(c: Ctx, action: GameAction): boolean {
     }
     case 'endDiscussion': {
       if (s.phase !== 'speech') return false;
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以提前結束討論。');
+      if (action.user !== s.host) return reply(c, action.user, tx(s.lang, 'onlyHostEndDiscussion'));
       startVote(c);
       return true;
     }
@@ -935,20 +933,20 @@ function handle(c: Ctx, action: GameAction): boolean {
       return readChat(s, action.user, action.text);
     case 'duel': {
       if (!aliveWith(s, 'knight').some((p) => p.id === action.user) || s.knightUsed) return false;
-      if (s.phase !== 'speech') return reply(c, action.user, '現在不能決鬥。');
+      if (s.phase !== 'speech') return reply(c, action.user, tx(s.lang, 'cannotDuel'));
       if (action.target === action.user || !isAlive(s, action.target)) return false;
       duel(c, action.user, action.target);
       return true;
     }
     case 'endSpeech': {
       if (!isSpeaking(s)) return false;
-      if (action.user !== s.speaker) return reply(c, action.user, '現在不是你的發言時間。');
+      if (action.user !== s.speaker) return reply(c, action.user, tx(s.lang, 'notYourTurn'));
       advanceSpeaker(c);
       return true;
     }
     case 'skipSpeaker': {
       if (!isSpeaking(s)) return false;
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以跳過發言者。');
+      if (action.user !== s.host) return reply(c, action.user, tx(s.lang, 'onlyHostSkip'));
       advanceSpeaker(c);
       return true;
     }
@@ -956,11 +954,11 @@ function handle(c: Ctx, action: GameAction): boolean {
       if (s.phase !== 'vote' && s.phase !== 'pkVote') return false;
       const voter = s.players.find((p) => p.id === action.user);
       if (!voter) return false;
-      if (!voter.alive) return reply(c, action.user, '你已經死亡，無法投票。');
-      if (!s.voters.includes(action.user)) return reply(c, action.user, 'PK 中的玩家不能投票。');
+      if (!voter.alive) return reply(c, action.user, tx(s.lang, 'deadNoVote'));
+      if (!s.voters.includes(action.user)) return reply(c, action.user, tx(s.lang, 'pkNoVote'));
       if (action.target !== 'abstain' && !s.candidates.includes(action.target)) return false;
       s.votes[action.user] = action.target;
-      const choice = action.target === 'abstain' ? '你選擇棄票。' : `你投給了 ${mention(action.target)}。`;
+      const choice = action.target === 'abstain' ? tx(s.lang, 'youAbstained') : tx(s.lang, 'youVoted', { who: mention(action.target) });
       c.events.push({ type: 'ephemeral', to: action.user, text: choice });
       if (s.voters.every((v) => s.votes[v])) endVote(c);
       return true;
@@ -968,7 +966,7 @@ function handle(c: Ctx, action: GameAction): boolean {
     case 'shoot': {
       if (s.phase !== 'shooting' || action.user !== s.shooter?.id) return false;
       if (action.target !== 'none' && !isAlive(s, action.target)) return false;
-      if (action.target === 'none') c.events.push({ type: 'dm', to: action.user, text: '你選擇不開槍。' });
+      if (action.target === 'none') c.events.push({ type: 'dm', to: action.user, text: tx(s.lang, 'youNoShoot') });
       finishShooter(c, action.target);
       return true;
     }
@@ -984,7 +982,7 @@ function handle(c: Ctx, action: GameAction): boolean {
         delete s.timers.wolfRemind;
         const waiting = aliveWolves(s).filter((w) => !n.wolfVotes[w.id]);
         if (n.wolfTarget === undefined && waiting.length) {
-          const text = `⏰ 剩下 ${WOLF_REMIND_BEFORE_MS / 1000} 秒，還沒選的：${waiting.map((w) => mention(w.id)).join('、')}`;
+          const text = tx(s.lang, 'wolfRemind', { sec: WOLF_REMIND_BEFORE_MS / 1000, list: waiting.map((w) => mention(w.id)).join(tx(s.lang, 'sep')) });
           c.events.push({ type: 'wolfChat', wolves: wolfIds(s), text });
         }
         return true;
@@ -1012,19 +1010,20 @@ function handle(c: Ctx, action: GameAction): boolean {
 }
 
 export function applyAction(state: GameState | undefined, action: Action, rng: Rng): Result {
-  const busy = (user: string) => ({ state: state!, events: [{ type: 'ephemeral', to: user, text: '這個頻道已經有遊戲了。' } as GameEvent] });
+  const lang = action.type === 'new' || action.type === 'rematch' ? action.lang : undefined;
+  const busy = (user: string) => ({ state: state!, events: [{ type: 'ephemeral', to: user, text: t(lang, 'room.busy') } as GameEvent] });
   if (action.type === 'new') {
     if (state && state.phase !== 'ended') return busy(action.user);
-    return createLobby(state, action.user, action.channel);
+    return createLobby(state, action.user, action.channel, lang);
   }
   if (action.type === 'rematch') {
     if (!state) return { state: state!, events: [] };
     if (state.phase !== 'ended') return busy(action.user);
     if (!state.winner) return { state, events: [] };
     if (isBot(action.user) || !state.players.some((p) => p.id === action.user)) {
-      return { state, events: [{ type: 'ephemeral', to: action.user, text: '只有上一局的玩家可以開新的一局。' }] };
+      return { state, events: [{ type: 'ephemeral', to: action.user, text: t(lang, 'room.rematchOnlyPlayers') }] };
     }
-    return createLobby(state, action.user, action.channel);
+    return createLobby(state, action.user, action.channel, lang);
   }
   if (!state || state.phase === 'ended') return { state: state!, events: [] };
   const c: Ctx = { s: structuredClone(state), events: [], rng };
@@ -1036,7 +1035,7 @@ export function applyAction(state: GameState | undefined, action: Action, rng: R
   return { state: changed ? c.s : state, events: c.events };
 }
 
-function createLobby(prev: GameState | undefined, host: string, channel: string): Result {
+function createLobby(prev: GameState | undefined, host: string, channel: string, lang: Lang = 'zh-TW'): Result {
   const created: GameState = {
     channel,
     host,
@@ -1060,6 +1059,7 @@ function createLobby(prev: GameState | undefined, host: string, channel: string)
     votes: {},
     candidates: [],
     voters: [],
+    lang,
   };
   return { state: created, events: [lobbyEvent(created)] };
 }

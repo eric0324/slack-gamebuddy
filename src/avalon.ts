@@ -1,5 +1,7 @@
 // 阿瓦隆遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyAvalon(state, action, rng) → { state, events }。
 import { isBot, mention, type GameEvent, type GifKey, type Rng } from './engine.js';
+import type { Lang } from './i18n/index.js';
+import { tx } from './i18n/games/avalon.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
 
 export const MIN_AVALON_PLAYERS = 5;
@@ -45,6 +47,20 @@ export const AVALON_BOT_LINES = [
   '這局好人要團結一點。',
 ];
 
+export const AVALON_BOT_LINES_EN = [
+  "I'm good, trust me.",
+  'The last team felt off. Keep an eye on it.',
+  'I want to see who the leader picks this round.',
+  'The vote results tell us a lot. Look back at them.',
+  "I don't have any special info. I'll listen first.",
+  'If the quest fails, there must be evil on the team.',
+  'Someone keeps rejecting. That seems a bit suspicious.',
+  "I'm happy to go on the quest. Pick me.",
+  "Let's not jump to conclusions.",
+  'The good team needs to stick together this game.',
+];
+const botLines = (lang?: Lang) => (lang === 'en' ? AVALON_BOT_LINES_EN : AVALON_BOT_LINES);
+
 // 人數 → [好人, 壞人]
 const TEAM_SIZES: Record<number, [number, number]> = { 5: [3, 2], 6: [4, 2], 7: [4, 3], 8: [5, 3], 9: [6, 3], 10: [6, 4] };
 const EVIL: ARole[] = ['assassin', 'morgana', 'minion'];
@@ -68,6 +84,7 @@ export interface AState {
   winner?: 'good' | 'evil';
   timerSeq: number;
   timers: { phase?: number };
+  lang?: Lang;
 }
 
 export type AAction =
@@ -103,16 +120,7 @@ interface Ctx {
 
 const pick = <T>(items: T[], rng: Rng): T => items[Math.floor(rng() * items.length)];
 
-const list = (ids: string[]) => ids.map(mention).join('、');
-
-const ROLE_INTRO: Record<ARole, string> = {
-  merlin: '🧙 你是梅林 (好人)。',
-  percival: '🛡️ 你是派西維爾 (好人)。',
-  loyal: '⚔️ 你是忠臣 (好人)。\n幫助好人完成 3 個任務。',
-  assassin: '🗡️ 你是刺客 (壞人)。',
-  morgana: '🔮 你是莫甘娜 (壞人)。',
-  minion: '😈 你是爪牙 (壞人)。',
-};
+const list = (s: AState, ids: string[]) => ids.map(mention).join(tx(s.lang, 'sep'));
 
 // 發身分：依人數組出身分清單後洗牌，私訊每個人自己的身分和能看到的資訊
 function deal(c: Ctx) {
@@ -132,20 +140,20 @@ function deal(c: Ctx) {
   const idsOf = (...rs: ARole[]) => s.players.filter((p) => rs.includes(p.role!)).map((p) => p.id);
   c.events.push({
     type: 'announce',
-    text: `🏰 阿瓦隆開始！玩家：${list(s.players.map((p) => p.id))}\n好人 ${good} 位、壞人 ${evil} 位。身分已經用私訊傳給大家，請到和 bot 的私訊查看。`,
+    text: tx(s.lang, 'start', { players: list(s, s.players.map((p) => p.id)), good, evil }),
     gif: 'start',
   });
   for (const p of s.players) {
     const others = evilIds.filter((id) => id !== p.id);
     let extra = '';
-    if (p.role === 'merlin') extra = `\n壞人是：${list(evilIds)}\n小心別讓壞人發現你是梅林，不然最後會被刺殺。`;
-    else if (p.role === 'percival') extra = `\n${list(idsOf('merlin', 'morgana'))} 其中一位是梅林、另一位是莫甘娜。`;
-    else if (isEvil(p.role)) extra = `\n你的同伴：${list(others)}`;
-    if (p.role === 'assassin') extra += '\n好人完成 3 個任務時，你可以刺殺梅林翻盤。';
-    if (p.role === 'morgana') extra += '\n派西維爾會把你和梅林搞混，好好利用。';
-    c.events.push({ type: 'dm', to: p.id, text: ROLE_INTRO[p.role!] + extra });
+    if (p.role === 'merlin') extra = tx(s.lang, 'merlinInfo', { evil: list(s, evilIds) });
+    else if (p.role === 'percival') extra = tx(s.lang, 'percivalInfo', { pair: list(s, idsOf('merlin', 'morgana')) });
+    else if (isEvil(p.role)) extra = tx(s.lang, 'evilInfo', { others: list(s, others) });
+    if (p.role === 'assassin') extra += tx(s.lang, 'assassinInfo');
+    if (p.role === 'morgana') extra += tx(s.lang, 'morganaInfo');
+    c.events.push({ type: 'dm', to: p.id, text: tx(s.lang, `intro.${p.role!}`) + extra });
   }
-  c.events.push({ type: 'wolfChat', wolves: evilIds, text: `😈 這是壞人的私訊群組：${list(evilIds)}\n可以在這裡討論，好人看不到。` });
+  c.events.push({ type: 'wolfChat', wolves: evilIds, text: tx(s.lang, 'evilChat', { evil: list(s, evilIds) }) });
 }
 
 const teamSize = (s: AState) => QUESTS[s.players.length][s.quest];
@@ -157,10 +165,10 @@ function startRound(c: Ctx) {
   const s = c.s;
   const n = s.players.length;
   const leader = s.players[s.leader].id;
-  const twoFails = n >= 7 && s.quest === 3 ? ' (需要 2 張失敗票才算失敗)' : '';
+  const twoFails = n >= 7 && s.quest === 3 ? tx(s.lang, 'twoFails') : '';
   c.events.push({
     type: 'announce',
-    text: `📜 任務 ${s.quest + 1}／5：隊伍 ${teamSize(s)} 人${twoFails}，隊長 ${mention(leader)}\n任務進度：${progress(s)}　連續否決：${s.rejects}／${MAX_REJECTS}`,
+    text: tx(s.lang, 'round', { quest: s.quest + 1, size: teamSize(s), twoFails, leader: mention(leader), progress: progress(s), rejects: s.rejects, max: MAX_REJECTS }),
   });
   s.phase = 'speech';
   s.speakers = Array.from({ length: n }, (_, i) => s.players[(s.leader + 1 + i) % n].id);
@@ -171,7 +179,7 @@ function nextSpeaker(c: Ctx) {
   const s = c.s;
   let id = s.speakers.shift();
   while (id && isBot(id)) {
-    c.events.push({ type: 'announce', text: `${mention(id)}：${pick(AVALON_BOT_LINES, c.rng)}` });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'botSays', { who: mention(id), line: pick(botLines(s.lang), c.rng) }) });
     id = s.speakers.shift();
   }
   s.speaker = id;
@@ -183,8 +191,8 @@ function nextSpeaker(c: Ctx) {
     type: 'prompt',
     kind: 'endSpeech',
     audience: 'channel',
-    text: `🎤 輪到 ${mention(id)} 發言 (${SPEECH_MS / 1000} 秒)`,
-    options: [{ value: id, label: '結束發言' }],
+    text: tx(s.lang, 'speech', { who: mention(id), sec: SPEECH_MS / 1000 }),
+    options: [{ value: id, label: tx(s.lang, 'endSpeech') }],
   });
   startTimer(c, SPEECH_MS);
 }
@@ -200,10 +208,10 @@ function startPick(c: Ctx) {
       type: 'prompt',
       kind: 'pickMember',
       audience: 'channel',
-      text: `👑 ${mention(leaderOf(s))} 請選 ${teamSize(s)} 位隊員 (${PICK_MS / 1000} 秒)：按一下加入、再按一下移除`,
+      text: tx(s.lang, 'pick', { leader: mention(leaderOf(s)), size: teamSize(s), sec: PICK_MS / 1000 }),
       options: s.players.map((p) => ({ value: p.id, label: p.id })),
     },
-    { type: 'prompt', kind: 'confirmTeam', audience: 'channel', text: '選好後按「確認隊伍」', options: [{ value: 'confirm', label: '確認隊伍' }] },
+    { type: 'prompt', kind: 'confirmTeam', audience: 'channel', text: tx(s.lang, 'confirmHint'), options: [{ value: 'confirm', label: tx(s.lang, 'confirmTeam') }] },
   );
   startTimer(c, PICK_MS);
 }
@@ -211,17 +219,17 @@ function startPick(c: Ctx) {
 function submitTeam(c: Ctx) {
   const s = c.s;
   s.team = s.players.map((p) => p.id).filter((id) => s.team.includes(id));
-  c.events.push({ type: 'announce', text: `🛡️ ${mention(leaderOf(s))} 提出的隊伍：${list(s.team)}` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'proposed', { leader: mention(leaderOf(s)), team: list(s, s.team) }) });
   s.phase = 'teamVote';
   s.votes = {};
   c.events.push({
     type: 'prompt',
     kind: 'teamVote',
     audience: 'channel',
-    text: `🗳️ 同意這支隊伍出任務嗎？所有人都要投 (${VOTE_MS / 1000} 秒，沒投的算贊成)`,
+    text: tx(s.lang, 'voteAsk', { sec: VOTE_MS / 1000 }),
     options: [
-      { value: 'approve', label: '👍 贊成' },
-      { value: 'reject', label: '👎 反對' },
+      { value: 'approve', label: tx(s.lang, 'approve') },
+      { value: 'reject', label: tx(s.lang, 'reject') },
     ],
   });
   startTimer(c, VOTE_MS);
@@ -231,14 +239,14 @@ function submitTeam(c: Ctx) {
 function endTeamVote(c: Ctx) {
   const s = c.s;
   const votes = s.players.map((p) => [p.id, s.votes[p.id] ?? 'approve'] as const);
-  const lines = votes.map(([id, v]) => `${mention(id)} → ${v === 'approve' ? '👍 贊成' : '👎 反對'}`);
+  const lines = votes.map(([id, v]) => tx(s.lang, 'voteLine', { who: mention(id), vote: tx(s.lang, v) }));
   const approvals = votes.filter(([, v]) => v === 'approve').length;
-  c.events.push({ type: 'announce', text: `🗳️ 投票結果：\n${lines.join('\n')}` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'voteResult', { lines: lines.join('\n') }) });
   if (approvals * 2 > s.players.length) {
     s.rejects = 0;
     c.events.push({
       type: 'announce',
-      text: `✅ 隊伍通過 (${approvals} 票贊成)，${list(s.team)} 出任務！請到私訊選擇任務結果。`,
+      text: tx(s.lang, 'approved', { n: approvals, team: list(s, s.team) }),
       gif: 'teamApproved',
     });
     startQuest(c);
@@ -248,11 +256,11 @@ function endTeamVote(c: Ctx) {
   const ending = s.rejects >= MAX_REJECTS;
   c.events.push({
     type: 'announce',
-    text: `❌ 隊伍被否決 (${approvals} 票贊成)，連續否決 ${s.rejects}／${MAX_REJECTS}。`,
+    text: tx(s.lang, 'rejected', { n: approvals, rejects: s.rejects, max: MAX_REJECTS }),
     ...(ending ? {} : { gif: 'teamRejected' as const }),
   });
   if (ending) {
-    c.events.push({ type: 'announce', text: `😈 連續 ${MAX_REJECTS} 次組隊都沒通過，王國陷入混亂！` });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'chaos', { max: MAX_REJECTS }) });
     endGame(c, 'evil', 'teamRejected');
     return;
   }
@@ -271,8 +279,8 @@ function startQuest(c: Ctx) {
       kind: 'quest',
       audience: 'user',
       user: id,
-      text: `⚔️ 任務 ${s.quest + 1}：請選擇任務結果 (${QUEST_MS / 1000} 秒，沒選的算成功)`,
-      options: [{ value: 'success', label: '✅ 成功' }, ...(evil ? [{ value: 'fail', label: '❌ 失敗' }] : [])],
+      text: tx(s.lang, 'questAsk', { quest: s.quest + 1, sec: QUEST_MS / 1000 }),
+      options: [{ value: 'success', label: tx(s.lang, 'success') }, ...(evil ? [{ value: 'fail', label: tx(s.lang, 'fail') }] : [])],
     });
   }
   startTimer(c, QUEST_MS);
@@ -290,7 +298,7 @@ function endQuest(c: Ctx) {
   const decisive = count(result) >= 3;
   c.events.push({
     type: 'announce',
-    text: `${result === 'success' ? '🎉' : '💥'} 任務 ${s.quest + 1} ${result === 'success' ? '成功' : '失敗'} (${fails} 張失敗票)`,
+    text: tx(s.lang, result === 'success' ? 'questSuccess' : 'questFail', { quest: s.quest + 1, fails }),
     ...(decisive ? {} : { gif: result === 'success' ? ('questSuccess' as const) : ('questFail' as const) }),
   });
   s.quest++;
@@ -307,14 +315,14 @@ function startAssassination(c: Ctx) {
   const evilIds = s.players.filter((p) => isEvil(p.role)).map((p) => p.id);
   c.events.push({
     type: 'announce',
-    text: `🗡️ 好人完成了 3 個任務！但壞人還有最後機會：壞人是 ${list(evilIds)}，刺客正在和同伴討論要刺殺誰，刺中梅林壞人就逆轉獲勝。`,
+    text: tx(s.lang, 'assassination', { evil: list(s, evilIds) }),
     gif: 'assassination',
   });
   c.events.push({
     type: 'prompt',
     kind: 'assassinate',
     audience: 'wolves',
-    text: `🗡️ ${mention(roleHolder(s, 'assassin'))} 請選擇要刺殺的人 (${ASSASSIN_MS / 1000} 秒)，大家可以先在這裡討論誰是梅林`,
+    text: tx(s.lang, 'assassinAsk', { assassin: mention(roleHolder(s, 'assassin')), sec: ASSASSIN_MS / 1000 }),
     options: goodIds(s).map((id) => ({ value: id, label: id })),
   });
   startTimer(c, ASSASSIN_MS);
@@ -327,22 +335,13 @@ function assassinate(c: Ctx, target: string) {
   const s = c.s;
   const assassin = mention(roleHolder(s, 'assassin'));
   if (target === roleHolder(s, 'merlin')) {
-    c.events.push({ type: 'announce', text: `🎯 刺客 ${assassin} 刺殺了 ${mention(target)}——刺中梅林了！` });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'hitMerlin', { assassin, target: mention(target) }) });
     endGame(c, 'evil', 'duelWin');
   } else {
-    c.events.push({ type: 'announce', text: `😮 刺客 ${assassin} 刺殺了 ${mention(target)}，但 ${mention(target)} 不是梅林！` });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'missMerlin', { assassin, target: mention(target) }) });
     endGame(c, 'good', 'duelLose');
   }
 }
-
-const ROLE_NAME: Record<ARole, string> = {
-  merlin: '梅林',
-  percival: '派西維爾',
-  loyal: '忠臣',
-  assassin: '刺客',
-  morgana: '莫甘娜',
-  minion: '爪牙',
-};
 
 // 結束：公開獲勝陣營、每個人的身分和任務結果；gif 是造成結束的時刻的 GIF，取代勝利 GIF
 function endGame(c: Ctx, winner: 'good' | 'evil', gif?: GifKey) {
@@ -350,11 +349,11 @@ function endGame(c: Ctx, winner: 'good' | 'evil', gif?: GifKey) {
   s.phase = 'ended';
   s.timers = {};
   s.winner = winner;
-  const title = winner === 'good' ? '🎉 遊戲結束，好人獲勝！' : '😈 遊戲結束，壞人獲勝！';
-  const roster = s.players.map((p) => `${mention(p.id)}：${ROLE_NAME[p.role!]}`).join('\n');
+  const title = tx(s.lang, winner === 'good' ? 'goodWin' : 'evilWin');
+  const roster = s.players.map((p) => tx(s.lang, 'rosterLine', { who: mention(p.id), role: tx(s.lang, `role.${p.role!}`) })).join('\n');
   c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: s.players.filter((p) => isEvil(p.role) === (winner === 'evil')).map((p) => p.id) });
   c.events.push(
-    { type: 'announce', text: `${title}\n任務結果：${progress(s)}\n${roster}`, gif: gif ?? (winner === 'good' ? 'goodWin' : 'wolvesWin') },
+    { type: 'announce', text: tx(s.lang, 'end', { title, progress: progress(s), roster }), gif: gif ?? (winner === 'good' ? 'goodWin' : 'wolvesWin') },
     { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },
   );
 }
@@ -409,10 +408,10 @@ function handle(c: Ctx, action: GameAction): boolean {
     case 'removeBot':
       return removeBots(c, TITLE, action.user, action.count);
     case 'start': {
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以開始遊戲。');
+      if (action.user !== s.host) return reply(c, action.user, tx(s.lang, 'onlyHostStart'));
       if (s.phase !== 'lobby') return false;
       const n = s.players.length;
-      if (n < MIN_AVALON_PLAYERS) return reply(c, action.user, `目前 ${n} 人，至少需要 ${MIN_AVALON_PLAYERS} 人才能開始。`);
+      if (n < MIN_AVALON_PLAYERS) return reply(c, action.user, tx(s.lang, 'notEnough', { n, min: MIN_AVALON_PLAYERS }));
       c.events.push(lobbyEvent(TITLE, { ...s, phase: 'speech' }));
       deal(c);
       s.leader = Math.floor(c.rng() * n);
@@ -423,54 +422,54 @@ function handle(c: Ctx, action: GameAction): boolean {
       return cancelGame(c, action.user);
     case 'endSpeech': {
       if (s.phase !== 'speech') return false;
-      if (action.user !== s.speaker) return reply(c, action.user, '現在不是你的發言時間。');
+      if (action.user !== s.speaker) return reply(c, action.user, tx(s.lang, 'notYourSpeech'));
       nextSpeaker(c);
       return true;
     }
     case 'skipSpeaker': {
       if (s.phase !== 'speech') return false;
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以跳過發言者。');
+      if (action.user !== s.host) return reply(c, action.user, tx(s.lang, 'onlyHostSkip'));
       nextSpeaker(c);
       return true;
     }
     case 'pickMember': {
       if (s.phase !== 'pick') return false;
-      if (action.user !== leaderOf(s)) return reply(c, action.user, '只有隊長可以選隊員。');
+      if (action.user !== leaderOf(s)) return reply(c, action.user, tx(s.lang, 'onlyLeaderPick'));
       if (!s.players.some((p) => p.id === action.target)) return false;
       if (s.team.includes(action.target)) s.team = s.team.filter((id) => id !== action.target);
-      else if (s.team.length >= teamSize(s)) return reply(c, action.user, `隊伍已經滿了 (${teamSize(s)} 人)，要換人請先移除。`);
+      else if (s.team.length >= teamSize(s)) return reply(c, action.user, tx(s.lang, 'teamFull', { size: teamSize(s) }));
       else s.team.push(action.target);
-      reply(c, action.user, `目前隊伍 (${s.team.length}／${teamSize(s)})：${s.team.length ? list(s.team) : '還沒有人'}`);
+      reply(c, action.user, tx(s.lang, 'currentTeam', { n: s.team.length, size: teamSize(s), team: s.team.length ? list(s, s.team) : tx(s.lang, 'nobody') }));
       return true;
     }
     case 'confirmTeam': {
       if (s.phase !== 'pick') return false;
-      if (action.user !== leaderOf(s)) return reply(c, action.user, '只有隊長可以確認隊伍。');
+      if (action.user !== leaderOf(s)) return reply(c, action.user, tx(s.lang, 'onlyLeaderConfirm'));
       const missing = teamSize(s) - s.team.length;
-      if (missing > 0) return reply(c, action.user, `隊伍還差 ${missing} 人。`);
+      if (missing > 0) return reply(c, action.user, tx(s.lang, 'missing', { n: missing }));
       submitTeam(c);
       return true;
     }
     case 'teamVote': {
       if (s.phase !== 'teamVote' || !s.players.some((p) => p.id === action.user)) return false;
       s.votes[action.user] = action.vote;
-      reply(c, action.user, action.vote === 'approve' ? '你投了贊成。' : '你投了反對。');
+      reply(c, action.user, tx(s.lang, action.vote === 'approve' ? 'votedApprove' : 'votedReject'));
       if (s.players.every((p) => s.votes[p.id])) endTeamVote(c);
       return true;
     }
     case 'quest': {
       if (s.phase !== 'quest') return false;
-      if (!s.team.includes(action.user)) return reply(c, action.user, '你不在這次任務的隊伍裡。');
-      if (s.cards[action.user]) return reply(c, action.user, '你已經出過任務了。');
+      if (!s.team.includes(action.user)) return reply(c, action.user, tx(s.lang, 'notOnTeam'));
+      if (s.cards[action.user]) return reply(c, action.user, tx(s.lang, 'alreadyQuested'));
       if (action.card === 'fail' && !isEvil(s.players.find((p) => p.id === action.user)!.role)) return false;
       s.cards[action.user] = action.card;
-      reply(c, action.user, action.card === 'success' ? '你出了 ✅ 成功。' : '你出了 ❌ 失敗。');
+      reply(c, action.user, tx(s.lang, action.card === 'success' ? 'playedSuccess' : 'playedFail'));
       if (s.team.every((id) => s.cards[id])) endQuest(c);
       return true;
     }
     case 'assassinate': {
       if (s.phase !== 'assassinate') return false;
-      if (action.user !== roleHolder(s, 'assassin')) return reply(c, action.user, '只有刺客可以決定要刺殺誰。');
+      if (action.user !== roleHolder(s, 'assassin')) return reply(c, action.user, tx(s.lang, 'onlyAssassin'));
       if (!goodIds(s).includes(action.target)) return false;
       assassinate(c, action.target);
       return true;

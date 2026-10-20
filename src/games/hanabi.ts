@@ -14,14 +14,26 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
-const HANABI_COLORS: Record<string, Color> = { 紅: 'red', 黃: 'yellow', 綠: 'green', 藍: 'blue', 白: 'white' };
+const HELP_EN = [
+  '*Hanabi commands*',
+  '• `/game hanabi new`: open a room (anyone)',
+  '• `/game hanabi start`: start the game, needs 2-5 human players (host)',
+  '• Discard pile: press "🗑️ Discards" anytime to see discarded and misfired cards (only you can see it)',
+  '• Give a hint: on your turn press "💡 Give a hint" and pick a player and a color or number (costs 1 hint token); or type `/game hanabi hint @someone red` or `/game hanabi hint @someone 3`',
+  '• `/game hanabi cancel`: cancel the game (host)',
+  'Peek, play and discard with the channel buttons',
+  `📖 Full guide: <${WIKI}/Hanabi-Commands|wiki>`,
+].join('\n');
+
+// hint 指令的顏色：中文和英文 (不分大小寫) 都可以
+const HANABI_COLORS: Record<string, Color> = { 紅: 'red', 黃: 'yellow', 綠: 'green', 藍: 'blue', 白: 'white', red: 'red', yellow: 'yellow', green: 'green', blue: 'blue', white: 'white' };
 
 // 花火的子指令：hint @某人 <顏色或數字> (開啟 should_escape 後 mention 是 <@U123> 或 <@U123|名字>)
 export function parseHanabiCommand(text: string, user: string, channel: string): HAction | null {
   const [sub, ...rest] = text.trim().split(/\s+/);
   if (sub === 'hint') {
     const target = /^<@([A-Z0-9]+)(\|[^>]*)?>$/.exec(rest[0] ?? '')?.[1];
-    const value = rest[1] ?? '';
+    const value = (rest[1] ?? '').toLowerCase();
     if (!target || rest.length !== 2) return null;
     if (HANABI_COLORS[value]) return { type: 'hint', user, target, color: HANABI_COLORS[value] };
     if (/^[1-5]$/.test(value)) return { type: 'hint', user, target, number: Number(value) };
@@ -53,6 +65,9 @@ export const hanabi = {
   desc: '合作遊戲，看得到別人的牌、看不到自己的',
   noBots: true,
   help: HELP,
+  locales: {
+    en: { name: 'Hanabi', players: '2-5 players', desc: "Co-op: see everyone's cards except your own", help: HELP_EN },
+  },
   apply: applyHanabi,
   parse: parseHanabiCommand,
   button: hanabiButton,
