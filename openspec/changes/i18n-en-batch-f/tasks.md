@@ -20,8 +20,8 @@
 
 ## 5. 梗圖大亂鬥 (meme)
 
-- [ ] 5.1 先寫失敗的英文測試：英文局的主要公告、prompt 和按鈕是英文，help 和 `locales.en` 是英文，文字卡取英文版且數量和中文版相同
-- [ ] 5.2 新增 `src/i18n/games/meme.ts`、英文文字卡和梗圖名稱，engine 和 GameDef 改用字典，讓 5.1 綠燈
+- [x] 5.1 先寫失敗的英文測試：英文局的主要公告、prompt 和按鈕是英文，help 和 `locales.en` 是英文，文字卡取英文版且數量和中文版相同
+- [x] 5.2 新增 `src/i18n/games/meme.ts`、英文文字卡和梗圖名稱，engine 和 GameDef 改用字典，讓 5.1 綠燈
 
 ## 6. Emoji 傳話 (emoji)
 

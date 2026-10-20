@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { isBot, type GameEvent } from '../src/engine.js';
 import { applyMeme, type MemeAction, type MemeState } from '../src/meme.js';
-import { MEME_CARDS } from '../src/memeCards.js';
+import { MEME_CARDS, MEME_CARDS_EN } from '../src/memeCards.js';
+import { meme } from '../src/games/meme.js';
 import { MEME_IMAGES } from '../src/memeImages.js';
 
 const rng = () => 0.99999; // 洗牌不動：牌庫照 MEME_CARDS 的順序，梗圖照 MEME_IMAGES 的順序
@@ -314,5 +315,62 @@ describe('meme/setup: 每局最多 2 張投稿梗圖', () => {
     const round = announces(events)[1];
     expect(round.text).toContain('投稿1 (<@u1> 投稿)');
     expect(round.image).toEqual({ url: 'https://x/1.png', alt: '投稿1' });
+  });
+});
+
+describe('meme/i18n: 英文局', () => {
+  const enLobby = (n: number) =>
+    run([
+      { type: 'new', user: 'p1', channel: 'C1', lang: 'en' },
+      ...Array.from({ length: n - 1 }, (_, i) => ({ type: 'join', user: `p${i + 2}` }) as MemeAction),
+    ]);
+  const enStarted = (n: number) => run([{ type: 'start', user: 'p1' }], enLobby(n).state);
+
+  it('開局規則、梗圖名稱、配圖訊息和按鈕是英文，手牌取英文文字卡', () => {
+    const { state, events } = enStarted(3);
+    expect(state.lang).toBe('en');
+    expect(player(state, 'p1').hand).toEqual(MEME_CARDS_EN.slice(0, 7));
+    const texts = announces(events).map((a) => a.text);
+    expect(texts[0]).toContain('😂 Meme Battle begins! 6 rounds in total.');
+    expect(texts[1]).toBe(`🖼️ Round 1/6: ${MEME_IMAGES[0].en}`);
+    expect(announces(events)[1].image).toEqual({ url: MEME_IMAGES[0].url, alt: 'Bernie I Am Once Again Asking For Your Support' });
+    const board = boards(events).at(-1)!;
+    expect(board.text).toContain('Round 1/6: press "🃏 My hand"');
+    expect(board.options.map((o) => o.label)).toEqual(['🃏 My hand', '✍️ Write my own']);
+  });
+
+  it('手牌選單、視窗和私下回覆是英文', () => {
+    const s = enStarted(3).state;
+    expect(menu(run([{ type: 'hand', user: 'p1' }], s).events, 'p1')!.text).toBe("🃏 Pick a line for this meme (you can't change it after sending)");
+    expect(run([{ type: 'openWrite', user: 'p1' }], s).events[0]).toMatchObject({ title: 'Write my own', label: 'Your caption (1-40 characters)' });
+    expect(ephemeralTo(run([{ type: 'hand', user: 'x' }], s).events, 'x')!.text).toBe("You're not in this game.");
+    const played = run([{ type: 'play', user: 'p1', seq: s.seq, card: 0 }], s);
+    expect(ephemeralTo(played.events, 'p1')!.text).toBe('✅ Sent');
+    expect(ephemeralTo(run([{ type: 'hand', user: 'p1' }], played.state).events, 'p1')!.text).toBe('You already sent one this round.');
+  });
+
+  it('投票、揭曉和結束是英文', () => {
+    const a = allPlay(enStarted(3).state);
+    expect(boards(a.events).at(-1)!.text).toContain('🗳️ Round 1/6: vote for the funniest line (not your own; you can change your vote within 60 sec)');
+    expect(ephemeralTo(run([{ type: 'vote', user: 'p1', seq: a.state.seq, n: 0 }], a.state).events, 'p1')!.text).toBe("You can't vote for yourself.");
+    let r = playRound(enStarted(3).state);
+    expect(announces(r.events)[0].text).toContain('🎉 Round 1 results:');
+    expect(announces(r.events)[0].text).toContain('1 vote');
+    for (let i = 1; i < 6; i++) r = playRound(r.state);
+    expect(announces(r.events).at(-1)!.text).toContain('🏆 Game over,');
+    expect(prompts(r.events).find((p) => p.kind === 'rematch')!.options[0].label).toBe('Play again');
+  });
+
+  it('人數不足的回覆是英文', () => {
+    expect(ephemeralTo(run([{ type: 'start', user: 'p1' }], enLobby(2).state).events, 'p1')!.text).toBe('There are 2 players; you need at least 3 to start.');
+  });
+
+  it('英文文字卡和中文版一樣多，每張梗圖都有英文名稱，GameDef 有英文名稱和說明', () => {
+    expect(MEME_CARDS_EN).toHaveLength(MEME_CARDS.length);
+    expect(new Set(MEME_CARDS_EN).size).toBe(MEME_CARDS.length);
+    for (const c of MEME_CARDS_EN) expect(c.length, c).toBeLessThanOrEqual(75);
+    for (const m of MEME_IMAGES) expect(m.en?.trim(), m.name).toBeTruthy();
+    expect(meme.locales.en).toMatchObject({ name: 'Meme Battle', players: '3-8 players' });
+    expect(meme.locales.en.help).toContain('/game meme write <caption>');
   });
 });

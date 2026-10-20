@@ -18,6 +18,21 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Meme Battle commands*',
+  '• `/game meme new`: open a room (anyone)',
+  '• `/game meme addbot [count]`: add bots to fill seats (host, before start)',
+  '• `/game meme removebot [count]`: remove bots (host, before start)',
+  '• `/game meme start`: start the game, needs 3-8 players (host)',
+  '• `/game meme write <caption>`: write your own caption (1-40 characters), same as pressing "✍️ Write my own"',
+  '• `/game meme cancel`: cancel the game (host)',
+  "• `/game meme add <image URL> [name]`: submit a meme to this channel's meme library (anyone, anytime; must be a public https image URL); each game uses submitted memes for at most 2 rounds",
+  "• `/game meme list`: see this channel's submitted memes (only you can see it)",
+  '• `/game meme remove <number>`: delete a submission (anyone; announced in the channel)',
+  'Each round, after the meme appears, press "🃏 My hand" to pick a line or "✍️ Write my own" to type one; you can\'t change it after sending. Then everyone votes anonymously, not for themselves',
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 // 梗圖大亂鬥的子指令：write <一句話> (可以有空白)
 export function parseMemeCommand(text: string, user: string, channel: string): MemeAction | null {
   const m = text.trim().match(/^write\s+([\s\S]+)$/);
@@ -44,6 +59,7 @@ export const meme = {
   players: '3～8 人',
   category: 'party',
   desc: '每輪看一張梗圖，出手牌或自己寫一句最好笑的，匿名投票拿分',
+  locales: { en: { name: 'Meme Battle', players: '3-8 players', desc: 'Each round shows a meme: play a card or write the funniest caption, then vote anonymously for points', help: HELP_EN } },
   help: HELP,
   apply: applyMeme,
   parse: parseMemeCommand,
