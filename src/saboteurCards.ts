@@ -1,5 +1,8 @@
 // 矮人礦坑的牌和地圖：通道牌形狀、牌庫組成、放牌規則、連通判斷、翻開終點、地圖繪製 (純函式)
 // 開口用 bitmask：上 1、右 2、下 4、左 8
+import type { Lang } from './i18n/index.js';
+import { tx } from './i18n/games/saboteur.js';
+
 export const N = 1;
 export const E = 2;
 export const S = 4;
@@ -11,7 +14,8 @@ export const GOAL_CELLS = ['K3', 'K5', 'K7'];
 
 export type Tool = 'pick' | 'lamp' | 'cart';
 export const TOOLS: Tool[] = ['pick', 'lamp', 'cart'];
-export const TOOL_WORD: Record<Tool, string> = { pick: '鎬子', lamp: '礦燈', cart: '礦車' };
+// 工具名稱依語系
+export const toolWord = (tool: Tool, lang?: Lang) => tx(lang, `tool.${tool}`);
 
 export type PathCard = { kind: 'path'; edges: number; dead: boolean };
 export type Card = PathCard | { kind: 'break'; tool: Tool } | { kind: 'fix'; tools: Tool[] } | { kind: 'map' } | { kind: 'rock' };
@@ -183,7 +187,7 @@ export function place(grid: Grid, at: Pos, edges: number, dead: boolean): { cell
 // 通道和死路用同一組線條；死路在地圖上靠第二個字元的 x 區分
 const LINES = ' ╹╺┗╻┃┏┣╸┛━┻┓┫┳╋';
 export const glyph = (edges: number) => LINES[edges];
-export const cardLabel = (card: PathCard) => `${glyph(card.edges)} ${card.dead ? '死路' : '通道'}`;
+export const cardLabel = (card: PathCard, lang?: Lang) => `${glyph(card.edges)} ${tx(lang, card.dead ? 'card.dead' : 'card.tunnel')}`;
 
 function drawCell(cell: Cell | null): string {
   if (!cell) return '. ';

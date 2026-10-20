@@ -16,6 +16,18 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Saboteur commands*',
+  '• `/game saboteur new`: open a room (anyone)',
+  '• `/game saboteur addbot [count]`: add bots to fill seats (host, before start)',
+  '• `/game saboteur removebot [count]`: remove bots (host, before start)',
+  '• `/game saboteur start`: start the game, needs 3-10 players (host)',
+  '• `/game saboteur cancel`: cancel the game (host)',
+  '• "⛏️ Play": press it on your turn to place a path card, play an action card, or discard (60 sec; if you don\'t play, your first card is discarded automatically)',
+  '• "🎒 My hand": privately check your role, hand, broken tools, and peeked goal cards at any time',
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 // 矮人礦坑只有房間指令，遊戲中都用按鈕
 export function parseSaboteurCommand(text: string, user: string, channel: string): SAction | null {
   return parseRoomCommand(text, user, channel) as SAction | null;
@@ -60,6 +72,14 @@ export const saboteur = {
   category: 'deduction',
   desc: '輪流出通道牌往金礦挖，藏在隊友裡的破壞者暗中鋪死路、弄壞工具，3 回合後金塊最多的人贏',
   help: HELP,
+  locales: {
+    en: {
+      name: 'Saboteur',
+      players: '3-10 players',
+      desc: 'Dig toward the gold with path cards while hidden Saboteurs lay dead ends and break tools. Most gold after 3 rounds wins',
+      help: HELP_EN,
+    },
+  },
   apply: applySaboteur,
   parse: parseSaboteurCommand,
   button: saboteurButton,

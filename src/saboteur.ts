@@ -15,11 +15,13 @@ import {
   placements,
   render,
   rotate,
-  TOOL_WORD,
+  toolWord,
   type Card,
   type Grid,
   type Tool,
 } from './saboteurCards.js';
+import type { Lang } from './i18n/index.js';
+import { tx } from './i18n/games/saboteur.js';
 
 export const MIN_SABOTEUR_PLAYERS = 3;
 export const MAX_SABOTEUR_PLAYERS = 10;
@@ -43,7 +45,7 @@ const handSize = (n: number) => (n <= 5 ? 6 : n <= 7 ? 5 : 4);
 const GOLD_CARDS = [...Array<number>(16).fill(1), ...Array<number>(8).fill(2), ...Array<number>(4).fill(3)];
 
 export type Role = 'digger' | 'saboteur';
-const ROLE_NAME: Record<Role, string> = { digger: '⛏️ 金礦工', saboteur: '💣 破壞者' };
+const roleName = (role: Role, lang?: Lang) => tx(lang, `role.${role}`);
 
 export interface SPlayer {
   id: string;
@@ -72,10 +74,11 @@ export interface SState {
   winners?: string[];
   timerSeq: number;
   timers: { phase?: number };
+  lang?: Lang; // 開房時的頻道語系 (runGame 存進來)
 }
 
 export type SAction =
-  | { type: 'new'; user: string; channel: string }
+  | { type: 'new'; user: string; channel: string; lang?: Lang }
   | { type: 'join'; user: string }
   | { type: 'leave'; user: string }
   | { type: 'start'; user: string }
@@ -93,15 +96,15 @@ export type SAction =
   | { type: 'discard'; user: string; seq: number; i: number }
   | { type: 'pickGold'; user: string; seq: number; value: number }
   | { type: 'timeout'; id: number }
-  | { type: 'rematch'; user: string; channel: string };
+  | { type: 'rematch'; user: string; channel: string; lang?: Lang };
 
 type GameAction = Exclude<SAction, { type: 'new' } | { type: 'rematch' }>;
 type Result = { state: SState; events: GameEvent[] };
 type Ctx = { s: SState; events: GameEvent[]; rng: Rng };
 
-const NOT_PLAYER = '你不在這局遊戲中';
-const NOT_YET = '還沒輪到你。';
-const STALE = '這個選單已經過期，請重新按「⛏️ 行動」。';
+const NOT_PLAYER = (s: SState) => tx(s.lang, 'notPlayer');
+const NOT_YET = (s: SState) => tx(s.lang, 'notYet');
+const STALE = (s: SState) => tx(s.lang, 'stale');
 
 const find = (s: SState, id: string) => s.players.find((p) => p.id === id);
 // 在私下選單上按的：回應取代那則選單；bot 不需要
@@ -114,36 +117,37 @@ const menu = (c: Ctx, user: string, text: string, options: { value: string; labe
   return false;
 };
 
-export function cardName(card: Card): string {
+export function cardName(card: Card, lang?: Lang): string {
   switch (card.kind) {
     case 'path':
-      return cardLabel(card);
+      return cardLabel(card, lang);
     case 'break':
-      return `破壞 ${TOOL_WORD[card.tool]}`;
+      return tx(lang, 'card.break', { tool: toolWord(card.tool, lang) });
     case 'fix':
-      return `修理 ${card.tools.map((t) => TOOL_WORD[t]).join('／')}`;
+      return tx(lang, 'card.fix', { tools: card.tools.map((t) => toolWord(t, lang)).join(tx(lang, 'toolSep')) });
     case 'map':
-      return '藏寶圖';
+      return tx(lang, 'card.map');
     case 'rock':
-      return '落石';
+      return tx(lang, 'card.rock');
   }
 }
 
 const current = (s: SState) => s.players[s.turn];
-const toolList = (tools: Tool[]) => tools.map((t) => TOOL_WORD[t]).join('、');
-const playerLine = (p: SPlayer) => `${quiet(p.id)}：🃏 ${p.hand.length} 張${p.broken.length ? `｜壞了：${toolList(p.broken)}` : ''}`;
+const toolList = (tools: Tool[], lang?: Lang) => tools.map((t) => toolWord(t, lang)).join(tx(lang, 'sep'));
+const playerLine = (p: SPlayer, lang?: Lang) =>
+  tx(lang, 'playerLine', { who: quiet(p.id), n: p.hand.length, broken: p.broken.length ? tx(lang, 'playerBroken', { tools: toolList(p.broken, lang) }) : '' });
 
 // 回合面板：只 @ 輪到的人；ended 時拿掉按鈕
 function board(s: SState, ended = false): GameEvent {
   const me = current(s);
   const lines = [
-    ended ? `✅ ${quiet(me.id)} 的回合結束` : `*⛏️ 第 ${s.round}/${ROUNDS} 回合｜👉 輪到 ${mention(me.id)} (${TURN_MS / 1000} 秒)*`,
-    `🂠 牌庫剩 ${s.deck.length} 張`,
+    ended ? tx(s.lang, 'turnEnded', { who: quiet(me.id) }) : tx(s.lang, 'turnHead', { round: s.round, rounds: ROUNDS, who: mention(me.id), sec: TURN_MS / 1000 }),
+    tx(s.lang, 'deckLeft', { n: s.deck.length }),
     '```',
     render(s.grid),
     '```',
-    ...s.players.map((p) => (p === me ? `👉 ${playerLine(p)}` : playerLine(p))),
-    ...(s.last ? [`上一步：${s.last}`] : []),
+    ...s.players.map((p) => (p === me ? `👉 ${playerLine(p, s.lang)}` : playerLine(p, s.lang))),
+    ...(s.last ? [tx(s.lang, 'lastMove', { last: s.last })] : []),
   ];
   return {
     type: 'prompt',
@@ -151,7 +155,7 @@ function board(s: SState, ended = false): GameEvent {
     audience: 'channel',
     ref: `saboteur:turn:${s.seq}`,
     text: lines.join('\n'),
-    options: ended ? [] : [{ value: `turnMenu:${s.seq}`, label: '⛏️ 行動' }, { value: 'hand', label: '🎒 我的手牌' }],
+    options: ended ? [] : [{ value: `turnMenu:${s.seq}`, label: tx(s.lang, 'btn.play') }, { value: 'hand', label: tx(s.lang, 'btn.hand') }],
   };
 }
 
@@ -178,7 +182,7 @@ function targets(s: SState, me: SPlayer, card: Card): { act: string; rest: strin
         .map((p) => ({ act: 'tool', rest: `${card.tool}:${p.id}`, label: p.id }));
     case 'fix':
       return s.players.flatMap((p) =>
-        card.tools.filter((t) => p.broken.includes(t)).map((t) => ({ act: 'tool', rest: `${t}:${p.id}`, label: `${p.id} ${TOOL_WORD[t]}` })),
+        card.tools.filter((t) => p.broken.includes(t)).map((t) => ({ act: 'tool', rest: `${t}:${p.id}`, label: `${p.id} ${toolWord(t, s.lang)}` })),
       );
     case 'map':
       return closedGoals(s).map((name) => ({ act: 'map', rest: name, label: name }));
@@ -188,25 +192,27 @@ function targets(s: SState, me: SPlayer, card: Card): { act: string; rest: strin
 }
 
 function handText(s: SState, me: SPlayer): string {
-  const peeked = Object.entries(me.peeked).map(([cell, gold]) => `\`${cell}\`：${gold ? '💰 金礦' : '🪨 石頭'}`);
+  const L = s.lang;
+  const sep = tx(L, 'sep');
+  const peeked = Object.entries(me.peeked).map(([cell, gold]) => tx(L, 'hand.peekItem', { cell, what: tx(L, gold ? 'gold' : 'stone') }));
   return [
-    `🎒 第 ${s.round}/${ROUNDS} 回合，你是 ${ROLE_NAME[me.role!]}｜💰 累計 ${me.gold} 金`,
-    `🃏 手牌：${me.hand.map(cardName).join('、') || '(沒有)'}`,
-    `🔧 壞掉的工具：${toolList(me.broken) || '(沒有)'}`,
-    ...(peeked.length ? [`🗺️ 偷看過：${peeked.join('、')}`] : []),
+    tx(L, 'hand.head', { round: s.round, rounds: ROUNDS, role: roleName(me.role!, L), gold: me.gold }),
+    tx(L, 'hand.cards', { cards: me.hand.map((x) => cardName(x, L)).join(sep) || tx(L, 'none') }),
+    tx(L, 'hand.broken', { tools: toolList(me.broken, L) || tx(L, 'none') }),
+    ...(peeked.length ? [tx(L, 'hand.peeked', { list: peeked.join(sep) })] : []),
   ].join('\n');
 }
 
 function showHand(c: Ctx, user: string): boolean {
   const me = find(c.s, user);
-  return reply(c, user, me && c.s.phase !== 'lobby' ? handText(c.s, me) : NOT_PLAYER);
+  return reply(c, user, me && c.s.phase !== 'lobby' ? handText(c.s, me) : NOT_PLAYER(c.s));
 }
 
 // 輪到的人操作前的共同檢查；回傳錯誤訊息或 null
 function turnCheck(s: SState, user: string, seq: number): string | null {
-  if (!find(s, user)) return NOT_PLAYER;
-  if (s.phase !== 'play' || current(s).id !== user) return NOT_YET;
-  if (seq !== s.seq) return STALE;
+  if (!find(s, user)) return NOT_PLAYER(s);
+  if (s.phase !== 'play' || current(s).id !== user) return NOT_YET(s);
+  if (seq !== s.seq) return STALE(s);
   return null;
 }
 
@@ -216,14 +222,14 @@ function turnMenu(c: Ctx, user: string, seq: number): boolean {
   if (err) return deny(c, user, err);
   const me = current(s);
   const notes: string[] = [];
-  if (me.broken.length && me.hand.some((x) => x.kind === 'path')) notes.push('(工具壞了，不能放通道牌)');
+  if (me.broken.length && me.hand.some((x) => x.kind === 'path')) notes.push(tx(s.lang, 'note.broken'));
   const options: { value: string; label: string }[] = [];
   me.hand.forEach((card, i) => {
-    if (targets(s, me, card).length) options.push({ value: `card:${seq}:${i}`, label: cardName(card) });
-    else if (card.kind !== 'path' || !me.broken.length) notes.push(`(「${cardName(card)}」${card.kind === 'path' ? '沒有地方可以放' : '現在沒有目標'})`);
+    if (targets(s, me, card).length) options.push({ value: `card:${seq}:${i}`, label: cardName(card, s.lang) });
+    else if (card.kind !== 'path' || !me.broken.length) notes.push(tx(s.lang, card.kind === 'path' ? 'note.noPlace' : 'note.noTarget', { card: cardName(card, s.lang) }));
   });
-  options.push({ value: `discardMenu:${seq}`, label: '🗑️ 蓋掉一張牌' });
-  return menu(c, user, [`⛏️ 你的回合：選一張牌`, handText(s, me), ...[...new Set(notes)]].join('\n'), options);
+  options.push({ value: `discardMenu:${seq}`, label: tx(s.lang, 'btn.discard') });
+  return menu(c, user, [tx(s.lang, 'menu.turn'), handText(s, me), ...[...new Set(notes)]].join('\n'), options);
 }
 
 function cardMenu(c: Ctx, user: string, seq: number, i: number): boolean {
@@ -233,20 +239,20 @@ function cardMenu(c: Ctx, user: string, seq: number, i: number): boolean {
   const me = current(s);
   const card = me.hand[i];
   const list = card ? targets(s, me, card) : [];
-  if (!list.length) return deny(c, user, STALE);
+  if (!list.length) return deny(c, user, STALE(s));
   const hint =
     card.kind === 'path'
-      ? `要把「${cardName(card)}」放在哪裡？${rotate(card.edges) !== card.edges ? `(↻ 是轉 180°，變成 ${glyph(rotate(card.edges))})` : ''}`
-      : `「${cardName(card)}」要打在哪裡？`;
+      ? tx(s.lang, 'hint.place', { card: cardName(card, s.lang), rot: rotate(card.edges) !== card.edges ? tx(s.lang, 'hint.rot', { glyph: glyph(rotate(card.edges)) }) : '' })
+      : tx(s.lang, 'hint.action', { card: cardName(card, s.lang) });
   const options = list.map((x) => ({ value: `${x.act}:${seq}:${i}:${x.rest}`, label: x.label }));
-  return menu(c, user, ['```', render(s.grid), '```', hint].join('\n'), [...options, { value: `turnMenu:${seq}`, label: '↩️ 換一張' }]);
+  return menu(c, user, ['```', render(s.grid), '```', hint].join('\n'), [...options, { value: `turnMenu:${seq}`, label: tx(s.lang, 'btn.back') }]);
 }
 
 function discardMenu(c: Ctx, user: string, seq: number): boolean {
   const err = turnCheck(c.s, user, seq);
   if (err) return deny(c, user, err);
-  const options = current(c.s).hand.map((card, i) => ({ value: `discard:${seq}:${i}`, label: cardName(card) }));
-  return menu(c, user, '🗑️ 要蓋掉哪一張？(不會公開)', [...options, { value: `turnMenu:${seq}`, label: '↩️ 換一張' }]);
+  const options = current(c.s).hand.map((card, i) => ({ value: `discard:${seq}:${i}`, label: cardName(card, c.s.lang) }));
+  return menu(c, user, tx(c.s.lang, 'menu.discard'), [...options, { value: `turnMenu:${seq}`, label: tx(c.s.lang, 'btn.back') }]);
 }
 
 // 出牌前的檢查：輪到他、選單沒過期、這張牌可以打在這個目標
@@ -255,7 +261,7 @@ function playable(c: Ctx, user: string, seq: number, i: number, act: string, res
   if (err) return deny(c, user, err);
   const me = current(c.s);
   const card = me.hand[i];
-  if (!card || !targets(c.s, me, card).some((x) => x.act === act && x.rest === rest)) return deny(c, user, STALE);
+  if (!card || !targets(c.s, me, card).some((x) => x.act === act && x.rest === rest)) return deny(c, user, STALE(c.s));
   return true;
 }
 
@@ -266,10 +272,10 @@ function playPath(c: Ctx, a: Extract<SAction, { type: 'place' }>): boolean {
   const card = me.hand.splice(a.i, 1)[0] as Extract<Card, { kind: 'path' }>;
   const edges = a.rot ? rotate(card.edges) : card.edges;
   const found = place(s.grid, cellAt(a.cell)!, edges, card.dead);
-  const shown = cardLabel({ ...card, edges });
-  tell(c, a.user, `✅ 你在 \`${a.cell}\` 放了 ${shown}`);
-  for (const f of found) c.events.push({ type: 'announce', text: `通道連到 \`${f.cell}\`：\`${f.cell}\` 是 ${f.gold ? '💰 金礦！' : '🪨 石頭'}` });
-  const last = `${quiet(me.id)} 在 \`${a.cell}\` 放了 ${shown}`;
+  const shown = cardLabel({ ...card, edges }, s.lang);
+  tell(c, a.user, tx(s.lang, 'place.you', { cell: a.cell, card: shown }));
+  for (const f of found) c.events.push({ type: 'announce', text: tx(s.lang, 'reveal', { cell: f.cell, what: tx(s.lang, f.gold ? 'goldFound' : 'stone') }) });
+  const last = tx(s.lang, 'place.last', { who: quiet(me.id), cell: a.cell, card: shown });
   if (!found.some((f) => f.gold)) finishTurn(c, last);
   else {
     s.last = last;
@@ -285,10 +291,11 @@ function playTool(c: Ctx, a: Extract<SAction, { type: 'tool' }>): boolean {
   const me = current(c.s);
   const card = me.hand.splice(a.i, 1)[0];
   const target = find(c.s, a.target)!;
-  const verb = card.kind === 'break' ? '弄壞了' : '修好了';
+  const verb = card.kind === 'break' ? 'break' : 'fix';
+  const tool = toolWord(a.tool, c.s.lang);
   target.broken = card.kind === 'break' ? [...target.broken, a.tool] : target.broken.filter((t) => t !== a.tool);
-  tell(c, a.user, `✅ 你${verb} ${mention(target.id)} 的${TOOL_WORD[a.tool]}`);
-  finishTurn(c, `${quiet(me.id)} ${verb} ${quiet(target.id)} 的${TOOL_WORD[a.tool]}`);
+  tell(c, a.user, tx(c.s.lang, `${verb}.you`, { target: mention(target.id), tool }));
+  finishTurn(c, tx(c.s.lang, `${verb}.last`, { who: quiet(me.id), target: quiet(target.id), tool }));
   return true;
 }
 
@@ -298,8 +305,8 @@ function playMap(c: Ctx, a: Extract<SAction, { type: 'map' }>): boolean {
   me.hand.splice(a.i, 1);
   const goal = cellOf(c.s, a.cell) as Extract<Grid[number][number], { kind: 'goal' }>;
   me.peeked[a.cell] = goal.gold;
-  tell(c, a.user, `🗺️ \`${a.cell}\` 是 ${goal.gold ? '💰 金礦' : '🪨 石頭'} (只有你看得到)`);
-  finishTurn(c, `${quiet(me.id)} 偷看了 \`${a.cell}\``);
+  tell(c, a.user, tx(c.s.lang, 'map.you', { cell: a.cell, what: tx(c.s.lang, goal.gold ? 'gold' : 'stone') }));
+  finishTurn(c, tx(c.s.lang, 'map.last', { who: quiet(me.id), cell: a.cell }));
   return true;
 }
 
@@ -309,8 +316,8 @@ function playRock(c: Ctx, a: Extract<SAction, { type: 'rock' }>): boolean {
   me.hand.splice(a.i, 1);
   const { r, c: col } = cellAt(a.cell)!;
   c.s.grid[r][col] = null;
-  tell(c, a.user, `✅ 你用落石拿掉了 \`${a.cell}\``);
-  finishTurn(c, `${quiet(me.id)} 用落石拿掉 \`${a.cell}\``);
+  tell(c, a.user, tx(c.s.lang, 'rock.you', { cell: a.cell }));
+  finishTurn(c, tx(c.s.lang, 'rock.last', { who: quiet(me.id), cell: a.cell }));
   return true;
 }
 
@@ -318,10 +325,10 @@ function discard(c: Ctx, user: string, seq: number, i: number): boolean {
   const err = turnCheck(c.s, user, seq);
   if (err) return deny(c, user, err);
   const me = current(c.s);
-  if (!me.hand[i]) return deny(c, user, STALE);
+  if (!me.hand[i]) return deny(c, user, STALE(c.s));
   me.hand.splice(i, 1);
-  tell(c, user, '✅ 你蓋掉了一張牌');
-  finishTurn(c, `${quiet(me.id)} 蓋掉一張牌`);
+  tell(c, user, tx(c.s.lang, 'discard.you'));
+  finishTurn(c, tx(c.s.lang, 'discard.last', { who: quiet(me.id) }));
   return true;
 }
 
@@ -350,16 +357,17 @@ const saboteurPay = (k: number) => (k === 1 ? 4 : k <= 3 ? 3 : 2);
 function endRound(c: Ctx, winner: Role) {
   const s = c.s;
   for (const row of s.grid) for (const cell of row) if (cell?.kind === 'goal') cell.open = true;
-  const roles = s.players.map((p) => `${quiet(p.id)} ${ROLE_NAME[p.role!]}`).join('、');
-  const headline = winner === 'digger' ? '💰 挖到金礦，⛏️ 金礦工獲勝！' : '💣 手牌出完還沒挖到金礦，破壞者獲勝！';
-  c.events.push({ type: 'announce', text: [`🏁 第 ${s.round}/${ROUNDS} 回合結束：${headline}`, `身分：${roles}`, '```', render(s.grid), '```'].join('\n') });
+  const L = s.lang;
+  const roles = s.players.map((p) => `${quiet(p.id)} ${roleName(p.role!, L)}`).join(tx(L, 'sep'));
+  const headline = tx(L, `headline.${winner}`);
+  c.events.push({ type: 'announce', text: [tx(L, 'roundEnd', { round: s.round, rounds: ROUNDS, headline }), tx(L, 'roles', { roles }), '```', render(s.grid), '```'].join('\n') });
   if (winner === 'digger') return startPick(c);
   const saboteurs = s.players.filter((p) => p.role === 'saboteur');
-  if (!saboteurs.length) c.events.push({ type: 'announce', text: '這回合沒有破壞者，沒有人拿到金塊。' });
+  if (!saboteurs.length) c.events.push({ type: 'announce', text: tx(L, 'noSaboteur') });
   else {
     const pay = saboteurPay(saboteurs.length);
     for (const p of saboteurs) p.gold += pay;
-    c.events.push({ type: 'announce', text: `💣 ${saboteurs.map((p) => quiet(p.id)).join('、')} 每人拿到 ${pay} 金。` });
+    c.events.push({ type: 'announce', text: tx(L, 'saboteurPay', { who: saboteurs.map((p) => quiet(p.id)).join(tx(L, 'sep')), pay }) });
   }
   finishRound(c);
 }
@@ -382,12 +390,13 @@ function pickPrompt(c: Ctx) {
   const { cards, log } = s.pick!;
   s.seq++;
   const done = !cards.length;
+  const L = s.lang;
   const lines = [
-    `💰 金礦工分金塊：${done ? '分完了' : `剩下 ${cards.join('、')} 金`}`,
+    tx(L, 'pick.head', { rest: done ? tx(L, 'pick.done') : tx(L, 'pick.left', { cards: cards.join(tx(L, 'sep')) }) }),
     ...log,
-    ...(done ? [] : [`👉 輪到 ${mention(picker(s))} 挑 (${PICK_MS / 1000} 秒)`]),
+    ...(done ? [] : [tx(L, 'pick.turn', { who: mention(picker(s)), sec: PICK_MS / 1000 })]),
   ];
-  const options = [...new Set(cards)].map((v) => ({ value: `gold:${s.seq}:${v}`, label: `${v} 金` }));
+  const options = [...new Set(cards)].map((v) => ({ value: `gold:${s.seq}:${v}`, label: tx(L, 'btn.gold', { v }) }));
   c.events.push({ type: 'prompt', kind: 'saboteur', audience: 'channel', ref: `saboteur:gold:${s.round}`, text: lines.join('\n'), options });
   if (done) return finishRound(c);
   startTimer(c, PICK_MS);
@@ -398,16 +407,16 @@ function takeGold(c: Ctx, user: string, value: number) {
   const pick = s.pick!;
   pick.cards.splice(pick.cards.indexOf(value), 1);
   find(s, user)!.gold += value;
-  pick.log.push(`${quiet(user)} 拿了 ${value} 金`);
+  pick.log.push(tx(s.lang, 'pick.log', { who: quiet(user), v: value }));
   pick.at++;
   pickPrompt(c);
 }
 
 function pickGold(c: Ctx, user: string, seq: number, value: number): boolean {
   const s = c.s;
-  if (!find(s, user)) return reply(c, user, NOT_PLAYER);
-  if (s.phase !== 'pick' || picker(s) !== user) return reply(c, user, NOT_YET);
-  if (seq !== s.seq || !s.pick!.cards.includes(value)) return reply(c, user, '這個按鈕已經過期了。');
+  if (!find(s, user)) return reply(c, user, NOT_PLAYER(s));
+  if (s.phase !== 'pick' || picker(s) !== user) return reply(c, user, NOT_YET(s));
+  if (seq !== s.seq || !s.pick!.cards.includes(value)) return reply(c, user, tx(s.lang, 'expired'));
   takeGold(c, user, value);
   return true;
 }
@@ -416,7 +425,7 @@ function finishRound(c: Ctx) {
   const s = c.s;
   s.pick = undefined;
   s.phase = 'play';
-  c.events.push({ type: 'announce', text: `💰 累計金塊：${s.players.map((p) => `${quiet(p.id)} ${p.gold}`).join('、')}` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'totals', { list: s.players.map((p) => `${quiet(p.id)} ${p.gold}`).join(tx(s.lang, 'sep')) }) });
   if (s.round < ROUNDS) startRound(c, (s.lastActor + 1) % s.players.length);
   else endGame(c);
 }
@@ -434,8 +443,8 @@ function endGame(c: Ctx) {
     {
       type: 'announce',
       text: [
-        `🏆 遊戲結束，${s.winners.map(mention).join('、')} 獲勝！`,
-        ...ranking.map((p, i) => `${i + 1}. ${mention(p.id)} ${p.gold} 金${p.gold === top ? ' 🏆' : ''}`),
+        tx(s.lang, 'gameOver', { who: s.winners.map(mention).join(tx(s.lang, 'sep')) }),
+        ...ranking.map((p, i) => tx(s.lang, 'rankLine', { i: i + 1, who: mention(p.id), gold: p.gold, top: p.gold === top ? ' 🏆' : '' })),
       ].join('\n'),
       gif: 'goodWin',
     },
@@ -447,7 +456,7 @@ function timeout(c: Ctx) {
   if (c.s.phase === 'pick') return takeGold(c, picker(c.s), c.s.pick!.cards[0]);
   const me = current(c.s);
   me.hand.shift();
-  finishTurn(c, `${quiet(me.id)} 逾時，自動蓋掉一張牌`);
+  finishTurn(c, tx(c.s.lang, 'timeout.last', { who: quiet(me.id) }));
 }
 
 function startRound(c: Ctx, first: number) {
@@ -460,8 +469,8 @@ function startRound(c: Ctx, first: number) {
   s.grid = newGrid(Math.floor(c.rng() * 3));
   s.last = undefined;
   s.players.forEach((p, i) => Object.assign(p, { role: roles[i], hand: s.deck.splice(0, handSize(n)), broken: [], peeked: {} }));
-  c.events.push({ type: 'announce', text: `⛏️ 第 ${s.round}/${ROUNDS} 回合開始！每人 ${handSize(n)} 張手牌，身分已私下發給每個人。` });
-  for (const p of s.players) if (!isBot(p.id)) c.events.push({ type: 'ephemeral', to: p.id, text: `你這回合是 ${ROLE_NAME[p.role!]}` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'roundStart', { round: s.round, rounds: ROUNDS, n: handSize(n) }) });
+  for (const p of s.players) if (!isBot(p.id)) c.events.push({ type: 'ephemeral', to: p.id, text: tx(s.lang, 'yourRole', { role: roleName(p.role!, s.lang) }) });
   s.turn = first;
   beginTurn(c);
 }
@@ -559,23 +568,17 @@ function botsAct(c: Ctx) {
   }
 }
 
-const RULES = [
-  `共 ${ROUNDS} 回合，每回合重新發身分：⛏️ 金礦工要從起點 S 挖到金礦，💣 破壞者暗中阻止 (沒人知道有幾個破壞者)。`,
-  '輪到時做一件事：放一張通道牌、打一張行動牌，或蓋掉一張牌，然後抽一張。工具 (鎬子、礦燈、礦車) 壞掉的人不能放通道牌。',
-  '挖到金礦 → 金礦工輪流挑金塊；牌出完還沒挖到 → 破壞者拿金塊。3 回合後金塊最多的人贏。',
-  '地圖上格子裡有 x 的是死路，`?` 是蓋著的終點。',
-].join('\n');
-
 function start(c: Ctx, user: string): boolean {
   const s = c.s;
-  if (user !== s.host) return reply(c, user, '只有房主可以開始遊戲。');
+  if (user !== s.host) return reply(c, user, tx(s.lang, 'onlyHostStart'));
   if (s.phase !== 'lobby') return false;
   const n = s.players.length;
-  if (n < MIN_SABOTEUR_PLAYERS) return reply(c, user, `目前 ${n} 人，至少需要 ${MIN_SABOTEUR_PLAYERS} 人才能開始。`);
+  if (n < MIN_SABOTEUR_PLAYERS) return reply(c, user, tx(s.lang, 'tooFew', { n, min: MIN_SABOTEUR_PLAYERS }));
   c.events.push(lobbyEvent(TITLE, { ...s, phase: 'play' }));
   for (const p of s.players) Object.assign(p, newPlayer(p.id));
   Object.assign(s, { phase: 'play', round: 0, goldDeck: shuffle(GOLD_CARDS, c.rng) });
-  c.events.push({ type: 'announce', text: `⛏️ 矮人礦坑開始！玩家：${s.players.map((p) => mention(p.id)).join('、')}，每人 0 金。\n${RULES}` });
+  const players = s.players.map((p) => mention(p.id)).join(tx(s.lang, 'sep'));
+  c.events.push({ type: 'announce', text: tx(s.lang, 'started', { players, rules: tx(s.lang, 'rules', { rounds: ROUNDS }) }) });
   startRound(c, Math.floor(c.rng() * n));
   return true;
 }
