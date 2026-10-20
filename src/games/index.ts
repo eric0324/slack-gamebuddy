@@ -33,6 +33,7 @@ import { saboteur } from './saboteur.js';
 import { forsale } from './forsale.js';
 import { machikoro } from './machikoro.js';
 import { splendor } from './splendor.js';
+import { deception } from './deception.js';
 
 export const GAMES = [
   undercover,
@@ -69,6 +70,7 @@ export const GAMES = [
   forsale,
   machikoro,
   splendor,
+  deception,
 ] as const;
 
 export type GameKind = (typeof GAMES)[number]['kind'];
