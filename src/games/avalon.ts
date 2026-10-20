@@ -15,6 +15,18 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Avalon commands*',
+  '• `/game avalon new`: open a room (anyone)',
+  '• `/game avalon addbot [count]`: add bots to fill seats (host, before start)',
+  '• `/game avalon removebot [count]`: remove bots (host, before start)',
+  '• `/game avalon start`: start the game, needs 5-10 players (host)',
+  '• `/game avalon next`: skip the current speaker (host)',
+  '• `/game avalon cancel`: cancel the game (host)',
+  'Picking the team, voting, quests and the assassination all use buttons',
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 // 阿瓦隆的子指令：沒有 vote (組隊投票用按鈕) 和 guess
 export function parseAvalonCommand(text: string, user: string, channel: string): AAction | null {
   const action = parseUndercoverCommand(text, user, channel);
@@ -51,6 +63,9 @@ export const avalon = {
   players: '5～10 人',
   category: 'deduction',
   desc: '好人對壞人，隊長組隊出任務，沒有人會出局',
+  locales: {
+    en: { name: 'Avalon', players: '5-10 players', desc: 'Good vs. evil: leaders pick teams for quests, and nobody is eliminated', help: HELP_EN },
+  },
   help: HELP,
   apply: applyAvalon,
   parse: parseAvalonCommand,
