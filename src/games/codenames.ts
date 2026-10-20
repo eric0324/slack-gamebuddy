@@ -14,6 +14,17 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Codenames commands*',
+  '• `/game codenames new`: open a room (anyone)',
+  '• `/game codenames start`: start the game, needs 4-12 human players (host)',
+  '• `/game codenames clue <word> <number>`: spymaster gives a clue, number 1-9',
+  "• `/game codenames next`: end the current team's turn (host)",
+  '• `/game codenames cancel`: cancel the game (host)',
+  'Reveal cards and end guessing with the buttons',
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 // 機密代號的子指令：clue <詞> <數字>，next 是跳過目前隊伍的回合
 export function parseCodenamesCommand(text: string, user: string, channel: string): CAction | null {
   const [sub, ...rest] = text.trim().split(/\s+/);
@@ -51,6 +62,7 @@ export const codenames = {
   category: 'team',
   desc: '紅藍兩隊比賽，隊長用一個詞當提示翻字卡',
   noBots: true,
+  locales: { en: { name: 'Codenames', players: '4-12 players', desc: 'Red vs. blue: spymasters give one-word clues to find their agents', help: HELP_EN } },
   help: HELP,
   apply: applyCodenames,
   parse: parseCodenamesCommand,

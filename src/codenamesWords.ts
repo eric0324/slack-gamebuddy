@@ -1,5 +1,6 @@
 // 機密代號的詞庫：每局隨機抽 25 個。詞要不重複、沒有空白、1～4 個字 (有測試檢查)。
 // 挑選原則：意思多、容易聯想到別的東西的詞，隊長才好串提示。
+import type { Lang } from './i18n/index.js';
 
 export const CODENAMES_WORDS = [
   // 動物
@@ -37,3 +38,44 @@ export const CODENAMES_WORDS = [
   '婚禮', '生日', '聖誕節', '過年', '鬼月', '考試', '加班', '放假', '戀愛', '分手',
   '網路', '病毒', '密碼', '紅包', '發票', '彩券', '鞭炮', '烤肉', '泡泡', '影子',
 ];
+
+// 英文詞庫：和上面一對一翻譯、順序相同，每個詞是一個英文單字；台灣在地的詞換成意思接近的常用詞
+export const CODENAMES_WORDS_EN = [
+  // 動物
+  'Tiger', 'Lion', 'Panda', 'Penguin', 'Dolphin', 'Shark', 'Rat', 'Cat', 'Dog', 'Rabbit',
+  'Monkey', 'Elephant', 'Giraffe', 'Snake', 'Turtle', 'Frog', 'Butterfly', 'Bee', 'Ant', 'Spider',
+  'Eagle', 'Pigeon', 'Rooster', 'Dinosaur', 'Unicorn', 'Dragon', 'Phoenix', 'Fox', 'Wolf', 'Octopus',
+  // 食物
+  'Apple', 'Banana', 'Watermelon', 'Pineapple', 'Lemon', 'Strawberry', 'Boba', 'Coffee', 'Milk', 'Chocolate',
+  'Cake', 'Bread', 'Egg', 'Rice', 'Noodle', 'Hotpot', 'Tofu', 'Stew', 'Pizza', 'Burger',
+  'Sushi', 'Dumpling', 'Mooncake', 'Wrap', 'Mochi', 'Chili', 'Garlic', 'Honey', 'Candy', 'Sundae',
+  // 地方
+  'School', 'Hospital', 'Bank', 'Airport', 'Station', 'Park', 'Beach', 'Desert', 'Forest', 'Volcano',
+  'Moon', 'Sun', 'Star', 'Earth', 'Pole', 'Pyramid', 'Wall', 'Market', 'Temple', 'Church',
+  'Castle', 'Prison', 'Museum', 'Zoo', 'Pool', 'Elevator', 'Toilet', 'Kitchen', 'Basement', 'Roof',
+  // 物品
+  'Phone', 'Computer', 'Keyboard', 'Mouse', 'Headphones', 'Camera', 'Television', 'Fridge', 'Umbrella', 'Key',
+  'Lock', 'Wallet', 'Glasses', 'Watch', 'Ring', 'Crown', 'Hat', 'Shoe', 'Sock', 'Tie',
+  'Pillow', 'Mirror', 'Candle', 'Balloon', 'Kite', 'Map', 'Book', 'Newspaper', 'Letter', 'Stamp',
+  'Scissors', 'Pencil', 'Eraser', 'Ruler', 'Tape', 'Battery', 'Lightbulb', 'Bomb', 'Gun', 'Knife',
+  'Sword', 'Shield', 'Bow', 'Arrow', 'Cannon', 'Flag', 'Bell', 'Drum', 'Guitar', 'Piano',
+  // 交通
+  'Car', 'Bus', 'Subway', 'Train', 'Plane', 'Ship', 'Bicycle', 'Scooter', 'Rocket', 'Submarine',
+  'Helicopter', 'Taxi', 'Ambulance', 'Firetruck', 'Airship', 'Carriage', 'Skateboard', 'Gondola', 'Tank', 'Sailboat',
+  // 人物與職業
+  'Doctor', 'Teacher', 'Police', 'Thief', 'Chef', 'Lawyer', 'Singer', 'Actor', 'President', 'King',
+  'Princess', 'Knight', 'Pirate', 'Ninja', 'Wizard', 'Angel', 'Devil', 'Ghost', 'Zombie', 'Vampire',
+  'Alien', 'Robot', 'Superhero', 'Spy', 'Detective', 'Magician', 'Clown', 'Cowboy', 'Astronaut', 'Boss',
+  // 自然與天氣
+  'Rain', 'Snow', 'Wind', 'Thunder', 'Rainbow', 'Typhoon', 'Earthquake', 'Wave', 'Ice', 'Fire',
+  'Water', 'Stone', 'Diamond', 'Gold', 'Tree', 'Flower', 'Grass', 'Rose', 'Bamboo', 'Cactus',
+  // 身體
+  'Eye', 'Ear', 'Nose', 'Mouth', 'Hand', 'Foot', 'Heart', 'Hair', 'Tooth', 'Bone',
+  // 抽象與其他
+  'Dream', 'Time', 'Music', 'Movie', 'Game', 'Soccer', 'Basketball', 'Baseball', 'Tennis', 'Boxing',
+  'Wedding', 'Birthday', 'Christmas', 'Holiday', 'Halloween', 'Exam', 'Overtime', 'Vacation', 'Love', 'Breakup',
+  'Internet', 'Virus', 'Password', 'Envelope', 'Receipt', 'Lottery', 'Firecracker', 'Barbecue', 'Bubble', 'Shadow',
+];
+
+// 依語系取詞庫 (一字千金也用這份)
+export const CODENAMES_WORDS_BY_LANG: Record<Lang, string[]> = { 'zh-TW': CODENAMES_WORDS, en: CODENAMES_WORDS_EN };

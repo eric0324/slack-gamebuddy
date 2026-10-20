@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { type GameEvent } from '../src/engine.js';
 import { applyCodenames, type CAction, type CState } from '../src/codenames.js';
+import { CODENAMES_WORDS, CODENAMES_WORDS_BY_LANG } from '../src/codenamesWords.js';
+import { codenames } from '../src/games/codenames.js';
 
 const rng = () => 0.99999;
 
@@ -302,5 +304,54 @@ describe('codenames/win-condition: 結束公開與再來一局', () => {
     expect(ephemeralTo(run([{ type: 'rematch', user: 'X', channel: 'C1' }], s).events, 'X')).toBeDefined();
     const cancelled = run([{ type: 'cancel', user: 'p1' }], started(4).state).state;
     expect(run([{ type: 'rematch', user: 'p2', channel: 'C1' }], cancelled).events).toEqual([]);
+  });
+});
+
+describe('codenames/i18n: 英文版', () => {
+  const enLobby = (n: number) =>
+    run([
+      { type: 'new', user: 'p1', channel: 'C1', lang: 'en' },
+      ...Array.from({ length: n - 1 }, (_, i) => ({ type: 'join', user: `p${i + 2}` }) as CAction),
+    ]);
+  const enStarted = () => run([{ type: 'start', user: 'p1' }], enLobby(4).state);
+
+  it('開局公告、回合公告、隊長私訊和牌桌都是英文，字卡從英文詞庫抽', () => {
+    const { state, events } = enStarted();
+    const text = announces(events).join('\n');
+    expect(text).toContain('Codenames begins!');
+    expect(text).toContain('Red team: spymaster <@p1>');
+    expect(text).toContain("🔔 🟦 Blue team's turn");
+    expect(dmTo(events, 'p1')!.text).toContain("You're the Red team spymaster");
+    expect(state.cards.every((x) => CODENAMES_WORDS_BY_LANG.en.includes(x.word))).toBe(true);
+    expect(boards(events).at(-1)!.text).toBe('🟥 Red: 8 left　🟦 Blue: 9 left');
+  });
+
+  it('提示、猜牌按鈕、翻牌公告和錯誤訊息是英文；提示比對不分大小寫', () => {
+    const s = enStarted().state;
+    const bad = clue('p2', s.cards[3].word.toUpperCase(), 1, s);
+    expect(ephemeralTo(bad.events, 'p2')).toMatchObject({ text: "You can't use a word on the board as a clue." });
+    const g = clue('p2', 'fruit', 2, s);
+    expect(announces(g.events)).toContainEqual(expect.stringContaining('🕵️ Blue spymaster: "fruit" 2'));
+    const p = g.events.find((e) => e.type === 'prompt' && e.kind === 'endGuess') as Extract<GameEvent, { type: 'prompt' }>;
+    expect(p.options).toEqual([{ value: 'end', label: 'End guessing' }]);
+    const r = guess([24], g.state);
+    expect(announces(r.events).join('\n')).toContain('Red team wins!');
+  });
+
+  it('不支援 bot 的回覆是英文', () => {
+    expect(ephemeralTo(run([{ type: 'addBot', user: 'p1', count: 1 }], enLobby(2).state).events, 'p1')).toMatchObject({ text: "Codenames doesn't support bots." });
+  });
+
+  it('GameDef 有英文名稱和英文說明', () => {
+    expect(codenames.locales.en).toMatchObject({ name: 'Codenames', players: '4-12 players' });
+    expect(codenames.locales.en.help).toContain('*Codenames commands*');
+  });
+
+  it('英文詞庫和中文一樣多，不重複、都是單一英文單字', () => {
+    const en = CODENAMES_WORDS_BY_LANG.en;
+    expect(CODENAMES_WORDS_BY_LANG['zh-TW']).toBe(CODENAMES_WORDS);
+    expect(en).toHaveLength(CODENAMES_WORDS.length);
+    expect(new Set(en.map((w) => w.toLowerCase())).size).toBe(en.length);
+    for (const w of en) expect(w).toMatch(/^[A-Za-z]+$/);
   });
 });
