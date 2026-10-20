@@ -1,7 +1,7 @@
 // 詭影神探（Deception: Murder in Hong Kong）遊戲引擎：純邏輯，不碰任何 I/O。鑑識官知道答案、只能用提示板上的子彈給暗示，大家從每人面前的手段卡和線索卡推敲兇手用了哪一組。
 // 介面和其他遊戲一樣：applyDeception(state, action, rng) → { state, events }。
 import { mention, type GameEvent, type Rng } from './engine.js';
-import { cancelGame, joinRoom, leaveRoom, lobbyEvent, reply, runGame, shuffle } from './common.js';
+import { cancelGame, joinRoom, leaveRoom, lobbyEvent, reply, runGame, shuffle, startTimer } from './common.js';
 import { CAUSE_BOARD, CLUES, MEANS, SCENE_BOARDS, type Board } from './deceptionCards.js';
 
 export const MIN_DECEPTION_PLAYERS = 4;
@@ -10,6 +10,7 @@ const TITLE = '詭影神探';
 const ROUNDS = 3;
 const CARDS = 4; // 每人手段、線索各幾張
 const SCENES = 4; // 場上的場景板張數
+const NIGHT_MS = 90_000;
 
 export type Role = 'scientist' | 'murderer' | 'accomplice' | 'witness' | 'investigator';
 const ROLE_NAME: Record<Role, string> = {
@@ -150,8 +151,107 @@ function start(c: Ctx, user: string): boolean {
   Object.assign(s, { round: 1, answer: {}, cause: { board: CAUSE_BOARD }, location: undefined, scenes: deck.splice(0, SCENES).map((board) => ({ board })), sceneDeck: deck, guesses: [] });
   c.events.push({ type: 'announce', text: rules(s), gif: 'start' });
   for (const p of s.players) c.events.push({ type: 'dm', to: p.id, text: ROLE_INTRO[p.role!] });
-  s.phase = 'night';
+  startNight(c);
   return true;
+}
+
+// ---------- 夜晚 ----------
+
+const answerText = (s: DState) => `手段「${s.answer.means}」、線索「${s.answer.clue}」`;
+
+function startNight(c: Ctx) {
+  const s = c.s;
+  s.phase = 'night';
+  const m = withRole(s, 'murderer')!;
+  c.events.push({ type: 'announce', text: '🌙 天黑了，兇手正在選擇手段和線索。' });
+  c.events.push({
+    type: 'prompt',
+    kind: 'deception',
+    audience: 'user',
+    user: m.id,
+    text: `🔪 選一張你面前的手段卡當作行兇手段（${NIGHT_MS / 1000} 秒）`,
+    options: m.means.map((label, i) => ({ value: `nm:${i}`, label })),
+  });
+  startTimer(c, NIGHT_MS);
+}
+
+// 兇手選答案的共同檢查；回傳兇手或 null
+function nightCheck(c: Ctx, user: string, done: boolean): DPlayer | null {
+  const me = find(c.s, user);
+  if (me?.role !== 'murderer') return (reply(c, user, '只有兇手可以選答案。'), null);
+  if (c.s.phase !== 'night' || done) return (reply(c, user, '已經選好了。'), null);
+  return me;
+}
+
+function nightMeans(c: Ctx, user: string, i: number): boolean {
+  const me = nightCheck(c, user, !!c.s.answer.means);
+  if (!me || !me.means[i]) return false;
+  c.s.answer.means = me.means[i];
+  c.events.push({
+    type: 'prompt',
+    kind: 'deception',
+    audience: 'user',
+    user,
+    text: `🔪 手段是「${me.means[i]}」。再選一張你面前的線索卡當作關鍵證物`,
+    options: me.clues.map((label, k) => ({ value: `nc:${k}`, label })),
+  });
+  return true;
+}
+
+function nightClue(c: Ctx, user: string, i: number): boolean {
+  const me = nightCheck(c, user, !c.s.answer.means || !!c.s.answer.clue);
+  if (!me || !me.clues[i]) return false;
+  c.s.answer.clue = me.clues[i];
+  endNight(c);
+  return true;
+}
+
+// 每個角色在夜晚之後知道的事
+function nightInfo(s: DState, p: DPlayer): string {
+  const m = mention(withRole(s, 'murderer')!.id);
+  const acc = withRole(s, 'accomplice');
+  switch (p.role) {
+    case 'scientist':
+      return `兇手：${m}${acc ? `｜共犯：${mention(acc.id)}` : ''}｜答案：${answerText(s)}`;
+    case 'accomplice':
+      return `兇手：${m}｜答案：${answerText(s)}`;
+    case 'witness':
+      return `${s.seen.map(mention).join(' 和 ')} 是兇手和共犯（不知道誰是誰）`;
+    case 'murderer':
+      return `你選的答案：${answerText(s)}`;
+    default:
+      return '';
+  }
+}
+
+// 夜晚結束：私訊鑑識官、共犯、目擊者和兇手，天亮進入第 1 輪蒐證
+function endNight(c: Ctx) {
+  const s = c.s;
+  const pair = [withRole(s, 'murderer')!.id, withRole(s, 'accomplice')?.id ?? ''];
+  s.seen = withRole(s, 'witness') ? shuffle(pair, c.rng) : [];
+  for (const p of s.players) {
+    const info = nightInfo(s, p);
+    if (info) c.events.push({ type: 'dm', to: p.id, text: `🌅 天亮了。${info}` });
+  }
+  c.events.push({ type: 'announce', text: '🌅 天亮了！鑑識官開始蒐證。' });
+  startEvidence(c);
+}
+
+// 夜晚時間到：兇手沒選的項目隨機選
+function nightTimeout(c: Ctx) {
+  const s = c.s;
+  const m = withRole(s, 'murderer')!;
+  s.answer.means ??= m.means[Math.floor(c.rng() * m.means.length)];
+  s.answer.clue = m.clues[Math.floor(c.rng() * m.clues.length)];
+  endNight(c);
+}
+
+// ---------- 蒐證與發言 ----------
+
+function startEvidence(c: Ctx) {
+  const s = c.s;
+  s.phase = 'evidence';
+  s.pseq++;
 }
 
 function handle(c: Ctx, action: GameAction): boolean {
@@ -167,6 +267,15 @@ function handle(c: Ctx, action: GameAction): boolean {
       return start(c, action.user);
     case 'cancel':
       return cancelGame(c, action.user);
+    case 'nightMeans':
+      return nightMeans(c, action.user, action.i);
+    case 'nightClue':
+      return nightClue(c, action.user, action.i);
+    case 'timeout':
+      if (action.id !== c.s.timers.phase) return false;
+      if (c.s.phase === 'night') nightTimeout(c);
+      else return false;
+      return true;
     default:
       return false;
   }

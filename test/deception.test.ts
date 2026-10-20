@@ -178,10 +178,107 @@ describe('deception/setup: 發卡、身分私訊、開局公告', () => {
     const p1 = state.players[0];
     const line = text.split('\n').find((l) => l.startsWith('<@p1>'))!;
     for (const w of [...p1.means, ...p1.clues]) expect(line).toContain(w);
-    const list = text.slice(text.indexOf('場上一覽'));
+    const opening = announces(events).find((t) => t.includes('場上一覽'))!;
+    const list = opening.slice(opening.indexOf('場上一覽'));
     expect(EMOJI.test(list)).toBe(false);
     expect(list).not.toContain('<@p6>');
     expect(state.phase).toBe('night');
     expect(announces(started(5).events).join()).toContain('這局沒有共犯和目擊者');
+  });
+});
+
+// 兇手 p1 選第 0 張手段和第 0 張線索，天亮進入第 1 輪蒐證
+const day = (n: number) => run([{ type: 'nightMeans', user: 'p1', i: 0 }, { type: 'nightClue', user: 'p1', i: 0 }], started(n).state);
+
+describe('deception/night: 兇手選答案', () => {
+  it('頻道公告天黑不透露兇手；兇手私訊 4 張手段按鈕，選了之後私訊 4 張線索按鈕', () => {
+    const { state, events } = started(6);
+    const dark = announces(events).find((t) => t.includes('天黑了'))!;
+    expect(dark).toBeDefined();
+    expect(dark).not.toContain('<@p1>');
+    const p1 = state.players[0];
+    const m = userPrompt(events, 'p1')!;
+    expect(labels(m)).toEqual(p1.means);
+    expect(values(m)).toEqual(['nm:0', 'nm:1', 'nm:2', 'nm:3']);
+    const after = run([{ type: 'nightMeans', user: 'p1', i: 1 }], state);
+    expect(after.state.answer).toEqual({ means: p1.means[1] });
+    const cl = userPrompt(after.events, 'p1')!;
+    expect(labels(cl)).toEqual(p1.clues);
+    expect(values(cl)).toEqual(['nc:0', 'nc:1', 'nc:2', 'nc:3']);
+    const done = run([{ type: 'nightClue', user: 'p1', i: 2 }], after.state);
+    expect(done.state.answer).toEqual({ means: p1.means[1], clue: p1.clues[2] });
+    expect(done.state.phase).toBe('evidence');
+  });
+
+  it('只能選自己的卡；兇手以外的人按被拒、state 不變', () => {
+    const s = started(6).state;
+    expect(run([{ type: 'nightMeans', user: 'p1', i: 4 }], s).state).toBe(s);
+    const other = run([{ type: 'nightMeans', user: 'p2', i: 0 }], s);
+    expect(other.state).toBe(s);
+    expect(ephemeralTo(other.events, 'p2').join()).toContain('只有兇手');
+  });
+
+  it('答案固定後再按回「已經選好了」，答案不變', () => {
+    const s = day(6).state;
+    const again = run([{ type: 'nightMeans', user: 'p1', i: 2 }], s);
+    expect(again.state).toBe(s);
+    expect(ephemeralTo(again.events, 'p1')).toEqual(['已經選好了。']);
+    const half = run([{ type: 'nightMeans', user: 'p1', i: 0 }], started(6).state).state;
+    expect(ephemeralTo(run([{ type: 'nightMeans', user: 'p1', i: 2 }], half).events, 'p1')).toEqual(['已經選好了。']);
+  });
+});
+
+describe('deception/night: 夜晚得知的資訊', () => {
+  it('6 人局天亮：鑑識官、共犯、目擊者、兇手各自的私訊；調查員沒有新私訊；頻道公告天亮', () => {
+    const { state, events } = day(6);
+    const { means, clue } = state.answer as { means: string; clue: string };
+    const sci = dmTo(events, 'p6').join();
+    for (const w of ['<@p1>', '<@p2>', means, clue]) expect(sci).toContain(w);
+    const acc = dmTo(events, 'p2').join();
+    for (const w of ['<@p1>', means, clue]) expect(acc).toContain(w);
+    const wit = dmTo(events, 'p3').join();
+    expect(wit).toContain('<@p1>');
+    expect(wit).toContain('<@p2>');
+    expect(wit).toContain('不知道誰是誰');
+    expect(wit).not.toContain(means);
+    expect(wit).not.toContain(clue);
+    expect(dmTo(events, 'p1').join()).toContain(clue);
+    expect(dmTo(events, 'p4')).toEqual([]);
+    expect(dmTo(events, 'p5')).toEqual([]);
+    const dawn = announces(events).find((t) => t.includes('天亮了'))!;
+    expect(dawn).toBeDefined();
+    for (const w of ['<@p1>', means, clue]) expect(dawn).not.toContain(w);
+    expect(state).toMatchObject({ phase: 'evidence', round: 1 });
+  });
+
+  it('4 人局只有鑑識官收到兇手和答案', () => {
+    const { events } = day(4);
+    expect(dmTo(events, 'p4').join()).toContain('<@p1>');
+    expect(dmTo(events, 'p2')).toEqual([]);
+    expect(dmTo(events, 'p3')).toEqual([]);
+  });
+});
+
+describe('deception/night: 夜晚逾時', () => {
+  it('都沒選 → 兩項都從兇手面前隨機選；頻道不公告逾時', () => {
+    const s = started(6).state;
+    const { state, events } = run([{ type: 'timeout', id: s.timers.phase! }], s);
+    expect(state.answer).toEqual({ means: s.players[0].means[3], clue: s.players[0].clues[3] });
+    expect(dmTo(events, 'p1').join()).toContain(s.players[0].clues[3]);
+    expect(state.phase).toBe('evidence');
+    for (const t of announces(events)) expect(t).not.toMatch(/逾時|時間到/);
+  });
+
+  it('選了手段 → 只補線索', () => {
+    const s = run([{ type: 'nightMeans', user: 'p1', i: 1 }], started(6).state).state;
+    const { state } = run([{ type: 'timeout', id: s.timers.phase! }], s);
+    expect(state.answer).toEqual({ means: s.players[0].means[1], clue: s.players[0].clues[3] });
+  });
+
+  it('舊計時器被忽略', () => {
+    const s = started(6).state;
+    const old = run([{ type: 'timeout', id: s.timers.phase! - 1 }], s);
+    expect(old.state).toBe(s);
+    expect(old.events).toEqual([]);
   });
 });
