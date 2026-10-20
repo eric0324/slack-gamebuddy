@@ -1089,6 +1089,17 @@ describe('game-commands: 遊戲大廳', () => {
     }
   });
 
+  it('大廳底部有指令提示、wiki 和社群討論連結', async () => {
+    const { host, calls } = setup();
+    await host.game('C1', 'U1', 'alice', '');
+    const footer = lastEph(calls).blocks.at(-1);
+    expect(footer.type).toBe('context');
+    const text = footer.elements[0].text;
+    expect(text).toContain('/game <代號> help');
+    expect(text).toContain('|wiki>');
+    expect(text).toContain('<https://github.com/eric0324/slack-gamebuddy/discussions|💬 社群討論>');
+  });
+
   it('每個分類依序列出它的遊戲', async () => {
     const { host, responds } = setup();
     for (const t of TABS) {

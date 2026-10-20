@@ -209,7 +209,7 @@ exports[`重構安全網 > 大廳六個分類 1`] = `
     {
       "elements": [
         {
-          "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+          "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>｜<https://github.com/eric0324/slack-gamebuddy/discussions|💬 社群討論>",
           "type": "mrkdwn",
         },
       ],
@@ -389,7 +389,7 @@ exports[`重構安全網 > 大廳六個分類 1`] = `
     {
       "elements": [
         {
-          "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+          "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>｜<https://github.com/eric0324/slack-gamebuddy/discussions|💬 社群討論>",
           "type": "mrkdwn",
         },
       ],
@@ -552,7 +552,7 @@ exports[`重構安全網 > 大廳六個分類 1`] = `
     {
       "elements": [
         {
-          "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+          "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>｜<https://github.com/eric0324/slack-gamebuddy/discussions|💬 社群討論>",
           "type": "mrkdwn",
         },
       ],
@@ -698,7 +698,7 @@ exports[`重構安全網 > 大廳六個分類 1`] = `
     {
       "elements": [
         {
-          "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+          "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>｜<https://github.com/eric0324/slack-gamebuddy/discussions|💬 社群討論>",
           "type": "mrkdwn",
         },
       ],
@@ -844,7 +844,7 @@ exports[`重構安全網 > 大廳六個分類 1`] = `
     {
       "elements": [
         {
-          "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+          "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>｜<https://github.com/eric0324/slack-gamebuddy/discussions|💬 社群討論>",
           "type": "mrkdwn",
         },
       ],
@@ -1075,7 +1075,7 @@ exports[`重構安全網 > 大廳六個分類 1`] = `
     {
       "elements": [
         {
-          "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+          "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>｜<https://github.com/eric0324/slack-gamebuddy/discussions|💬 社群討論>",
           "type": "mrkdwn",
         },
       ],
@@ -1649,7 +1649,7 @@ exports[`重構安全網 > 遊戲清單文字和預設大廳 2`] = `
   {
     "elements": [
       {
-        "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+        "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>｜<https://github.com/eric0324/slack-gamebuddy/discussions|💬 社群討論>",
         "type": "mrkdwn",
       },
     ],

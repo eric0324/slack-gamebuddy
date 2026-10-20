@@ -6,7 +6,7 @@ import type { MemeStore } from './memeStore.js';
 import type { CrewStore } from './crewStore.js';
 import { formatLeaderboard, formatStats, formatSummary, type StatsStore } from './stats.js';
 import { GAMES, type GameKind, type StateOf } from './games/index.js';
-import { WIKI, type GameDef } from './games/types.js';
+import { DISCUSSIONS, WIKI, type GameDef } from './games/types.js';
 
 type Kind = 'werewolf' | GameKind;
 type Panel = { url?: string; user: string }; // 這次按鈕所在的私下訊息：response_url 和按的人
@@ -109,7 +109,7 @@ function lobbyBlocks(channel: string, category = CATEGORIES[0].key) {
       text: { type: 'mrkdwn', text: slackText(`${g.emoji} *${g.name}* (\`${g.kind}\`) ${g.players}\n${g.desc}`) },
       accessory: button('lobbyOpen', i, '開房', channel, g.kind),
     })),
-    { type: 'context', elements: [{ type: 'mrkdwn', text: slackText(`看指令：\`/game <代號> help\`｜📖 <${WIKI}|wiki>`) }] },
+    { type: 'context', elements: [{ type: 'mrkdwn', text: slackText(`看指令：\`/game <代號> help\`｜📖 <${WIKI}|wiki>｜<${DISCUSSIONS}|💬 社群討論>`) }] },
   ];
 }
 
