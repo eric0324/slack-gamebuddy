@@ -1,6 +1,7 @@
 // 各遊戲 engine 共用的小工具：洗牌、只讓某人看到的回覆、階段計時、房間公告，以及房間邏輯 (加入、離開、bot、取消、開房和再來一局)
 import { randomBotName } from './botLines.js';
 import { isBot, type GameEvent, type Rng } from './engine.js';
+import { t, type Lang } from './i18n/index.js';
 
 // Fisher–Yates 洗牌，回傳新陣列，不改原陣列
 export function shuffle<T>(items: T[], rng: Rng): T[] {
@@ -33,15 +34,15 @@ export const lobbyEvent = (title: string, s: { host: string; phase: string; play
   open: s.phase === 'lobby',
 });
 
-// 房間：各遊戲的 state 至少有這些欄位
-type Room<P> = { host: string; phase: string; players: P[] };
+// 房間：各遊戲的 state 至少有這些欄位；lang 是開房時的頻道語系 (runGame 存進去的)
+type Room<P> = { host: string; phase: string; players: P[]; lang?: Lang };
 type RoomCtx<P> = { s: Room<P>; events: GameEvent[]; rng: Rng };
 
 export function joinRoom<P extends { id: string }>(c: RoomCtx<P>, title: string, user: string, max: number, newPlayer: (id: string) => P): boolean {
   const s = c.s;
-  if (s.phase !== 'lobby') return reply(c, user, '遊戲已經開始了。');
-  if (s.players.some((p) => p.id === user)) return reply(c, user, '你已經在房間裡了。');
-  if (s.players.length >= max) return reply(c, user, '房間已滿。');
+  if (s.phase !== 'lobby') return reply(c, user, t(s.lang, 'room.started'));
+  if (s.players.some((p) => p.id === user)) return reply(c, user, t(s.lang, 'room.alreadyIn'));
+  if (s.players.length >= max) return reply(c, user, t(s.lang, 'room.full'));
   s.players.push(newPlayer(user));
   c.events.push(lobbyEvent(title, s));
   return true;
@@ -51,10 +52,10 @@ export function joinRoom<P extends { id: string }>(c: RoomCtx<P>, title: string,
 export function leaveRoom<P extends { id: string }>(c: RoomCtx<P>, title: string, user: string): boolean {
   const s = c.s;
   if (!s.players.some((p) => p.id === user)) return false;
-  if (s.phase !== 'lobby') return reply(c, user, '遊戲已經開始了，不能離開。');
+  if (s.phase !== 'lobby') return reply(c, user, t(s.lang, 'room.cannotLeave'));
   if (user === s.host) {
     s.phase = 'ended';
-    c.events.push(lobbyEvent(title, s), { type: 'announce', text: '🛑 房主離開，遊戲已取消。' });
+    c.events.push(lobbyEvent(title, s), { type: 'announce', text: t(s.lang, 'room.hostLeft') });
     return true;
   }
   s.players = s.players.filter((p) => p.id !== user);
@@ -65,8 +66,8 @@ export function leaveRoom<P extends { id: string }>(c: RoomCtx<P>, title: string
 // bot 的 id 是 `bot:<編號>:<名字>`，編號接續現有的 bot，名字不重複
 export function addBots<P extends { id: string }>(c: RoomCtx<P>, title: string, user: string, count: number, max: number, newPlayer: (id: string) => P): boolean {
   const s = c.s;
-  if (user !== s.host) return reply(c, user, '只有房主可以加入 bot。');
-  if (s.phase !== 'lobby') return reply(c, user, '遊戲已經開始了。');
+  if (user !== s.host) return reply(c, user, t(s.lang, 'room.onlyHostAddBot'));
+  if (s.phase !== 'lobby') return reply(c, user, t(s.lang, 'room.started'));
   const room = max - s.players.length;
   const bots = s.players.filter((p) => isBot(p.id)).length;
   const taken = new Set(s.players.filter((p) => isBot(p.id)).map((p) => p.id.split(':')[2]));
@@ -76,17 +77,17 @@ export function addBots<P extends { id: string }>(c: RoomCtx<P>, title: string, 
     s.players.push(newPlayer(`bot:${bots + i}:${name}`));
   }
   if (room > 0) c.events.push(lobbyEvent(title, s));
-  if (count > room) reply(c, user, '房間已滿。');
+  if (count > room) reply(c, user, t(s.lang, 'room.full'));
   return room > 0;
 }
 
 // 從最後加入的 bot 開始移除
 export function removeBots<P extends { id: string }>(c: RoomCtx<P>, title: string, user: string, count: number): boolean {
   const s = c.s;
-  if (user !== s.host) return reply(c, user, '只有房主可以移除 bot。');
-  if (s.phase !== 'lobby') return reply(c, user, '遊戲已經開始了。');
+  if (user !== s.host) return reply(c, user, t(s.lang, 'room.onlyHostRemoveBot'));
+  if (s.phase !== 'lobby') return reply(c, user, t(s.lang, 'room.started'));
   const bots = s.players.filter((p) => isBot(p.id));
-  if (!bots.length) return reply(c, user, '房間裡沒有 bot。');
+  if (!bots.length) return reply(c, user, t(s.lang, 'room.noBots'));
   const removed = new Set(bots.slice(-count).map((p) => p.id));
   s.players = s.players.filter((p) => !removed.has(p.id));
   c.events.push(lobbyEvent(title, s));
@@ -94,16 +95,17 @@ export function removeBots<P extends { id: string }>(c: RoomCtx<P>, title: strin
 }
 
 // 房主取消遊戲；extra 是附加在公告後面的文字 (例如公布答案)
-export function cancelGame(c: { s: { host: string; phase: string; timers: object }; events: GameEvent[] }, user: string, extra = ''): boolean {
-  if (user !== c.s.host) return reply(c, user, '只有房主可以取消遊戲。');
+export function cancelGame(c: { s: { host: string; phase: string; timers: object; lang?: Lang }; events: GameEvent[] }, user: string, extra = ''): boolean {
+  if (user !== c.s.host) return reply(c, user, t(c.s.lang, 'room.onlyHostCancel'));
   c.s.phase = 'ended';
   c.s.timers = {};
-  c.events.push({ type: 'announce', text: `🛑 房主已取消遊戲。${extra}` });
+  c.events.push({ type: 'announce', text: t(c.s.lang, 'room.cancelled', { extra }) });
   return true;
 }
 
 type Result<S> = { state: S; events: GameEvent[] };
-type RoomAction = { type: 'new'; user: string; channel: string } | { type: 'rematch'; user: string; channel: string };
+// lang：開房當下的頻道語系，由 Slack adapter 帶進來
+type RoomAction = { type: 'new' | 'rematch'; user: string; channel: string; lang?: Lang };
 
 // 每款遊戲 applyX 的外殼：開房、再來一局、遊戲結束後忽略，其他 action 交給 handle (在複製的 state 上改)
 export function runGame<S extends { phase: string }, A extends { type: string }, C extends { s: S; events: GameEvent[]; rng: Rng }>(
@@ -119,17 +121,22 @@ export function runGame<S extends { phase: string }, A extends { type: string },
     extra?: Omit<C, 's' | 'events' | 'rng'>; // ctx 的額外欄位
   },
 ): Result<S> {
-  const busy = (user: string): Result<S> => ({ state: state!, events: [{ type: 'ephemeral', to: user, text: '這個頻道已經有遊戲了。' }] });
   if (action.type === 'new' || action.type === 'rematch') {
-    const { user, channel } = action as unknown as RoomAction;
-    if (action.type === 'new') return state && state.phase !== 'ended' ? busy(user) : opts.createLobby(state, user, channel);
+    const { user, channel, lang } = action as unknown as RoomAction;
+    const busy = (): Result<S> => ({ state: state!, events: [{ type: 'ephemeral', to: user, text: t(lang, 'room.busy') }] });
+    // 新房間記住開房當下的語系，整局都用它
+    const open = () => {
+      const created = opts.createLobby(state, user, channel);
+      return { ...created, state: { ...created.state, lang: lang ?? 'zh-TW' } };
+    };
+    if (action.type === 'new') return state && state.phase !== 'ended' ? busy() : open();
     if (!state) return { state: state!, events: [] };
-    if (state.phase !== 'ended') return busy(user);
+    if (state.phase !== 'ended') return busy();
     if (!opts.finished(state)) return { state, events: [] };
     if (isBot(user) || !opts.isPlayer(state, user)) {
-      return { state, events: [{ type: 'ephemeral', to: user, text: '只有上一局的玩家可以開新的一局。' }] };
+      return { state, events: [{ type: 'ephemeral', to: user, text: t(lang, 'room.rematchOnlyPlayers') }] };
     }
-    return opts.createLobby(state, user, channel);
+    return open();
   }
   if (!state || state.phase === 'ended') return { state: state!, events: [] };
   const c = { ...opts.extra, s: structuredClone(state), events: [], rng } as unknown as C;
