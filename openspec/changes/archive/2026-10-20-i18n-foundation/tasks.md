@@ -25,5 +25,5 @@
 
 ## 6. 文件與驗證
 
-- [ ] 6.1 README 加上 `/game lang` 說明；wiki 首頁加上語系說明 (問過再 push)
+- [x] 6.1 README 加上 `/game lang` 說明；wiki 首頁加上語系說明 (問過再 push)
 - [x] 6.2 跑 `npm test` 和 `npm run typecheck`，確認全部綠燈、既有測試沒有改動
