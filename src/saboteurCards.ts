@@ -192,13 +192,13 @@ export const cardLabel = (card: PathCard, lang?: Lang) => `${glyph(card.edges)} 
 function drawCell(cell: Cell | null): string {
   if (!cell) return '. ';
   if (cell.kind === 'goal' && !cell.open) return '? ';
+  if (cell.kind === 'path' && cell.dead) return 'X ';
   const edges = edgesOf(cell)!;
-  const dead = cell.kind === 'path' && cell.dead;
   const first = cell.kind === 'start' ? 'S' : cell.kind === 'goal' && cell.gold ? '$' : glyph(edges);
-  return first + (dead ? 'x' : edges & E ? '━' : ' ');
+  return first + (edges & E ? '━' : ' ');
 }
 
-// 地圖文字 (不含 code block 的 ```)：第一行欄名，每列開頭列號，每格 2 字元 (死路是「形狀＋x」)
+// 地圖文字 (不含 code block 的 ```)：第一行欄名，每列開頭列號，每格 2 字元 (死路整格是 X)
 export function render(grid: Grid): string {
   const header = `  ${Array.from({ length: COLS }, (_, c) => String.fromCharCode(65 + c)).join(' ')}`;
   return [header, ...grid.map((row, r) => `${r + 1} ${row.map(drawCell).join('')}`.trimEnd())].join('\n');
