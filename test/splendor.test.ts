@@ -263,9 +263,9 @@ describe('splendor/setup: 回合面板', () => {
     const [old, next] = boards(timeout(s).events);
     expect(old.ref).toBe(`splendor:${s.seq}`);
     expect(old.options).toEqual([]);
-    expect(old.text).toBe('✅ <@p1> 的回合結束：{{name:p1}} 逾時，跳過');
+    expect(old.text).toBe('✅ <@p1> 的回合結束：<@p1> 逾時，跳過');
     expect(next.ref).toBe(`splendor:${s.seq + 1}`);
-    expect(next.text).toContain('上一步：{{name:p1}} 逾時，跳過');
+    expect(next.text).toContain('上一步：<@p1> 逾時，跳過');
   });
 
   it('4 人局面板文字少於 3000 字元', () => {
@@ -377,7 +377,7 @@ describe('splendor/turns: 拿 3 種不同顏色', () => {
     expect(state.players[0].tokens).toEqual(gems({ w: 1, b: 1, g: 1 }));
     expect(state.bank).toEqual(gems({ w: 3, b: 3, g: 3, r: 4, k: 4, o: 5 }));
     expect(state.turn).toBe(1);
-    expect(lastBoard(events).text).toContain('上一步：{{name:p1}} 拿了 白1 藍1 綠1');
+    expect(lastBoard(events).text).toContain('上一步：<@p1> 拿了 白1 藍1 綠1');
   });
 
   it('庫存只剩 2 種顏色時拿 2 個', () => {
@@ -406,7 +406,7 @@ describe('splendor/turns: 拿 2 個同色', () => {
     const { state, events } = act(s, { type: 'take2', color: 'w' });
     expect(state.players[0].tokens).toEqual(gems({ w: 2 }));
     expect(state.bank.w).toBe(2);
-    expect(lastBoard(events).text).toContain('{{name:p1}} 拿了 白2');
+    expect(lastBoard(events).text).toContain('<@p1> 拿了 白2');
   });
 });
 
@@ -429,7 +429,7 @@ describe('splendor/turns: 保留一張卡', () => {
     expect(state.bank.o).toBe(4);
     expect(state.table[1][2]).toBe(45);
     expect(state.decks[1]).toHaveLength(25);
-    expect(lastBoard(events).text).toContain('{{name:p1}} 保留了 2-3 白 2分 並拿 1 金');
+    expect(lastBoard(events).text).toContain('<@p1> 保留了 2-3 白 2分 並拿 1 金');
   });
 
   it('牌堆空了位置空著；黃金用完照樣保留', () => {
@@ -450,7 +450,7 @@ describe('splendor/turns: 保留一張卡', () => {
     expect(state.decks[2]).toHaveLength(15);
     expect(ephemeralTo(events, 'p1').join()).toContain('藍 3分｜白3 綠3 紅3 黑5');
     const pub = boards(events).map((b) => b.text).join('\n');
-    expect(pub).toContain('{{name:p1}} 從三級牌堆保留一張');
+    expect(pub).toContain('<@p1> 從三級牌堆保留一張');
     expect(pub).not.toContain('白3 綠3 紅3 黑5');
   });
 
@@ -486,7 +486,7 @@ describe('splendor/turns: 買卡', () => {
     expect(state.players[0].cards).toEqual([9, 6]);
     expect(state.bank).toEqual(gems({ w: 4, b: 4, g: 4, r: 4, k: 4, o: 5 }));
     expect(state.table[0][0]).toBe(5);
-    expect(lastBoard(events).text).toContain('{{name:p1}} 買了 1-1 白 0分 (付 藍1 金1)');
+    expect(lastBoard(events).text).toContain('<@p1> 買了 1-1 白 0分 (付 藍1 金1)');
   });
 
   it('折扣足夠免費；買保留的卡時場上公開卡不變', () => {
@@ -498,7 +498,7 @@ describe('splendor/turns: 買卡', () => {
     expect(state.players[0].reserved).toEqual([]);
     expect(state.players[0].cards).toEqual([1, 2, 3, 4, 32]);
     expect(state.table).toEqual(s.table);
-    expect(lastBoard(events).text).toContain('{{name:p1}} 買了保留的 紅 1分 (付 無)');
+    expect(lastBoard(events).text).toContain('<@p1> 買了保留的 紅 1分 (付 無)');
   });
 
   it('買不起不能買，state 不變', () => {
@@ -569,7 +569,7 @@ describe('splendor/turns: 退回多餘籌碼', () => {
     expect(state.players[0].tokens).toEqual(gems({ w: 3, b: 3, g: 4 }));
     expect(state.bank.r + state.bank.k).toBe(8);
     expect(state.turn).toBe(1);
-    expect(lastBoard(events).text).toContain('{{name:p1}} 拿了 綠1 紅1 黑1，{{name:p1}} 退回 紅1 黑1');
+    expect(lastBoard(events).text).toContain('<@p1> 拿了 綠1 紅1 黑1，<@p1> 退回 紅1 黑1');
     expect(act(s, { type: 'return', counts: [1, 0, 0, 0, 0, 0] }).state).toBe(s); // 總數不對
   });
 
@@ -587,7 +587,7 @@ describe('splendor/turns: 退回多餘籌碼', () => {
     });
     const { state, events } = timeout(s);
     expect(state.players[0].tokens).toEqual(gems({ w: 1, b: 1, g: 2, r: 2, k: 1, o: 3 }));
-    expect(lastBoard(events).text).toContain('{{name:p1}} 逾時自動退回 白1 藍1');
+    expect(lastBoard(events).text).toContain('<@p1> 逾時自動退回 白1 藍1');
     const most = timeout(setup((s) => {
       s.step = 'return';
       s.players[0].tokens = gems({ w: 1, b: 5, o: 5 });
@@ -611,7 +611,7 @@ describe('splendor/turns: 貴族來訪', () => {
     expect(state.players[0].nobles).toEqual([1]);
     expect(state.nobles).toEqual([null, 2, 3]);
     const text = lastBoard(events).text;
-    expect(text).toContain('貴族 1 來訪 {{name:p1}} (+3 分)');
+    expect(text).toContain('貴族 1 來訪 <@p1> (+3 分)');
     expect(text).not.toContain('貴族 1：');
     expect(text).toContain('貴族 2：綠4 藍4');
     expect(text).toContain('<@p1> 3 分');
@@ -653,7 +653,7 @@ describe('splendor/turns: 自動跳過與計時', () => {
     }, 3);
     const { state, events } = timeout(s);
     expect(state.turn).toBe(2);
-    expect(boards(events).map((b) => b.text).join('\n')).toContain('{{name:p2}} 沒有能做的動作，跳過');
+    expect(boards(events).map((b) => b.text).join('\n')).toContain('<@p2> 沒有能做的動作，跳過');
     expect(boards(events)).toHaveLength(2); // p1 收起的面板、p3 的新面板
   });
 

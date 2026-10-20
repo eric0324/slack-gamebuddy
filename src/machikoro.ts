@@ -1,5 +1,5 @@
 // 骰子街 (Machi Koro 基本版＋港口擴充) 遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyMachikoro(state, action, rng) → { state, events }。
-import { isBot, mention, quiet, type GameEvent, type Rng } from './engine.js';
+import { isBot, loud, mention, quiet, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
 import {
   buildDeck,
@@ -128,7 +128,7 @@ function board(s: MState, ended = false): GameEvent {
   const me = current(s);
   const lines = [
     ended ? say(s, 'turnEnded', { round: roundText(s), who: mention(me.id) }) : say(s, 'turnHeader', { round: roundText(s), who: mention(me.id), sec: TURN_MS / 1000 }),
-    ...(s.turn?.log ?? []),
+    ...(s.turn?.log ?? []).map(loud),
     say(s, 'market'),
     ...marketLines(s),
     ...s.players.map((p) => (p === me ? `👉 ${playerLine(s, p)}` : playerLine(s, p))),

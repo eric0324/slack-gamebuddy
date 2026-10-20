@@ -431,7 +431,7 @@ describe('machikoro/turns: 回合面板', () => {
     const [b] = boards(events);
     expect(b.ref).toBe(`machikoro:turn:${s.seq}`);
     expect(b.text).toContain('擲出 1');
-    expect(b.text).toContain('{{name:p1}} 的麥田 +1 元');
+    expect(b.text).toContain('<@p1> 的麥田 +1 元');
     expect(b.options.map((o) => o.label)).toEqual(['🏘️ 行動', '📋 城鎮一覽']);
     expect(state.seq).toBe(s.seq);
   });
@@ -599,7 +599,7 @@ describe('machikoro/turns: 買建築', () => {
     const { state, events } = buy(s, 'cafe');
     expect(P(state, 'p1')).toMatchObject({ coins: 1, cards: { wheat: 1, bakery: 1, cafe: 1 } });
     expect(state.market.cafe).toBe(1);
-    expect(boards(events)[0].text).toContain('{{name:p1}} 買了咖啡館');
+    expect(boards(events)[0].text).toContain('<@p1> 買了咖啡館');
     expect(state.current).toBe(1);
     expect(ephemeralTo(events, 'p1').join()).toContain('咖啡館');
   });
@@ -625,7 +625,7 @@ describe('machikoro/turns: 買建築', () => {
     expect(labels(turnMenu(s).events, 'p1')).toEqual(['咖啡館 (2 元)', '港口 (2 元)', '火車站 (4 元)', '不買']);
     const { state, events } = buy(s, 'station');
     expect(P(state, 'p1')).toMatchObject({ coins: 0, landmarks: ['cityhall', 'station'] });
-    expect(boards(events)[0].text).toContain('{{name:p1}} 蓋了火車站');
+    expect(boards(events)[0].text).toContain('<@p1> 蓋了火車站');
   });
 
   it('一回合最多買一個：買完舊選單就過期', () => {
@@ -715,7 +715,7 @@ describe('machikoro/turns: 輪流、遊樂園與計時', () => {
     });
     const all = boards(fire(h, dice(6, 5)).events).map((b) => b.text).join('\n');
     expect(all).toContain('港口 +2 = 13');
-    expect(all).toContain('{{name:p1}} 的食品倉庫 +4 元');
+    expect(all).toContain('<@p1> 的食品倉庫 +4 元');
   });
 
   it('選建築時逾時：不買，回合結束', () => {
@@ -750,7 +750,7 @@ describe('machikoro/buildings: 電視台', () => {
     expect(P(state, 'p2').coins).toBe(3);
     expect(P(state, 'p1').coins).toBe(8);
     expect(state.turn!.step).toBe('buy');
-    expect(boards(events)[0].text).toContain('{{name:p1}} 的電視台向 {{name:p2}} 收 5 元');
+    expect(boards(events)[0].text).toContain('<@p1> 的電視台向 <@p2> 收 5 元');
   });
 
   it('不夠就收現有的；不能選自己', () => {
@@ -791,7 +791,7 @@ describe('machikoro/buildings: 商業中心', () => {
     expect(P(state, 'p1').cards).toEqual({ bakery: 1, business: 1, mine: 1 });
     expect(P(state, 'p2').cards).toEqual({ wheat: 2, bakery: 1, stadium: 1 });
     expect(state.turn!.step).toBe('buy');
-    expect(boards(events)[0].text).toContain('{{name:p1}} 用麥田換走 {{name:p2}} 的礦場');
+    expect(boards(events)[0].text).toContain('<@p1> 用麥田換走 <@p2> 的礦場');
   });
 
   it('紫色建築不能選', () => {

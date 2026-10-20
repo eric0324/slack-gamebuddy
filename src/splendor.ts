@@ -1,5 +1,5 @@
 // 璀璨寶石 (Splendor) 遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applySplendor(state, action, rng) → { state, events }。
-import { isBot, mention, quiet, type GameEvent, type Rng } from './engine.js';
+import { isBot, loud, mention, quiet, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
 import {
   CARDS,
@@ -144,7 +144,7 @@ const playerLine = (s: SState, p: SPlayer) =>
 function board(s: SState, ended = false): GameEvent {
   const me = current(s);
   const base = { type: 'prompt' as const, kind: 'splendor', audience: 'channel' as const, ref: `splendor:${s.seq}` };
-  if (ended) return { ...base, text: say(s, 'turnOver', { who: mention(me.id), last: s.last ?? '' }), options: [] };
+  if (ended) return { ...base, text: say(s, 'turnOver', { who: mention(me.id), last: loud(s.last ?? '') }), options: [] };
   const bank = [...COLORS, 'o' as const].map((x) => say(s, 'bankItem', { gem: gemWord(x, s.lang), n: s.bank[x] })).join(say(s, 'gemSep'));
   const nobles = s.nobles.flatMap((id, i) => (id === null ? [] : [say(s, 'nobleLine', { i: i + 1, need: nobleText(nobleOf(id), s.lang) })]));
   const rows = [2, 1, 0].flatMap((lv) => [
@@ -153,7 +153,7 @@ function board(s: SState, ended = false): GameEvent {
   ]);
   const lines = [
     say(s, 'header', { round: s.round, final: s.lastRound ? say(s, 'finalRound') : '', who: mention(me.id), sec: TURN_MS / 1000 }),
-    ...(s.last ? [say(s, 'lastMove', { last: s.last })] : []),
+    ...(s.last ? [say(s, 'lastMove', { last: loud(s.last) })] : []),
     ...(s.step === 'return' ? [say(s, 'waitReturn', { who: quiet(me.id), n: total(me.tokens) - 10, sec: RETURN_MS / 1000 })] : []),
     say(s, 'bank', { bank }),
     ...(nobles.length ? nobles : [say(s, 'noNobles')]),

@@ -376,7 +376,7 @@ describe('saboteur/turns: 回合面板', () => {
     expect(next.text).toContain('👉 輪到 <@p2>');
     expect(next.text).toContain('牌庫剩');
     expect(next.text).toContain('👉 <@p2>：🃏 6 張｜壞了：鎬子、礦車');
-    expect(next.text).toContain('上一步：{{name:p1}} 逾時，自動蓋掉一張牌');
+    expect(next.text).toContain('上一步：<@p1> 逾時，自動蓋掉一張牌');
     expect(next.options.map((o) => o.label)).toEqual(['⛏️ 行動', '🎒 我的手牌']);
     expect(next.text).not.toMatch(/破壞者|金礦工/);
   });
@@ -472,7 +472,7 @@ describe('saboteur/turns: 放通道牌', () => {
     expect(state.players[0].hand[0]).toEqual({ kind: 'map' });
     expect(state.deck).toHaveLength(s.deck.length - 1);
     expect(state.turn).toBe(1);
-    expect(boards(events)[1].text).toContain('上一步：{{name:p1}} 在 `D5` 放了 ━ 通道');
+    expect(boards(events)[1].text).toContain('上一步：<@p1> 在 `D5` 放了 ━ 通道');
   });
 
   it('轉 180° 放下', () => {
@@ -508,7 +508,7 @@ describe('saboteur/turns: 破壞工具', () => {
     expect(menu.options.map((o) => o.value)).toEqual([`tool:${s.seq}:0:pick:p2`, `tool:${s.seq}:0:pick:p4`, `turnMenu:${s.seq}`]);
     const { state, events } = act(s, { type: 'tool', i: 0, tool: 'pick', target: 'p2' });
     expect(state.players[1].broken).toEqual(['pick']);
-    expect(boards(events)[1].text).toContain('{{name:p1}} 弄壞了 {{name:p2}} 的鎬子');
+    expect(boards(events)[1].text).toContain('<@p1> 弄壞了 <@p2> 的鎬子');
   });
 
   it('私下確認和公告都只寫工具名稱，沒有工具 emoji', () => {
@@ -541,7 +541,7 @@ describe('saboteur/turns: 修理工具', () => {
     });
     const { state, events } = act(s, { type: 'tool', i: 0, tool: 'pick', target: 'p1' });
     expect(state.players[0].broken).toEqual([]);
-    expect(boards(events)[1].text).toContain('{{name:p1}} 修好了 {{name:p1}} 的鎬子');
+    expect(boards(events)[1].text).toContain('<@p1> 修好了 <@p1> 的鎬子');
   });
 
   it('雙用修理：每位玩家每項可修的工具各一顆按鈕，只修一項', () => {
@@ -572,7 +572,7 @@ describe('saboteur/turns: 藏寶圖', () => {
     expect(ephemeralTo(events, 'p1').join()).toContain('`K7` 是 💰 金礦');
     expect(state.players[0].peeked).toEqual({ K7: true });
     const pub = [...announces(events), ...boards(events).map((b) => b.text)].join('\n');
-    expect(pub).toContain('{{name:p1}} 偷看了 `K7`');
+    expect(pub).toContain('<@p1> 偷看了 `K7`');
     expect(pub).not.toContain('金礦');
   });
 
@@ -596,7 +596,7 @@ describe('saboteur/turns: 落石', () => {
     expect(menu.options.map((o) => o.label)).toEqual(['D5 ━', 'E5 X', '↩️ 換一張']);
     const { state, events } = act(s, { type: 'rock', i: 0, cell: 'E5' });
     expect(state.grid[4][4]).toBeNull();
-    expect(boards(events)[1].text).toContain('{{name:p1}} 用落石拿掉 `E5`');
+    expect(boards(events)[1].text).toContain('<@p1> 用落石拿掉 `E5`');
     expect(act(s, { type: 'rock', i: 0, cell: 'C5' }).state).toBe(s);
   });
 });
@@ -609,7 +609,7 @@ describe('saboteur/turns: 蓋掉一張牌', () => {
     const { state, events } = act(s, { type: 'discard', i: 0 });
     expect(state.players[0].hand[0]).toEqual({ kind: 'map' });
     const text = boards(events)[1].text;
-    expect(text).toContain('上一步：{{name:p1}} 蓋掉一張牌');
+    expect(text).toContain('上一步：<@p1> 蓋掉一張牌');
     expect(text).not.toContain('死路');
   });
 });

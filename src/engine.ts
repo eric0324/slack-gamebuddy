@@ -40,6 +40,8 @@ export const roleName = (lang: Lang | undefined, role: Role) => tx(lang, `role.$
 export const isBot = (id: string) => id.startsWith('bot:');
 // 不通知的名字：真人由 adapter 換成顯示名稱，bot 本來就不會通知
 export const quiet = (id: string) => (isBot(id) ? mention(id) : `{{name:${id}}}`);
+// 把文字裡不通知的名字換回 @ 標記：回合面板的上一步要 @
+export const loud = (text: string) => text.replace(/\{\{name:([^}]+)\}\}/g, '<@$1>');
 
 export const mention = (id: string) => {
   if (!isBot(id)) return `<@${id}>`;
