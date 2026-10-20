@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isBot, type GameEvent } from '../src/engine.js';
-import { applySplendor, type SAction, type SState } from '../src/splendor.js';
+import { applySplendor, scoreOf, type SAction, type SState } from '../src/splendor.js';
 import { cardOf, CARDS, cardText, COLORS, gemsText, need, NOBLES, nobleText, payment, shortfall, total, type Color, type Gems } from '../src/splendorCards.js';
 
 const gems = (g: Partial<Gems> = {}): Gems => ({ w: 0, b: 0, g: 0, r: 0, k: 0, o: 0, ...g });
@@ -671,5 +671,110 @@ describe('splendor/turns: 自動跳過與計時', () => {
     const r = run([{ type: 'timeout', id: old }], next);
     expect(r.state).toBe(next);
     expect(r.events).toEqual([]);
+  });
+});
+
+const FIFTEEN = [74, 78, 82]; // 三張 5 分
+
+describe('splendor/scoring: 分數與最後一輪', () => {
+  it('分數是卡片分數加貴族 3 分，保留卡和籌碼不算', () => {
+    const p = { id: 'a', tokens: gems({ w: 5, o: 3 }), cards: [43, 8, 1], reserved: [90], nobles: [4] };
+    expect(scoreOf(p)).toBe(6);
+  });
+
+  it('中間的人達到 15 分：公告、面板標示最後一輪，打到座位最後一位才計分', () => {
+    const s = setup((s) => (s.players[1].cards = [...FIFTEEN]), 3);
+    const a = act(s, { type: 'take2', color: 'w' });
+    const b = act(a.state, { type: 'take2', color: 'b' }, 'p2');
+    expect(announces(b.events).join()).toContain('<@p2> 達到 15 分！這一輪打完後遊戲結束');
+    expect(lastBoard(b.events).text).toContain('第 1 輪｜最後一輪');
+    expect(b.state.phase).toBe('play');
+    const c = act(b.state, { type: 'take2', color: 'g' }, 'p3');
+    expect(c.state.phase).toBe('ended');
+    expect(c.state.round).toBe(1);
+    expect(c.events.some((e) => e.type === 'result')).toBe(true);
+  });
+
+  it('座位最後一位達到 15 分時立刻計分；同一輪第二個人到 15 分不重複公告', () => {
+    const last = act(setup((s) => ((s.turn = 2), (s.players[2].cards = [...FIFTEEN])), 3), { type: 'take2', color: 'w' }, 'p3');
+    expect(last.state.phase).toBe('ended');
+    expect(announces(last.events).join()).toContain('達到 15 分');
+    const second = act(setup((s) => ((s.turn = 1), (s.lastRound = true), (s.players[1].cards = [...FIFTEEN])), 3), { type: 'take2', color: 'w' }, 'p2');
+    expect(announces(second.events).join()).not.toContain('達到 15 分');
+  });
+});
+
+describe('splendor/scoring: 防卡死的提前計分', () => {
+  it('一整輪都跳過：公告並直接計分', () => {
+    let { state } = { state: setup(undefined, 3) };
+    let events: GameEvent[] = [];
+    for (let k = 0; k < 3; k++) ({ state, events } = timeout(state));
+    expect(state.phase).toBe('ended');
+    expect(announces(events).join()).toContain('一整輪沒有人能行動，直接計分');
+    expect(events.some((e) => e.type === 'result')).toBe(true);
+  });
+
+  it('有人做動作時連續跳過歸零', () => {
+    let state = timeout(setup(undefined, 3)).state;
+    state = act(state, { type: 'take2', color: 'w' }, 'p2').state;
+    state = timeout(timeout(state).state).state;
+    expect(state.phase).toBe('play');
+    expect(state.passStreak).toBe(2);
+  });
+
+  it('第 50 輪結束還沒有人到 15 分：公告並直接計分；第 49 輪結束照常進入第 50 輪', () => {
+    const r = act(setup((s) => ((s.round = 50), (s.turn = 1))), { type: 'take2', color: 'w' }, 'p2');
+    expect(r.state.phase).toBe('ended');
+    expect(announces(r.events).join()).toContain('已達 50 輪上限，直接計分');
+    const r49 = act(setup((s) => ((s.round = 49), (s.turn = 1))), { type: 'take2', color: 'w' }, 'p2');
+    expect(r49.state).toMatchObject({ phase: 'play', round: 50, turn: 0 });
+  });
+});
+
+describe('splendor/scoring: 勝負與結束', () => {
+  // 最後一輪、輪到座位最後一位（p3），他一逾時就計分
+  const endWith = (cards: number[][]) =>
+    timeout(setup((s) => {
+      s.lastRound = true;
+      s.turn = 2;
+      s.players.forEach((p, i) => (p.cards = cards[i]));
+    }, 3));
+  const zeros = (n: number) => [1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13].slice(0, n);
+
+  it('分數最高的人贏：公告分數、張數、貴族、名次，送出 result，附再來一局', () => {
+    const { state, events } = endWith([[...FIFTEEN, 8], [86, 90, 70, 16, 24], [71, 75, 79]]);
+    expect(state.phase).toBe('ended');
+    expect(events).toContainEqual({ type: 'result', players: ['p1', 'p2', 'p3'], winners: ['p1'] });
+    const text = announces(events).join('\n');
+    expect(text).toContain('<@p1> 獲勝');
+    expect(text).toContain('1. <@p1> 16 分｜4 張卡｜貴族 0 🏆');
+    expect(text).toContain('2. <@p2> 15 分｜5 張卡｜貴族 0');
+    expect(text).toContain('3. <@p3> 9 分｜3 張卡｜貴族 0');
+    expect(prompts(events).some((p) => p.kind === 'rematch')).toBe(true);
+  });
+
+  it('同分比卡少；再同分並列（包括全員 0 分）', () => {
+    expect(endWith([[...FIFTEEN, 8, ...zeros(8)], [86, 90, 70, 16, 24, 32, ...zeros(4)], []]).state.winners).toEqual(['p2']);
+    expect(endWith([[...FIFTEEN, ...zeros(8)], [86, 90, 82, ...zeros(8)], [8]]).state.winners).toEqual(['p1', 'p2']);
+    expect(endWith([[], [], []]).state.winners).toEqual(['p1', 'p2', 'p3']);
+  });
+
+  it('再來一局只有上一局玩家可以開', () => {
+    const { state } = endWith([[], [], []]);
+    expect(ephemeralTo(run([{ type: 'rematch', user: 'x', channel: 'C1' }], state).events, 'x').join()).toContain('只有上一局的玩家');
+    const again = run([{ type: 'rematch', user: 'p2', channel: 'C1' }], state);
+    expect(again.state).toMatchObject({ phase: 'lobby', host: 'p2', game: 'splendor' });
+  });
+
+  it('房主取消：沒有 result、沒有再來一局；非房主被拒；結束後舊按鈕被忽略', () => {
+    const s = setup();
+    expect(ephemeralTo(run([{ type: 'cancel', user: 'p2' }], s).events, 'p2').join()).toContain('只有房主可以取消遊戲');
+    const { state, events } = run([{ type: 'cancel', user: 'p1' }], s);
+    expect(state.phase).toBe('ended');
+    expect(announces(events).join()).toContain('取消');
+    expect(events.some((e) => e.type === 'result')).toBe(false);
+    expect(prompts(events).some((p) => p.kind === 'rematch')).toBe(false);
+    expect(act(state, { type: 'turnMenu' }).events).toEqual([]);
+    expect(run([{ type: 'rematch', user: 'p1', channel: 'C1' }], state).events).toEqual([]);
   });
 });

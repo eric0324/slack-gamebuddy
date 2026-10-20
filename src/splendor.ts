@@ -415,17 +415,52 @@ function endTurn(c: Ctx) {
     s.nobles[at] = null;
     s.last += `，貴族 ${at + 1} 來訪 ${quiet(me.id)}（+3 分）`;
   }
+  if (!s.lastRound && scoreOf(me) >= WIN_POINTS) {
+    s.lastRound = true;
+    c.events.push({ type: 'announce', text: `🏁 ${mention(me.id)} 達到 ${WIN_POINTS} 分！這一輪打完後遊戲結束` });
+  }
   c.events.push(board(s, true));
   advance(c);
 }
 
-// 輪到下一位
+// 輪到下一位；一整輪都跳過、最後一輪打完、到 50 輪上限就計分
 function advance(c: Ctx) {
   const s = c.s;
   const n = s.players.length;
-  if ((s.turn + 1) % n === s.first) s.round++;
+  if (s.passStreak >= n) {
+    c.events.push({ type: 'announce', text: '⏹️ 一整輪沒有人能行動，直接計分。' });
+    return endGame(c);
+  }
+  if ((s.turn + 1) % n === s.first) {
+    if (s.lastRound) return endGame(c);
+    if (s.round >= MAX_ROUNDS) {
+      c.events.push({ type: 'announce', text: `⏹️ 已達 ${MAX_ROUNDS} 輪上限，直接計分。` });
+      return endGame(c);
+    }
+    s.round++;
+  }
   s.turn = (s.turn + 1) % n;
   beginTurn(c);
+}
+
+// 分數高的在前，同分時買的卡少的在前
+const cmp = (a: SPlayer, b: SPlayer) => scoreOf(b) - scoreOf(a) || a.cards.length - b.cards.length;
+
+function endGame(c: Ctx) {
+  const s = c.s;
+  s.phase = 'ended';
+  s.timers = {};
+  const sorted = [...s.players].sort(cmp);
+  s.winners = sorted.filter((p) => cmp(p, sorted[0]) === 0).map((p) => p.id);
+  const lines = sorted.map((p) => {
+    const place = sorted.findIndex((q) => cmp(p, q) === 0) + 1;
+    return `${place}. ${mention(p.id)} ${scoreOf(p)} 分｜${p.cards.length} 張卡｜貴族 ${p.nobles.length}${s.winners!.includes(p.id) ? ' 🏆' : ''}`;
+  });
+  c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: s.winners });
+  c.events.push(
+    { type: 'announce', text: [`🏆 遊戲結束，${s.winners.map(mention).join('、')} 獲勝！`, ...lines].join('\n'), gif: 'goodWin' },
+    { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },
+  );
 }
 
 // 輪到新玩家：沒有任何能做的動作就自動跳過（併進下一個面板的上一步）
