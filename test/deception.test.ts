@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { GameEvent } from '../src/engine.js';
 import { applyDeception, type DAction, type DState } from '../src/deception.js';
+import { deception } from '../src/games/deception.js';
 import { CAUSE_BOARD, CLUES, LOCATION_BOARDS, MEANS, SCENE_BOARDS } from '../src/deceptionCards.js';
 
 const EMOJI = /\p{Extended_Pictographic}/u;
@@ -702,5 +703,55 @@ describe('deception/solve: 勝負與結束', () => {
     const night = run([{ type: 'cancel', user: 'p1' }], started(6).state);
     expect(announces(night.events).join()).not.toContain('答案');
     expect(run([{ type: 'solveMenu', user: 'p4' }], state).events).toEqual([]);
+  });
+});
+
+describe('deception/setup: Slack 設定（GameDef）', () => {
+  it('大廳資訊', () => {
+    expect(deception).toMatchObject({ kind: 'deception', emoji: '🔎', name: '詭影神探', players: '4～12 人', category: 'deduction', noBots: true });
+    expect(deception.apply).toBe(applyDeception);
+    expect('chat' in deception).toBe(false);
+  });
+
+  it('指令解析：new、start、cancel、addbot、removebot；help 和不認識的子指令回傳 null（顯示說明）', () => {
+    expect(deception.parse('new', 'U1', 'C1')).toEqual({ type: 'new', user: 'U1', channel: 'C1' });
+    expect(deception.parse('start', 'U1', 'C1')).toEqual({ type: 'start', user: 'U1' });
+    expect(deception.parse('cancel', 'U1', 'C1')).toEqual({ type: 'cancel', user: 'U1' });
+    expect(deception.parse('addbot', 'U1', 'C1')).toEqual({ type: 'addBot', user: 'U1', count: 1 });
+    expect(deception.parse('removebot', 'U1', 'C1')).toEqual({ type: 'removeBot', user: 'U1', count: 1 });
+    expect(deception.parse('help', 'U1', 'C1')).toBeNull();
+    expect(deception.parse('kill', 'U1', 'C1')).toBeNull();
+    for (const w of ['/game deception new', '/game deception start', '/game deception cancel', '🧪 鑑識官放子彈', '✅ 說完了', '🔍 破案', '🗂️ 我的身分', '4～12', '頻道打字']) {
+      expect(deception.help).toContain(w);
+    }
+  });
+
+  it('按鈕路由', () => {
+    const b = (value: string, kind = 'deception') => deception.button(kind, value, 'u', 'C1');
+    expect(b('join', 'join')).toEqual({ type: 'join', user: 'u' });
+    expect(b('leave', 'leave')).toEqual({ type: 'leave', user: 'u' });
+    expect(b('start', 'start')).toEqual({ type: 'start', user: 'u' });
+    expect(b('rematch', 'rematch')).toEqual({ type: 'rematch', user: 'u', channel: 'C1' });
+    expect(b('solve')).toEqual({ type: 'solveMenu', user: 'u' });
+    expect(b('me')).toEqual({ type: 'me', user: 'u' });
+    expect(b('fs:3')).toEqual({ type: 'fsMenu', user: 'u', pseq: 3 });
+    expect(b('done:5')).toEqual({ type: 'done', user: 'u', tseq: 5 });
+    expect(b('nm:2')).toEqual({ type: 'nightMeans', user: 'u', i: 2 });
+    expect(b('nc:1')).toEqual({ type: 'nightClue', user: 'u', i: 1 });
+    expect(b('fb:3:cause')).toEqual({ type: 'fsBoard', user: 'u', pseq: 3, slot: 'cause' });
+    expect(b('fb:3:loc')).toEqual({ type: 'fsBoard', user: 'u', pseq: 3, slot: 'loc' });
+    expect(b('fp:3:s2:4')).toEqual({ type: 'fsPlace', user: 'u', pseq: 3, slot: 's2', opt: 4 });
+    expect(b('fl:3:1:5')).toEqual({ type: 'fsLocation', user: 'u', pseq: 3, board: 1, opt: 5 });
+    expect(b('fback:3')).toEqual({ type: 'fsBack', user: 'u', pseq: 3 });
+    expect(b('fx:4:s1')).toEqual({ type: 'fsSwap', user: 'u', pseq: 4, slot: 's1' });
+    expect(b('fn:4:s1:0')).toEqual({ type: 'fsNew', user: 'u', pseq: 4, slot: 's1', opt: 0 });
+    expect(b('sus:U2')).toEqual({ type: 'suspect', user: 'u', target: 'U2' });
+    expect(b('sm:U2:3')).toEqual({ type: 'solveMeans', user: 'u', target: 'U2', mi: 3 });
+    expect(b('sc:U2:3:1')).toEqual({ type: 'solve', user: 'u', target: 'U2', mi: 3, ci: 1 });
+    expect(b('sback:')).toEqual({ type: 'solveBack', user: 'u' });
+    expect(b('sback:U2')).toEqual({ type: 'solveBack', user: 'u', target: 'U2' });
+    expect(b('wit:U3')).toEqual({ type: 'witness', user: 'u', target: 'U3' });
+    expect(b('bogus:1')).toBeNull();
+    expect(b('x', 'other')).toBeNull();
   });
 });
