@@ -14,6 +14,17 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Wits & Wagers commands*',
+  '• `/game wager new`: open a room (anyone)',
+  '• `/game wager start`: start the game, needs 3-10 human players (host)',
+  '• `/game wager answer <number>`: write your answer, same as pressing "✍️ Write answer"; plain digits only (commas and a decimal point are OK), and you can change it before time runs out',
+  '• When betting, press "🎯 Bet": 2 markers each, bet on the answer closest to the truth without going over; if every answer is too high, bet on "🔺 All too high"',
+  '• `/game wager cancel`: cancel the game (host)',
+  'Each winning marker scores +1, and writing the winning answer scores +1 more; after 7 questions the highest score wins',
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 // 猜猜看的子指令：answer <數字>
 export function parseWagerCommand(text: string, user: string, channel: string): WAction | null {
   const m = text.trim().match(/^answer\s+([\s\S]+)$/);
@@ -41,6 +52,7 @@ export const wager = {
   category: 'party',
   desc: '每題寫一個數字答案，再押注誰最接近正解，不會答也能靠押注贏',
   noBots: true,
+  locales: { en: { name: 'Wits & Wagers', players: '3-10 players', desc: 'Everyone writes a number for each question, then bets on whose answer is closest; you can win by betting even if you have no idea', help: HELP_EN } },
   help: HELP,
   apply: applyWager,
   parse: parseWagerCommand,

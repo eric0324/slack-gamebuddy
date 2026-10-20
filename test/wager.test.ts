@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { type GameEvent } from '../src/engine.js';
 import { wager } from '../src/games/wager.js';
 import { applyWager, type WAction, type WState } from '../src/wager.js';
-import { WAGER_QUESTIONS } from '../src/wagerQuestions.js';
+import { WAGER_QUESTIONS, WAGER_QUESTIONS_EN, wagerQuestions } from '../src/wagerQuestions.js';
 
 const rng = () => 0.99999; // 洗牌不動：題目照 WAGER_QUESTIONS 的順序
 
@@ -382,5 +382,75 @@ describe('wager/setup: 指令與按鈕', () => {
   it('大廳資訊：💰 猜猜看、3～10 人、心理戰、不支援 bot；help 條列所有指令', () => {
     expect(wager).toMatchObject({ kind: 'wager', emoji: '💰', name: '猜猜看', players: '3～10 人', category: 'party', noBots: true });
     for (const cmd of ['new', 'start', 'answer', 'cancel']) expect(wager.help).toContain(`/game wager ${cmd}`);
+  });
+});
+
+describe('wager/i18n: 英文局', () => {
+  const enLobby = (n: number) =>
+    run([
+      { type: 'new', user: 'A', channel: 'C1', lang: 'en' },
+      ...['B', 'C', 'D'].slice(0, n - 1).map((user) => ({ type: 'join', user }) as WAction),
+    ]);
+  const enStarted = () => run([{ type: 'start', user: 'A' }], enLobby(3).state);
+  const enAnswered = (a: number, b: number, c: number) => run([answer('A', String(a)), answer('B', String(b)), answer('C', String(c))], enStarted().state);
+
+  it('開局規則、作答板和寫答案按鈕是英文，題目取英文版', () => {
+    const { state, events } = enStarted();
+    expect(state.lang).toBe('en');
+    expect(announces(events)[0]).toContain('💰 Wits & Wagers begins!');
+    const board = boards(events).at(-1)!;
+    expect(board.text).toContain(`Question 1/7: ${WAGER_QUESTIONS_EN[state.q!].q} (unit: ${WAGER_QUESTIONS_EN[state.q!].unit})`);
+    expect(board.options.map((o) => o.label)).toEqual(['✍️ Write answer']);
+  });
+
+  it('視窗、格式錯誤、收到答案和不在遊戲裡的回覆是英文', () => {
+    const s = enStarted().state;
+    expect(run([{ type: 'openAnswer', user: 'A' }], s).events[0]).toMatchObject({ title: 'Write answer', label: `Your answer (unit: ${WAGER_QUESTIONS_EN[s.q!].unit})` });
+    expect(ephemeralTo(run([answer('A', 'abc')], s).events, 'A')!.text).toBe('Please enter a number, e.g. 1200 or 3.5');
+    expect(ephemeralTo(run([answer('A', '1,200')], s).events, 'A')!.text).toBe(`Got it: 1,200 ${WAGER_QUESTIONS_EN[s.q!].unit}`);
+    expect(ephemeralTo(run([answer('Z', '1')], s).events, 'Z')!.text).toBe("You're not in this game.");
+  });
+
+  it('押注板、押注選單和押注回覆是英文', () => {
+    const { state, events } = enAnswered(50, 100, 200);
+    const board = boards(events).at(-1)!;
+    expect(board.text).toContain('🔺 All too high');
+    expect(board.options.map((o) => o.label)).toEqual(['🎯 Bet']);
+    const m = menu(run([{ type: 'betMenu', user: 'A' }], state).events, 'A')!;
+    expect(m.options.at(-1)!.label).toBe('↩️ Reset bets');
+    expect(ephemeralTo(run([bet(state, 'A', 1)], state).events, 'A')!.text).toBe('Your bets (1/2): 50');
+  });
+
+  it('揭曉和結算是英文', () => {
+    const { state } = enAnswered(50, 100, 200);
+    const revealed = run([bet(state, 'A', 1), bet(state, 'A', 1), bet(state, 'B', 1), bet(state, 'B', 1), bet(state, 'C', 1), bet(state, 'C', 1)], state);
+    const text = announces(revealed.events).join('\n');
+    expect(text).toContain('🎉 Question 1 revealed! Answer: *101 floors*');
+    expect(text).toContain('Winning answer:');
+    const last = { ...revealed.state, round: 7 }; // 第 7 題沒人作答就結束
+    const ended = run([{ type: 'timeout', id: last.timers.phase! }], last);
+    expect(announces(ended.events).join('\n')).toContain('🏆 Game over,');
+    expect(prompts(ended.events).find((p) => p.kind === 'rematch')!.options[0].label).toBe('Play again');
+  });
+
+  it('人數不足和不支援 bot 的回覆是英文', () => {
+    expect(ephemeralTo(run([{ type: 'start', user: 'A' }], enLobby(2).state).events, 'A')!.text).toBe('There are 2 players; you need at least 3 to start.');
+    expect(ephemeralTo(run([{ type: 'addBot', user: 'A', count: 1 }], enLobby(3).state).events, 'A')!.text).toBe("Wits & Wagers doesn't support bots.");
+  });
+
+  it('英文題庫和中文版一樣多、不重複、答案格式正確；GameDef 有英文名稱和說明', () => {
+    expect(WAGER_QUESTIONS_EN).toHaveLength(WAGER_QUESTIONS.length);
+    expect(new Set(WAGER_QUESTIONS_EN.map((x) => x.q)).size).toBe(WAGER_QUESTIONS.length);
+    for (const { q, answer: a, unit, note } of WAGER_QUESTIONS_EN) {
+      expect(a, q).toBeGreaterThanOrEqual(0);
+      expect(a, q).toBeLessThan(1_000_000);
+      expect(unit.trim(), q).not.toBe('');
+      expect(note.trim(), q).not.toBe('');
+      expect(`${q}${unit}${note}`, q).not.toMatch(/[一-鿿]/);
+    }
+    expect(wagerQuestions('en')).toBe(WAGER_QUESTIONS_EN);
+    expect(wagerQuestions('zh-TW')).toBe(WAGER_QUESTIONS);
+    expect(wager.locales.en).toMatchObject({ name: 'Wits & Wagers', players: '3-10 players' });
+    expect(wager.locales.en.help).toContain('/game wager answer <number>');
   });
 });

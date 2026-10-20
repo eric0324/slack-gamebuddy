@@ -15,8 +15,8 @@
 
 ## 4. 猜猜看 (wager)
 
-- [ ] 4.1 先寫失敗的英文測試：英文局的主要公告、prompt 和按鈕是英文，help 和 `locales.en` 是英文，題目取英文版且數量和中文版相同
-- [ ] 4.2 新增 `src/i18n/games/wager.ts`、英文題庫 (答案維持正確)，engine 和 GameDef 改用字典，讓 4.1 綠燈
+- [x] 4.1 先寫失敗的英文測試：英文局的主要公告、prompt 和按鈕是英文，help 和 `locales.en` 是英文，題目取英文版且數量和中文版相同
+- [x] 4.2 新增 `src/i18n/games/wager.ts`、英文題庫 (答案維持正確)，engine 和 GameDef 改用字典，讓 4.1 綠燈
 
 ## 5. 梗圖大亂鬥 (meme)
 
