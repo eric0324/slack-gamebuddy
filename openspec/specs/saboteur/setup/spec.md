@@ -53,7 +53,7 @@ TBD - created by archiving change add-saboteur-game. Update Purpose after archiv
 | 9 | 3 | 7 |
 | 10 | 4 | 7 |
 
-每位真人 SHALL 私下收到自己這回合的身分 (「⛏️ 金礦工」或「💣 破壞者」)。破壞者 SHALL NOT 知道其他破壞者是誰。身分在回合結束前 SHALL NOT 公開。
+每位真人 SHALL 收到 bot 的 DM 私訊，寫出第幾回合和自己這回合的身分 (例如「⛏️ 矮人礦坑第 2/3 回合：你是 ⛏️ 金礦工」)，SHALL NOT 用頻道裡的私下訊息 (ephemeral) 發身分，因為那種訊息會跑位、重新整理後會消失。回合開始的頻道公告 SHALL 寫「身分已私訊給每個人」。bot 玩家不發。破壞者 SHALL NOT 知道其他破壞者是誰。身分在回合結束前 SHALL NOT 公開。
 
 #### Scenario: 4 人局的身分
 - **WHEN** 4 人開始一回合
@@ -61,7 +61,11 @@ TBD - created by archiving change add-saboteur-game. Update Purpose after archiv
 
 #### Scenario: 身分只有本人知道
 - **WHEN** 回合開始發完身分
-- **THEN** 每位真人私下看到自己的身分，頻道沒有公開任何人的身分
+- **THEN** 每位真人在 DM 收到自己的身分，頻道沒有公開任何人的身分
+
+#### Scenario: 每回合都私訊身分
+- **WHEN** 第 1 回合結束、第 2 回合開始
+- **THEN** 每位真人在 DM 收到「⛏️ 矮人礦坑第 2/3 回合：你是 <身分>」，頻道公告寫「身分已私訊給每個人」
 
 ### Requirement: 牌庫與發牌
 每個回合開始時，牌庫 SHALL 有 67 張：通道牌 40 張 (見 `saboteur/map`) 和行動牌 27 張：
