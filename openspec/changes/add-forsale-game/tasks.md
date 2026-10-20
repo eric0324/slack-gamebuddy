@@ -31,8 +31,8 @@
 
 ## 5. Slack 設定與文件（src/games/forsale.ts）
 
-- [ ] 5.1 先寫失敗的測試（放在 `test/forsale.test.ts`，直接測 GameDef 的 parse／button）：指令解析（new、start、cancel、addbot、removebot、help、不認識的子指令顯示說明）；按鈕路由（join、leave、start、rematch，以及 design Decision 6 表中的每種 value）
-- [ ] 5.2 實作 `src/games/forsale.ts` 匯出 `GameDef`（`kind: 'forsale'`、`emoji: '🏠'`、`name: '地產大亨'`、`players: '3～6 人'`、`category: 'bluff'`、desc、help、apply、parse、button），讓 5.1 綠燈
+- [x] 5.1 先寫失敗的測試（放在 `test/forsale.test.ts`，直接測 GameDef 的 parse／button）：指令解析（new、start、cancel、addbot、removebot、help、不認識的子指令顯示說明）；按鈕路由（join、leave、start、rematch，以及 design Decision 6 表中的每種 value）
+- [x] 5.2 實作 `src/games/forsale.ts` 匯出 `GameDef`（`kind: 'forsale'`、`emoji: '🏠'`、`name: '地產大亨'`、`players: '3～6 人'`、`category: 'bluff'`、desc、help、apply、parse、button），讓 5.1 綠燈
 - [ ] 5.3 （主控整合時做）先寫失敗的測試（`test/slack.test.ts`）：`KINDS` 加 `forsale`；遊戲清單和大廳 🎲 心理戰分類有 🏠 地產大亨（`forsale`）3～6 人和開房按鈕；`/game forsale help` 列出指令
 - [ ] 5.4 （主控整合時做）`src/games/index.ts` 的 `GAMES` 加一行，讓 5.3 綠燈
 - [ ] 5.5 （主控整合時做）`test/characterization.test.ts` 的 KINDS 加 `'forsale'`，更新 snapshot，確認差異只有多一款遊戲的文字
@@ -41,5 +41,5 @@
 
 ## 6. 整合驗證
 
-- [ ] 6.1 跑 `npm test` 和 `npm run typecheck`，確認全部綠燈
+- [x] 6.1 跑 `npm test` 和 `npm run typecheck`，確認全部綠燈
 - [ ] 6.2 用測試印出一則喊價面板和一則賣房產面板的文字貼到 PR 說明，請使用者在真的 Slack 確認按鈕排列（不用真 token 啟動 bot）

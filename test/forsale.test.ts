@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isBot, type GameEvent } from '../src/engine.js';
+import { forsale } from '../src/games/forsale.js';
 import { applyForSale, botBid, botSell, CHECKS, money, PROPERTIES, type FAction, type FState } from '../src/forsale.js';
 
 const rng = () => 0.99999; // 洗牌不動：房產 1～30、支票由小到大；移除的是最前面幾張；起始玩家是最後一位
@@ -577,5 +578,44 @@ describe('forsale/bots: 一個人也能玩完整局', () => {
     expect(state).toMatchObject({ phase: 'bid', round: 1, turn: 0 });
     const after = run([pass(state, 'p1')], state).state;
     expect(after).toMatchObject({ phase: 'bid', round: 2, turn: 0 });
+  });
+});
+
+describe('forsale/setup: 指令解析與按鈕（GameDef）', () => {
+  it('大廳資訊：🏠 地產大亨、3～6 人、心理戰', () => {
+    expect(forsale).toMatchObject({ kind: 'forsale', emoji: '🏠', name: '地產大亨', players: '3～6 人', category: 'bluff' });
+    expect(forsale.desc).toBeTruthy();
+    expect(forsale.apply).toBe(applyForSale);
+  });
+
+  it('指令解析：new、start、cancel、addbot、removebot', () => {
+    expect(forsale.parse('new', 'u', 'C1')).toEqual({ type: 'new', user: 'u', channel: 'C1' });
+    expect(forsale.parse('start', 'u', 'C1')).toEqual({ type: 'start', user: 'u' });
+    expect(forsale.parse('cancel', 'u', 'C1')).toEqual({ type: 'cancel', user: 'u' });
+    expect(forsale.parse('addbot', 'u', 'C1')).toEqual({ type: 'addBot', user: 'u', count: 1 });
+    expect(forsale.parse('addbot 3', 'u', 'C1')).toEqual({ type: 'addBot', user: 'u', count: 3 });
+    expect(forsale.parse('removebot 2', 'u', 'C1')).toEqual({ type: 'removeBot', user: 'u', count: 2 });
+  });
+
+  it('help 和不認識的子指令回傳 null（顯示說明），說明條列所有指令和遊戲中的按鈕', () => {
+    expect(forsale.parse('help', 'u', 'C1')).toBeNull();
+    expect(forsale.parse('buy', 'u', 'C1')).toBeNull();
+    for (const cmd of ['new', 'addbot', 'removebot', 'start', 'cancel']) expect(forsale.help).toContain(`/game forsale ${cmd}`);
+    for (const button of ['🔢 其他金額', '🙅 放棄', '🏠 選房產', '💰 我的狀態']) expect(forsale.help).toContain(button);
+  });
+
+  it('按鈕路由：join、leave、start、rematch 和每一種 forsale 按鈕', () => {
+    expect(forsale.button('join', 'join', 'u', 'C1')).toEqual({ type: 'join', user: 'u' });
+    expect(forsale.button('leave', 'leave', 'u', 'C1')).toEqual({ type: 'leave', user: 'u' });
+    expect(forsale.button('start', 'start', 'u', 'C1')).toEqual({ type: 'start', user: 'u' });
+    expect(forsale.button('rematch', 'rematch', 'u', 'C1')).toEqual({ type: 'rematch', user: 'u', channel: 'C1' });
+    expect(forsale.button('forsale', 'bid:7:4', 'u', 'C1')).toEqual({ type: 'bid', user: 'u', seq: 7, amount: 4 });
+    expect(forsale.button('forsale', 'bidMenu:7', 'u', 'C1')).toEqual({ type: 'bidMenu', user: 'u', seq: 7 });
+    expect(forsale.button('forsale', 'pass:7', 'u', 'C1')).toEqual({ type: 'pass', user: 'u', seq: 7 });
+    expect(forsale.button('forsale', 'sellMenu:7', 'u', 'C1')).toEqual({ type: 'sellMenu', user: 'u', seq: 7 });
+    expect(forsale.button('forsale', 'sell:7:25', 'u', 'C1')).toEqual({ type: 'sell', user: 'u', seq: 7, prop: 25 });
+    expect(forsale.button('forsale', 'status', 'u', 'C1')).toEqual({ type: 'status', user: 'u' });
+    expect(forsale.button('forsale', 'dig:7', 'u', 'C1')).toBeNull();
+    expect(forsale.button('incan', 'pass:7', 'u', 'C1')).toBeNull();
   });
 });
