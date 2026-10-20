@@ -17,6 +17,19 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Citadels commands*',
+  '• `/game citadels new`: open a room (anyone)',
+  '• `/game citadels addbot [count]`: add bots to fill seats (host, before start)',
+  '• `/game citadels removebot [count]`: remove bots (host, before start)',
+  '• `/game citadels start`: start the game, needs 4-7 players (host)',
+  '• `/game citadels cancel`: cancel the game (host)',
+  '• "🎭 Pick character": press when it is your turn to pick, and secretly choose your character for the round (45 seconds)',
+  '• "🏰 Action": press when your character is called to gather resources, use abilities, build and end your turn (90 seconds)',
+  '• "📜 My status": privately check your hand, gold, character and city anytime',
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 // 富饒之城只有房間指令，遊戲中都用按鈕
 export function parseCitadelsCommand(text: string, user: string, channel: string): CAction | null {
   return parseRoomCommand(text, user, channel) as CAction | null;
@@ -79,6 +92,14 @@ export const citadels = {
   category: 'strategy',
   desc: '每輪祕密選角色，刺殺、偷竊、破壞，拚先蓋好 8 棟建築的城市',
   help: HELP,
+  locales: {
+    en: {
+      name: 'Citadels',
+      players: '4-7 players',
+      desc: 'Secretly pick a character each round, then assassinate, steal and destroy in a race to build a city of 8 districts',
+      help: HELP_EN,
+    },
+  },
   apply: applyCitadels,
   parse: parseCitadelsCommand,
   button: citadelsButton,

@@ -1,4 +1,7 @@
 // 富饒之城 (Citadels 經典版) 的牌組資料：8 個角色、66 張建築牌 (含 12 張紫卡)
+import type { Lang } from './i18n/index.js';
+import { tx } from './i18n/games/citadels.js';
+
 export type Rank = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 export type Color = 'noble' | 'religious' | 'trade' | 'military' | 'special';
 
@@ -56,7 +59,61 @@ export const DECK: string[] = Object.entries(DISTRICTS).flatMap(([id, x]) => Arr
 // 計分時的價值：大學、龍門算 8，其他照費用
 export const districtScore = (id: string) => (id === 'university' || id === 'dragonGate' ? 8 : DISTRICTS[id].cost);
 
+// ---------- 英文版：原版英文名稱 ----------
+const CHARS_EN: Record<Rank, { name: string; desc: string }> = {
+  1: { name: '🗡️ Assassin', desc: 'Kill one character; their whole turn is skipped this round' },
+  2: { name: '🦹 Thief', desc: 'Name a character; when they are revealed, take all their gold' },
+  3: { name: '🔮 Magician', desc: 'Swap your whole hand with a player, or discard any number of cards and draw that many' },
+  4: { name: '👑 King', desc: 'Take the crown and pick first next round; 1 gold per 🟡' },
+  5: { name: '⛪ Bishop', desc: 'Your districts are safe from the Warlord this round; 1 gold per 🔵' },
+  6: { name: '💰 Merchant', desc: 'Take 1 extra gold after gathering; 1 gold per 🟢' },
+  7: { name: '📐 Architect', desc: 'Draw 2 extra cards after gathering; build up to 3 districts this turn' },
+  8: { name: '⚔️ Warlord', desc: 'Pay "cost − 1" to destroy a district; 1 gold per 🔴' },
+};
+
+const DISTRICTS_EN: Record<string, { name: string; desc?: string }> = {
+  manor: { name: 'Manor' },
+  castle: { name: 'Castle' },
+  palace: { name: 'Palace' },
+  temple: { name: 'Temple' },
+  church: { name: 'Church' },
+  monastery: { name: 'Monastery' },
+  cathedral: { name: 'Cathedral' },
+  tavern: { name: 'Tavern' },
+  market: { name: 'Market' },
+  tradingPost: { name: 'Trading Post' },
+  docks: { name: 'Docks' },
+  harbor: { name: 'Harbor' },
+  townHall: { name: 'Town Hall' },
+  watchtower: { name: 'Watchtower' },
+  prison: { name: 'Prison' },
+  battlefield: { name: 'Battlefield' },
+  fortress: { name: 'Fortress' },
+  hauntedCity: { name: 'Haunted City', desc: 'Counts as any color for the five-color bonus at game end (not if built in the last round)' },
+  keep: { name: 'Keep', desc: 'Cannot be destroyed by the Warlord' },
+  laboratory: { name: 'Laboratory', desc: 'Once per turn: discard 1 card to take 1 gold' },
+  smithy: { name: 'Smithy', desc: 'Once per turn: pay 2 gold to draw 3 cards' },
+  observatory: { name: 'Observatory', desc: 'When drawing, draw 3 and keep 1' },
+  graveyard: { name: 'Graveyard', desc: "When the Warlord destroys another player's district, you may pay 1 gold to take it into your hand" },
+  schoolOfMagic: { name: 'School of Magic', desc: "Counts as the character's color when collecting taxes" },
+  library: { name: 'Library', desc: 'When drawing, keep all the cards' },
+  greatWall: { name: 'Great Wall', desc: 'The Warlord pays 1 more to destroy your other districts' },
+  university: { name: 'University', desc: 'Worth 8 points at scoring' },
+  dragonGate: { name: 'Dragon Gate', desc: 'Worth 8 points at scoring' },
+};
+
+// 依語系的角色、建築名稱和說明；沒指定語系用中文
+const en = (lang?: Lang) => lang === 'en';
+export const charName = (r: Rank, lang?: Lang) => (en(lang) ? CHARS_EN[r].name : CHARS[r].name);
+export const charDesc = (r: Rank, lang?: Lang) => (en(lang) ? CHARS_EN[r].desc : CHARS[r].desc);
+const districtName = (id: string, lang?: Lang) => (en(lang) ? DISTRICTS_EN[id].name : DISTRICTS[id].name);
+const districtDesc = (id: string, lang?: Lang) => (en(lang) ? DISTRICTS_EN[id].desc : DISTRICTS[id].desc);
+
 // 顯示：「🟡 城堡 (4)」
-export const districtLabel = (id: string) => `${COLOR_EMOJI[DISTRICTS[id].color]} ${DISTRICTS[id].name} (${DISTRICTS[id].cost})`;
+export const districtLabel = (id: string, lang?: Lang) => `${COLOR_EMOJI[DISTRICTS[id].color]} ${districtName(id, lang)} (${DISTRICTS[id].cost})`;
 // 附紫卡說明
-export const districtInfo = (id: string) => districtLabel(id) + (DISTRICTS[id].desc ? `：${DISTRICTS[id].desc}` : '');
+export const districtInfo = (id: string, lang?: Lang) => {
+  const desc = districtDesc(id, lang);
+  return districtLabel(id, lang) + (desc ? `${tx(lang, 'infoSep')}${desc}` : '');
+};
+
