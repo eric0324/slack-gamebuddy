@@ -15,6 +15,18 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Herd Mentality commands*',
+  '• `/game herd new`: open a room (anyone)',
+  '• `/game herd start`: start the game, needs 4-12 human players (host)',
+  '• `/game herd answer <answer>`: answer (1-20 characters, you can change it until answers are grouped), same as pressing "✍️ Answer"',
+  '• `/game herd merge <number> <number>…`: merge groups that mean the same thing (host, e.g. `merge 1 3`)',
+  '• `/game herd done`: finish merging and score the question (host)',
+  '• `/game herd cancel`: cancel the game (host)',
+  'Everyone in the biggest group gets +1; the only player with a unique answer gets the 🐮 Pink Cow. First to 8 points without the Pink Cow wins, at most 15 questions',
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 // 從眾心理的子指令：answer <答案> (可以有空白)、merge <編號>…、done
 export function parseHerdCommand(text: string, user: string, channel: string): HerdAction | null {
   const t = text.trim();
@@ -46,6 +58,7 @@ export const herd = {
   category: 'party',
   desc: '猜猜多數人會怎麼答，跟大家一樣就得分；唯一的怪答案會拿到粉紅牛',
   noBots: true,
+  locales: { en: { name: 'Herd Mentality', players: '4-12 players', desc: 'Guess what most people will answer and score by matching the herd; the one odd answer gets the Pink Cow', help: HELP_EN } },
   help: HELP,
   apply: applyHerd,
   parse: parseHerdCommand,

@@ -10,8 +10,8 @@
 
 ## 3. 從眾心理 (herd)
 
-- [ ] 3.1 先寫失敗的英文測試：英文局的主要公告、prompt 和按鈕是英文，help 和 `locales.en` 是英文，題目取英文版且數量和中文版相同
-- [ ] 3.2 新增 `src/i18n/games/herd.ts`、英文題庫，engine 和 GameDef 改用字典，讓 3.1 綠燈
+- [x] 3.1 先寫失敗的英文測試：英文局的主要公告、prompt 和按鈕是英文，help 和 `locales.en` 是英文，題目取英文版且數量和中文版相同
+- [x] 3.2 新增 `src/i18n/games/herd.ts`、英文題庫，engine 和 GameDef 改用字典，讓 3.1 綠燈
 
 ## 4. 猜猜看 (wager)
 
