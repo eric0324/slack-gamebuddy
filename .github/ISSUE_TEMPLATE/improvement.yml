@@ -1,63 +1,63 @@
-name: ✨ 改進建議
-description: 現有遊戲或大廳哪裡可以更好用
+name: ✨ Improvement
+description: Ideas to make an existing game or the lobby easier to use
 labels: [enhancement]
 body:
   - type: markdown
     attributes:
-      value: 想許願新遊戲的話，請到 [Discussions 的許願池](https://github.com/eric0324/slack-gamebuddy/discussions)，讓大家一起投票。
+      value: Want a brand-new game? Please post it in the [Wishlist on Discussions](https://github.com/eric0324/slack-gamebuddy/discussions) so everyone can vote.
   - type: dropdown
     id: game
     attributes:
-      label: 哪款遊戲？
+      label: Which game?
       options:
-        - 大廳／其他
-        - 狼人殺
-        - 誰是臥底
-        - 間諜危機
-        - 阿瓦隆
-        - 機密代號
-        - 吹牛骰
-        - 一字千金
-        - 政變
-        - 花火
-        - 心電感應
-        - 截碼戰
-        - 心電感應 (合作)
-        - 圈內人
-        - 骷髏與玫瑰
-        - 誰是牛頭王
-        - 情書
-        - 蟑螂撲克
-        - 變色龍
-        - 不要謝謝
-        - 禁語
-        - 壽司派對
-        - 梗圖大亂鬥
-        - 從眾心理
-        - 炸彈貓
-        - 犯人在跳舞
-        - 猜猜看
-        - 印加寶藏
-        - 妙語說書人
-        - 富饒之城
-        - Emoji 傳話
-        - 星際探險隊
-        - 矮人礦坑
-        - 地產大亨
-        - 骰子街
-        - 璀璨寶石
-        - 詭影神探
+        - "Lobby / other"
+        - "Werewolf / 狼人殺"
+        - "Undercover / 誰是臥底"
+        - "Spyfall / 間諜危機"
+        - "Avalon / 阿瓦隆"
+        - "Codenames / 機密代號"
+        - "Liar's Dice / 吹牛骰"
+        - "Just One / 一字千金"
+        - "Coup / 政變"
+        - "Hanabi / 花火"
+        - "Wavelength / 心電感應"
+        - "Decrypto / 截碼戰"
+        - "Wavelength co-op / 心電感應 (合作)"
+        - "Insider / 圈內人"
+        - "Skull / 骷髏與玫瑰"
+        - "6 nimmt! / 誰是牛頭王"
+        - "Love Letter / 情書"
+        - "Cockroach Poker / 蟑螂撲克"
+        - "The Chameleon / 變色龍"
+        - "No Thanks! / 不要謝謝"
+        - "Taboo / 禁語"
+        - "Sushi Go! / 壽司派對"
+        - "Meme Battle / 梗圖大亂鬥"
+        - "Herd Mentality / 從眾心理"
+        - "Exploding Kittens / 炸彈貓"
+        - "Criminal Dance / 犯人在跳舞"
+        - "Wits & Wagers / 猜猜看"
+        - "Incan Gold / 印加寶藏"
+        - "Dixit / 妙語說書人"
+        - "Citadels / 富饒之城"
+        - "Emoji Telephone / Emoji 傳話"
+        - "The Crew / 星際探險隊"
+        - "Saboteur / 矮人礦坑"
+        - "For Sale / 地產大亨"
+        - "Machi Koro / 骰子街"
+        - "Splendor / 璀璨寶石"
+        - "Deception / 詭影神探"
     validations:
       required: true
   - type: textarea
     id: what
     attributes:
-      label: 想改什麼？
-      placeholder: 例如：地圖上的死路很難看出來
+      label: What would you like to change?
+      placeholder: "e.g. Dead ends on the map are hard to spot"
     validations:
       required: true
   - type: textarea
     id: why
     attributes:
-      label: 為什麼？
-      description: 現在遇到什麼不方便的地方
+      label: Why?
+      description: What's inconvenient about it today
