@@ -59,6 +59,6 @@ export const dixit = {
   parse: parseDixitCommand,
   button: dixitButton,
   modals: {
-    dixitClue: { action: (user: string, texts: string[]): DixitAction => ({ type: 'clue', user, text: texts[0] ?? '' }), fallback: '視窗打不開，請改用 `/game dixit clue <編號> <提示>` 送出。' },
+    dixitClue: { action: (user: string, texts: string[]): DixitAction => ({ type: 'clue', user, text: texts[0] ?? '' }), fallback: '視窗打不開，請改用 `/game dixit clue <編號> <提示>` 送出。', fallbackLocales: { en: 'The window didn\'t open. Please use `/game dixit clue <number> <clue>` instead.' } },
   },
 } satisfies GameDef<DixitState, DixitAction>;

@@ -51,6 +51,6 @@ export const wavecoop = {
   parse: parseWavecoopCommand,
   button: wavecoopButton,
   modals: {
-    wavecoopClue: { action: (user: string, texts: string[]): WCAction => ({ type: 'clue', user, text: texts[0] ?? '' }), fallback: '視窗打不開，請改用 `/game wavecoop clue <提示>` 送出提示。' },
+    wavecoopClue: { action: (user: string, texts: string[]): WCAction => ({ type: 'clue', user, text: texts[0] ?? '' }), fallback: '視窗打不開，請改用 `/game wavecoop clue <提示>` 送出提示。', fallbackLocales: { en: 'The window didn\'t open. Please use `/game wavecoop clue <clue>` to send your clue.' } },
   },
 } satisfies GameDef<WCState, WCAction>;

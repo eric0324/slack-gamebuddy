@@ -59,6 +59,6 @@ export const decrypto = {
   parse: parseDecryptoCommand,
   button: decryptoButton,
   modals: {
-    decryptoClue: { action: (user: string, texts: string[]): DAction => ({ type: 'clue', user, texts }), fallback: '視窗打不開，請改用 `/game decrypto clue <提示1> / <提示2> / <提示3>` 送出提示。' },
+    decryptoClue: { action: (user: string, texts: string[]): DAction => ({ type: 'clue', user, texts }), fallback: '視窗打不開，請改用 `/game decrypto clue <提示1> / <提示2> / <提示3>` 送出提示。', fallbackLocales: { en: 'The window didn\'t open. Please use `/game decrypto clue <clue 1> / <clue 2> / <clue 3>` to send your clues.' } },
   },
 } satisfies GameDef<DState, DAction>;

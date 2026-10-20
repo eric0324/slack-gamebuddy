@@ -2,6 +2,7 @@
 import { applyAction, isBot, MAX_PLAYERS, mention, type Action, type GameEvent, type GameState, type GifKey, type Rng } from './engine.js';
 import { GIFS } from './gifs.js';
 import { checkImage, LIBRARY_COMMANDS, memeLibraryCommand } from './memeLibrary.js';
+import { tx as memeTx } from './i18n/games/memeLibrary.js';
 import type { MemeStore } from './memeStore.js';
 import type { CrewStore } from './crewStore.js';
 import { LANGS, langName, parseLang, t, type Lang } from './i18n/index.js';
@@ -351,8 +352,9 @@ export class GameHost {
 
   // `/game meme add|list|remove`：頻道梗圖庫，和遊戲進行中與否無關
   private async memeLibrary(channel: string, user: string, text: string): Promise<void> {
-    if (!this.memes) return this.reply(channel, user, '這個 bot 沒有設定梗圖庫。');
-    const events = await memeLibraryCommand(this.memes, this.checkImage, channel, user, text);
+    const lang = this.lang(channel);
+    if (!this.memes) return this.reply(channel, user, memeTx(lang, 'notConfigured'));
+    const events = await memeLibraryCommand(this.memes, this.checkImage, channel, user, text, lang);
     return this.deliver(channel, events);
   }
 
@@ -360,6 +362,7 @@ export class GameHost {
     const def = DEFS[kind];
     if (['meme', 'dixit'].includes(kind) && action.type === 'start') action = { ...action, custom: this.memes?.list(channel) ?? [] } as typeof action; // 開局時帶入頻道的投稿梗圖
     if (kind === 'crew' && (action.type === 'new' || action.type === 'level')) action = { ...action, unlocked: this.crew?.get(channel) ?? 1 } as typeof action; // 帶入頻道已解鎖的關卡
+    if (kind === 'crew' && (action.type === 'level' || action.type === 'reset')) action = { ...action, lang: this.lang(channel) } as typeof action; // 沒有房間時用頻道目前的語系回覆
     if (isCreation(action)) action = { ...action, lang: this.lang(channel) } as typeof action; // 開房和再來一局採用當下的頻道語系
     const states = this.states.get(kind)!;
     const prev = states.get(channel);
@@ -624,8 +627,8 @@ export class GameHost {
               callback_id: `ww:${e.kind}`,
               private_metadata: channel,
               title: { type: 'plain_text', text: e.title },
-              submit: { type: 'plain_text', text: '送出' },
-              close: { type: 'plain_text', text: '取消' },
+              submit: { type: 'plain_text', text: t(this.gameLang(channel, kind), 'modal.submit') },
+              close: { type: 'plain_text', text: t(this.gameLang(channel, kind), 'modal.cancel') },
               blocks: (e.fields ?? [e.label]).map((label, i) => ({
                 type: 'input',
                 block_id: e.fields ? `f${i}` : 'text',
@@ -636,7 +639,9 @@ export class GameHost {
           });
         } catch (err) {
           console.error('[werewolf] views.open failed', err);
-          const fallback = Object.values(DEFS).find((d) => d.modals?.[e.kind])?.modals![e.kind].fallback ?? '視窗打不開，請改用指令送出。';
+          const lang = this.gameLang(channel, kind);
+          const modal = Object.values(DEFS).find((d) => d.modals?.[e.kind])?.modals![e.kind];
+          const fallback = (modal && (modal.fallbackLocales?.[lang] ?? modal.fallback)) ?? t(lang, 'modal.fallback');
           await chat.postEphemeral({ channel, user: e.to, text: slackText(fallback) });
         }
         return;

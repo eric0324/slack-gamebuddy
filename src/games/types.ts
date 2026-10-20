@@ -20,6 +20,6 @@ export interface GameDef<S extends { phase: string }, A extends { type: string }
   apply(state: S | undefined, action: A, rng: Rng): { state: S; events: GameEvent[] };
   parse(text: string, user: string, channel: string): A | null;
   button(kind: string, value: string, user: string, channel: string): A | null;
-  modals?: Record<string, { action(user: string, texts: string[]): A; fallback: string }>; // 視窗種類 → action；fallback 是視窗打不開時的提示
+  modals?: Record<string, { action(user: string, texts: string[]): A; fallback: string; fallbackLocales?: Partial<Record<Lang, string>> }>; // 視窗種類 → action；fallback 是視窗打不開時的提示 (fallbackLocales 是其他語系的版本)
   chat?(user: string, text: string): A; // 頻道裡的一般訊息
 }

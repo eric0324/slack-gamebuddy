@@ -66,6 +66,6 @@ export const chameleon = {
   parse: parseChameleonCommand,
   button: chameleonButton,
   modals: {
-    chameleonWord: { action: (user: string, texts: string[]): ChAction => ({ type: 'say', user, text: texts[0] ?? '' }), fallback: '視窗打不開，請改用 `/game chameleon say <詞>` 送出。' },
+    chameleonWord: { action: (user: string, texts: string[]): ChAction => ({ type: 'say', user, text: texts[0] ?? '' }), fallback: '視窗打不開，請改用 `/game chameleon say <詞>` 送出。', fallbackLocales: { en: 'The window didn\'t open. Please use `/game chameleon say <word>` instead.' } },
   },
 } satisfies GameDef<ChState, ChAction>;

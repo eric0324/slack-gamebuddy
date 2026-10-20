@@ -55,6 +55,6 @@ export const wavelength = {
   parse: parseWavelengthCommand,
   button: wavelengthButton,
   modals: {
-    wavelengthClue: { action: (user: string, texts: string[]): WAction => ({ type: 'clue', user, text: texts[0] ?? '' }), fallback: '視窗打不開，請改用 `/game wavelength clue <提示>` 送出提示。' },
+    wavelengthClue: { action: (user: string, texts: string[]): WAction => ({ type: 'clue', user, text: texts[0] ?? '' }), fallback: '視窗打不開，請改用 `/game wavelength clue <提示>` 送出提示。', fallbackLocales: { en: 'The window didn\'t open. Please use `/game wavelength clue <clue>` to send your clue.' } },
   },
 } satisfies GameDef<WState, WAction>;

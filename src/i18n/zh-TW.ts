@@ -57,6 +57,10 @@ export const zhTW = {
   'rank.title': '🏆 {title}',
   'rank.winsLine': '{rank} <@{user}> {wins} 勝／{games} 場 ({pct})',
   'rank.scoreLine': '{rank} <@{user}> 最高 {best} 分 ({games} 場)',
+  // 文字視窗
+  'modal.submit': '送出',
+  'modal.cancel': '取消',
+  'modal.fallback': '視窗打不開，請改用指令送出。',
   // `/game lang`
   'lang.current': '這個頻道目前的語言是 {name} (`{code}`)。可選的語言：{list}\n切換：`/game lang <語言>`，例如 `/game lang en`',
   'lang.changed': '🌐 {user} 把這個頻道的語言改成 {name}',

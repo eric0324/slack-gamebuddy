@@ -59,6 +59,6 @@ export const emoji = {
   parse: parseEmojiCommand,
   button: emojiButton,
   modals: {
-    emojiSend: { action: (user: string, texts: string[]): EAction => ({ type: 'send', user, text: texts[0] ?? '' }), fallback: '視窗打不開，請改用 `/game emoji send <內容>` 送出。' },
+    emojiSend: { action: (user: string, texts: string[]): EAction => ({ type: 'send', user, text: texts[0] ?? '' }), fallback: '視窗打不開，請改用 `/game emoji send <內容>` 送出。', fallbackLocales: { en: 'The window didn\'t open. Please use `/game emoji send <message>` instead.' } },
   },
 } satisfies GameDef<EState, EAction>;

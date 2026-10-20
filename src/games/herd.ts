@@ -64,6 +64,6 @@ export const herd = {
   parse: parseHerdCommand,
   button: herdButton,
   modals: {
-    herdAnswer: { action: (user: string, texts: string[]): HerdAction => ({ type: 'answer', user, text: texts[0] ?? '' }), fallback: '視窗打不開，請改用 `/game herd answer <答案>` 送出。' },
+    herdAnswer: { action: (user: string, texts: string[]): HerdAction => ({ type: 'answer', user, text: texts[0] ?? '' }), fallback: '視窗打不開，請改用 `/game herd answer <答案>` 送出。', fallbackLocales: { en: 'The window didn\'t open. Please use `/game herd answer <answer>` instead.' } },
   },
 } satisfies GameDef<HerdState, HerdAction>;

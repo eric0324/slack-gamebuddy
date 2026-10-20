@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { type GameEvent } from '../src/engine.js';
 import { applyInsider, type IAction, type IState } from '../src/insider.js';
-import { INSIDER_WORDS } from '../src/insiderWords.js';
+import { DECRYPTO_WORDS_BY_LANG as INSIDER_WORDS } from '../src/decryptoWords.js';
 import { insider } from '../src/games/insider.js';
 
 const rng = () => 0.99999;
