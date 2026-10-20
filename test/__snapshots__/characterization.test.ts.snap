@@ -777,6 +777,23 @@ exports[`重構安全網 > 大廳四個分類 1`] = `
       "type": "section",
     },
     {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:32",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|forsale",
+      },
+      "text": {
+        "text": "🏠 *地產大亨* （ \`forsale\` ）3～6 人
+先輪流喊價買房產，放棄的人拿最小的那間、只賠一半；再同時私下出房產換支票，支票加剩下金幣最多的人贏",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
       "elements": [
         {
           "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
@@ -888,6 +905,16 @@ exports[`重構安全網 > 每款遊戲的指令說明 1`] = `
 • \`/game emoji cancel\` ：取消遊戲（房主）
 • \`/game emoji help\` ：看這份說明
 每人拿一個題目當鏈的起點，文字用 emoji 演、emoji 用文字猜，傳一圈後公布每條鏈；接著投「🎨 最佳 emoji」和「🧠 最神猜測」，每得 1 票 +1 分，總分最高的人獲勝
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "forsale": "*地產大亨指令*
+• \`/game forsale new\` ：開房（任何人）
+• \`/game forsale addbot [數量]\` ：加入 bot 補人數（房主，開始前）
+• \`/game forsale removebot [數量]\` ：移除 bot（房主，開始前）
+• \`/game forsale start\` ：開始遊戲，需要 3～6 人（房主）
+• \`/game forsale cancel\` ：取消遊戲（房主）
+• 第一階段：輪到你時按喊價面板上的「出 $X（+1／+2／+5）」出價、「🔢 其他金額」挑別的金額，或「🙅 放棄」（30 秒，沒動作視為放棄）
+• 第二階段：按「🏠 選房產」私下選一間房產出售（45 秒，揭曉前可以改；沒選自動出最小的）
+• 「💰 我的狀態」：隨時私下看自己的金幣、房產和支票
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
   "hanabi": "*花火指令*
 • \`/game hanabi new\` ：開房（任何人）
@@ -1098,6 +1125,7 @@ exports[`重構安全網 > 遊戲清單文字和預設大廳 1`] = `
 • 🔗 *Emoji 傳話* （ \`emoji\` ）：4～10 人（不支援 bot），開房 \`/game emoji new\`
 • 🚀 *星際探險隊* （ \`crew\` ）：3～5 人（不支援 bot），開房 \`/game crew new\`
 • ⛏️ *矮人礦坑* （ \`saboteur\` ）：3～10 人，開房 \`/game saboteur new\`
+• 🏠 *地產大亨* （ \`forsale\` ）：3～6 人，開房 \`/game forsale new\`
 各遊戲的指令： \`/game <遊戲代號> help\` ，例如 \`/game liarsdice help\`
 📊 戰績： \`/game stats [@某人]\` ；排行榜： \`/game rank [遊戲代號]\`
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>"
