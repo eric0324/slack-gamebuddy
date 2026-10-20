@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { LangStore } from '../src/langStore.js';
 import { StatsStore } from '../src/stats.js';
 import { GameHost, type SlackClient } from '../src/slack.js';
-import { LANGS, lookup, parseLang, t } from '../src/i18n/index.js';
+import { gameText, LANGS, lookup, parseLang, t } from '../src/i18n/index.js';
 
 describe('i18n: 支援的語系', () => {
   it('支援 zh-TW 和 en', () => {
@@ -291,5 +291,58 @@ describe('i18n: 戰績與排行榜', () => {
     const { host, calls } = setup(new LangStore(':memory:'), stats);
     await host.game('C1', 'U1', 'alice', 'stats');
     expect(lastEph(calls).text).toContain('💀 骷髏與玫瑰 1 場 1 勝 (100%)');
+  });
+});
+
+describe('i18n: 每款遊戲的字典', () => {
+  it('gameText() 依語系查字、代入參數，沒指定語系用中文', () => {
+    const tx = gameText({ 'zh-TW': { turn: '輪到 {who}' }, en: { turn: "{who}'s turn" } });
+    expect(tx('en', 'turn', { who: 'A' })).toBe("A's turn");
+    expect(tx('zh-TW', 'turn', { who: 'A' })).toBe('輪到 A');
+    expect(tx(undefined, 'turn', { who: 'A' })).toBe('輪到 A');
+  });
+
+  it('英文少翻一個 key 時 typecheck 會擋', () => {
+    // @ts-expect-error en 缺少 b
+    const tx = gameText({ 'zh-TW': { a: '甲', b: '乙' }, en: { a: 'A' } });
+    expect(tx('en', 'a')).toBe('A');
+  });
+});
+
+describe('i18n: 指令說明和規則連結依語系', () => {
+  const withEnglish = async <T>(fn: () => Promise<T>) => {
+    const { liarsDice } = await import('../src/games/liarsdice.js');
+    const def = liarsDice as { locales?: object };
+    def.locales = { en: { name: "Liar's Dice", players: '2-8 players', desc: 'Bluff about dice', help: '*Liar\'s Dice commands*' } };
+    try {
+      return await fn();
+    } finally {
+      delete def.locales;
+    }
+  };
+
+  it('英文頻道：已翻譯的遊戲顯示英文說明，還沒翻譯的顯示中文', async () => {
+    await withEnglish(async () => {
+      const { host, calls, langs } = setup();
+      langs.set('C1', 'en');
+      await host.game('C1', 'U1', 'alice', 'liarsdice help');
+      expect(lastEph(calls).text).toBe("*Liar's Dice commands*");
+      await host.game('C1', 'U1', 'alice', 'coup help');
+      expect(lastEph(calls).text).toContain('政變');
+    });
+  });
+
+  it('英文房間的規則連結：已翻譯的指向英文頁，還沒翻譯的指向中文頁', async () => {
+    await withEnglish(async () => {
+      const { host, calls, langs } = setup();
+      langs.set('C1', 'en');
+      // 房間公告可能是新發的，也可能是更新同一則
+      const lobby = () => calls.filter((c) => ['chat.postMessage', 'chat.update'].includes(c.method) && c.args.text?.includes('room (host')).at(-1)!.args.text;
+      await host.game('C1', 'U1', 'alice', 'liarsdice new');
+      expect(lobby()).toContain(`wiki/${encodeURI("Liar's-Dice-Rules")}|`);
+      await host.game('C1', 'U1', 'alice', 'liarsdice cancel');
+      await host.game('C1', 'U1', 'alice', 'coup new');
+      expect(lobby()).toContain(`wiki/${encodeURI('政變-遊戲規則')}|`);
+    });
   });
 });

@@ -347,7 +347,7 @@ export class GameHost {
   private play(kind: OtherKind, channel: string, user: string, text: string): Promise<void> {
     const def = DEFS[kind];
     const action = def.parse(text, user, channel);
-    if (!action) return this.reply(channel, user, def.help);
+    if (!action) return this.reply(channel, user, def.locales?.[this.lang(channel)]?.help ?? def.help);
     if (this.blocked(channel, kind)) return this.reply(channel, user, t(this.lang(channel), action.type === 'new' ? 'room.busy' : 'room.notApplicable'));
     return this.dispatchGame(kind, channel, action);
   }
@@ -650,10 +650,11 @@ export class GameHost {
         return;
       case 'lobby': {
         const title = e.title ?? '狼人殺';
-        const rules = `${WIKI}/${encodeURI(`${title.replaceAll(' ', '-')}-遊戲規則`)}`;
         const def = kind === 'werewolf' ? undefined : DEFS[kind];
         const max = def ? Number(def.players.match(/(\d+) 人/)![1]) : MAX_PLAYERS; // 遊戲清單人數範圍的最大值
         const lang = this.gameLang(channel, kind);
+        const en = lang === 'en' ? def?.locales?.en : undefined; // 英文 wiki 頁面是「<英文名稱>-Rules」
+        const rules = `${WIKI}/${encodeURI(en ? `${en.name.replaceAll(' ', '-')}-Rules` : `${title.replaceAll(' ', '-')}-遊戲規則`)}`;
         const shown = lang === 'zh-TW' ? title : (def?.locales?.[lang]?.name ?? `${title}${t(lang, 'lobby.untranslated')}`);
         const name = lang === 'zh-TW' && title.endsWith(')') ? `${title} ` : shown; // 名稱以括號結尾時補空白，例如「心電感應 (合作) 房間」
         const text = [
