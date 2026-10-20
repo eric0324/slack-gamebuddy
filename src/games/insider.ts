@@ -15,6 +15,18 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Insider commands*',
+  '• `/game insider new`: open a room (anyone)',
+  '• `/game insider start`: start the game, needs 4-8 human players (host)',
+  '• Ask: during Q&A just type in the channel, or use `/game insider ask <question>`',
+  '• The Master answers yes / no / don\'t know with private buttons, and presses "🎯 Correct" when someone says the word',
+  '• `/game insider vote`: start the vote early during discussion (host)',
+  '• `/game insider cancel`: cancel the game (host)',
+  'Vote for the Insider with the channel buttons',
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 // 圈內人的子指令：ask <問題> (問題可以有空白)、vote (房主提早投票)
 export function parseInsiderCommand(text: string, user: string, channel: string): IAction | null {
   const [sub, ...rest] = text.trim().split(/\s+/);
@@ -42,6 +54,7 @@ export const insider = {
   category: 'deduction',
   desc: '是非題合力猜出答案，再找出知道答案卻裝不知道的圈內人',
   noBots: true,
+  locales: { en: { name: 'Insider', players: '4-8 players', desc: 'Find the word with yes/no questions, then catch the Insider who knew it all along', help: HELP_EN } },
   help: HELP,
   apply: applyInsider,
   parse: parseInsiderCommand,

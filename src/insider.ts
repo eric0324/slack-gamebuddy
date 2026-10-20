@@ -1,7 +1,9 @@
 // 圈內人遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyInsider(state, action, rng) → { state, events }。
 import { mention, type GameEvent, type Rng } from './engine.js';
 import { cancelGame, joinRoom, leaveRoom, lobbyEvent, reply, runGame, shuffle, startTimer } from './common.js';
-import { DECRYPTO_WORDS } from './decryptoWords.js';
+import { INSIDER_WORDS } from './insiderWords.js';
+import type { Lang } from './i18n/index.js';
+import { tx } from './i18n/games/insider.js';
 
 export const MIN_INSIDER_PLAYERS = 4;
 export const MAX_INSIDER_PLAYERS = 8;
@@ -12,7 +14,7 @@ const VOTE_MS = 120_000;
 const MAX_SHOWN = 200;
 
 const ANSWERS: Answer[] = ['yes', 'no', 'unknown', 'correct'];
-const ANSWER_LABEL: Record<Answer, string> = { yes: '✅ 是', no: '❌ 否', unknown: '🤷 不知道', correct: '🎯 猜中了' };
+const answerLabel = (s: IState, a: Answer) => tx(s.lang, `answer.${a}`);
 
 export interface IQuestion {
   id: number;
@@ -40,10 +42,11 @@ export interface IState {
   finished?: boolean; // 正常結束 (取消的沒有)→ 可以再來一局
   timerSeq: number;
   timers: { phase?: number };
+  lang?: Lang; // 開房時的頻道語系 (runGame 存進去的)
 }
 
 export type IAction =
-  | { type: 'new'; user: string; channel: string }
+  | { type: 'new'; user: string; channel: string; lang?: Lang }
   | { type: 'join'; user: string }
   | { type: 'leave'; user: string }
   | { type: 'start'; user: string }
@@ -56,7 +59,7 @@ export type IAction =
   | { type: 'skip'; user: string } // 房主提早投票
   | { type: 'vote'; user: string; target: string }
   | { type: 'timeout'; id: number }
-  | { type: 'rematch'; user: string; channel: string };
+  | { type: 'rematch'; user: string; channel: string; lang?: Lang };
 
 type GameAction = Exclude<IAction, { type: 'new' } | { type: 'rematch' }>;
 
@@ -77,71 +80,71 @@ function deal(c: Ctx) {
   const [master, insider] = shuffle(s.players, c.rng).map((p) => p.id);
   s.master = master;
   s.insider = insider;
-  s.word = shuffle(DECRYPTO_WORDS, c.rng)[0];
+  s.word = shuffle(INSIDER_WORDS[s.lang ?? 'zh-TW'], c.rng)[0];
   s.phase = 'question';
   c.events.push({
     type: 'announce',
     text: [
-      `🕴️ 圈內人開始！🎩 主持人是 ${mention(master)}，他知道答案，只會回答是／否／不知道。`,
-      '大家之中還藏著一位🕴️圈內人，他也知道答案，會暗中引導大家。',
-      `⏱️ 5 分鐘內猜出答案：直接在頻道打字發問 (問答期間在頻道打的字都會送給主持人)，或用 \`/game insider ask <問題>\`。`,
+      tx(s.lang, 'startLine1', { master: mention(master) }),
+      tx(s.lang, 'startLine2'),
+      tx(s.lang, 'startLine3'),
     ].join('\n'),
     gif: 'start',
   });
   for (const { id } of s.players) {
     const text =
       id === master
-        ? `🎩 你是主持人，答案是「${s.word}」。每個問題都會出現按鈕：✅ 是／❌ 否／🤷 不知道；有人說出答案時按「🎯 猜中了」。`
+        ? tx(s.lang, 'dmMaster', { word: s.word })
         : id === insider
-          ? `🕴️ 你是圈內人，答案是「${s.word}」。暗中引導大家在 5 分鐘內猜中，但別被發現！`
-          : '🙂 你是平民，不知道答案。問主持人是非題猜出答案，再找出圈內人！';
+          ? tx(s.lang, 'dmInsider', { word: s.word })
+          : tx(s.lang, 'dmCommon');
     c.events.push({ type: 'dm', to: id, text });
   }
   startTimer(c, QUESTION_MS);
 }
 
 const inGame = (s: IState, id: string) => s.players.some((p) => p.id === id);
-const shown = (q: IQuestion) => `${mention(q.user)}：${[...q.text].slice(0, MAX_SHOWN).join('')}`;
+const shown = (s: IState, q: IQuestion) => tx(s.lang, 'shown', { who: mention(q.user), text: [...q.text].slice(0, MAX_SHOWN).join('') });
 
 // 發問：記下問題，只讓主持人看到回答按鈕。echo：用指令發問時先在頻道公告問題
 function addQuestion(c: Ctx, user: string, text: string, echo: boolean): boolean {
   const s = c.s;
   const q: IQuestion = { id: s.questions.length + 1, user, text };
   s.questions.push(q);
-  if (echo) c.events.push({ type: 'announce', text: `❓ ${shown(q)}` });
+  if (echo) c.events.push({ type: 'announce', text: `❓ ${shown(s, q)}` });
   c.events.push({
     type: 'prompt',
     kind: 'insider',
     audience: 'ephemeral',
     user: s.master,
-    text: `❓ ${shown(q)}`,
-    options: ANSWERS.map((a) => ({ value: `answer:${q.id}:${a}`, label: ANSWER_LABEL[a] })),
+    text: `❓ ${shown(s, q)}`,
+    options: ANSWERS.map((a) => ({ value: `answer:${q.id}:${a}`, label: answerLabel(s, a) })),
   });
   return true;
 }
 
 function answerQuestion(c: Ctx, user: string, id: number, answer: Answer): boolean {
   const s = c.s;
-  if (user !== s.master) return reply(c, user, '只有主持人可以回答。');
-  if (s.phase !== 'question') return reply(c, user, '問答已經結束了。');
+  if (user !== s.master) return reply(c, user, tx(s.lang, 'onlyMaster'));
+  if (s.phase !== 'question') return reply(c, user, tx(s.lang, 'qaOver'));
   const q = s.questions.find((x) => x.id === id);
   if (!q) return false;
-  if (q.answer) return reply(c, user, '這題已經回答過了。');
+  if (q.answer) return reply(c, user, tx(s.lang, 'answered'));
   q.answer = answer;
   if (answer !== 'correct') {
-    c.events.push({ type: 'announce', text: `❓ ${shown(q)} → ${ANSWER_LABEL[answer]}` });
+    c.events.push({ type: 'announce', text: `❓ ${shown(s, q)} → ${answerLabel(s, answer)}` });
     return true;
   }
   s.guesser = q.user;
   s.phase = 'discuss';
   c.events.push(
-    { type: 'announce', text: `🎉 ${mention(q.user)} 猜中了！答案是「${s.word}」`, gif: 'guessRight' },
+    { type: 'announce', text: tx(s.lang, 'guessed', { who: mention(q.user), word: s.word! }), gif: 'guessRight' },
     {
       type: 'prompt',
       kind: 'insider',
       audience: 'channel',
-      text: `🔎 找出圈內人！討論誰在引導大家 (${DISCUSS_MS / 60_000} 分鐘，房主可以提早投票)`,
-      options: [{ value: 'skip', label: '🗳️ 開始投票' }],
+      text: tx(s.lang, 'discuss', { min: DISCUSS_MS / 60_000 }),
+      options: [{ value: 'skip', label: tx(s.lang, 'startVote') }],
     },
   );
   startTimer(c, DISCUSS_MS);
@@ -156,7 +159,7 @@ function startVote(c: Ctx) {
     type: 'prompt',
     kind: 'insider',
     audience: 'channel',
-    text: `🗳️ 投票找出圈內人！每人一票 (主持人也要投)，不能投自己，${VOTE_MS / 60_000} 分鐘內可以改票。`,
+    text: tx(s.lang, 'vote', { min: VOTE_MS / 60_000 }),
     options: s.players.filter((p) => p.id !== s.master).map((p) => ({ value: `vote:${p.id}`, label: p.id })),
   });
   startTimer(c, VOTE_MS);
@@ -164,12 +167,12 @@ function startVote(c: Ctx) {
 
 function castVote(c: Ctx, user: string, target: string): boolean {
   const s = c.s;
-  if (!inGame(s, user)) return reply(c, user, '你不在遊戲裡。');
-  if (s.phase !== 'vote') return reply(c, user, '現在不是投票時間。');
-  if (target === user) return reply(c, user, '不能投自己。');
+  if (!inGame(s, user)) return reply(c, user, tx(s.lang, 'notInGame'));
+  if (s.phase !== 'vote') return reply(c, user, tx(s.lang, 'notVoting'));
+  if (target === user) return reply(c, user, tx(s.lang, 'noSelf'));
   if (target === s.master || !inGame(s, target)) return false;
   s.votes[user] = target;
-  c.events.push({ type: 'ephemeral', to: user, text: `你投給了 ${mention(target)}` });
+  c.events.push({ type: 'ephemeral', to: user, text: tx(s.lang, 'voted', { who: mention(target) }) });
   if (s.players.every((p) => s.votes[p.id])) endVote(c);
   return true;
 }
@@ -187,11 +190,11 @@ function accused(s: IState): string | undefined {
 
 function endVote(c: Ctx) {
   const s = c.s;
-  const lines = s.players.map((p) => `${mention(p.id)} → ${s.votes[p.id] ? mention(s.votes[p.id]) : '沒投票'}`);
+  const lines = s.players.map((p) => `${mention(p.id)} → ${s.votes[p.id] ? mention(s.votes[p.id]) : tx(s.lang, 'noVote')}`);
   const who = accused(s);
-  const verdict = who ? `👉 被指認的是 ${mention(who)}` : '🤷 沒有指認出任何人';
-  const result = who === s.insider ? '🎉 主持人和平民獲勝！找到圈內人了！' : `🕴️ 圈內人 ${mention(s.insider!)} 獲勝！`;
-  endGame(c, ['🗳️ 投票結果：', ...lines, verdict, `🏁 遊戲結束！${result}`, `🎯 猜中的人：${mention(s.guesser!)}`], who === s.insider ? s.players.map((p) => p.id).filter((id) => id !== s.insider) : [s.insider!]);
+  const verdict = who ? tx(s.lang, 'accused', { who: mention(who) }) : tx(s.lang, 'nobody');
+  const result = who === s.insider ? tx(s.lang, 'commonsWin') : tx(s.lang, 'insiderWins', { who: mention(s.insider!) });
+  endGame(c, [tx(s.lang, 'voteResult'), ...lines, verdict, tx(s.lang, 'gameOver', { result }), tx(s.lang, 'guesser', { who: mention(s.guesser!) })], who === s.insider ? s.players.map((p) => p.id).filter((id) => id !== s.insider) : [s.insider!]);
 }
 
 function endGame(c: Ctx, lines: string[], winners: string[]) {
@@ -201,7 +204,7 @@ function endGame(c: Ctx, lines: string[], winners: string[]) {
   s.timers = {};
   c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: winners });
   c.events.push(
-    { type: 'announce', text: [...lines, `答案：「${s.word}」`, `🕴️ 圈內人：${mention(s.insider!)}`, `🎩 主持人：${mention(s.master!)}`].join('\n') },
+    { type: 'announce', text: [...lines, tx(s.lang, 'answerIs', { word: s.word! }), tx(s.lang, 'insiderIs', { who: mention(s.insider!) }), tx(s.lang, 'masterIs', { who: mention(s.master!) })].join('\n') },
     { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },
   );
 }
@@ -215,25 +218,25 @@ function handle(c: Ctx, action: GameAction): boolean {
       return leaveRoom(c, TITLE, action.user);
     case 'addBot':
     case 'removeBot':
-      return reply(c, action.user, '圈內人不支援 bot。');
+      return reply(c, action.user, tx(s.lang, 'noBots'));
     case 'start': {
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以開始遊戲。');
+      if (action.user !== s.host) return reply(c, action.user, tx(s.lang, 'onlyHostStart'));
       if (s.phase !== 'lobby') return false;
       const n = s.players.length;
-      if (n < MIN_INSIDER_PLAYERS) return reply(c, action.user, `目前 ${n} 人，至少需要 ${MIN_INSIDER_PLAYERS} 人才能開始。`);
+      if (n < MIN_INSIDER_PLAYERS) return reply(c, action.user, tx(s.lang, 'needPlayers', { n, min: MIN_INSIDER_PLAYERS }));
       c.events.push(lobbyEvent(TITLE, { ...s, phase: 'question' }));
       deal(c);
       return true;
     }
     case 'cancel':
-      return cancelGame(c, action.user, s.word ? `答案是「${s.word}」。` : '');
+      return cancelGame(c, action.user, s.word ? tx(s.lang, 'cancelWord', { word: s.word }) : '');
     case 'chat':
     case 'ask': {
       const text = action.text.trim();
       const echo = action.type === 'ask';
-      if (s.phase !== 'question') return echo ? reply(c, action.user, '現在不是問答時間。') : false;
-      if (!inGame(s, action.user)) return echo ? reply(c, action.user, '你不在遊戲裡。') : false;
-      if (action.user === s.master) return echo ? reply(c, action.user, '主持人不能發問。') : false;
+      if (s.phase !== 'question') return echo ? reply(c, action.user, tx(s.lang, 'notQa')) : false;
+      if (!inGame(s, action.user)) return echo ? reply(c, action.user, tx(s.lang, 'notInGame')) : false;
+      if (action.user === s.master) return echo ? reply(c, action.user, tx(s.lang, 'masterNoAsk')) : false;
       if (!text) return false;
       return addQuestion(c, action.user, text, echo);
     }
@@ -241,14 +244,14 @@ function handle(c: Ctx, action: GameAction): boolean {
       return answerQuestion(c, action.user, action.question, action.answer);
     case 'skip':
       if (s.phase !== 'discuss') return false;
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以提早投票。');
+      if (action.user !== s.host) return reply(c, action.user, tx(s.lang, 'onlyHostVote'));
       startVote(c);
       return true;
     case 'vote':
       return castVote(c, action.user, action.target);
     case 'timeout': {
       if (action.id !== s.timers.phase) return false;
-      if (s.phase === 'question') endGame(c, ['⏰ 時間到，沒有人猜中答案！所有人一起落敗。'], []);
+      if (s.phase === 'question') endGame(c, [tx(s.lang, 'timeUp')], []);
       else if (s.phase === 'discuss') startVote(c);
       else if (s.phase === 'vote') endVote(c);
       return true;
