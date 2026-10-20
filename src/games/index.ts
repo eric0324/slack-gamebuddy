@@ -29,6 +29,7 @@ import { dixit } from './dixit.js';
 import { citadels } from './citadels.js';
 import { emoji } from './emoji.js';
 import { crew } from './crew.js';
+import { saboteur } from './saboteur.js';
 
 export const GAMES = [
   undercover,
@@ -61,6 +62,7 @@ export const GAMES = [
   citadels,
   emoji,
   crew,
+  saboteur,
 ] as const;
 
 export type GameKind = (typeof GAMES)[number]['kind'];

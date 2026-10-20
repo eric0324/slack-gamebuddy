@@ -189,6 +189,23 @@ exports[`重構安全網 > 大廳四個分類 1`] = `
       "type": "section",
     },
     {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:31",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|saboteur",
+      },
+      "text": {
+        "text": "⛏️ *矮人礦坑* （ \`saboteur\` ）3～10 人
+輪流出通道牌往金礦挖，藏在隊友裡的破壞者暗中鋪死路、弄壞工具，3 回合後金塊最多的人贏",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
       "elements": [
         {
           "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
@@ -968,6 +985,15 @@ exports[`重構安全網 > 每款遊戲的指令說明 1`] = `
 • \`/game nothanks cancel\` ：取消遊戲（房主）
 輪到你時按「🙅 不要謝謝」付 1 個籌碼跳過，或「✋ 收下」這張牌和牌上的籌碼；隨時按「👀 我的籌碼」看自己的籌碼和分數
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "saboteur": "*矮人礦坑指令*
+• \`/game saboteur new\` ：開房（任何人）
+• \`/game saboteur addbot [數量]\` ：加入 bot 補人數（房主，開始前）
+• \`/game saboteur removebot [數量]\` ：移除 bot（房主，開始前）
+• \`/game saboteur start\` ：開始遊戲，需要 3～10 人（房主）
+• \`/game saboteur cancel\` ：取消遊戲（房主）
+• 「⛏️ 我的回合」：輪到你時按，選一張牌放通道、打行動牌或蓋掉（60 秒，沒出牌自動蓋掉第一張）
+• 「🎒 我的手牌」：隨時私下看自己的身分、手牌、壞掉的工具和偷看結果
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
   "skull": "*骷髏與玫瑰指令*
 • \`/game skull new\` ：開房（任何人）
 • \`/game skull addbot [數量]\` ：加入 bot 補人數（房主，開始前）
@@ -1071,6 +1097,7 @@ exports[`重構安全網 > 遊戲清單文字和預設大廳 1`] = `
 • 🏛️ *富饒之城* （ \`citadels\` ）：4～7 人，開房 \`/game citadels new\`
 • 🔗 *Emoji 傳話* （ \`emoji\` ）：4～10 人（不支援 bot），開房 \`/game emoji new\`
 • 🚀 *星際探險隊* （ \`crew\` ）：3～5 人（不支援 bot），開房 \`/game crew new\`
+• ⛏️ *矮人礦坑* （ \`saboteur\` ）：3～10 人，開房 \`/game saboteur new\`
 各遊戲的指令： \`/game <遊戲代號> help\` ，例如 \`/game liarsdice help\`
 📊 戰績： \`/game stats [@某人]\` ；排行榜： \`/game rank [遊戲代號]\`
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>"
@@ -1259,6 +1286,23 @@ exports[`重構安全網 > 遊戲清單文字和預設大廳 2`] = `
     "text": {
       "text": "🕺 *犯人在跳舞* （ \`criminal\` ）3～8 人
 每人 4 張牌輪流出，犯人想撐到最後一張逃走，偵探要把他抓出來",
+      "type": "mrkdwn",
+    },
+    "type": "section",
+  },
+  {
+    "accessory": {
+      "action_id": "ww:lobbyOpen:31",
+      "text": {
+        "text": "開房",
+        "type": "plain_text",
+      },
+      "type": "button",
+      "value": "C1|saboteur",
+    },
+    "text": {
+      "text": "⛏️ *矮人礦坑* （ \`saboteur\` ）3～10 人
+輪流出通道牌往金礦挖，藏在隊友裡的破壞者暗中鋪死路、弄壞工具，3 回合後金塊最多的人贏",
       "type": "mrkdwn",
     },
     "type": "section",
