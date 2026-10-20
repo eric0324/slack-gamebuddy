@@ -4,6 +4,12 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { LangStore } from '../src/langStore.js';
 import { StatsStore } from '../src/stats.js';
+import { coup } from '../src/games/coup.js';
+import { hanabi } from '../src/games/hanabi.js';
+import { incan } from '../src/games/incan.js';
+import { liarsDice } from '../src/games/liarsdice.js';
+import { skull } from '../src/games/skull.js';
+import { undercover } from '../src/games/undercover.js';
 import { GameHost, type SlackClient } from '../src/slack.js';
 import { gameText, LANGS, lookup, parseLang, t } from '../src/i18n/index.js';
 
@@ -48,6 +54,26 @@ function setup(langs = new LangStore(':memory:'), stats?: StatsStore) {
 }
 const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
 const posts = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postMessage').map((c) => c.args);
+
+// 測試時暫時換掉遊戲的翻譯 (undefined＝當成還沒翻譯)，結束後還原；這樣不受各遊戲實際翻譯進度影響
+type Localized = { locales?: object };
+async function withLocales<T>(games: object[], locales: object | undefined, fn: () => Promise<T>): Promise<T> {
+  const defs = games as Localized[];
+  const saved = defs.map((d) => d.locales);
+  for (const d of defs) {
+    if (locales) d.locales = locales;
+    else delete d.locales;
+  }
+  try {
+    return await fn();
+  } finally {
+    defs.forEach((d, i) => {
+      if (saved[i]) d.locales = saved[i];
+      else delete d.locales;
+    });
+  }
+}
+const untranslated = <T>(games: object[], fn: () => Promise<T>) => withLocales(games, undefined, fn);
 
 describe('i18n: 語系保存', () => {
   it('沒資料時是 zh-TW；設定後讀得到；重開同一個檔案仍在', () => {
@@ -197,28 +223,29 @@ describe('i18n: 英文大廳與遊戲清單', () => {
   });
 
   it('還沒翻譯的遊戲：中文名稱加「(中文)」、中文人數和介紹', async () => {
-    const { eph } = await englishLobby();
-    const werewolf = sections(eph.blocks)[0];
-    expect(werewolf).toContain('*狼人殺* (中文) (`werewolf`) 6～12 人');
-    expect(werewolf).toContain('陣營推理');
+    await untranslated([undercover], async () => {
+      const { eph } = await englishLobby();
+      const line = sections(eph.blocks)[1];
+      expect(line).toContain('*誰是臥底* (中文) (`undercover`) 4～12 人');
+      expect(line).toContain(undercover.desc);
+    });
   });
 
   it('有英文翻譯的遊戲顯示英文、沒有標示', async () => {
-    const { undercover } = await import('../src/games/undercover.js');
-    (undercover as { locales?: object }).locales = { en: { name: 'Undercover', players: '4-12 players', desc: 'Find the one with a different word' } };
-    try {
+    const en = { name: 'Undercover', players: '4-12 players', desc: 'Find the one with a different word', help: '' };
+    await withLocales([undercover], { en }, async () => {
       const { eph } = await englishLobby();
       expect(sections(eph.blocks)[1]).toBe('🕵️ *Undercover* (`undercover`) 4-12 players\nFind the one with a different word');
-    } finally {
-      delete (undercover as { locales?: object }).locales;
-    }
+    });
   });
 
   it('/game help 的遊戲清單是英文', async () => {
-    const { eph } = await englishLobby();
-    expect(eph.text).toContain('*Games*');
-    expect(eph.text).toContain('• 🐺 *狼人殺* (中文) (`werewolf`): 6～12 人 — start with `/game werewolf new` (or `/werewolf new`)');
-    expect(eph.text).toContain('Commands for each game: `/game <code> help`');
+    await untranslated([coup], async () => {
+      const { eph } = await englishLobby();
+      expect(eph.text).toContain('*Games*');
+      expect(eph.text).toContain('• 👑 *政變* (中文) (`coup`): 3～6 人 — start with `/game coup new`');
+      expect(eph.text).toContain('Commands for each game: `/game <code> help`');
+    });
   });
 
   it('中文頻道的大廳維持原樣', async () => {
@@ -231,14 +258,16 @@ describe('i18n: 英文大廳與遊戲清單', () => {
 
 describe('i18n: 英文房間公告與再來一局', () => {
   it('標題、房主、人數、規則連結文字和 Join／Leave／Start 按鈕是英文', async () => {
-    const { host, calls, langs } = setup();
-    langs.set('C1', 'en');
-    await host.game('C1', 'U1', 'alice', 'incan new');
-    const lobby = posts(calls).at(-1)!;
-    expect(lobby.text).toContain('印加寶藏 (中文) room (host <@U1>)');
-    expect(lobby.text).toContain('Players (1/8): <@U1>');
-    expect(lobby.text).toContain('|the 印加寶藏 (中文) rules>');
-    expect(lobby.blocks[1].elements.slice(0, 3).map((b: any) => b.text.text)).toEqual(['Join', 'Leave', 'Start']);
+    await untranslated([incan], async () => {
+      const { host, calls, langs } = setup();
+      langs.set('C1', 'en');
+      await host.game('C1', 'U1', 'alice', 'incan new');
+      const lobby = posts(calls).at(-1)!;
+      expect(lobby.text).toContain('印加寶藏 (中文) room (host <@U1>)');
+      expect(lobby.text).toContain('Players (1/8): <@U1>');
+      expect(lobby.text).toContain('|the 印加寶藏 (中文) rules>');
+      expect(lobby.blocks[1].elements.slice(0, 3).map((b: any) => b.text.text)).toEqual(['Join', 'Leave', 'Start']);
+    });
   });
 
   it('這局是英文時，再來一局的提示和按鈕是英文', async () => {
@@ -263,7 +292,7 @@ describe('i18n: 戰績與排行榜', () => {
     return s;
   };
 
-  it('英文頻道的 /game stats：英文標題和每款遊戲一行，未翻譯的遊戲標示中文', async () => {
+  it('英文頻道的 /game stats：英文標題和每款遊戲一行，未翻譯的遊戲標示中文', () => untranslated([skull, hanabi], async () => {
     const { host, calls } = withStats();
     await host.game('C1', 'U1', 'alice', 'stats');
     const text = lastEph(calls).text;
@@ -271,9 +300,9 @@ describe('i18n: 戰績與排行榜', () => {
     expect(text).toContain('Total: 2 played | Competitive: 1/1 wins (100%)');
     expect(text).toContain('💀 骷髏與玫瑰 (中文): 1/1 wins (100%)');
     expect(text).toContain('🎆 花火 (中文): 1 played, best 18');
-  });
+  }));
 
-  it('英文頻道的 /game rank 和沒有戰績的訊息', async () => {
+  it('英文頻道的 /game rank 和沒有戰績的訊息', () => untranslated([skull, hanabi], async () => {
     const { host, calls } = withStats();
     await host.game('C1', 'U1', 'alice', 'rank');
     expect(lastEph(calls).text).toContain('🏆 Leaderboard for this channel');
@@ -283,7 +312,7 @@ describe('i18n: 戰績與排行榜', () => {
     await host.game('C2', 'U1', 'alice', 'lang en');
     await host.game('C2', 'U1', 'alice', 'stats');
     expect(lastEph(calls).text).toBe('No stats for <@U1> in this channel yet.');
-  });
+  }));
 
   it('中文頻道維持原樣', async () => {
     const stats = new StatsStore(':memory:');
@@ -310,16 +339,9 @@ describe('i18n: 每款遊戲的字典', () => {
 });
 
 describe('i18n: 指令說明和規則連結依語系', () => {
-  const withEnglish = async <T>(fn: () => Promise<T>) => {
-    const { liarsDice } = await import('../src/games/liarsdice.js');
-    const def = liarsDice as { locales?: object };
-    def.locales = { en: { name: "Liar's Dice", players: '2-8 players', desc: 'Bluff about dice', help: '*Liar\'s Dice commands*' } };
-    try {
-      return await fn();
-    } finally {
-      delete def.locales;
-    }
-  };
+  // 吹牛骰用測試假資料當「已翻譯」，政變當「還沒翻譯」
+  const en = { name: "Liar's Dice", players: '2-8 players', desc: 'Bluff about dice', help: "*Liar's Dice commands*" };
+  const withEnglish = <T>(fn: () => Promise<T>) => withLocales([liarsDice], { en }, () => untranslated([coup], fn));
 
   it('英文頻道：已翻譯的遊戲顯示英文說明，還沒翻譯的顯示中文', async () => {
     await withEnglish(async () => {
