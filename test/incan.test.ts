@@ -539,3 +539,67 @@ describe('incan/setup: 指令解析與按鈕 (GameDef)', () => {
     expect(incan.button('sushigo', 'go:7', 'u', 'C1')).toBeNull();
   });
 });
+
+describe('incan/en: 英文版', () => {
+  const HAN = /[一-鿿]/;
+  const enLobby = (n: number) =>
+    run([
+      { type: 'new', user: 'p1', channel: 'C1', lang: 'en' } as IAction,
+      ...Array.from({ length: n - 1 }, (_, i) => ({ type: 'join', user: `p${i + 2}` }) as IAction),
+    ]);
+  const enStarted = (n: number) => run([{ type: 'start', user: 'p1' }], enLobby(n).state);
+
+  it('英文局開始：開場公告、神殿公告、步驟訊息和按鈕都是英文', () => {
+    const { state, events } = enStarted(3);
+    expect(state.lang).toBe('en');
+    const text = announces(events).join('\n');
+    expect(text).toContain('💎 Incan Gold begins!');
+    expect(text).toContain('🏛️ Temple 1/5 begins!');
+    expect(text).not.toMatch(HAN);
+    const b = boards(events).at(-1)!;
+    expect(b.text).toContain('💎 Temple 1/5, step 1: revealed 💎 1 gem');
+    expect(b.text).not.toMatch(HAN);
+    expect(b.options.map((o) => o.label)).toEqual(['🔦 Continue', '⛺ Return to camp']);
+  });
+
+  it('英文局：選擇後的 ephemeral 和錯誤回覆是英文', () => {
+    const { state } = enStarted(3);
+    const chose = run([{ type: 'choose', user: 'p1', seq: state.seq, choice: 'go' }], state);
+    expect(ephemeralTo(chose.events, 'p1')?.text).toBe('You chose 🔦 Continue (you can change it before the reveal)');
+    const outsider = run([{ type: 'choose', user: 'x', seq: state.seq, choice: 'go' }], state);
+    expect(ephemeralTo(outsider.events, 'x')?.text).toBe("You're not in this game.");
+    const few = run([{ type: 'start', user: 'p1' }], enLobby(2).state);
+    expect(ephemeralTo(few.events, 'p1')?.text).toBe('Only 2 players. You need at least 3 to start.');
+  });
+
+  it('英文局：一直逾時到結束，揭曉、回營、帳篷和結束公告都是英文', () => {
+    let { state, events } = enStarted(3);
+    const seen: GameEvent[] = [...events];
+    for (let i = 0; i < 20 && state.phase !== 'ended'; i++) {
+      ({ state, events } = run([{ type: 'timeout', id: state.timers.phase! }], state));
+      seen.push(...events);
+    }
+    expect(state.phase).toBe('ended');
+    const text = announces(seen).join('\n');
+    expect(text).toContain('🏆 Game over!');
+    expect(text).toContain('⛺ Back to camp:');
+    expect(text).not.toMatch(HAN);
+    expect(boards(seen).some((b) => b.text.includes('<@p1> ⛺ Return to camp (timed out)'))).toBe(true);
+    expect(ephemeralTo(seen, 'p1')?.text).toMatch(/^Your tent: \d+ gem\(s\), \d+ artifact\(s\), \d+ points total$/);
+    const rematch = prompts(seen).find((p) => p.kind === 'rematch')!;
+    expect(rematch.text).toBe('Play again?');
+    expect(rematch.options[0].label).toBe('Play again');
+  });
+
+  it('GameDef 英文：Incan Gold、3-8 players、英文 help', () => {
+    const en = incan.locales.en;
+    expect(en.name).toBe('Incan Gold');
+    expect(en.players).toBe('3-8 players');
+    expect(en.desc).not.toMatch(HAN);
+    expect(en.help).not.toMatch(HAN);
+    for (const cmd of ['new', 'addbot', 'removebot', 'start', 'cancel']) expect(en.help).toContain(`/game incan ${cmd}`);
+    expect(en.help).toContain('🔦 Continue');
+    expect(en.help).toContain('⛺ Return to camp');
+    expect(en.help).toContain('/Incan-Gold|');
+  });
+});
