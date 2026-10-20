@@ -16,6 +16,18 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Splendor commands*',
+  '• `/game splendor new`: open a room (anyone)',
+  '• `/game splendor addbot [count]`: add bots to fill seats (host, before start)',
+  '• `/game splendor removebot [count]`: remove bots (host, before start)',
+  '• `/game splendor start`: start the game, needs 2-4 players (host)',
+  '• `/game splendor cancel`: cancel the game (host)',
+  '• "💍 Action": press on your turn to take gems, reserve a card or buy a card; with more than 10 tokens you return tokens instead (90 seconds, skipped if you do nothing)',
+  '• "📜 My status": privately check your tokens, bonuses, purchased cards and reserved cards anytime',
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 // 璀璨寶石只有房間指令，遊戲中都用按鈕
 export function parseSplendorCommand(text: string, user: string, channel: string): SAction | null {
   return parseRoomCommand(text, user, channel) as SAction | null;
@@ -66,6 +78,9 @@ export const splendor = {
   category: 'strategy',
   desc: '拿寶石、買發展卡累積折扣，吸引貴族來訪，搶先拿到 15 分',
   help: HELP,
+  locales: {
+    en: { name: 'Splendor', players: '2-4 players', desc: 'Collect gems, buy development cards for bonuses, attract nobles and race to 15 points', help: HELP_EN },
+  },
   apply: applySplendor,
   parse: parseSplendorCommand,
   button: splendorButton,
