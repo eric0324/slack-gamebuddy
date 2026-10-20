@@ -44,7 +44,7 @@
 - [x] 6.4 `test/slack.test.ts`：`KINDS` 加 `deception`；遊戲清單和大廳 🔍 推理分類有 🔎 詭影神探（`deception`）4～12 人、「不支援 bot」和開房按鈕；`/game deception help` 列出指令（主控整合時做）
 - [x] 6.5 `test/characterization.test.ts` 的 KINDS 加 `'deception'`，更新 snapshot，確認差異只有多一款遊戲的文字（主控整合時做）
 - [x] 6.6 README：遊戲列表、wiki 連結、manifest `description`／`usage_hint`（主控整合時做）
-- [ ] 6.7 wiki 草稿「詭影神探」「詭影神探-遊戲規則」（含 6 人以上一律有共犯和目擊者、鑑識官掛機中止、發言 90 秒的說明）「詭影神探-指令」三頁（主控整合時做）
+- [x] 6.7 wiki 草稿「詭影神探」「詭影神探-遊戲規則」（含 6 人以上一律有共犯和目擊者、鑑識官掛機中止、發言 90 秒的說明）「詭影神探-指令」三頁（主控整合時做）
 
 ## 7. 整合驗證
 
