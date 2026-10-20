@@ -184,6 +184,25 @@ function stepMenu(c: Ctx) {
       ]);
     case 'harbor':
       return menu(c, me.id, `${head}\n擲出 ${t.total}。要用港口 +2 嗎？`, [o('harbor', 'yes', `+2（變成 ${t.total + 2}）`), o('harbor', 'no', '不加')]);
+    case 'tv':
+      return menu(c, me.id, `${head}\n電視台：要向誰收 5 元？（不夠就收他現有的）`, others(s).map((p) => o('tv', p.id, `${p.id}（${p.coins} 元）`)));
+    case 'bizGive':
+      return menu(c, me.id, `${head}\n商業中心：要給出自己的哪一張建築？（紫色建築和地標不能換）`, [
+        ...tradable(me).map((code) => o('bizGive', code, CARDS[code].name)),
+        o('bizSkip', '', '不換'),
+      ]);
+    case 'bizPlayer':
+      return menu(c, me.id, `${head}\n商業中心：要用${CARDS[t.give!].name}和誰交換？`, [
+        ...others(s).filter((p) => tradable(p).length).map((p) => o('bizPlayer', `${t.give}:${p.id}`, p.id)),
+        o('bizSkip', '', '不換'),
+      ]);
+    case 'bizTake': {
+      const target = find(s, t.target!)!;
+      return menu(c, me.id, `${head}\n商業中心：要換走 ${quiet(target.id)} 的哪一張建築？`, [
+        ...tradable(target).map((code) => o('bizTake', `${t.give}:${code}:${target.id}`, CARDS[code].name)),
+        o('bizSkip', '', '不換'),
+      ]);
+    }
     case 'buy': {
       const info = [
         ...marketOrder(s.market).map((code) => `• ${cardLabel(code)}：${CARDS[code].text}`),
@@ -274,7 +293,75 @@ function settle(c: Ctx) {
   if (blueGreen.tuna) t.log.push(`鮪魚船擲出 ${diceText(blueGreen.tuna)}`);
   lines.push(...blueGreen.lines, ...settlePurple(s.players, s.current, t.total));
   t.log.push(...(lines.length ? lines.map(lineText) : ['（沒有建築收錢）']));
-  toBuy(c);
+  if (t.total === 6 && current(s).cards.tv) t.step = 'tv';
+  else toBusiness(c);
+}
+
+// 可以用商業中心交換的建築：非紫色的一般建築
+const tradable = (p: MPlayer) => Object.keys(CARDS).filter((code) => p.cards[code] && CARDS[code].color !== 'purple');
+const others = (s: MState) => s.players.filter((p) => p !== current(s));
+
+// 商業中心：自己和至少一位對手有可以換的建築才問
+function toBusiness(c: Ctx) {
+  const s = c.s;
+  const me = current(s);
+  if (s.turn!.total === 6 && me.cards.business && tradable(me).length && others(s).some((p) => tradable(p).length)) s.turn!.step = 'bizGive';
+  else toBuy(c);
+}
+
+function tv(c: Ctx, a: Extract<MAction, { type: 'tv' }>): boolean {
+  const s = c.s;
+  const err = turnCheck(s, a.user, a.seq, 'tv');
+  if (err) return deny(c, a.user, err);
+  const target = others(s).find((p) => p.id === a.target);
+  if (!target) return deny(c, a.user, STALE);
+  const me = current(s);
+  const paid = Math.min(5, target.coins);
+  target.coins -= paid;
+  me.coins += paid;
+  s.turn!.log.push(lineText({ from: target.id, to: me.id, amount: paid, card: 'tv' }));
+  toBusiness(c);
+  afterStep(c, a.seq);
+  return true;
+}
+
+type BizAction = Extract<MAction, { type: 'bizGive' } | { type: 'bizPlayer' } | { type: 'bizTake' } | { type: 'bizSkip' }>;
+
+// 商業中心三步：給出的建築 → 對象 → 對方的建築；每一步都可以不換
+function business(c: Ctx, a: BizAction): boolean {
+  const s = c.s;
+  const t = s.turn!;
+  const err = turnCheck(s, a.user, a.seq, a.type === 'bizSkip' ? undefined : a.type);
+  if (err) return deny(c, a.user, err);
+  const me = current(s);
+  const target = 'target' in a ? others(s).find((p) => p.id === a.target) : undefined;
+  switch (a.type) {
+    case 'bizSkip':
+      if (!t.step.startsWith('biz')) return deny(c, a.user, STALE);
+      toBuy(c);
+      break;
+    case 'bizGive':
+      if (!tradable(me).includes(a.card)) return deny(c, a.user, STALE);
+      t.give = a.card;
+      t.step = 'bizPlayer';
+      break;
+    case 'bizPlayer':
+      if (a.give !== t.give || !target || !tradable(target).length) return deny(c, a.user, STALE);
+      t.target = target.id;
+      t.step = 'bizTake';
+      break;
+    case 'bizTake':
+      if (a.give !== t.give || !target || target.id !== t.target || !tradable(target).includes(a.take)) return deny(c, a.user, STALE);
+      for (const [from, to, code] of [[me, target, a.give], [target, me, a.take]] as const) {
+        if (!--from.cards[code]) delete from.cards[code];
+        to.cards[code] = (to.cards[code] ?? 0) + 1;
+      }
+      t.log.push(`${quiet(me.id)} 用${CARDS[a.give].name}換走 ${quiet(target.id)} 的${CARDS[a.take].name}`);
+      toBuy(c);
+      break;
+  }
+  afterStep(c, a.seq);
+  return true;
 }
 
 // 進入買建築；市政廳：0 元拿 1 元
@@ -311,6 +398,11 @@ function buy(c: Ctx, a: Extract<MAction, { type: 'buy' }>): boolean {
     me.landmarks.push(a.code);
     t.log.push(`${quiet(me.id)} 蓋了${l.name}`);
     tell(c, a.user, `✅ 你蓋了${l.name}`);
+    if (built(me).length === LANDMARKS.length) {
+      c.events.push(board(s, true));
+      endGame(c, 'landmarks');
+      return true;
+    }
   }
   endTurn(c);
   return true;
@@ -340,7 +432,36 @@ function endTurn(c: Ctx) {
   }
   s.current = (s.current + 1) % s.players.length;
   if (s.current === s.first) s.round++;
+  if (s.round > MAX_ROUNDS) {
+    c.events.push({ type: 'announce', text: `已達 ${MAX_ROUNDS} 輪上限，比地標數，再比金錢。` });
+    return endGame(c, 'limit');
+  }
   beginTurn(c);
+}
+
+// 蓋完地標的人獲勝；到上限時地標數最多、再比現金，都一樣就並列
+function endGame(c: Ctx, reason: 'landmarks' | 'limit') {
+  const s = c.s;
+  s.phase = 'ended';
+  s.timers = {};
+  s.reason = reason;
+  const most = Math.max(...s.players.map((p) => built(p).length));
+  const leaders = s.players.filter((p) => built(p).length === most);
+  const rich = Math.max(...leaders.map((p) => p.coins));
+  s.winners = reason === 'landmarks' ? [current(s).id] : leaders.filter((p) => p.coins === rich).map((p) => p.id);
+  const why = reason === 'landmarks' ? '蓋好全部 6 個地標' : `已達 ${MAX_ROUNDS} 輪上限，地標數和金錢最多`;
+  c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: s.winners });
+  c.events.push(
+    {
+      type: 'announce',
+      text: [
+        `🏆 遊戲結束，${s.winners.map(mention).join('、')} 獲勝！（${why}）`,
+        ...s.players.map((p) => `${mention(p.id)} 地標 ${built(p).length} 個｜${p.coins} 元｜建築 ${cardCount(p)} 張`),
+      ].join('\n'),
+      gif: 'goodWin',
+    },
+    { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },
+  );
 }
 
 // 逾時：從目前這一步開始，照逾時策略做完這回合
@@ -403,6 +524,17 @@ export function botDice(me: MPlayer): 1 | 2 {
   return has(me, 'station') && big ? 2 : 1;
 }
 
+// 現金最多的對手；同樣多時從自己下一位開始依座位選第一位
+export function richest(s: MState): string {
+  const n = s.players.length;
+  let best = s.players[(s.current + 1) % n];
+  for (let k = 2; k < n; k++) {
+    const p = s.players[(s.current + k) % n];
+    if (p.coins > best.coins) best = p;
+  }
+  return best.id;
+}
+
 // 這一步自動做什麼（bot，或逾時時代為完成）；回傳和真人按按鈕一樣的 action
 export function autoMove(s: MState, bot: boolean): GameAction {
   const t = s.turn!;
@@ -415,6 +547,12 @@ export function autoMove(s: MState, bot: boolean): GameAction {
       return bot && income(s.players, s.current, sum(t.dice)) === 0 ? { type: 'reroll', ...base, n: botDice(me) } : { type: 'keep', ...base };
     case 'harbor':
       return { type: 'harbor', ...base, yes: income(s.players, s.current, t.total + 2) > income(s.players, s.current, t.total) };
+    case 'tv':
+      return { type: 'tv', ...base, target: richest(s) };
+    case 'bizGive':
+    case 'bizPlayer':
+    case 'bizTake':
+      return { type: 'bizSkip', ...base };
     default:
       return { type: 'pass', ...base };
   }
@@ -445,6 +583,13 @@ function handle(c: Ctx, action: GameAction): boolean {
       return reroll(c, action);
     case 'harbor':
       return harbor(c, action);
+    case 'tv':
+      return tv(c, action);
+    case 'bizGive':
+    case 'bizPlayer':
+    case 'bizTake':
+    case 'bizSkip':
+      return business(c, action);
     case 'buy':
       return buy(c, action);
     case 'pass':

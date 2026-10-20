@@ -730,3 +730,212 @@ describe('machikoro/turns: 輪流、遊樂園與計時', () => {
     expect(run([{ type: 'timeout', id: old }], next).state).toBe(next);
   });
 });
+
+describe('machikoro/buildings: 電視台', () => {
+  const tv = (mut: (s: MState) => void = () => {}) =>
+    roll(
+      setup((s) => {
+        P(s, 'p1').cards.tv = 1;
+        mut(s);
+      }),
+    );
+
+  it('每位對手一顆按鈕標示現金；收 5 元，面板公告', () => {
+    const r1 = tv((s) => (P(s, 'p2').coins = 8));
+    expect(r1.state.turn!.step).toBe('tv');
+    expect(labels(r1.events, 'p1')).toEqual(['p2（8 元）', 'p3（3 元）', 'p4（3 元）']);
+    const { state, events } = run([{ type: 'tv', user: 'p1', seq: r1.state.seq, target: 'p2' }], r1.state);
+    expect(P(state, 'p2').coins).toBe(3);
+    expect(P(state, 'p1').coins).toBe(8);
+    expect(state.turn!.step).toBe('buy');
+    expect(boards(events)[0].text).toContain('{{name:p1}} 的電視台向 {{name:p2}} 收 5 元');
+  });
+
+  it('不夠就收現有的；不能選自己', () => {
+    const r1 = tv((s) => (P(s, 'p2').coins = 2));
+    expect(run([{ type: 'tv', user: 'p1', seq: r1.state.seq, target: 'p1' }], r1.state).state).toBe(r1.state);
+    const { state } = run([{ type: 'tv', user: 'p1', seq: r1.state.seq, target: 'p2' }], r1.state);
+    expect(P(state, 'p2').coins).toBe(0);
+    expect(P(state, 'p1').coins).toBe(5);
+  });
+
+  it('逾時時選錢最多的對手', () => {
+    const r1 = tv((s) => (P(s, 'p3').coins = 9));
+    const { state } = fire(r1.state);
+    expect(P(state, 'p3').coins).toBe(4);
+  });
+});
+
+describe('machikoro/buildings: 商業中心', () => {
+  const biz = (mut: (s: MState) => void = () => {}) =>
+    roll(
+      setup((s) => {
+        P(s, 'p1').cards.business = 1;
+        mut(s);
+      }),
+    );
+
+  it('三步選單：給出的建築 → 對象 → 對方的建築，紫色和地標不能換；交換後公告', () => {
+    const r1 = biz((s) => Object.assign(P(s, 'p2').cards, { mine: 1, stadium: 1 }));
+    expect(r1.state.turn!.step).toBe('bizGive');
+    expect(labels(r1.events, 'p1')).toEqual(['麥田', '麵包店', '不換']);
+    const r2 = run([{ type: 'bizGive', user: 'p1', seq: r1.state.seq, card: 'wheat' }], r1.state);
+    expect(labels(r2.events, 'p1')).toEqual(['p2', 'p3', 'p4', '不換']);
+    expect(values(r2.events, 'p1')[0]).toBe(`bizPlayer:${r1.state.seq}:wheat:p2`);
+    const r3 = run([{ type: 'bizPlayer', user: 'p1', seq: r1.state.seq, give: 'wheat', target: 'p2' }], r2.state);
+    expect(labels(r3.events, 'p1')).toEqual(['麥田', '礦場', '麵包店', '不換']);
+    expect(values(r3.events, 'p1')[1]).toBe(`bizTake:${r1.state.seq}:wheat:mine:p2`);
+    const { state, events } = run([{ type: 'bizTake', user: 'p1', seq: r1.state.seq, give: 'wheat', take: 'mine', target: 'p2' }], r3.state);
+    expect(P(state, 'p1').cards).toEqual({ bakery: 1, business: 1, mine: 1 });
+    expect(P(state, 'p2').cards).toEqual({ wheat: 2, bakery: 1, stadium: 1 });
+    expect(state.turn!.step).toBe('buy');
+    expect(boards(events)[0].text).toContain('{{name:p1}} 用麥田換走 {{name:p2}} 的礦場');
+  });
+
+  it('紫色建築不能選', () => {
+    const r1 = biz((s) => (P(s, 'p2').cards = { forest: 1, stadium: 1 }));
+    const r2 = run([{ type: 'bizGive', user: 'p1', seq: r1.state.seq, card: 'business' }], r1.state);
+    expect(r2.state).toBe(r1.state);
+    const r3 = run(
+      [
+        { type: 'bizGive', user: 'p1', seq: r1.state.seq, card: 'wheat' },
+        { type: 'bizPlayer', user: 'p1', seq: r1.state.seq, give: 'wheat', target: 'p2' },
+      ],
+      r1.state,
+    );
+    expect(labels(r3.events, 'p1')).toEqual(['森林', '不換']);
+    const bad = run([{ type: 'bizTake', user: 'p1', seq: r1.state.seq, give: 'wheat', take: 'stadium', target: 'p2' }], r3.state);
+    expect(bad.state).toBe(r3.state);
+  });
+
+  it('每一步都可以不換', () => {
+    const r1 = biz();
+    const skip = run([{ type: 'bizSkip', user: 'p1', seq: r1.state.seq }], r1.state);
+    expect(skip.state.turn!.step).toBe('buy');
+    expect(P(skip.state, 'p1').cards).toEqual(P(r1.state, 'p1').cards);
+    const r2 = run([{ type: 'bizGive', user: 'p1', seq: r1.state.seq, card: 'wheat' }], r1.state);
+    expect(run([{ type: 'bizSkip', user: 'p1', seq: r1.state.seq }], r2.state).state.turn!.step).toBe('buy');
+  });
+
+  it('自己沒有可以換的建築就直接跳過', () => {
+    expect(biz((s) => (P(s, 'p1').cards = { business: 1 })).state.turn!.step).toBe('buy');
+  });
+
+  it('逾時時不換', () => {
+    const { state } = fire(biz().state);
+    expect(P(state, 'p1').cards).toEqual({ wheat: 1, bakery: 1, business: 1 });
+    expect(state.current).toBe(1);
+  });
+
+  it('同時擲 6 有多張紫色：體育館 → 電視台 → 商業中心', () => {
+    const r1 = roll(setup((s) => Object.assign(P(s, 'p1').cards, { stadium: 1, tv: 1, business: 1 })));
+    expect(r1.state.turn!.step).toBe('tv');
+    expect(r1.state.turn!.log.join()).toContain('體育館');
+    const r2 = run([{ type: 'tv', user: 'p1', seq: r1.state.seq, target: 'p2' }], r1.state);
+    expect(r2.state.turn!.step).toBe('bizGive');
+  });
+});
+
+const results = (events: GameEvent[]) => events.filter((e) => e.type === 'result') as { players: string[]; winners: string[] }[];
+
+describe('machikoro/scoring: 勝負', () => {
+  const FIVE = ['harbor', 'station', 'mall', 'park', 'radio'];
+  // 已經有 5 個地標、30 元；擲完骰子保留（有廣播塔）
+  const almost = (r: () => number) => {
+    const s = setup((s) => {
+      P(s, 'p1').landmarks.push(...FIVE);
+      P(s, 'p1').coins = 30;
+    });
+    return run([{ type: 'roll', user: 'p1', seq: s.seq, n: 2 }, { type: 'keep', user: 'p1', seq: s.seq }], s, r).state;
+  };
+
+  it('蓋好最後一個地標立刻獲勝：公告、result、再來一局', () => {
+    const s = almost(dice(1, 2));
+    const { state, events } = buy(s, 'airport');
+    expect(state).toMatchObject({ phase: 'ended', winners: ['p1'], reason: 'landmarks' });
+    expect(results(events)).toEqual([{ type: 'result', players: ['p1', 'p2', 'p3', 'p4'], winners: ['p1'] }]);
+    const text = announces(events).join('\n');
+    expect(text).toContain('<@p1> 獲勝');
+    expect(text).toContain('蓋好全部 6 個地標');
+    expect(text).toContain('<@p2> 地標 0 個｜3 元｜建築 2 張');
+    expect(prompts(events).some((p) => p.kind === 'rematch')).toBe(true);
+    expect(boards(events)[0].options).toEqual([]);
+  });
+
+  it('擲出相同點數時獲勝不給額外回合', () => {
+    const s = almost(dice(2, 2));
+    const { state, events } = buy(s, 'airport');
+    expect(state.phase).toBe('ended');
+    expect(announces(events).join()).not.toContain('再一回合');
+  });
+
+  const atLimit = (mut: (s: MState) => void) =>
+    skipTurn(
+      setup((s) => {
+        s.round = 30;
+        s.current = 3;
+        mut(s);
+      }),
+    );
+
+  it('第 30 輪結束：公告上限，比地標數', () => {
+    const s = setup((s) => {
+      s.round = 30;
+      s.current = 3;
+      P(s, 'p1').landmarks.push(...FIVE);
+      P(s, 'p2').landmarks.push('harbor', 'station', 'mall', 'park');
+      P(s, 'p2').coins = 50;
+    });
+    const { state, events } = pass(roll(s).state);
+    expect(state).toMatchObject({ phase: 'ended', winners: ['p1'], reason: 'limit' });
+    expect(announces(events).join()).toContain('已達 30 輪上限');
+    expect(results(events)[0].winners).toEqual(['p1']);
+  });
+
+  it('地標一樣多比現金；完全同分並列', () => {
+    const four = ['harbor', 'station', 'mall', 'park'];
+    const byCoins = atLimit((s) => {
+      P(s, 'p1').landmarks.push(...four);
+      P(s, 'p2').landmarks.push(...four);
+      P(s, 'p1').coins = 12;
+      P(s, 'p2').coins = 20;
+    });
+    expect(byCoins.winners).toEqual(['p2']);
+    const tie = atLimit((s) => {
+      P(s, 'p1').landmarks.push(...four);
+      P(s, 'p2').landmarks.push(...four);
+      P(s, 'p1').coins = 20;
+      P(s, 'p2').coins = 20;
+    });
+    expect(tie.winners).toEqual(['p1', 'p2']);
+  });
+
+  it('第 30 輪還沒結束不會提早判定', () => {
+    const s = atLimit((s) => (s.current = 2));
+    expect(s.phase).toBe('play');
+  });
+
+  it('結束後按舊按鈕被忽略；再來一局只有上一局玩家', () => {
+    const s = buy(almost(dice(1, 2)), 'airport').state;
+    const old = run([{ type: 'turnMenu', user: 'p1', seq: s.seq }], s);
+    expect(old.state).toBe(s);
+    expect(old.events).toEqual([]);
+    const outsider = run([{ type: 'rematch', user: 'x', channel: 'C1' }], s);
+    expect(outsider.state).toBe(s);
+    const again = run([{ type: 'rematch', user: 'p2', channel: 'C1' }], s);
+    expect(again.state).toMatchObject({ phase: 'lobby', host: 'p2' });
+  });
+
+  it('房主取消：公告取消，沒有 result、沒有再來一局；非房主被拒', () => {
+    const s = setup();
+    const denied = run([{ type: 'cancel', user: 'p2' }], s);
+    expect(denied.state.phase).toBe('play');
+    expect(ephemeralTo(denied.events, 'p2').join()).toContain('只有房主可以取消遊戲');
+    const { state, events } = run([{ type: 'cancel', user: 'p1' }], s);
+    expect(state.phase).toBe('ended');
+    expect(announces(events).join()).toContain('取消');
+    expect(results(events)).toEqual([]);
+    expect(prompts(events).some((p) => p.kind === 'rematch')).toBe(false);
+    expect(run([{ type: 'rematch', user: 'p1', channel: 'C1' }], state).state).toBe(state);
+  });
+});
