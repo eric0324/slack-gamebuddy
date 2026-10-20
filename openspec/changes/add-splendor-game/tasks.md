@@ -45,10 +45,10 @@
 
 - [x] 7.1 先寫失敗的測試（放在 `test/splendor.test.ts`，直接測 GameDef 的 parse／button）：指令解析（new、start、cancel、addbot、removebot、help、不認識的子指令顯示說明）；按鈕路由（join、leave、start、rematch，以及 design Decision 8 表中的每種 value，含 bot id 有冒號的情況不會被誤拆、格式錯的 value 回 null）
 - [x] 7.2 實作 `src/games/splendor.ts` 匯出 `GameDef`（`kind: 'splendor'`、`emoji: '💍'`、`name: '璀璨寶石'`、`players: '2～4 人'`、`category: 'bluff'`、desc、help、apply、parse、button），讓 7.1 綠燈
-- [ ] 7.3 （主控整合時做）`src/games/index.ts` 的 `GAMES` 加一行
-- [ ] 7.4 （主控整合時做）`test/slack.test.ts`：`KINDS` 加 `splendor`；遊戲清單和大廳 🎲 心理戰分類有 💍 璀璨寶石（`splendor`）2～4 人和開房按鈕；`/game splendor help` 列出指令
-- [ ] 7.5 （主控整合時做）`test/characterization.test.ts` 的 KINDS 加 `'splendor'`，更新 snapshot，確認差異只有多一款遊戲的文字
-- [ ] 7.6 （主控整合時做）README：遊戲列表、wiki 連結、manifest `description`／`usage_hint`
+- [x] 7.3 （主控整合時做）`src/games/index.ts` 的 `GAMES` 加一行
+- [x] 7.4 （主控整合時做）`test/slack.test.ts`：`KINDS` 加 `splendor`；遊戲清單和大廳 🎲 心理戰分類有 💍 璀璨寶石（`splendor`）2～4 人和開房按鈕；`/game splendor help` 列出指令
+- [x] 7.5 （主控整合時做）`test/characterization.test.ts` 的 KINDS 加 `'splendor'`，更新 snapshot，確認差異只有多一款遊戲的文字
+- [x] 7.6 （主控整合時做）README：遊戲列表、wiki 連結、manifest `description`／`usage_hint`
 - [ ] 7.7 （主控整合時做）wiki 草稿「璀璨寶石」「璀璨寶石-遊戲規則」（含自動付款、自動選貴族、逾時跳過、提前計分這些和原版不同的地方）「璀璨寶石-指令」三頁
 
 ## 8. 整合驗證
