@@ -111,6 +111,8 @@ The bot reads what human players type in the game channel (e.g. "I'm the seer, @
 
 Stats are stored in `data/stats.db` (SQLite); set the `STATS_DB` environment variable to change the location. Move it along if you run the bot on another machine.
 
+The language for channels that haven't run `/game lang` is set by `DEFAULT_LANG` in `.env` (`en` or `zh-TW`; defaults to `en`). When the bot first starts with this setting, channels that already have game history (stats, submitted memes or The Crew progress) are kept in Traditional Chinese, so existing channels don't suddenly switch languages.
+
 Finally, invite the bot to the channel you want to play in (`/invite @gamebuddy`) and type `/game` to see the games.
 
 ## Deploy to Google Cloud (free e2-micro)
