@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isBot, type GameEvent } from '../src/engine.js';
+import { machikoro } from '../src/games/machikoro.js';
 import { applyMachikoro, autoMove, botDice, richest, type MAction, type MState } from '../src/machikoro.js';
 import {
   buildDeck,
@@ -1072,5 +1073,62 @@ describe('machikoro/bots: 一個人也能玩完整局', () => {
       expect(results(all)).toHaveLength(1);
       expect(results(all)[0].players).toHaveLength(4);
     }
+  });
+});
+
+describe('machikoro/setup: Slack 設定', () => {
+  it('遊戲資訊：🏘️ 骰子街、2～5 人、心理戰分類', () => {
+    expect(machikoro).toMatchObject({ kind: 'machikoro', emoji: '🏘️', name: '骰子街', players: '2～5 人', category: 'bluff' });
+    expect(machikoro.desc).toBeTruthy();
+    expect(machikoro.apply).toBe(applyMachikoro);
+  });
+
+  it('指令解析：new、start、cancel、addbot、removebot', () => {
+    expect(machikoro.parse('new', 'u', 'C1')).toEqual({ type: 'new', user: 'u', channel: 'C1' });
+    expect(machikoro.parse('start', 'u', 'C1')).toEqual({ type: 'start', user: 'u' });
+    expect(machikoro.parse('cancel', 'u', 'C1')).toEqual({ type: 'cancel', user: 'u' });
+    expect(machikoro.parse('addbot 3', 'u', 'C1')).toEqual({ type: 'addBot', user: 'u', count: 3 });
+    expect(machikoro.parse('removebot', 'u', 'C1')).toEqual({ type: 'removeBot', user: 'u', count: 1 });
+  });
+
+  it('help 和不認識的子指令回傳 null（顯示說明），說明列出所有指令和按鈕', () => {
+    expect(machikoro.parse('help', 'u', 'C1')).toBeNull();
+    expect(machikoro.parse('roll', 'u', 'C1')).toBeNull();
+    for (const cmd of ['new', 'addbot', 'removebot', 'start', 'cancel']) expect(machikoro.help).toContain(`/game machikoro ${cmd}`);
+    expect(machikoro.help).toContain('🏘️ 行動');
+    expect(machikoro.help).toContain('📋 城鎮一覽');
+  });
+
+  it('按鈕路由：房間按鈕和遊戲中的每種按鈕（bot id 含冒號）', () => {
+    const b = (value: string, kind = 'machikoro') => machikoro.button(kind, value, 'u', 'C1');
+    const bot = 'bot:2:Lily';
+    expect(b('join', 'join')).toEqual({ type: 'join', user: 'u' });
+    expect(b('leave', 'leave')).toEqual({ type: 'leave', user: 'u' });
+    expect(b('start', 'start')).toEqual({ type: 'start', user: 'u' });
+    expect(b('rematch', 'rematch')).toEqual({ type: 'rematch', user: 'u', channel: 'C1' });
+    expect(b('town')).toEqual({ type: 'town', user: 'u' });
+    expect(b('turnMenu:7')).toEqual({ type: 'turnMenu', user: 'u', seq: 7 });
+    expect(b('roll:7:1')).toEqual({ type: 'roll', user: 'u', seq: 7, n: 1 });
+    expect(b('roll:7:2')).toEqual({ type: 'roll', user: 'u', seq: 7, n: 2 });
+    expect(b('roll:7:3')).toBeNull();
+    expect(b('keep:7')).toEqual({ type: 'keep', user: 'u', seq: 7 });
+    expect(b('reroll:7:2')).toEqual({ type: 'reroll', user: 'u', seq: 7, n: 2 });
+    expect(b('harbor:7:yes')).toEqual({ type: 'harbor', user: 'u', seq: 7, yes: true });
+    expect(b('harbor:7:no')).toEqual({ type: 'harbor', user: 'u', seq: 7, yes: false });
+    expect(b(`tv:7:${bot}`)).toEqual({ type: 'tv', user: 'u', seq: 7, target: bot });
+    expect(b('bizGive:7:wheat')).toEqual({ type: 'bizGive', user: 'u', seq: 7, card: 'wheat' });
+    expect(b(`bizPlayer:7:wheat:${bot}`)).toEqual({ type: 'bizPlayer', user: 'u', seq: 7, give: 'wheat', target: bot });
+    expect(b(`bizTake:7:wheat:mine:${bot}`)).toEqual({ type: 'bizTake', user: 'u', seq: 7, give: 'wheat', take: 'mine', target: bot });
+    expect(b('bizSkip:7')).toEqual({ type: 'bizSkip', user: 'u', seq: 7 });
+    expect(b('buy:7:cafe')).toEqual({ type: 'buy', user: 'u', seq: 7, code: 'cafe' });
+    expect(b('buy:7:airport')).toEqual({ type: 'buy', user: 'u', seq: 7, code: 'airport' });
+    expect(b('pass:7')).toEqual({ type: 'pass', user: 'u', seq: 7 });
+    expect(b('nope:7')).toBeNull();
+    expect(b('turnMenu:7', 'other')).toBeNull();
+  });
+
+  it('選單上的每顆按鈕都能被路由回同樣的 action', () => {
+    const s = roll(setup((s) => Object.assign(P(s, 'p1').cards, { business: 1 }))).state;
+    for (const o of menuOf(turnMenu(s).events, 'p1')!.options) expect(machikoro.button('machikoro', o.value, 'p1', 'C1')).not.toBeNull();
   });
 });
