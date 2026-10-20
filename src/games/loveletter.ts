@@ -14,6 +14,17 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Love Letter commands*',
+  '• `/game loveletter new`: open a room (anyone)',
+  '• `/game loveletter addbot [count]`: add bots to fill seats (host, before start)',
+  '• `/game loveletter removebot [count]`: remove bots (host, before start)',
+  '• `/game loveletter start`: start the game, needs 2-6 players (host)',
+  '• `/game loveletter cancel`: cancel the game (host)',
+  'On your turn, press "🃏 Play" to choose a card, a target and (for the Guard) a guess; "👀 My hand" and "📜 Discards" work any time (only you see them)',
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 // 情書只有房間指令，出牌都用按鈕
 export function parseLoveLetterCommand(text: string, user: string, channel: string): LLAction | null {
   return parseRoomCommand(text, user, channel) as LLAction | null;
@@ -42,6 +53,9 @@ export const loveLetter = {
   category: 'bluff',
   desc: '每人一張手牌，抽一張出一張，推理別人的牌、送出情書',
   help: HELP,
+  locales: {
+    en: { name: 'Love Letter', players: '2-6 players', desc: 'Hold one card, draw one and play one. Deduce the others\' cards and deliver your letter', help: HELP_EN },
+  },
   apply: applyLoveLetter,
   parse: parseLoveLetterCommand,
   button: loveLetterButton,
