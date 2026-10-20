@@ -794,6 +794,23 @@ exports[`重構安全網 > 大廳四個分類 1`] = `
       "type": "section",
     },
     {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:33",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|machikoro",
+      },
+      "text": {
+        "text": "🏘️ *骰子街* （ \`machikoro\` ）2～5 人
+輪流擲骰，大家的建築依點數收錢，再買建築擴張城鎮，先蓋好 6 個地標的人贏",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
       "elements": [
         {
           "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
@@ -983,6 +1000,15 @@ exports[`重構安全網 > 每款遊戲的指令說明 1`] = `
 • \`/game loveletter cancel\` ：取消遊戲（房主）
 輪到你時按「🃏 出牌」選牌、目標和（衛兵）猜的角色；「👀 我的手牌」「📜 棄牌紀錄」隨時可以按（只有你看得到）
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "machikoro": "*骰子街指令*
+• \`/game machikoro new\` ：開房（任何人）
+• \`/game machikoro addbot [數量]\` ：加入 bot 補人數（房主，開始前）
+• \`/game machikoro removebot [數量]\` ：移除 bot（房主，開始前）
+• \`/game machikoro start\` ：開始遊戲，需要 2～5 人（房主）
+• \`/game machikoro cancel\` ：取消遊戲（房主）
+• 「🏘️ 行動」：輪到你時按，擲骰、重擲、港口 +2、電視台、商業中心、買建築都在這裡（每回合 60 秒，逾時由系統代為完成、不買建築）
+• 「📋 城鎮一覽」：隨時私下看每個人的現金、建築和地標
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
   "meme": "*梗圖大亂鬥指令*
 • \`/game meme new\` ：開房（任何人）
 • \`/game meme addbot [數量]\` ：加入 bot 補人數（房主，開始前）
@@ -1126,6 +1152,7 @@ exports[`重構安全網 > 遊戲清單文字和預設大廳 1`] = `
 • 🚀 *星際探險隊* （ \`crew\` ）：3～5 人（不支援 bot），開房 \`/game crew new\`
 • ⛏️ *矮人礦坑* （ \`saboteur\` ）：3～10 人，開房 \`/game saboteur new\`
 • 🏠 *地產大亨* （ \`forsale\` ）：3～6 人，開房 \`/game forsale new\`
+• 🏘️ *骰子街* （ \`machikoro\` ）：2～5 人，開房 \`/game machikoro new\`
 各遊戲的指令： \`/game <遊戲代號> help\` ，例如 \`/game liarsdice help\`
 📊 戰績： \`/game stats [@某人]\` ；排行榜： \`/game rank [遊戲代號]\`
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>"

@@ -39,9 +39,9 @@
 
 - [x] 6.1 先寫失敗的測試（放在 `test/machikoro.test.ts`，直接測 GameDef 的 parse／button）：指令解析（new、start、cancel、addbot、removebot、help、不認識的子指令顯示說明）；按鈕路由（join、leave、start、rematch，以及 design Decision 7 表中的每種 value，含 bot id 有冒號的 target）
 - [x] 6.2 實作 `src/games/machikoro.ts` 匯出 `GameDef`（`kind: 'machikoro'`、`emoji: '🏘️'`、`name: '骰子街'`、`players: '2～5 人'`、`category: 'bluff'`、desc、help、apply、parse、button），讓 6.1 綠燈
-- [ ] 6.3 （主控整合時做）`src/games/index.ts` 的 `GAMES` 加一行
-- [ ] 6.4 （主控整合時做）`test/slack.test.ts`：`KINDS` 加 `machikoro`；遊戲清單和大廳 🎲 心理戰分類有 🏘️ 骰子街（`machikoro`）2～5 人和開房按鈕；`/game machikoro help` 列出指令
-- [ ] 6.5 （主控整合時做）`test/characterization.test.ts` 的 KINDS 加 `'machikoro'`，更新 snapshot，確認差異只有多一款遊戲的文字
+- [x] 6.3 （主控整合時做）`src/games/index.ts` 的 `GAMES` 加一行
+- [x] 6.4 （主控整合時做）`test/slack.test.ts`：`KINDS` 加 `machikoro`；遊戲清單和大廳 🎲 心理戰分類有 🏘️ 骰子街（`machikoro`）2～5 人和開房按鈕；`/game machikoro help` 列出指令
+- [x] 6.5 （主控整合時做）`test/characterization.test.ts` 的 KINDS 加 `'machikoro'`，更新 snapshot，確認差異只有多一款遊戲的文字
 - [ ] 6.6 （主控整合時做）README：遊戲列表、wiki 連結、manifest `description`／`usage_hint`；wiki 草稿「骰子街」「骰子街-遊戲規則」（含 10 種市場、紫色張數＝人數、30 輪上限的說明）「骰子街-指令」三頁
 
 ## 7. 整合驗證
