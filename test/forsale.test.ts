@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isBot, type GameEvent } from '../src/engine.js';
-import { applyForSale, CHECKS, money, PROPERTIES, type FAction, type FState } from '../src/forsale.js';
+import { applyForSale, botBid, botSell, CHECKS, money, PROPERTIES, type FAction, type FState } from '../src/forsale.js';
 
 const rng = () => 0.99999; // 洗牌不動：房產 1～30、支票由小到大；移除的是最前面幾張；起始玩家是最後一位
 
@@ -499,5 +499,83 @@ describe('forsale/selling: 計分、勝負與結束', () => {
     const notHost = run([{ type: 'cancel', user: 'p2' }], s);
     expect(notHost.state).toBe(s);
     expect(ephemeralTo(notHost.events, 'p2')?.text).toContain('只有房主可以取消遊戲');
+  });
+});
+
+const BOT = 'bot:1:阿明';
+
+describe('forsale/bots: bot 的喊價策略', () => {
+  const at = (table: number[], high: number, coins: number) => {
+    const s = bidRound(table);
+    s.high = high;
+    s.players[1] = { ...s.players[1], id: BOT, money: coins };
+    return botBid(s, s.players[1]);
+  };
+
+  it('上限 = (桌上最大 − 最小) ÷ 5 無條件捨去，和剩下金幣取小；上限內出目前最高 + 1，超過就放棄', () => {
+    expect(at([4, 12, 21, 30], 3, 18)).toBe(4);
+    expect(at([4, 12, 21, 30], 4, 18)).toBe(5);
+    expect(at([4, 12, 21, 30], 5, 18)).toBe('pass');
+    expect(at([1, 30], 1, 1)).toBe('pass');
+    expect(at([1, 30], 0, 1)).toBe(1);
+  });
+
+  it('輪到 bot 就立刻行動：出價或放棄拿最小的', () => {
+    const s = bidRound();
+    s.players[1].id = BOT;
+    const raised = play(s, [['p1', 3]]);
+    expect(raised.state.players[1].bid).toBe(4);
+    expect(raised.state.turn).toBe(2);
+    const passed = play(s, [['p1', 5]]);
+    expect(passed.state.players[1]).toMatchObject({ passed: true, props: [4] });
+    expect(lastBoard(passed.seen).text).toContain('🤖阿明 放棄，拿走 🏠 4');
+  });
+});
+
+describe('forsale/bots: bot 的賣房產策略', () => {
+  it('最大支票 ≥ $12,000 出最大的房產，否則出最小的', () => {
+    const s = structuredClone(started(4).state);
+    const me = { ...s.players[0], id: BOT, props: [5, 19, 27] };
+    expect(botSell({ ...s, checks: [15, 9, 4, 0] }, me)).toBe(27);
+    expect(botSell({ ...s, checks: [12, 9, 4, 0] }, me)).toBe(27);
+    expect(botSell({ ...s, checks: [10, 7, 2, 0] }, me)).toBe(5);
+  });
+
+  it('開輪就選好，算在已選裡，揭曉前不公開', () => {
+    // p4 是 bot：手上 2、6、30，支票最大 $15,000 → 出 🏠 30
+    const { state, seen } = toSell(CHECKS3, undefined, 4, (s) => (s.players[3].id = BOT));
+    expect(state.players[3].choice).toBe(30);
+    const b = lastBoard(seen);
+    expect(b.text).toContain('已選 1/4');
+    expect(b.text).toContain('還沒選：<@p1> <@p2> <@p3>');
+    expect(b.text).not.toContain('🏠 30');
+  });
+});
+
+describe('forsale/bots: 一個人也能玩完整局', () => {
+  it('1 位真人 + 2 個 bot，真人不操作、每次都逾時，兩個階段跑完並送出 result；bot 不會收到私下訊息', () => {
+    for (const seed of [1, 2, 3, 42, 2026]) {
+      const r = seeded(seed);
+      let { state, events } = run([{ type: 'addBot', user: 'p1', count: 2 }, { type: 'start', user: 'p1' }], lobbyWith(1).state, r);
+      const seen: GameEvent[] = [...events];
+      for (let i = 0; i < 100 && state.phase !== 'ended'; i++) {
+        ({ state, events } = run([{ type: 'timeout', id: state.timers.phase! }], state, r));
+        seen.push(...events);
+      }
+      expect(state.phase).toBe('ended');
+      expect(state.players.every((p) => p.props.length === 0)).toBe(true);
+      expect(resultOf(seen)).toMatchObject({ players: state.players.map((p) => p.id) });
+      expect(seen.filter((e) => e.type === 'ephemeral' && isBot(e.to))).toEqual([]);
+      expect(boards(seen).some((b) => b.text.includes('<@p1> 放棄') && b.text.includes('逾時，自動放棄'))).toBe(true);
+      expect(boards(seen).some((b) => b.text.includes('逾時，自動出最小'))).toBe(true);
+    }
+  });
+
+  it('3 個 bot 輪流時，真人放棄後喊價會自己推進到下一輪', () => {
+    const { state } = run([{ type: 'addBot', user: 'p1', count: 3 }, { type: 'start', user: 'p1' }], lobbyWith(1).state);
+    // 起始玩家是最後一位 bot；桌上 3、4、5、6 落差小，bot 直接放棄，輪到真人
+    expect(state).toMatchObject({ phase: 'bid', round: 1, turn: 0 });
+    const after = run([pass(state, 'p1')], state).state;
+    expect(after).toMatchObject({ phase: 'bid', round: 2, turn: 0 });
   });
 });

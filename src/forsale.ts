@@ -254,6 +254,7 @@ function startSellRound(c: Ctx) {
   s.seq++;
   s.checks = s.checkDeck.splice(0, s.players.length).sort((a, b) => b - a);
   for (const p of s.players) Object.assign(p, { choice: undefined, auto: false });
+  for (const p of s.players) if (isBot(p.id)) p.choice = botSell(s, p);
   // 最後一輪每人只剩一間：不用選，直接揭曉
   if (s.players.every((p) => p.props.length === 1)) {
     for (const p of s.players) p.choice = p.props[0];
@@ -308,6 +309,26 @@ function reveal(c: Ctx) {
   });
   if (s.checkDeck.length) startSellRound(c);
   else endGame(c);
+}
+
+// bot 喊價：上限 = (桌上最大 − 最小) ÷ 5，再和剩下金幣取小；目前最高 + 1 在上限內就出，否則放棄
+export function botBid(s: FState, me: FPlayer): number | 'pass' {
+  const cap = Math.min(me.money, Math.floor((s.table[s.table.length - 1] - s.table[0]) / 5));
+  return s.high + 1 <= cap ? s.high + 1 : 'pass';
+}
+
+// bot 賣房產：這輪最大的支票 ≥ $12,000 出最大的房產，否則出最小的
+export const botSell = (s: FState, me: FPlayer) => (s.checks[0] >= 12 ? Math.max(...me.props) : Math.min(...me.props));
+
+// 輪到 bot 喊價就立刻行動（第二階段 bot 在開輪時就選好了）
+function botsAct(c: Ctx) {
+  for (let guard = 0; guard < 1000; guard++) {
+    const s = c.s;
+    if (s.phase !== 'bid' || !isBot(current(s).id)) return;
+    const move = botBid(s, current(s));
+    if (move === 'pass') doPass(c, false);
+    else bid(c, current(s).id, s.seq, move);
+  }
 }
 
 const totalOf = (p: FPlayer) => sum(p.checks) + p.money;
@@ -427,6 +448,7 @@ export function applyForSale(state: FState | undefined, action: FAction, rng: Rn
     isPlayer: (s, user) => s.players.some((p) => p.id === user),
     createLobby,
     handle,
+    afterChange: botsAct,
   });
 }
 
