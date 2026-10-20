@@ -43,8 +43,8 @@
 
 ## 7. Slack 設定（src/games/splendor.ts）
 
-- [ ] 7.1 先寫失敗的測試（放在 `test/splendor.test.ts`，直接測 GameDef 的 parse／button）：指令解析（new、start、cancel、addbot、removebot、help、不認識的子指令顯示說明）；按鈕路由（join、leave、start、rematch，以及 design Decision 8 表中的每種 value，含 bot id 有冒號的情況不會被誤拆、格式錯的 value 回 null）
-- [ ] 7.2 實作 `src/games/splendor.ts` 匯出 `GameDef`（`kind: 'splendor'`、`emoji: '💍'`、`name: '璀璨寶石'`、`players: '2～4 人'`、`category: 'bluff'`、desc、help、apply、parse、button），讓 7.1 綠燈
+- [x] 7.1 先寫失敗的測試（放在 `test/splendor.test.ts`，直接測 GameDef 的 parse／button）：指令解析（new、start、cancel、addbot、removebot、help、不認識的子指令顯示說明）；按鈕路由（join、leave、start、rematch，以及 design Decision 8 表中的每種 value，含 bot id 有冒號的情況不會被誤拆、格式錯的 value 回 null）
+- [x] 7.2 實作 `src/games/splendor.ts` 匯出 `GameDef`（`kind: 'splendor'`、`emoji: '💍'`、`name: '璀璨寶石'`、`players: '2～4 人'`、`category: 'bluff'`、desc、help、apply、parse、button），讓 7.1 綠燈
 - [ ] 7.3 （主控整合時做）`src/games/index.ts` 的 `GAMES` 加一行
 - [ ] 7.4 （主控整合時做）`test/slack.test.ts`：`KINDS` 加 `splendor`；遊戲清單和大廳 🎲 心理戰分類有 💍 璀璨寶石（`splendor`）2～4 人和開房按鈕；`/game splendor help` 列出指令
 - [ ] 7.5 （主控整合時做）`test/characterization.test.ts` 的 KINDS 加 `'splendor'`，更新 snapshot，確認差異只有多一款遊戲的文字
@@ -53,5 +53,5 @@
 
 ## 8. 整合驗證
 
-- [ ] 8.1 跑 `npm test` 和 `npm run typecheck`，確認全部綠燈
+- [x] 8.1 跑 `npm test` 和 `npm run typecheck`，確認全部綠燈
 - [ ] 8.2 用測試印出一則 4 人局回合面板範例貼到 PR 說明，請使用者在真的 Slack 確認排版和按鈕（不用真 token 啟動 bot）

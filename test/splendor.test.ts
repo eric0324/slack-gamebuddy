@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isBot, type GameEvent } from '../src/engine.js';
+import { splendor } from '../src/games/splendor.js';
 import { applySplendor, botMove, botReturn, scoreOf, targetOf, type SAction, type SState } from '../src/splendor.js';
 import { cardOf, CARDS, cardText, COLORS, gemsText, need, NOBLES, nobleText, payment, shortfall, total, type Color, type Gems } from '../src/splendorCards.js';
 
@@ -903,5 +904,58 @@ describe('splendor/bots: 一個人也能玩完整局', () => {
     expect(end.phase).toBe('ended');
     expect(announces(events).join()).toContain('一整輪沒有人能行動');
     expect(events).toContainEqual({ type: 'result', players: ['p1', 'p2'], winners: ['p1', 'p2'] });
+  });
+});
+
+describe('splendor/setup: 指令解析與按鈕（GameDef）', () => {
+  it('大廳資訊：💍 璀璨寶石、2～4 人、心理戰', () => {
+    expect(splendor).toMatchObject({ kind: 'splendor', emoji: '💍', name: '璀璨寶石', players: '2～4 人', category: 'bluff' });
+    expect(splendor.apply).toBe(applySplendor);
+  });
+
+  it('指令解析：new、start、cancel、addbot、removebot', () => {
+    expect(splendor.parse('new', 'u', 'C1')).toEqual({ type: 'new', user: 'u', channel: 'C1' });
+    expect(splendor.parse('start', 'u', 'C1')).toEqual({ type: 'start', user: 'u' });
+    expect(splendor.parse('cancel', 'u', 'C1')).toEqual({ type: 'cancel', user: 'u' });
+    expect(splendor.parse('addbot 3', 'u', 'C1')).toEqual({ type: 'addBot', user: 'u', count: 3 });
+    expect(splendor.parse('removebot', 'u', 'C1')).toEqual({ type: 'removeBot', user: 'u', count: 1 });
+  });
+
+  it('help 和不認識的子指令回傳 null（顯示說明），說明列出所有指令和按鈕', () => {
+    expect(splendor.parse('help', 'u', 'C1')).toBeNull();
+    expect(splendor.parse('buy', 'u', 'C1')).toBeNull();
+    for (const cmd of ['new', 'addbot', 'removebot', 'start', 'cancel']) expect(splendor.help).toContain(`/game splendor ${cmd}`);
+    expect(splendor.help).toContain('💍 行動');
+    expect(splendor.help).toContain('📜 我的狀態');
+  });
+
+  it('按鈕路由：房間按鈕和遊戲中的每種按鈕', () => {
+    const b = (value: string, kind = 'splendor', user = 'u') => splendor.button(kind, value, user, 'C1');
+    expect(b('join', 'join')).toEqual({ type: 'join', user: 'u' });
+    expect(b('leave', 'leave')).toEqual({ type: 'leave', user: 'u' });
+    expect(b('start', 'start')).toEqual({ type: 'start', user: 'u' });
+    expect(b('rematch', 'rematch')).toEqual({ type: 'rematch', user: 'u', channel: 'C1' });
+    expect(b('status')).toEqual({ type: 'status', user: 'u' });
+    expect(b('turnMenu:7')).toEqual({ type: 'turnMenu', user: 'u', seq: 7 });
+    expect(b('turnMenu:7:reserve')).toEqual({ type: 'turnMenu', user: 'u', seq: 7, sub: 'reserve' });
+    expect(b('pick3:7:')).toEqual({ type: 'pick3', user: 'u', seq: 7, colors: [] });
+    expect(b('pick3:7:wb')).toEqual({ type: 'pick3', user: 'u', seq: 7, colors: ['w', 'b'] });
+    expect(b('take3:7:wbg')).toEqual({ type: 'take3', user: 'u', seq: 7, colors: ['w', 'b', 'g'] });
+    expect(b('take2:7:r')).toEqual({ type: 'take2', user: 'u', seq: 7, color: 'r' });
+    expect(b('reserve:7:2-3')).toEqual({ type: 'reserve', user: 'u', seq: 7, slot: '2-3' });
+    expect(b('reserve:7:deck1')).toEqual({ type: 'reserve', user: 'u', seq: 7, slot: 'deck1' });
+    expect(b('buy:7:1-2')).toEqual({ type: 'buy', user: 'u', seq: 7, slot: '1-2' });
+    expect(b('buy:7:r3')).toEqual({ type: 'buy', user: 'u', seq: 7, slot: 'r3' });
+    expect(b('retPick:7:200001')).toEqual({ type: 'retPick', user: 'u', seq: 7, counts: [2, 0, 0, 0, 0, 1] });
+    expect(b('return:7:000110')).toEqual({ type: 'return', user: 'u', seq: 7, counts: [0, 0, 0, 1, 1, 0] });
+    expect(b('take2:7:r', 'splendor', 'bot:1:阿土')).toEqual({ type: 'take2', user: 'bot:1:阿土', seq: 7, color: 'r' });
+  });
+
+  it('格式錯的 value 回 null', () => {
+    const b = (value: string) => splendor.button('splendor', value, 'u', 'C1');
+    for (const v of ['turnMenu:7:bad', 'turnMenu:x', 'pick3:7:wx', 'pick3:7:ww', 'take3:7:wbgrk', 'take2:7:o', 'reserve:7:r1', 'reserve:7:4-1', 'buy:7:deck1', 'buy:7:1-5', 'retPick:7:12', 'return:7:abcdef', 'dig:7']) {
+      expect(b(v)).toBeNull();
+    }
+    expect(splendor.button('other', 'status', 'u', 'C1')).toBeNull();
   });
 });
