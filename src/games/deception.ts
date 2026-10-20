@@ -16,6 +16,19 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Deception commands*',
+  '• `/game deception new`: open a room (anyone)',
+  '• `/game deception start`: start the game, needs 4-12 human players (host)',
+  '• `/game deception cancel`: cancel the game (host)',
+  '• "🧪 Place bullet": the Forensic Scientist presses it on the round panel to pick a tile and an option for a bullet (in rounds 2 and 3 it replaces a scene tile)',
+  '• "✅ Done": press it when you finish speaking on your turn (90 seconds)',
+  '• "🔍 Solve": everyone except the Forensic Scientist gets one per game; pick a suspect, a Means and a Clue',
+  '• "🗂️ My role": privately check your role and what you know anytime',
+  "Discuss by typing in the channel; if nobody solves the case in 3 rounds, the Murderer's team wins",
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 // 詭影神探只有房間指令，遊戲中都用按鈕
 export function parseDeceptionCommand(text: string, user: string, channel: string): DAction | null {
   return parseRoomCommand(text, user, channel) as DAction | null;
@@ -73,6 +86,14 @@ export const deception = {
   desc: '鑑識官知道答案卻只能用子彈給暗示，大家從每人面前的手段和線索找出兇手用了哪一組，兇手和共犯混在裡面誤導',
   noBots: true,
   help: HELP,
+  locales: {
+    en: {
+      name: 'Deception',
+      players: '4-12 players',
+      desc: 'The Forensic Scientist knows the answer but can only hint with bullets; find which Means and Clue the Murderer used while the Murderer and Accomplice mislead you',
+      help: HELP_EN,
+    },
+  },
   apply: applyDeception,
   parse: parseDeceptionCommand,
   button: deceptionButton,

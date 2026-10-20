@@ -1,4 +1,5 @@
 // 詭影神探的卡表：手段詞庫、線索詞庫和鑑識官的提示板 (死因、地點、場景)，純資料。文字都是自己寫的，沒有照抄原版牌表。
+import type { Lang } from './i18n/index.js';
 
 export interface Board {
   title: string;
@@ -70,3 +71,81 @@ export const SCENE_BOARDS: Board[] = [
   { title: '證物使用場合', options: ['廚房', '辦公', '運動', '醫療', '娛樂', '工程'] },
   { title: '證物狀態', options: ['完好', '破損', '沾污', '潮濕', '燒焦', '被藏起來'] },
 ];
+
+// ---------- 英文版：一對一翻譯中文詞庫 (順序和數量相同)，翻不通的換成意思接近的英文常用詞 ----------
+
+const MEANS_EN: string[] = [
+  'Kitchen Knife', 'Paring Knife', 'Scissors', 'Box Cutter', 'Dagger', 'Katana', 'Scalpel', 'Axe', 'Saw', 'Chainsaw', 'Screwdriver', 'Hammer',
+  'Wrench', 'Crowbar', 'Baseball Bat', 'Golf Club', 'Hockey Stick', 'Cane', 'Umbrella', 'Rolling Pin', 'Frying Pan', 'Wok', 'Brick', 'Rock',
+  'Vase', 'Ashtray', 'Wine Bottle', 'Desk Lamp', 'Trophy', 'Dumbbell', 'Bowling Ball', 'Chain', 'Rope', 'Necktie', 'Silk Scarf', 'Electric Cord',
+  'Plastic Bag', 'Pillow', 'Towel', 'Duct Tape', 'Belt', 'Poison', 'Sleeping Pills', 'Pesticide', 'Toxic Mushroom', 'Pufferfish', 'Rat Poison', 'Caffeine Overdose',
+  'Hard Liquor', 'Syringe', 'Venomous Snake', 'Venomous Spider', 'Hornet', 'Vicious Dog', 'Crocodile', 'Bow and Arrow', 'Crossbow', 'Pistol', 'Shotgun', 'Dart',
+  'Slingshot', 'Harpoon', 'Ice Pick', 'Ice Block', 'Iron', 'Hair Dryer', 'Power Drill', 'Lawn Mower', 'Pushed Down Stairs', 'Pushed Off a Cliff', 'Pushed onto Tracks', 'Hit by a Car',
+  'Hit by a Scooter', 'Drowning', 'Bathtub', 'Swimming Pool', 'Freezer', 'Gas Leak', 'Carbon Monoxide', 'Arson', 'Bomb', 'Firecrackers', 'Electric Shock', 'High Voltage',
+  'Falling Flowerpot', 'Falling Chandelier', 'Toppled Bookcase', 'Bear Trap', 'Oven', 'Scalding Water', 'Acid', 'Bleach', 'Insecticide', 'Sewing Needle', 'Pencil', 'Chopsticks',
+  'Fork', 'Fists', 'Strangling', 'Smothering', 'Starvation', 'Fright', 'Wire', 'Nail Gun', 'Shovel', 'Hoe', 'Sickle', 'Fishing Line',
+  'Steel Pipe', 'Wooden Stick', 'Fire Extinguisher', 'Thermos', 'Suitcase Blow', 'Elevator Failure', 'Allergen', 'Pool Cue', 'Chemicals', 'Acupuncture Needle', 'Jump Rope', 'Steel Plate',
+];
+
+const CLUES_EN: string[] = [
+  'Key', 'Phone', 'Wallet', 'ID Card', 'Business Card', 'Photo', 'Diary', 'Letter', 'Love Letter', 'Receipt', 'Invoice', 'Train Ticket',
+  'Movie Ticket', 'Plane Ticket', 'Passport', 'Map', 'Notebook', 'Sticky Note', 'Newspaper', 'Magazine', 'Dictionary', 'Planner', 'Photo Album', 'Postcard',
+  'Watch', 'Ring', 'Necklace', 'Earrings', 'Bracelet', 'Glasses', 'Sunglasses', 'Hat', 'Gloves', 'Scarf', 'Jacket', 'Shirt',
+  'Bow Tie', 'Shoes', 'High Heels', 'Slippers', 'Socks', 'Face Mask', 'Raincoat', 'Backpack', 'Briefcase', 'Shopping Bag', 'Cardboard Box', 'Button',
+  'Hairpin', 'Comb', 'Lipstick', 'Perfume', 'Compact', 'Toothbrush', 'Tissues', 'Band-Aid', 'Pill Box', 'Thermometer', 'Mug', 'Tea Bag',
+  'Lunch Box', 'Bubble Tea', 'Cake', 'Chocolate', 'Candy', 'Chewing Gum', 'Banana Peel', 'Apple Core', 'Breadcrumbs', 'Instant Noodles', 'Beer Can', 'Wine Glass',
+  'Lighter', 'Matches', 'Candle', 'Cigarette Butt', 'Stuffed Toy', 'Building Blocks', 'Game Console', 'Playing Cards', 'Dice', 'Coin', 'Banknote', 'Bankbook',
+  'Credit Card', 'Transit Card', 'Key Card', 'USB Drive', 'Laptop', 'Headphones', 'Charging Cable', 'Remote Control', 'Calculator', 'Camera', 'Voice Recorder', 'Alarm Clock',
+  'Calendar', 'Potted Plant', 'Rose', 'Feather', 'Hair', 'Fingernail', 'Bloodstain', 'Mud', 'Sand', 'Leaf', 'Broken Glass', 'Paint',
+  'Ink', 'Chalk', 'Glue', 'Paper Plane', 'Balloon', 'Ribbon', 'Cat Hair', 'Dog Leash', 'Birdcage', 'Fish Tank', 'Certificate', 'Will',
+  'Insurance Policy', 'Contract', 'Check', 'Lottery Ticket', 'Radio', 'Vinyl Record', 'Guitar', 'Paintbrush', 'Crayon', 'Eraser', 'Ruler', 'Stapler',
+  'Paper Clip', 'Envelope', 'Stamp', 'Package', 'Fingerprint', 'Footprint', 'Lipstick Mark', 'Coffee Stain', 'Pill', 'Wig', 'Mask', 'Rain Boots',
+];
+
+const CAUSE_BOARD_EN: Board = { title: 'Cause of Death', options: ['Suffocation', 'Blunt Force', 'Blood Loss', 'Poisoning', 'Sudden Illness', 'Accident'] };
+
+const LOCATION_BOARDS_EN: Board[] = [
+  { title: 'Home', options: ['Living Room', 'Bedroom', 'Kitchen', 'Bathroom', 'Study', 'Balcony'] },
+  { title: 'Public Place', options: ['Restaurant', 'Mall', 'Movie Theater', 'Hospital', 'School', 'Library'] },
+  { title: 'Outdoors', options: ['Park', 'Beach', 'Mountain', 'Parking Lot', 'Alley', 'Riverbank'] },
+  { title: 'Work & Transit', options: ['Office', 'Factory', 'Construction Site', 'Subway Station', 'Taxi', 'Warehouse'] },
+];
+
+const SCENE_BOARDS_EN: Board[] = [
+  { title: 'Time of Crime', options: ['Dawn', 'Morning', 'Noon', 'Afternoon', 'Evening', 'Late Night'] },
+  { title: 'Weather', options: ['Sunny', 'Rainy', 'Typhoon', 'Cold Snap', 'Muggy', 'Foggy'] },
+  { title: "Murderer's Build", options: ['Tall', 'Small', 'Muscular', 'Average', 'Stocky', 'Slender'] },
+  { title: "Murderer's Personality", options: ['Calm', 'Impulsive', 'Cunning', 'Timid', 'Arrogant', 'Meticulous'] },
+  { title: 'Motive', options: ['Money', 'Love', 'Hatred', 'Jealousy', 'Silencing', 'Accident'] },
+  { title: "Victim's Identity", options: ['Elderly', 'Child', 'Office Worker', 'Student', 'Celebrity', 'Stranger'] },
+  { title: 'Relationship', options: ['Family', 'Friend', 'Coworker', 'Lover', 'Neighbor', 'Strangers'] },
+  { title: 'Duration of Crime', options: ['Instant', 'Minutes', 'Half an Hour', 'Hours', 'All Day', 'Several Days'] },
+  { title: 'Warning Signs', options: ['Argument', 'Threat Letter', 'Stalking', 'Borrowed Money', 'Insomnia', 'No Warning'] },
+  { title: 'Surroundings', options: ['Quiet', 'Noisy', 'Dark', 'Bright', 'Crowded', 'Remote'] },
+  { title: 'State of the Scene', options: ['Messy', 'Tidy', 'Ransacked', 'Locked Up', 'Signs of Struggle', 'Cleaned Up'] },
+  { title: 'Sounds at the Scene', options: ['Scream', 'Shattering Glass', 'Thud', 'Music', 'Barking', 'Silence'] },
+  { title: 'Smell at the Scene', options: ['Perfume', 'Smoke', 'Burning', 'Disinfectant', 'Mildew', 'No Smell'] },
+  { title: "Victim's Expression", options: ['Terrified', 'Calm', 'Pained', 'Angry', 'Confused', 'Smiling'] },
+  { title: "Victim's Position", options: ['Lying Face Up', 'Face Down', 'Sitting', 'Kneeling', 'Curled Up', 'Against a Wall'] },
+  { title: 'How It Was Found', options: ['Passerby Report', 'Family Member', 'Coworker', 'Security Camera', 'Anonymous Call', 'Cleaning Staff'] },
+  { title: 'Evidence Material', options: ['Metal', 'Wood', 'Plastic', 'Glass', 'Fabric', 'Paper'] },
+  { title: 'Evidence Size', options: ['Tiny', 'Palm-Sized', 'Book-Sized', 'Bag-Sized', 'Suitcase-Sized', 'Bigger Than a Person'] },
+  { title: 'Evidence Color', options: ['Red', 'Yellow', 'Green', 'Blue', 'Black', 'White'] },
+  { title: 'Evidence Impression', options: ['Dangerous', 'Everyday', 'Expensive', 'Cheap', 'Old', 'Trendy'] },
+  { title: 'Evidence Usage', options: ['Kitchen', 'Office', 'Sports', 'Medical', 'Entertainment', 'Engineering'] },
+  { title: 'Evidence Condition', options: ['Intact', 'Broken', 'Stained', 'Wet', 'Burnt', 'Hidden'] },
+];
+
+export interface Deck {
+  means: string[];
+  clues: string[];
+  cause: Board;
+  locations: Board[];
+  scenes: Board[];
+}
+
+// 依語系的詞庫和提示板：開局時依這局的語系取
+export const DECKS: Record<Lang, Deck> = {
+  'zh-TW': { means: MEANS, clues: CLUES, cause: CAUSE_BOARD, locations: LOCATION_BOARDS, scenes: SCENE_BOARDS },
+  en: { means: MEANS_EN, clues: CLUES_EN, cause: CAUSE_BOARD_EN, locations: LOCATION_BOARDS_EN, scenes: SCENE_BOARDS_EN },
+};
