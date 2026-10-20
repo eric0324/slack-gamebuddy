@@ -236,6 +236,8 @@ const ephemeralTo = (events: GameEvent[], user: string) =>
 const announces = (events: GameEvent[]) => events.filter((e) => e.type === 'announce').map((e) => (e as { text: string }).text);
 const prompts = (events: GameEvent[]) => events.filter((e) => e.type === 'prompt') as Extract<GameEvent, { type: 'prompt' }>[];
 const boards = (events: GameEvent[]) => prompts(events).filter((p) => p.kind === 'saboteur' && p.audience === 'channel');
+const dmTo = (events: GameEvent[], user: string) =>
+  events.filter((e) => e.type === 'dm' && e.to === user).map((e) => (e as { text: string }).text);
 const menuOf = (events: GameEvent[], user: string) => prompts(events).find((p) => p.audience === 'ephemeral' && p.user === user);
 
 describe('saboteur/setup: 矮人礦坑的房間', () => {
@@ -294,11 +296,13 @@ describe('saboteur/setup: 身分分配', () => {
     ]);
   });
 
-  it('每人一張身分、多一張不用；真人私下收到，頻道不公開', () => {
+  it('每人一張身分、多一張不用；真人在 DM 收到，頻道不公開', () => {
     const { state, events } = started(4);
     expect(state.players.map((p) => p.role)).toEqual(['saboteur', 'digger', 'digger', 'digger']);
-    expect(ephemeralTo(events, 'p1').join()).toContain('💣 破壞者');
-    expect(ephemeralTo(events, 'p2').join()).toContain('⛏️ 金礦工');
+    expect(dmTo(events, 'p1')).toEqual(['⛏️ 矮人礦坑第 1/3 回合：你是 💣 破壞者']);
+    expect(dmTo(events, 'p2')).toEqual(['⛏️ 矮人礦坑第 1/3 回合：你是 ⛏️ 金礦工']);
+    expect(ephemeralTo(events, 'p1').join()).not.toContain('破壞者');
+    expect(announces(events).join('\n')).toContain('身分已私訊給每個人');
     const pub = [...announces(events), ...boards(events).map((b) => b.text)].join('\n');
     expect(pub).not.toContain('破壞者是');
     expect(pub).not.toMatch(/p1.{0,5}破壞者/);
@@ -755,7 +759,9 @@ describe('saboteur/scoring: 三個回合', () => {
     expect(state.turn).toBe(1);
     expect(state.players.every((p) => p.hand.length === 6 && p.broken.length === 0 && p.role)).toBe(true);
     expect(state.grid.flat().filter(Boolean)).toHaveLength(4);
-    expect(ephemeralTo(events, 'p2').join()).toContain('你這回合是');
+    expect(dmTo(events, 'p2')).toEqual(['⛏️ 矮人礦坑第 2/3 回合：你是 ⛏️ 金礦工']);
+    expect(ephemeralTo(events, 'p2').join()).not.toContain('金礦工');
+    expect(announces(events).join('\n')).toContain('⛏️ 第 2/3 回合開始！每人 6 張手牌，身分已私訊給每個人。');
   });
 });
 
