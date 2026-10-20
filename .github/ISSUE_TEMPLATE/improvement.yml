@@ -1,0 +1,63 @@
+name: ✨ 改進建議
+description: 現有遊戲或大廳哪裡可以更好用
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: 想許願新遊戲的話，請到 [Discussions 的許願池](https://github.com/eric0324/slack-gamebuddy/discussions)，讓大家一起投票。
+  - type: dropdown
+    id: game
+    attributes:
+      label: 哪款遊戲？
+      options:
+        - 大廳／其他
+        - 狼人殺
+        - 誰是臥底
+        - 間諜危機
+        - 阿瓦隆
+        - 機密代號
+        - 吹牛骰
+        - 一字千金
+        - 政變
+        - 花火
+        - 心電感應
+        - 截碼戰
+        - 心電感應 (合作)
+        - 圈內人
+        - 骷髏與玫瑰
+        - 誰是牛頭王
+        - 情書
+        - 蟑螂撲克
+        - 變色龍
+        - 不要謝謝
+        - 禁語
+        - 壽司派對
+        - 梗圖大亂鬥
+        - 從眾心理
+        - 炸彈貓
+        - 犯人在跳舞
+        - 猜猜看
+        - 印加寶藏
+        - 妙語說書人
+        - 富饒之城
+        - Emoji 傳話
+        - 星際探險隊
+        - 矮人礦坑
+        - 地產大亨
+        - 骰子街
+        - 璀璨寶石
+        - 詭影神探
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: 想改什麼？
+      placeholder: 例如：地圖上的死路很難看出來
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: 為什麼？
+      description: 現在遇到什麼不方便的地方
