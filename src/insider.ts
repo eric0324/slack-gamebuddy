@@ -1,7 +1,7 @@
 // 圈內人遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyInsider(state, action, rng) → { state, events }。
 import { mention, type GameEvent, type Rng } from './engine.js';
 import { cancelGame, joinRoom, leaveRoom, lobbyEvent, reply, runGame, shuffle, startTimer } from './common.js';
-import { INSIDER_WORDS } from './insiderWords.js';
+import { DECRYPTO_WORDS_BY_LANG } from './decryptoWords.js'; // 圈內人和截碼戰共用祕密詞
 import type { Lang } from './i18n/index.js';
 import { tx } from './i18n/games/insider.js';
 
@@ -80,7 +80,7 @@ function deal(c: Ctx) {
   const [master, insider] = shuffle(s.players, c.rng).map((p) => p.id);
   s.master = master;
   s.insider = insider;
-  s.word = shuffle(INSIDER_WORDS[s.lang ?? 'zh-TW'], c.rng)[0];
+  s.word = shuffle(DECRYPTO_WORDS_BY_LANG[s.lang ?? 'zh-TW'], c.rng)[0];
   s.phase = 'question';
   c.events.push({
     type: 'announce',

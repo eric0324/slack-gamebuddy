@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { LangStore } from '../src/langStore.js';
 import { StatsStore } from '../src/stats.js';
+import { MemeStore } from '../src/memeStore.js';
 import { coup } from '../src/games/coup.js';
 import { hanabi } from '../src/games/hanabi.js';
 import { incan } from '../src/games/incan.js';
@@ -40,16 +41,20 @@ describe('i18n: 支援的語系', () => {
 
 type Call = { method: string; args: any };
 
-function setup(langs = new LangStore(':memory:'), stats?: StatsStore) {
+function setup(langs = new LangStore(':memory:'), stats?: StatsStore, opts: { memes?: MemeStore; viewsFail?: boolean } = {}) {
   const calls: Call[] = [];
   const record = (method: string) => async (args: any) => (calls.push({ method, args }), { ok: true, ts: String(calls.length), channel: { id: 'D' } });
   const client: SlackClient = {
     chat: { postMessage: record('chat.postMessage'), update: record('chat.update'), postEphemeral: record('chat.postEphemeral') },
     conversations: { open: record('conversations.open') },
-    views: { open: record('views.open') },
+    views: { open: async (args: any) => {
+      calls.push({ method: 'views.open', args });
+      if (opts.viewsFail) throw new Error('expired_trigger_id');
+      return { ok: true };
+    } },
   };
   const responds: { url: string; payload: any }[] = [];
-  const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, langs, stats, respond: async (url, payload) => void responds.push({ url, payload }) });
+  const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, langs, stats, memes: opts.memes, checkImage: async () => true, respond: async (url, payload) => void responds.push({ url, payload }) });
   return { host, calls, responds, langs };
 }
 const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
@@ -366,5 +371,47 @@ describe('i18n: 指令說明和規則連結依語系', () => {
       await host.game('C1', 'U1', 'alice', 'coup new');
       expect(lobby()).toContain(`wiki/${encodeURI('政變-遊戲規則')}|`);
     });
+  });
+});
+
+describe('i18n: 收尾 (梗圖庫、文字視窗、星際探險隊關卡指令)', () => {
+  it('英文頻道的梗圖庫：清單、投稿 (預設名稱 My meme)、刪除；沒設定梗圖庫的提示', async () => {
+    const { host, calls, langs } = setup(new LangStore(':memory:'), undefined, { memes: new MemeStore(':memory:') });
+    langs.set('C1', 'en');
+    await host.game('C1', 'U1', 'alice', 'meme list');
+    expect(lastEph(calls).text).toContain('No memes have been submitted in this channel yet.');
+    expect(lastEph(calls).text).toContain('Usage: `/game meme add <image URL> [name]`');
+    await host.game('C1', 'U1', 'alice', 'meme add https://i.imgur.com/a.png');
+    expect(posts(calls).at(-1)!.text).toBe('🖼️ <@U1> submitted a meme: #1 My meme');
+    await host.game('C1', 'U1', 'alice', 'meme remove 1');
+    expect(posts(calls).at(-1)!.text).toBe('🗑️ <@U1> removed #1 My meme (submitted by <@U1>)');
+    const bare = setup();
+    bare.langs.set('C1', 'en');
+    await bare.host.game('C1', 'U1', 'alice', 'meme list');
+    expect(lastEph(bare.calls).text).toBe("This bot doesn't have a meme library set up.");
+  });
+
+  it('英文局的文字視窗：按鈕是 Submit／Cancel；打不開時提示是英文', async () => {
+    const modal = { type: 'modal', to: 'U1', kind: 'herdAnswer', title: 'Answer', label: 'Your answer' };
+    const deliver = (host: GameHost) => (host as unknown as { deliver(c: string, e: object[], k: string, t?: string): Promise<void> }).deliver('C1', [modal], 'herd', 'T1');
+    const ok = setup();
+    ok.langs.set('C1', 'en');
+    await ok.host.game('C1', 'U1', 'alice', 'herd new');
+    await deliver(ok.host);
+    const view = ok.calls.find((c) => c.method === 'views.open')!.args.view;
+    expect([view.submit.text, view.close.text]).toEqual(['Submit', 'Cancel']);
+    const bad = setup(new LangStore(':memory:'), undefined, { viewsFail: true });
+    bad.langs.set('C1', 'en');
+    await bad.host.game('C1', 'U1', 'alice', 'herd new');
+    await deliver(bad.host);
+    expect(lastEph(bad.calls).text).toContain("The window didn't open");
+    expect(lastEph(bad.calls).text).toContain('/game herd answer <answer>');
+  });
+
+  it('英文頻道從沒開過星際探險隊：/game crew level 是英文', async () => {
+    const { host, calls, langs } = setup();
+    langs.set('C1', 'en');
+    await host.game('C1', 'U1', 'alice', 'crew level');
+    expect(lastEph(calls).text).not.toMatch(/[一-龥]/);
   });
 });

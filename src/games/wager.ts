@@ -58,6 +58,6 @@ export const wager = {
   parse: parseWagerCommand,
   button: wagerButton,
   modals: {
-    wagerAnswer: { action: (user: string, texts: string[]): WAction => ({ type: 'answer', user, text: texts[0] ?? '' }), fallback: '視窗打不開，請改用 `/game wager answer <數字>` 送出。' },
+    wagerAnswer: { action: (user: string, texts: string[]): WAction => ({ type: 'answer', user, text: texts[0] ?? '' }), fallback: '視窗打不開，請改用 `/game wager answer <數字>` 送出。', fallbackLocales: { en: 'The window didn\'t open. Please use `/game wager answer <number>` instead.' } },
   },
 } satisfies GameDef<WState, WAction>;

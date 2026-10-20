@@ -74,8 +74,8 @@ export type CAction =
   | { type: 'cancel'; user: string }
   | { type: 'addBot'; user: string; count: number }
   | { type: 'removeBot'; user: string; count: number }
-  | { type: 'level'; user: string; n?: number; unlocked?: number } // 不帶 n 是查看已解鎖的關卡
-  | { type: 'reset'; user: string }
+  | { type: 'level'; user: string; n?: number; unlocked?: number; lang?: Lang } // 不帶 n 是查看已解鎖的關卡；lang 是頻道目前的語系
+  | { type: 'reset'; user: string; lang?: Lang }
   | { type: 'resetConfirm'; user: string }
   | { type: 'hand'; user: string }
   | { type: 'play'; user: string; seq: number; card: Card }
@@ -810,7 +810,7 @@ const newPlayer = (id: string): CPlayer => ({ id, hand: [], commUsed: false });
 
 export function applyCrew(state: CState | undefined, action: CAction, rng: Rng, now?: number): Result {
   const idle = !state || state.phase === 'ended';
-  const lang = state?.lang; // 沒有進行中的房間：用上一局的語系 (沒有上一局就是中文)
+  const lang = (action.type === 'level' || action.type === 'reset' ? action.lang : undefined) ?? state?.lang; // 沒有進行中的房間：用頻道目前的語系
   if (idle && action.type === 'level' && action.n === undefined) return { state: state!, events: [{ type: 'ephemeral', to: action.user, text: levelList(lang, action.unlocked ?? 1) }] };
   if (idle && (action.type === 'level' || action.type === 'reset')) return { state: state!, events: [{ type: 'ephemeral', to: action.user, text: tx(lang, 'newFirst') }] };
   return runGame(state, action, rng, {

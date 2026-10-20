@@ -65,6 +65,6 @@ export const meme = {
   parse: parseMemeCommand,
   button: memeButton,
   modals: {
-    memeWrite: { action: (user: string, texts: string[]): MemeAction => ({ type: 'write', user, text: texts[0] ?? '' }), fallback: '視窗打不開，請改用 `/game meme write <一句話>` 送出。' },
+    memeWrite: { action: (user: string, texts: string[]): MemeAction => ({ type: 'write', user, text: texts[0] ?? '' }), fallback: '視窗打不開，請改用 `/game meme write <一句話>` 送出。', fallbackLocales: { en: 'The window didn\'t open. Please use `/game meme write <caption>` instead.' } },
   },
 } satisfies GameDef<MemeState, MemeAction>;
