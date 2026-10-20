@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: 💡 許願新遊戲
+  - name: 💡 Request a new game
     url: https://github.com/eric0324/slack-gamebuddy/discussions
-    about: 想玩的新遊戲、規則或功能點子，到 Discussions 的許願池讓大家一起投票
-  - name: 🙏 規則問題
+    about: New games, rule tweaks or feature ideas — post them in the Wishlist so everyone can vote
+  - name: 🙏 Rules question
     url: https://github.com/eric0324/slack-gamebuddy/discussions
-    about: 怎麼玩、規則看不懂，到 Discussions 的問答發問
+    about: How to play or confusing rules — ask in Q&A
