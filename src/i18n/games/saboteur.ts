@@ -76,8 +76,8 @@ export const tx = gameText({
     totals: '💰 累計金塊：{list}',
     gameOver: '🏆 遊戲結束，{who} 獲勝！',
     rankLine: '{i}. {who} {gold} 金{top}',
-    roundStart: '⛏️ 第 {round}/{rounds} 回合開始！每人 {n} 張手牌，身分已私下發給每個人。',
-    yourRole: '你這回合是 {role}',
+    roundStart: '⛏️ 第 {round}/{rounds} 回合開始！每人 {n} 張手牌，身分已私訊給每個人。',
+    yourRole: '⛏️ 矮人礦坑第 {round}/{rounds} 回合：你是 {role}',
     rules: [
       '共 {rounds} 回合，每回合重新發身分：⛏️ 金礦工要從起點 S 挖到金礦，💣 破壞者暗中阻止 (沒人知道有幾個破壞者)。',
       '輪到時做一件事：放一張通道牌、打一張行動牌，或蓋掉一張牌，然後抽一張。工具 (鎬子、礦燈、礦車) 壞掉的人不能放通道牌。',
@@ -162,8 +162,8 @@ export const tx = gameText({
     totals: '💰 Gold so far: {list}',
     gameOver: '🏆 Game over! {who} wins!',
     rankLine: '{i}. {who} {gold} gold{top}',
-    roundStart: '⛏️ Round {round}/{rounds} begins! Everyone has {n} cards, and roles have been sent privately.',
-    yourRole: 'You are a {role} this round',
+    roundStart: '⛏️ Round {round}/{rounds} begins! Everyone has {n} cards, and roles have been sent to everyone by DM.',
+    yourRole: '⛏️ Saboteur, round {round}/{rounds}: you are a {role}',
     rules: [
       '{rounds} rounds, with new roles each round: ⛏️ Gold-Diggers dig a tunnel from the start S to the gold, while 💣 Saboteurs secretly get in the way (nobody knows how many Saboteurs there are).',
       "On your turn, do one thing: place a path card, play an action card, or discard a card, then draw one. Players with a broken tool (pick, lantern, cart) can't place path cards.",

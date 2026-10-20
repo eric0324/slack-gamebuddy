@@ -33,7 +33,8 @@ describe('saboteur/en: 英文房間', () => {
     const all = texts(events);
     expect(all).toContain('Saboteur begins!');
     expect(all).toContain('Round 1/3 begins!');
-    expect(all).toContain('You are a 💣 Saboteur this round');
+    expect(all).toContain('roles have been sent to everyone by DM');
+    expect(events).toContainEqual({ type: 'dm', to: 'p1', text: '⛏️ Saboteur, round 1/3: you are a 💣 Saboteur' });
     expect(all).toContain('⛏️ Gold-Digger');
     expect(all).not.toMatch(CJK);
     const board = prompts(events).find((p) => p.kind === 'saboteur')!;

@@ -470,7 +470,7 @@ function startRound(c: Ctx, first: number) {
   s.last = undefined;
   s.players.forEach((p, i) => Object.assign(p, { role: roles[i], hand: s.deck.splice(0, handSize(n)), broken: [], peeked: {} }));
   c.events.push({ type: 'announce', text: tx(s.lang, 'roundStart', { round: s.round, rounds: ROUNDS, n: handSize(n) }) });
-  for (const p of s.players) if (!isBot(p.id)) c.events.push({ type: 'ephemeral', to: p.id, text: tx(s.lang, 'yourRole', { role: roleName(p.role!, s.lang) }) });
+  for (const p of s.players) if (!isBot(p.id)) c.events.push({ type: 'dm', to: p.id, text: tx(s.lang, 'yourRole', { round: s.round, rounds: ROUNDS, role: roleName(p.role!, s.lang) }) });
   s.turn = first;
   beginTurn(c);
 }
