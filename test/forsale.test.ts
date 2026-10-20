@@ -150,7 +150,7 @@ describe('forsale/setup: 我的狀態', () => {
     const text = ephemeralTo(events, 'p1')!.text;
     expect(text).toContain('金幣 $11,000');
     expect(text).toContain('這輪出價 $3,000');
-    expect(text).toContain('🏠 3、🏠 17、🏠 25');
+    expect(text).toContain('🏠 房產：3、17、25');
     expect(text).toContain('$9,000、$4,000');
     expect(text).toContain('總額 $13,000');
   });
@@ -186,7 +186,7 @@ describe('forsale/bidding: 每輪翻開房產', () => {
     expect(state.table).toHaveLength(4);
     expect(state.table).toEqual([...state.table].sort((a, b) => a - b));
     expect(state.propDeck).toHaveLength(24);
-    expect(lastBoard(events).text).toContain(`桌上：${state.table.map((n) => `🏠 ${n}`).join('、')}`);
+    expect(lastBoard(events).text).toContain(`🏠 桌上：${state.table.join('、')}`);
     expect(lastBoard(events).text).toContain('房產牌庫剩 24 張');
   });
 });
@@ -199,7 +199,7 @@ describe('forsale/bidding: 喊價面板', () => {
     expect(b.ref).toBe('forsale:bid:1');
     expect(b.perRow).toBe(5);
     expect(b.text).toContain('第一階段第 1/7 輪');
-    expect(b.text).toContain('🏠 4、🏠 12、🏠 21、🏠 30');
+    expect(b.text).toContain('🏠 桌上：4、12、21、30');
     expect(b.text).toContain('目前最高 $3,000（<@p1>）');
     expect(b.text).toContain('<@p1> 出價 $3,000');
     expect(b.text).toContain('👉 <@p2>');
@@ -293,8 +293,8 @@ describe('forsale/bidding: 放棄與最後一位', () => {
     expect(state.table).toEqual([12, 21, 30]);
     expect(state.turn).toBe(1);
     const b = lastBoard(events);
-    expect(b.text).toContain('<@p1> 放棄，拿走 🏠 4，拿回 $1,000');
-    expect(b.text).toContain('<@p1> 已放棄（拿走 🏠 4）');
+    expect(b.text).toContain('<@p1> 放棄，拿走房產 4，拿回 $1,000');
+    expect(b.text).toContain('<@p1> 已放棄（拿走房產 4）');
   });
 
   it('沒出價就放棄：免費拿最小的', () => {
@@ -309,8 +309,8 @@ describe('forsale/bidding: 放棄與最後一位', () => {
     expect(state.players[3].props).toEqual([21]);
     const done = boards(seen).filter((b) => b.ref === 'forsale:bid:1').at(-1)!;
     expect(done.options).toEqual([]);
-    expect(done.text).toContain('<@p3> 拿走 🏠 30，付 $6,000');
-    expect(done.text).toContain('<@p1> 拿走 🏠 4，付 $0');
+    expect(done.text).toContain('<@p3> 拿走房產 30，付 $6,000');
+    expect(done.text).toContain('<@p1> 拿走房產 4，付 $0');
     expect(state).toMatchObject({ round: 2, starter: 2, turn: 2 });
     expect(lastBoard(seen).ref).toBe('forsale:bid:2');
     expect(lastBoard(seen).text).toContain('👉 <@p3>');
@@ -346,7 +346,7 @@ describe('forsale/bidding: 喊價計時與第一階段結束', () => {
     s.players[1].props = [17, 2];
     const { state, seen } = play(s, [['p1', 'pass'], ['p2', 'pass'], ['p3', 'pass']]);
     expect(announces(seen).join('\n')).toContain('第一階段結束');
-    expect(ephemeralTo(seen, 'p2')?.text).toContain('🏠 2、🏠 12、🏠 17');
+    expect(ephemeralTo(seen, 'p2')?.text).toContain('你的房產：2、12、17');
     expect(ephemeralTo(seen, 'p2')?.text).toContain('金幣 $18,000');
     expect(state.phase).toBe('sell');
   });
@@ -398,16 +398,16 @@ describe('forsale/selling: 同時選擇', () => {
     const { state, events } = run([{ type: 'sellMenu', user: 'p1', seq: s.seq }], s);
     expect(state).toBe(s);
     const m = menuTo(events, 'p1')!;
-    expect(labels(m)).toEqual(['🏠 1', '🏠 4', '🏠 25']);
+    expect(labels(m)).toEqual(['房產 1', '房產 4', '房產 25']);
     expect(values(m)).toEqual([1, 4, 25].map((n) => `sell:${s.seq}:${n}`));
   });
 
   it('選擇私下確認、頻道只更新已選 1/4；揭曉前可以改，已選人數不變', () => {
     const s = toSell(CHECKS3).state;
     const first = run([sell(s, 'p1', 25)], s);
-    expect(ephemeralTo(first.events, 'p1')).toMatchObject({ text: '你選了 🏠 25（揭曉前可以改）', replace: true });
+    expect(ephemeralTo(first.events, 'p1')).toMatchObject({ text: '你選了房產 25（揭曉前可以改）', replace: true });
     expect(lastBoard(first.events).text).toContain('已選 1/4');
-    expect(lastBoard(first.events).text).not.toContain('🏠 25');
+    expect(lastBoard(first.events).text).not.toContain('房產 25');
     const changed = run([sell(first.state, 'p1', 1)], first.state);
     expect(changed.state.players[0].choice).toBe(1);
     expect(boards(changed.events).every((b) => b.text.includes('已選 1/4'))).toBe(true);
@@ -431,10 +431,10 @@ describe('forsale/selling: 揭曉與分配支票', () => {
     expect(state.players.map((p) => p.props)).toEqual([[1, 4], [5, 12], [19, 21], [2, 6]]);
     const done = boards(seen).filter((b) => b.ref === 'forsale:sell:1').at(-1)!;
     expect(done.options).toEqual([]);
-    expect(done.text).toContain('<@p4> 🏠 30 → $15,000');
-    expect(done.text).toContain('<@p1> 🏠 25 → $9,000');
-    expect(done.text).toContain('<@p3> 🏠 18 → $4,000');
-    expect(done.text).toContain('<@p2> 🏠 3 → $0');
+    expect(done.text).toContain('<@p4> 房產 30 → $15,000');
+    expect(done.text).toContain('<@p1> 房產 25 → $9,000');
+    expect(done.text).toContain('<@p3> 房產 18 → $4,000');
+    expect(done.text).toContain('<@p2> 房產 3 → $0');
     expect(state.round).toBe(2);
     expect(lastBoard(seen).ref).toBe('forsale:sell:2');
   });
@@ -453,7 +453,7 @@ describe('forsale/selling: 揭曉與分配支票', () => {
     expect(run([{ type: 'timeout', id: state.timers.phase! - 1 }], state).state).toBe(state);
     const { state: after, events } = run([{ type: 'timeout', id: state.timers.phase! }], state);
     expect(after.players[1].props).toEqual([5, 12]);
-    expect(boards(events).find((b) => b.ref === 'forsale:sell:1')!.text).toContain('<@p2> 🏠 3 → $0（逾時，自動出最小）');
+    expect(boards(events).find((b) => b.ref === 'forsale:sell:1')!.text).toContain('<@p2> 房產 3 → $0（逾時，自動出最小）');
   });
 });
 
@@ -529,7 +529,7 @@ describe('forsale/bots: bot 的喊價策略', () => {
     expect(raised.state.turn).toBe(2);
     const passed = play(s, [['p1', 5]]);
     expect(passed.state.players[1]).toMatchObject({ passed: true, props: [4] });
-    expect(lastBoard(passed.seen).text).toContain('🤖阿明 放棄，拿走 🏠 4');
+    expect(lastBoard(passed.seen).text).toContain('🤖阿明 放棄，拿走房產 4');
   });
 });
 
@@ -543,13 +543,13 @@ describe('forsale/bots: bot 的賣房產策略', () => {
   });
 
   it('開輪就選好，算在已選裡，揭曉前不公開', () => {
-    // p4 是 bot：手上 2、6、30，支票最大 $15,000 → 出 🏠 30
+    // p4 是 bot：手上 2、6、30，支票最大 $15,000 → 出房產 30
     const { state, seen } = toSell(CHECKS3, undefined, 4, (s) => (s.players[3].id = BOT));
     expect(state.players[3].choice).toBe(30);
     const b = lastBoard(seen);
     expect(b.text).toContain('已選 1/4');
     expect(b.text).toContain('還沒選：<@p1> <@p2> <@p3>');
-    expect(b.text).not.toContain('🏠 30');
+    expect(b.text).not.toContain('房產 30');
   });
 });
 

@@ -14,7 +14,7 @@ export const PROPERTIES = Array.from({ length: 30 }, (_, i) => i + 1);
 export const CHECKS = [0, 0, ...Array.from({ length: 14 }, (_, i) => [i + 2, i + 2]).flat()];
 
 export const money = (n: number) => (n === 0 ? '$0' : `$${n.toLocaleString('en-US')},000`);
-const propName = (n: number) => `🏠 ${n}`;
+const propName = (n: number) => `房產 ${n}`;
 
 export interface FPlayer {
   id: string;
@@ -83,7 +83,7 @@ const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 const current = (s: FState) => s.players[s.turn];
 
 function bidLine(s: FState, p: FPlayer): string {
-  const state = p.passed ? `已放棄（拿走 ${propName(p.took!)}）` : p.bid ? `出價 ${money(p.bid)}` : '還沒出價';
+  const state = p.passed ? `已放棄（拿走${propName(p.took!)}）` : p.bid ? `出價 ${money(p.bid)}` : '還沒出價';
   return `${p === current(s) ? '👉 ' : ''}${mention(p.id)} ${state}`;
 }
 
@@ -91,10 +91,10 @@ function bidLine(s: FState, p: FPlayer): string {
 function bidBoard(s: FState, ended = false): GameEvent {
   const head = `第一階段第 ${s.round}/${s.rounds} 輪`;
   const lines = ended
-    ? [`*✅ ${head}結束*`, ...s.players.map((p) => `${mention(p.id)} 拿走 ${propName(p.took!)}，付 ${money(p.paid!)}`)]
+    ? [`*✅ ${head}結束*`, ...s.players.map((p) => `${mention(p.id)} 拿走${propName(p.took!)}，付 ${money(p.paid!)}`)]
     : [
         `*🏠 ${head}*｜房產牌庫剩 ${s.propDeck.length} 張（每次 ${BID_MS / 1000} 秒）`,
-        `桌上：${s.table.map(propName).join('、')}`,
+        `🏠 桌上：${s.table.join('、')}`,
         s.high ? `目前最高 ${money(s.high)}（${mention(s.highBy!)}）` : '目前最高：還沒有人出價',
         ...s.players.map((p) => bidLine(s, p)),
         ...(s.log.length ? [`上一步：${s.log[s.log.length - 1]}`] : []),
@@ -191,7 +191,7 @@ function doPass(c: Ctx, auto: boolean) {
   take(me, s.table.shift()!, me.bid - back);
   me.passed = true;
   const refund = me.bid ? `拿回 ${money(back)}（出價 ${money(me.bid)}）` : '沒出價，免費';
-  s.log.push(`${mention(me.id)} 放棄，拿走 ${propName(me.took!)}，${refund}${auto ? '（逾時，自動放棄）' : ''}`);
+  s.log.push(`${mention(me.id)} 放棄，拿走${propName(me.took!)}，${refund}${auto ? '（逾時，自動放棄）' : ''}`);
   const left = s.players.filter((p) => !p.passed);
   if (left.length > 1) return nextBidder(c);
   take(left[0], s.table.pop()!, left[0].bid);
@@ -206,7 +206,7 @@ function take(p: FPlayer, prop: number, paid: number) {
   p.props.push(prop);
 }
 
-const sortedProps = (p: FPlayer) => [...p.props].sort((a, b) => a - b).map(propName).join('、') || '（沒有）';
+const sortedProps = (p: FPlayer) => [...p.props].sort((a, b) => a - b).join('、') || '（沒有）';
 
 function endBidPhase(c: Ctx) {
   const s = c.s;
@@ -288,7 +288,7 @@ function sell(c: Ctx, user: string, seq: number, prop: number): boolean {
   if (!me.props.includes(prop)) return reply(c, user, STALE);
   const first = me.choice === undefined;
   me.choice = prop;
-  c.events.push({ type: 'ephemeral', to: user, text: `你選了 ${propName(prop)}（揭曉前可以改）`, replace: true });
+  c.events.push({ type: 'ephemeral', to: user, text: `你選了${propName(prop)}（揭曉前可以改）`, replace: true });
   if (s.players.every((p) => p.choice !== undefined)) reveal(c);
   else if (first) c.events.push(sellBoard(s));
   return true;
