@@ -369,7 +369,7 @@ describe('saboteur/turns: 回合面板', () => {
     expect(next.ref).toBe(`saboteur:turn:${s.seq + 1}`);
     expect(next.text).toContain('👉 輪到 <@p2>');
     expect(next.text).toContain('牌庫剩');
-    expect(next.text).toContain('{{name:p2}}：🃏 6 張 ❌⛏️🛒');
+    expect(next.text).toContain('{{name:p2}}：🃏 6 張｜壞了：鎬子、礦車');
     expect(next.text).toContain('上一步：{{name:p1}} 逾時，自動蓋掉一張牌');
     expect(next.options.map((o) => o.label)).toEqual(['⛏️ 行動', '🎒 我的手牌']);
     expect(next.text).not.toMatch(/破壞者|金礦工/);
@@ -387,7 +387,7 @@ describe('saboteur/turns: 我的手牌', () => {
     const { state, events } = run([{ type: 'hand', user: 'p1' }], s);
     expect(state).toBe(s);
     const text = ephemeralTo(events, 'p1').join();
-    for (const part of ['💣 破壞者', '━ 通道', '┃ 死路', '藏寶圖', '🔦', '`K3`：🪨 石頭', '5 金']) expect(text).toContain(part);
+    for (const part of ['💣 破壞者', '━ 通道', '┃ 死路', '藏寶圖', '壞掉的工具：礦燈', '`K3`：🪨 石頭', '5 金']) expect(text).toContain(part);
   });
 
   it('不在遊戲中的人被拒', () => {
@@ -502,7 +502,15 @@ describe('saboteur/turns: 破壞工具', () => {
     expect(menu.options.map((o) => o.value)).toEqual([`tool:${s.seq}:0:pick:p2`, `tool:${s.seq}:0:pick:p4`, `turnMenu:${s.seq}`]);
     const { state, events } = act(s, { type: 'tool', i: 0, tool: 'pick', target: 'p2' });
     expect(state.players[1].broken).toEqual(['pick']);
-    expect(boards(events)[1].text).toContain('{{name:p1}} 弄壞了 {{name:p2}} 的 ⛏️ 鎬子');
+    expect(boards(events)[1].text).toContain('{{name:p1}} 弄壞了 {{name:p2}} 的鎬子');
+  });
+
+  it('私下確認和公告都只寫工具名稱，沒有工具 emoji', () => {
+    const s = setup((s) => (s.players[0].hand = [{ kind: 'break', tool: 'lamp' }]));
+    const { events } = act(s, { type: 'tool', i: 0, tool: 'lamp', target: 'p3' });
+    expect(ephemeralTo(events, 'p1').join()).toContain('你弄壞了 <@p3> 的礦燈');
+    const lines = [...ephemeralTo(events, 'p1'), ...boards(events).map((b) => b.text)].join('\n').split('\n');
+    expect(lines.filter((l) => /壞/.test(l)).join('\n')).not.toMatch(/⛏️|🔦|🛒/);
   });
 
   it('三項工具可以同時壞；壞了的人不能放通道牌', () => {
@@ -527,7 +535,7 @@ describe('saboteur/turns: 修理工具', () => {
     });
     const { state, events } = act(s, { type: 'tool', i: 0, tool: 'pick', target: 'p1' });
     expect(state.players[0].broken).toEqual([]);
-    expect(boards(events)[1].text).toContain('{{name:p1}} 修好了 {{name:p1}} 的 ⛏️ 鎬子');
+    expect(boards(events)[1].text).toContain('{{name:p1}} 修好了 {{name:p1}} 的鎬子');
   });
 
   it('雙用修理：每位玩家每項可修的工具各一顆按鈕，只修一項', () => {

@@ -11,9 +11,7 @@ export const GOAL_CELLS = ['K3', 'K5', 'K7'];
 
 export type Tool = 'pick' | 'lamp' | 'cart';
 export const TOOLS: Tool[] = ['pick', 'lamp', 'cart'];
-export const TOOL_NAME: Record<Tool, string> = { pick: '⛏️ 鎬子', lamp: '🔦 礦燈', cart: '🛒 礦車' };
 export const TOOL_WORD: Record<Tool, string> = { pick: '鎬子', lamp: '礦燈', cart: '礦車' };
-export const TOOL_ICON: Record<Tool, string> = { pick: '⛏️', lamp: '🔦', cart: '🛒' };
 
 export type PathCard = { kind: 'path'; edges: number; dead: boolean };
 export type Card = PathCard | { kind: 'break'; tool: Tool } | { kind: 'fix'; tools: Tool[] } | { kind: 'map' } | { kind: 'rock' };

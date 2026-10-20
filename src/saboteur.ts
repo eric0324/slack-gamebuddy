@@ -15,8 +15,6 @@ import {
   placements,
   render,
   rotate,
-  TOOL_ICON,
-  TOOL_NAME,
   TOOL_WORD,
   type Card,
   type Grid,
@@ -132,8 +130,8 @@ export function cardName(card: Card): string {
 }
 
 const current = (s: SState) => s.players[s.turn];
-const brokenIcons = (p: SPlayer) => (p.broken.length ? ` ❌${p.broken.map((t) => TOOL_ICON[t]).join('')}` : '');
-const playerLine = (p: SPlayer) => `${quiet(p.id)}：🃏 ${p.hand.length} 張${brokenIcons(p)}`;
+const toolList = (tools: Tool[]) => tools.map((t) => TOOL_WORD[t]).join('、');
+const playerLine = (p: SPlayer) => `${quiet(p.id)}：🃏 ${p.hand.length} 張${p.broken.length ? `｜壞了：${toolList(p.broken)}` : ''}`;
 
 // 回合面板：只 @ 輪到的人；ended 時拿掉按鈕
 function board(s: SState, ended = false): GameEvent {
@@ -194,7 +192,7 @@ function handText(s: SState, me: SPlayer): string {
   return [
     `🎒 第 ${s.round}/${ROUNDS} 回合，你是 ${ROLE_NAME[me.role!]}｜💰 累計 ${me.gold} 金`,
     `🃏 手牌：${me.hand.map(cardName).join('、') || '（沒有）'}`,
-    `🔧 壞掉的工具：${me.broken.map((t) => TOOL_NAME[t]).join('、') || '（沒有）'}`,
+    `🔧 壞掉的工具：${toolList(me.broken) || '（沒有）'}`,
     ...(peeked.length ? [`🗺️ 偷看過：${peeked.join('、')}`] : []),
   ].join('\n');
 }
@@ -270,7 +268,7 @@ function playPath(c: Ctx, a: Extract<SAction, { type: 'place' }>): boolean {
   const found = place(s.grid, cellAt(a.cell)!, edges, card.dead);
   const shown = cardLabel({ ...card, edges });
   tell(c, a.user, `✅ 你在 \`${a.cell}\` 放了 ${shown}`);
-  for (const f of found) c.events.push({ type: 'announce', text: `🔦 通道連到 \`${f.cell}\`：\`${f.cell}\` 是 ${f.gold ? '💰 金礦！' : '🪨 石頭'}` });
+  for (const f of found) c.events.push({ type: 'announce', text: `通道連到 \`${f.cell}\`：\`${f.cell}\` 是 ${f.gold ? '💰 金礦！' : '🪨 石頭'}` });
   const last = `${quiet(me.id)} 在 \`${a.cell}\` 放了 ${shown}`;
   if (!found.some((f) => f.gold)) finishTurn(c, last);
   else {
@@ -289,8 +287,8 @@ function playTool(c: Ctx, a: Extract<SAction, { type: 'tool' }>): boolean {
   const target = find(c.s, a.target)!;
   const verb = card.kind === 'break' ? '弄壞了' : '修好了';
   target.broken = card.kind === 'break' ? [...target.broken, a.tool] : target.broken.filter((t) => t !== a.tool);
-  tell(c, a.user, `✅ 你${verb} ${mention(target.id)} 的 ${TOOL_NAME[a.tool]}`);
-  finishTurn(c, `${quiet(me.id)} ${verb} ${quiet(target.id)} 的 ${TOOL_NAME[a.tool]}`);
+  tell(c, a.user, `✅ 你${verb} ${mention(target.id)} 的${TOOL_WORD[a.tool]}`);
+  finishTurn(c, `${quiet(me.id)} ${verb} ${quiet(target.id)} 的${TOOL_WORD[a.tool]}`);
   return true;
 }
 
@@ -563,7 +561,7 @@ function botsAct(c: Ctx) {
 
 const RULES = [
   `共 ${ROUNDS} 回合，每回合重新發身分：⛏️ 金礦工要從起點 S 挖到金礦，💣 破壞者暗中阻止（沒人知道有幾個破壞者）。`,
-  '輪到時做一件事：放一張通道牌、打一張行動牌，或蓋掉一張牌，然後抽一張。工具（⛏️🔦🛒）壞掉的人不能放通道牌。',
+  '輪到時做一件事：放一張通道牌、打一張行動牌，或蓋掉一張牌，然後抽一張。工具（鎬子、礦燈、礦車）壞掉的人不能放通道牌。',
   '挖到金礦 → 金礦工輪流挑金塊；牌出完還沒挖到 → 破壞者拿金塊。3 回合後金塊最多的人贏。',
   '地圖上格子裡有 x 的是死路，`?` 是蓋著的終點。',
 ].join('\n');
