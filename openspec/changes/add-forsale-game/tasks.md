@@ -36,7 +36,7 @@
 - [x] 5.3 （主控整合時做）先寫失敗的測試（`test/slack.test.ts`）：`KINDS` 加 `forsale`；遊戲清單和大廳 🎲 心理戰分類有 🏠 地產大亨（`forsale`）3～6 人和開房按鈕；`/game forsale help` 列出指令
 - [x] 5.4 （主控整合時做）`src/games/index.ts` 的 `GAMES` 加一行，讓 5.3 綠燈
 - [x] 5.5 （主控整合時做）`test/characterization.test.ts` 的 KINDS 加 `'forsale'`，更新 snapshot，確認差異只有多一款遊戲的文字
-- [ ] 5.6 （主控整合時做）README：遊戲列表、wiki 連結、manifest `description`／`usage_hint`
+- [x] 5.6 （主控整合時做）README：遊戲列表、wiki 連結、manifest `description`／`usage_hint`
 - [ ] 5.7 （主控整合時做）wiki 草稿「地產大亨」「地產大亨-遊戲規則」（含起始金幣與移除張數表、拿回一半無條件捨去、逾時規則）「地產大亨-指令」三頁
 
 ## 6. 整合驗證
