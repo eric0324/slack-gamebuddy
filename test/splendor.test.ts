@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isBot, type GameEvent } from '../src/engine.js';
-import { applySplendor, scoreOf, type SAction, type SState } from '../src/splendor.js';
+import { applySplendor, botMove, botReturn, scoreOf, targetOf, type SAction, type SState } from '../src/splendor.js';
 import { cardOf, CARDS, cardText, COLORS, gemsText, need, NOBLES, nobleText, payment, shortfall, total, type Color, type Gems } from '../src/splendorCards.js';
 
 const gems = (g: Partial<Gems> = {}): Gems => ({ w: 0, b: 0, g: 0, r: 0, k: 0, o: 0, ...g });
@@ -776,5 +776,132 @@ describe('splendor/scoring: 勝負與結束', () => {
     expect(prompts(events).some((p) => p.kind === 'rematch')).toBe(false);
     expect(act(state, { type: 'turnMenu' }).events).toEqual([]);
     expect(run([{ type: 'rematch', user: 'p1', channel: 'C1' }], state).events).toEqual([]);
+  });
+});
+
+describe('splendor/bots: 缺口和目標卡', () => {
+  const target = (s: SState) => targetOf(s, s.players[0])?.slot;
+
+  it('缺口最小的候選卡', () => {
+    expect(target(setup())).toBe('1-1'); // 白 0分｜紅2 黑1，缺口 3
+  });
+
+  it('缺口計算含黃金', () => {
+    // 沒有黃金時 1-1（白 0分｜紅2 黑1）缺口 3 最小；有 4 個黃金時一級四張缺口都是 0，改取分數高的 1-2（白 1分｜綠4）
+    const s = setup((s) => (s.table[0] = [1, 8, 16, 24]));
+    expect(target(s)).toBe('1-1');
+    s.players[0].tokens = gems({ o: 4 });
+    expect(target(s)).toBe('1-2');
+  });
+
+  it('同缺口取分數高的；再相同依固定順序（保留卡在前，再來三級→一級、位置）', () => {
+    expect(target(setup((s) => (s.table[0] = [4, 8, 2, 13])))).toBe('1-2');
+    expect(target(setup((s) => (s.table[0] = [4, 2, 13, 10])))).toBe('1-1');
+    expect(target(setup((s) => ((s.table[0] = [4, 2, 13, 10]), (s.players[0].reserved = [19]))))).toBe('r1'); // 綠 0分｜藍2 紅2：缺口同樣 4
+  });
+});
+
+describe('splendor/bots: bot 的行動', () => {
+  const move = (s: SState) => botMove(s, s.players[0]);
+
+  it('買得起就買分數最高的', () => {
+    const s = setup((s) => {
+      s.table[0] = [1, 8, 16, 24];
+      s.players[0].tokens = gems({ r: 2, k: 1, g: 4 });
+    });
+    expect(move(s)).toMatchObject({ type: 'buy', slot: '1-2' });
+  });
+
+  it('同分時付最少的', () => {
+    const s = setup((s) => {
+      s.table[0] = [28, 23, 8, 16]; // 紅 0分｜白2 紅2（付 4）、綠 0分｜白2 藍1（付 3）
+      s.players[0].tokens = gems({ w: 2, b: 1, r: 2, k: 2 });
+    });
+    expect(move(s)).toMatchObject({ type: 'buy', slot: '1-2' });
+  });
+
+  it('朝目標卡拿 3 色，不足用庫存最多的顏色補', () => {
+    const s = setup((s) => (s.table[0] = [25, 8, 16, 24])); // 目標 紅 0分｜藍2 綠1
+    expect(move(s)).toEqual({ type: 'take3', user: 'p1', seq: s.seq, colors: ['w', 'b', 'g'] });
+    const t = setup((s) => {
+      s.table[0] = [25, 8, 16, 24];
+      s.bank = gems({ w: 1, b: 4, g: 4, r: 3, k: 2, o: 5 });
+    });
+    expect(move(t)).toMatchObject({ type: 'take3', colors: ['b', 'g', 'r'] });
+  });
+
+  it('只缺一種顏色、缺 2 個以上、庫存 4 個以上時拿 2 個', () => {
+    const s = setup((s) => {
+      s.table[0] = [17, 8, 24, 40]; // 目標 綠 0分｜紅3
+      s.players[0].tokens = gems({ r: 1 });
+    }, 3);
+    expect(move(s)).toEqual({ type: 'take2', user: 'p1', seq: s.seq, color: 'r' });
+  });
+
+  it('庫存空了就保留目標卡；目標是保留卡時保留場上分數最高的', () => {
+    const empty = gems({ o: 5 });
+    expect(move(setup((s) => (s.bank = { ...empty })))).toMatchObject({ type: 'reserve', slot: '1-1' });
+    const s = setup((s) => {
+      s.bank = { ...empty };
+      s.players[0].reserved = [17];
+      s.players[0].tokens = gems({ r: 1 });
+    });
+    expect(move(s)).toMatchObject({ type: 'reserve', slot: '3-4' }); // 白 5分
+    s.table = [[null, null, null, null], [null, null, null, null], [null, null, null, null]];
+    expect(move(s)).toMatchObject({ type: 'reserve', slot: 'deck3' });
+  });
+
+  it('退回：先退目標卡用不到的', () => {
+    const s = setup((s) => {
+      s.table[1][0] = 56; // 綠 2分｜藍5 綠3
+      s.players[0].cards = [9, 10, 17]; // 折扣 藍2 綠1 → 應付 藍3 綠2
+      s.players[0].tokens = gems({ w: 4, b: 3, g: 2, r: 2 });
+    });
+    expect(botReturn(s, s.players[0])).toEqual([1, 0, 0, 0, 0, 0]);
+  });
+
+  it('退回：用不到的退完再退持有最多的，黃金最後', () => {
+    const s = setup((s) => {
+      s.players[0].reserved = [82]; // 綠 5分｜藍7 綠3
+      s.players[0].tokens = gems({ b: 4, g: 4, o: 5 });
+    });
+    expect(botReturn(s, s.players[0])).toEqual([0, 2, 1, 0, 0, 0]);
+  });
+
+  it('bot 輪到就立刻行動，需要退回時立刻退完', () => {
+    const lobby = run([{ type: 'addBot', user: 'p1', count: 1 }], lobbyWith(1).state).state;
+    const { state } = run([{ type: 'start', user: 'p1' }], lobby); // 第一位是座位最後一位（bot）
+    expect(state.turn).toBe(0);
+    expect(total(state.players[1].tokens)).toBe(3);
+    const s = setup((s) => {
+      s.players[1].id = 'bot:1:阿土';
+      s.players[1].tokens = gems({ w: 3, b: 3, g: 3 });
+    });
+    const r = act(s, { type: 'take2', color: 'k' });
+    expect(r.state.turn).toBe(0);
+    expect(total(r.state.players[1].tokens)).toBe(10);
+  });
+});
+
+describe('splendor/bots: 一個人也能玩完整局', () => {
+  it('1 位真人 + 3 個 bot，真人都不操作，靠計時和 bot 推進到結束並送出 result', () => {
+    const lobby = run([{ type: 'addBot', user: 'p1', count: 3 }], lobbyWith(1).state).state;
+    let { state, events } = run([{ type: 'start', user: 'p1' }], lobby);
+    let all = [...events];
+    for (let k = 0; k < 500 && state.phase !== 'ended'; k++) {
+      ({ state, events } = timeout(state));
+      all = all.concat(events);
+    }
+    expect(state.phase).toBe('ended');
+    expect(all.some((e) => e.type === 'result')).toBe(true);
+  });
+
+  it('2 位真人都不操作：各逾時跳過一次後直接計分', () => {
+    let state = started(2).state;
+    state = timeout(state).state;
+    const { state: end, events } = timeout(state);
+    expect(end.phase).toBe('ended');
+    expect(announces(events).join()).toContain('一整輪沒有人能行動');
+    expect(events).toContainEqual({ type: 'result', players: ['p1', 'p2'], winners: ['p1', 'p2'] });
   });
 });

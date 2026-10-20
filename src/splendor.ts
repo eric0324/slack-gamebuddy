@@ -13,9 +13,12 @@ import {
   NOBLES,
   nobleOf,
   nobleText,
+  need,
   payment,
+  shortfall,
   total,
   type Color,
+  type Gem,
   type Gems,
 } from './splendorCards.js';
 
@@ -488,6 +491,97 @@ function timeout(c: Ctx) {
   endTurn(c);
 }
 
+// ---------- bot ----------
+
+// 候選卡的固定順序：保留卡在前（依保留順序），再來是翻開的卡（三級到一級、位置 1～4）
+const candidates = (s: SState, me: SPlayer) => [...reservedSlots(me), ...tableSlots(s)];
+const points = (x: Slot) => cardOf(x.id).points;
+
+// 目標卡：缺口最小；同缺口取分數高的；再相同取固定順序在前的
+export function targetOf(s: SState, me: SPlayer): Slot | undefined {
+  const disc = discountOf(me);
+  const gap = (x: Slot) => shortfall(cardOf(x.id).cost, disc, me.tokens);
+  return candidates(s, me).reduce<Slot | undefined>((best, x) => {
+    if (!best) return x;
+    const d = gap(x) - gap(best);
+    return d < 0 || (d === 0 && points(x) > points(best)) ? x : best;
+  }, undefined);
+}
+
+// 目標卡每種顏色的應付；沒有目標時全是 0
+const targetNeed = (s: SState, me: SPlayer) => {
+  const t = targetOf(s, me);
+  return t ? need(cardOf(t.id).cost, discountOf(me)) : { w: 0, b: 0, g: 0, r: 0, k: 0 };
+};
+
+// bot 這一步要做什麼（回傳和真人按按鈕一樣的 action）；沒有能做的回傳 null
+export function botMove(s: SState, me: SPlayer): SAction | null {
+  const base = { user: me.id, seq: s.seq };
+  // 1. 買得起就買分數最高的；同分付最少的；再相同取固定順序在前的
+  const buys = candidates(s, me).flatMap((x) => {
+    const pay = payOf(me, x.id);
+    return pay ? [{ ...x, paid: total(pay) }] : [];
+  });
+  const best = buys.reduce<(typeof buys)[number] | undefined>((b, x) => {
+    if (!b) return x;
+    const d = points(x) - points(b);
+    return d > 0 || (d === 0 && x.paid < b.paid) ? x : b;
+  }, undefined);
+  if (best) return { type: 'buy', ...base, slot: best.slot };
+  // 2～3. 朝目標卡拿寶石
+  const target = targetOf(s, me);
+  const open = stocked(s);
+  if (open.length) {
+    const owe = targetNeed(s, me);
+    const lack = (x: Color) => Math.max(0, owe[x] - me.tokens[x]);
+    const short = COLORS.filter((x) => lack(x) > 0);
+    if (short.length === 1 && lack(short[0]) >= 2 && s.bank[short[0]] >= 4) return { type: 'take2', ...base, color: short[0] };
+    // sort 是穩定排序：同樣多時維持白藍綠紅黑的順序
+    const want = [
+      ...open.filter((x) => lack(x) > 0).sort((a, b) => lack(b) - lack(a)),
+      ...open.filter((x) => lack(x) === 0).sort((a, b) => s.bank[b] - s.bank[a]),
+    ].slice(0, 3);
+    return { type: 'take3', ...base, colors: COLORS.filter((x) => want.includes(x)) };
+  }
+  // 4. 保留目標卡；目標是自己保留的卡時改保留場上分數最高的，場上沒有卡就保留最高級的牌堆頂
+  if (me.reserved.length >= 3) return null;
+  if (target && !target.slot.startsWith('r')) return { type: 'reserve', ...base, slot: target.slot };
+  const top = tableSlots(s).reduce<Slot | undefined>((b, x) => (!b || points(x) > points(b) ? x : b), undefined);
+  const slot = top?.slot ?? deckSlots(s)[0]?.slot;
+  return slot ? { type: 'reserve', ...base, slot } : null;
+}
+
+// bot 退回：先退目標卡用不到的（超過應付的部分，最多的先退），再退持有最多的，黃金最後
+export function botReturn(s: SState, me: SPlayer): number[] {
+  const owe = targetNeed(s, me);
+  const left = { ...me.tokens };
+  const counts = [0, 0, 0, 0, 0, 0];
+  for (let k = excessOf(me); k > 0; k--) {
+    const extra = COLORS.filter((x) => left[x] > owe[x]);
+    const most = (list: Color[], v: (x: Color) => number) => list.reduce((b, x) => (v(x) > v(b) ? x : b), list[0]);
+    let gem: Gem = extra.length ? most(extra, (x) => left[x] - owe[x]) : most(COLORS, (x) => left[x]);
+    if (!left[gem]) gem = 'o';
+    left[gem]--;
+    counts[GEMS.indexOf(gem)]++;
+  }
+  return counts;
+}
+
+// state 有變之後：輪到 bot 就讓它行動，直到輪到真人或遊戲結束
+function runBots(c: Ctx) {
+  for (let guard = 0; guard < 2000 && c.s.phase === 'play' && isBot(current(c.s).id); guard++) {
+    const s = c.s;
+    const me = current(s);
+    if (s.step === 'return') {
+      giveBack(c, me.id, s.seq, botReturn(s, me));
+      continue;
+    }
+    // 防禦：策略算出的動作萬一被拒，改成跳過，不會卡住
+    const move = botMove(s, me);
+    if (!move || !handle(c, move as GameAction)) finishTurn(c, `${quiet(me.id)} 跳過`, false);
+  }
+}
+
 const RULES = [
   '輪到時做一件事：拿 3 個不同顏色的寶石各 1 個／拿 2 個同色寶石（該色庫存至少 4 個）／保留 1 張卡並拿 1 個黃金（最多保留 3 張）／買 1 張翻開的或保留的卡。',
   '買卡時成本先扣掉已買卡的折扣（每張卡給該色 1 個永久折扣），不夠的自動用黃金補。',
@@ -576,6 +670,7 @@ export function applySplendor(state: SState | undefined, action: SAction, rng: R
     isPlayer: (s, user) => s.players.some((p) => p.id === user),
     createLobby,
     handle,
+    afterChange: runBots,
   });
 }
 
