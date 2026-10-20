@@ -523,3 +523,184 @@ describe('deception/clues: 發言', () => {
     expect(ephemeralTo(oldDone.events, 'p1').join()).toContain('這個階段已經結束了');
   });
 });
+
+describe('deception/setup: 我的身分', () => {
+  it('夜晚結束後共犯看到自己的角色、兇手和答案；局外人被拒', () => {
+    const s = day(6).state;
+    const me = ephemeralTo(run([{ type: 'me', user: 'p2' }], s).events, 'p2').join();
+    for (const w of ['你是共犯', '<@p1>', s.answer.means!, s.answer.clue!]) expect(me).toContain(w);
+    expect(ephemeralTo(run([{ type: 'me', user: 'p4' }], s).events, 'p4').join()).toContain('你是調查員');
+    expect(ephemeralTo(run([{ type: 'me', user: 'z' }], s).events, 'z')).toEqual(['你不在這局遊戲裡。']);
+  });
+});
+
+// 6 人局：p1 兇手、p2 共犯、p3 目擊者、p4 p5 調查員、p6 鑑識官；答案是 p1 的第 0 張手段和第 0 張線索
+const solve = (s: DState, user: string, target: string, mi: number, ci: number) => run([{ type: 'solve', user, target, mi, ci }], s);
+const resultOf = (events: GameEvent[]) => events.find((e) => e.type === 'result') as Extract<GameEvent, { type: 'result' }> | undefined;
+
+describe('deception/solve: 破案流程', () => {
+  it('三步選單：嫌犯不含鑑識官和自己 → 手段附重選嫌犯 → 線索附重選手段；每步 replace、不改 state', () => {
+    const s = present1().state;
+    const p1 = s.players[0];
+    const a = run([{ type: 'solveMenu', user: 'p4' }], s);
+    expect(a.state).toBe(s);
+    const m1 = menuOf(a.events, 'p4')!;
+    expect(m1.replace).toBe(true);
+    expect(values(m1)).toEqual(['sus:p1', 'sus:p2', 'sus:p3', 'sus:p5']);
+    expect(labels(m1)).toEqual(['p1', 'p2', 'p3', 'p5']);
+    const b = run([{ type: 'suspect', user: 'p4', target: 'p1' }], s);
+    expect(b.state).toBe(s);
+    const m2 = menuOf(b.events, 'p4')!;
+    expect(m2.replace).toBe(true);
+    expect(values(m2)).toEqual(['sm:p1:0', 'sm:p1:1', 'sm:p1:2', 'sm:p1:3', 'sback:']);
+    expect(labels(m2)).toEqual([...p1.means, '↩️ 重選嫌犯']);
+    const cc = run([{ type: 'solveMeans', user: 'p4', target: 'p1', mi: 1 }], s);
+    expect(cc.state).toBe(s);
+    const m3 = menuOf(cc.events, 'p4')!;
+    expect(m3.replace).toBe(true);
+    expect(values(m3)).toEqual(['sc:p1:1:0', 'sc:p1:1:1', 'sc:p1:1:2', 'sc:p1:1:3', 'sback:p1']);
+    expect(labels(m3)).toEqual([...p1.clues, '↩️ 重選手段']);
+    expect(values(menuOf(run([{ type: 'solveBack', user: 'p4', target: 'p1' }], s).events, 'p4'))).toEqual(values(m2));
+    expect(values(menuOf(run([{ type: 'solveBack', user: 'p4' }], s).events, 'p4'))).toEqual(values(m1));
+  });
+
+  it('被拒：鑑識官、徽章已用、局外人、夜晚、翻盤中', () => {
+    const s = present1().state;
+    const deny = (st: DState, user: string) => {
+      const r = run([{ type: 'solveMenu', user }], st);
+      expect(r.state).toBe(st);
+      return ephemeralTo(r.events, user).join();
+    };
+    expect(deny(s, 'p6')).toContain('鑑識官不能破案');
+    expect(deny(solve(s, 'p4', 'p1', 0, 1).state, 'p4')).toContain('你已經用過破案機會了');
+    expect(deny(s, 'z')).toContain('你不在這局遊戲裡');
+    expect(deny(started(6).state, 'p4')).toContain('現在不能破案');
+    expect(deny(solve(s, 'p4', 'p1', 0, 0).state, 'p5')).toContain('現在不能破案');
+    const used = solve(s, 'p4', 'p1', 0, 1).state;
+    expect(solve(used, 'p4', 'p1', 0, 0).state).toBe(used);
+  });
+});
+
+describe('deception/solve: 破案判定', () => {
+  it('錯 → 公告猜測和「不對」、不說哪項錯、徽章用掉、面板更新、遊戲繼續', () => {
+    const s = present1().state;
+    const p1 = s.players[0];
+    const { state, events } = solve(s, 'p4', 'p1', 0, 1);
+    const text = announces(events).join('\n');
+    expect(text).toContain(`<@p4> 破案：嫌犯 <@p1>，手段「${p1.means[0]}」，線索「${p1.clues[1]}」`);
+    expect(text).toContain('不對');
+    expect(text).not.toMatch(/手段錯|線索錯|嫌犯錯/);
+    expect(state.players[3].badge).toBe(false);
+    const panel = panels(events).at(-1)!;
+    expect(panel.ref).toBe(`deception:panel:${s.pseq}`);
+    expect(panel.text).toContain('還有徽章：<@p1> <@p2> <@p3> <@p5>');
+    expect(state.phase).toBe('present');
+    expect(state.guesses).toEqual([{ by: 'p4', suspect: 'p1', means: p1.means[0], clue: p1.clues[1], ok: false }]);
+  });
+
+  it('對且沒有目擊者 → 好人勝', () => {
+    const { state } = solve(present1(5).state, 'p2', 'p1', 0, 0);
+    expect(state).toMatchObject({ phase: 'ended', winner: 'good' });
+  });
+
+  it('調查員和目擊者的徽章都用光 → 兇手陣營勝', () => {
+    const s = solve(present1(4).state, 'p2', 'p1', 0, 1).state;
+    expect(s.phase).toBe('present');
+    const { state, events } = solve(s, 'p3', 'p1', 1, 0);
+    expect(state).toMatchObject({ phase: 'ended', winner: 'evil' });
+    expect(resultOf(events)!.winners).toEqual(['p1']);
+  });
+
+  it('蒐證中也能破案；選單選到一半階段換了仍可送出', () => {
+    const r = solve(day(6).state, 'p4', 'p1', 0, 1);
+    expect(r.state).toMatchObject({ phase: 'evidence' });
+    expect(r.state.players[3].badge).toBe(false);
+    expect(solve(evidence2().state, 'p4', 'p1', 0, 0).state.phase).toBe('reversal');
+  });
+});
+
+describe('deception/solve: 3 輪結束', () => {
+  const present3 = () => timeout(speakAll(timeout(evidence2().state).state).state).state;
+
+  it('第 3 輪最後一位說完了，沒人破案 → 兇手陣營勝', () => {
+    const s = present3();
+    expect(s).toMatchObject({ phase: 'present', round: 3 });
+    expect(speakAll(s).state).toMatchObject({ phase: 'ended', winner: 'evil' });
+  });
+
+  it('第 3 輪最後一位逾時也一樣', () => {
+    const s = structuredClone(present3());
+    s.speaker = s.speakers.length - 1;
+    expect(timeout(s).state).toMatchObject({ phase: 'ended', winner: 'evil' });
+  });
+});
+
+describe('deception/solve: 翻盤', () => {
+  const reversal = () => solve(present1().state, 'p4', 'p1', 0, 0);
+
+  it('公開兇手不公開共犯和目擊者；兇手私訊的按鈕不含鑑識官、兇手、共犯；共犯收到通知', () => {
+    const { state, events } = reversal();
+    expect(state.phase).toBe('reversal');
+    const text = announces(events).find((t) => t.includes('破案成功'))!;
+    expect(text).toContain('兇手是 <@p1>');
+    expect(text).not.toContain('<@p2>');
+    expect(text).not.toContain('<@p3>');
+    expect(values(userPrompt(events, 'p1'))).toEqual(['wit:p3', 'wit:p4', 'wit:p5']);
+    expect(dmTo(events, 'p2').join()).toContain('兇手正在指認目擊者');
+  });
+
+  it('指到目擊者 → 兇手陣營勝；指錯 → 好人勝；120 秒逾時 → 好人勝', () => {
+    const s = reversal().state;
+    expect(run([{ type: 'witness', user: 'p1', target: 'p3' }], s).state.winner).toBe('evil');
+    expect(run([{ type: 'witness', user: 'p1', target: 'p4' }], s).state.winner).toBe('good');
+    expect(timeout(s).state.winner).toBe('good');
+  });
+
+  it('兇手以外按被拒', () => {
+    const s = reversal().state;
+    const r = run([{ type: 'witness', user: 'p2', target: 'p3' }], s);
+    expect(r.state).toBe(s);
+    expect(ephemeralTo(r.events, 'p2').join()).toContain('只有兇手');
+  });
+});
+
+describe('deception/solve: 勝負與結束', () => {
+  it('結束公告（陣營、每人角色、答案、破案紀錄）；好人勝的 result', () => {
+    const s = solve(solve(present1().state, 'p5', 'p2', 0, 0).state, 'p4', 'p1', 0, 0).state;
+    const { state, events } = run([{ type: 'witness', user: 'p1', target: 'p4' }], s);
+    const text = announces(events).join('\n');
+    expect(text).toContain('好人陣營獲勝');
+    for (const w of ['<@p1> 🔪 兇手', '<@p2> 🤝 共犯', '<@p3> 👀 目擊者', '<@p4> 🕵️ 調查員', '<@p6> 🔬 鑑識官']) expect(text).toContain(w);
+    expect(text).toContain(`兇手 <@p1>，手段「${state.answer.means}」、線索「${state.answer.clue}」`);
+    expect(text).toContain('<@p5> 破案：嫌犯 <@p2>');
+    expect(text).toContain('<@p4> 破案：嫌犯 <@p1>');
+    const result = resultOf(events)!;
+    expect(result.players).toEqual(ids(6));
+    expect([...result.winners].sort()).toEqual(['p3', 'p4', 'p5', 'p6']);
+    expect(prompts(events).some((p) => p.kind === 'rematch')).toBe(true);
+  });
+
+  it('兇手陣營勝的 result；再來一局只有上一局玩家', () => {
+    const s = solve(present1().state, 'p4', 'p1', 0, 0).state;
+    const { state, events } = run([{ type: 'witness', user: 'p1', target: 'p3' }], s);
+    expect(announces(events).join()).toContain('兇手陣營獲勝');
+    expect([...resultOf(events)!.winners].sort()).toEqual(['p1', 'p2']);
+    expect(ephemeralTo(run([{ type: 'rematch', user: 'x', channel: 'C1' }], state).events, 'x').join()).toContain('只有上一局的玩家');
+    expect(run([{ type: 'rematch', user: 'p3', channel: 'C1' }], state).state).toMatchObject({ phase: 'lobby', host: 'p3' });
+  });
+
+  it('房主取消：公告答案、沒有 result、沒有再來一局；夜晚沒選完只公告取消；非房主被拒；結束後舊按鈕被忽略', () => {
+    const s = evidence2().state;
+    expect(ephemeralTo(run([{ type: 'cancel', user: 'p2' }], s).events, 'p2').join()).toContain('只有房主可以取消遊戲');
+    const { state, events } = run([{ type: 'cancel', user: 'p1' }], s);
+    expect(state.phase).toBe('ended');
+    const text = announces(events).join();
+    for (const w of ['取消', s.answer.means!, s.answer.clue!]) expect(text).toContain(w);
+    expect(resultOf(events)).toBeUndefined();
+    expect(prompts(events).some((p) => p.kind === 'rematch')).toBe(false);
+    expect(run([{ type: 'rematch', user: 'p1', channel: 'C1' }], state).events).toEqual([]);
+    const night = run([{ type: 'cancel', user: 'p1' }], started(6).state);
+    expect(announces(night.events).join()).not.toContain('答案');
+    expect(run([{ type: 'solveMenu', user: 'p4' }], state).events).toEqual([]);
+  });
+});

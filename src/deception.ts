@@ -14,6 +14,7 @@ const NIGHT_MS = 90_000;
 const FIRST_EVIDENCE_MS = 240_000;
 const EVIDENCE_MS = 120_000;
 const SPEAK_MS = 90_000;
+const REVERSAL_MS = 120_000;
 const STALE = '這個階段已經結束了。';
 const NOT_PLAYER = '你不在這局遊戲裡。';
 
@@ -495,6 +496,106 @@ function done(c: Ctx, user: string, tseq: number): boolean {
   return true;
 }
 
+// ---------- 破案 ----------
+
+// 能不能破案；回傳錯誤訊息或 null
+function solveCheck(s: DState, user: string): string | null {
+  const me = find(s, user);
+  if (!me) return NOT_PLAYER;
+  if (me.role === 'scientist') return '鑑識官不能破案。';
+  if (s.phase !== 'evidence' && s.phase !== 'present') return '現在不能破案。';
+  if (!me.badge) return '你已經用過破案機會了。';
+  return null;
+}
+
+// 嫌犯：鑑識官和自己以外的玩家
+const suspectOf = (s: DState, user: string, target: string) => (target !== user ? suspects(s).find((p) => p.id === target) : undefined);
+
+function solveMenu(c: Ctx, user: string): boolean {
+  const err = solveCheck(c.s, user);
+  if (err) return deny(c, user, err);
+  const options = suspects(c.s)
+    .filter((p) => p.id !== user)
+    .map((p) => ({ value: `sus:${p.id}`, label: p.id }));
+  return menu(c, user, '🔍 破案（整局只有一次機會）：嫌犯是誰？', options);
+}
+
+function suspect(c: Ctx, user: string, target: string): boolean {
+  const err = solveCheck(c.s, user);
+  if (err) return deny(c, user, err);
+  const p = suspectOf(c.s, user, target);
+  if (!p) return deny(c, user, STALE);
+  const options = p.means.map((label, mi) => ({ value: `sm:${target}:${mi}`, label }));
+  return menu(c, user, `🔍 嫌犯 ${mention(target)}：用了哪一張手段？`, [...options, { value: 'sback:', label: '↩️ 重選嫌犯' }]);
+}
+
+function solveMeans(c: Ctx, user: string, target: string, mi: number): boolean {
+  const err = solveCheck(c.s, user);
+  if (err) return deny(c, user, err);
+  const p = suspectOf(c.s, user, target);
+  if (!p?.means[mi]) return deny(c, user, STALE);
+  const options = p.clues.map((label, ci) => ({ value: `sc:${target}:${mi}:${ci}`, label }));
+  return menu(c, user, `🔍 嫌犯 ${mention(target)}，手段「${p.means[mi]}」：留下哪一張線索？按下就送出`, [
+    ...options,
+    { value: `sback:${target}`, label: '↩️ 重選手段' },
+  ]);
+}
+
+const guessText = (g: DState['guesses'][number]) => `${mention(g.by)} 破案：嫌犯 ${mention(g.suspect)}，手段「${g.means}」，線索「${g.clue}」`;
+
+// 送出破案：系統判定，錯了只說「不對」
+function solve(c: Ctx, user: string, target: string, mi: number, ci: number): boolean {
+  const s = c.s;
+  const err = solveCheck(s, user);
+  if (err) return deny(c, user, err);
+  const p = suspectOf(s, user, target);
+  if (!p?.means[mi] || !p.clues[ci]) return deny(c, user, STALE);
+  const ok = p.role === 'murderer' && p.means[mi] === s.answer.means && p.clues[ci] === s.answer.clue;
+  const g = { by: user, suspect: target, means: p.means[mi], clue: p.clues[ci], ok };
+  s.guesses.push(g);
+  find(s, user)!.badge = false;
+  tell(c, user, '✅ 已送出破案');
+  c.events.push({ type: 'announce', text: `🔍 ${guessText(g)}\n${ok ? '🎯 對了！' : '❌ 不對。'}` });
+  if (ok) {
+    if (withRole(s, 'witness')) startReversal(c);
+    else endGame(c, 'good', `${mention(user)} 破案成功`);
+  } else if (!s.players.some((x) => (x.role === 'investigator' || x.role === 'witness') && x.badge)) {
+    endGame(c, 'evil', '調查員和目擊者的破案機會都用完了');
+  } else c.events.push(panel(s));
+  return true;
+}
+
+// ---------- 翻盤 ----------
+
+function startReversal(c: Ctx) {
+  const s = c.s;
+  const m = withRole(s, 'murderer')!;
+  s.phase = 'reversal';
+  c.events.push({ type: 'announce', text: `🎯 破案成功！兇手是 ${mention(m.id)}，但兇手還有最後機會指認目擊者（${REVERSAL_MS / 1000} 秒）。` });
+  c.events.push({
+    type: 'prompt',
+    kind: 'deception',
+    audience: 'user',
+    user: m.id,
+    text: `🔪 你被抓到了！指認一位玩家，指到目擊者你們就翻盤獲勝（${REVERSAL_MS / 1000} 秒）`,
+    options: s.players.filter((p) => p.role !== 'scientist' && p.role !== 'murderer' && p.role !== 'accomplice').map((p) => ({ value: `wit:${p.id}`, label: p.id })),
+  });
+  const acc = withRole(s, 'accomplice');
+  if (acc) c.events.push({ type: 'dm', to: acc.id, text: `🤝 ${mention(m.id)} 被抓到了，兇手正在指認目擊者。` });
+  startTimer(c, REVERSAL_MS);
+}
+
+function witness(c: Ctx, user: string, target: string): boolean {
+  const s = c.s;
+  if (find(s, user)?.role !== 'murderer') return reply(c, user, '只有兇手可以指認目擊者。');
+  if (s.phase !== 'reversal') return reply(c, user, '現在不能指認目擊者。');
+  const p = find(s, target);
+  if (!p || p.role === 'scientist' || p.role === 'murderer' || p.role === 'accomplice') return reply(c, user, STALE);
+  if (p.role === 'witness') endGame(c, 'evil', `兇手指認 ${mention(target)}，指到了目擊者`);
+  else endGame(c, 'good', `兇手指認 ${mention(target)}，沒指到目擊者`);
+  return true;
+}
+
 // ---------- 結束 ----------
 
 function endGame(c: Ctx, winner: 'good' | 'evil', why: string) {
@@ -502,7 +603,32 @@ function endGame(c: Ctx, winner: 'good' | 'evil', why: string) {
   s.phase = 'ended';
   s.timers = {};
   s.winner = winner;
-  c.events.push({ type: 'announce', text: why });
+  const evil = (p: DPlayer) => p.role === 'murderer' || p.role === 'accomplice';
+  const winners = s.players.filter((p) => evil(p) === (winner === 'evil')).map((p) => p.id);
+  c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners });
+  c.events.push(
+    {
+      type: 'announce',
+      text: [
+        `${winner === 'good' ? '🎉 好人陣營獲勝！' : '🔪 兇手陣營獲勝！'}${why}。`,
+        `答案：兇手 ${mention(withRole(s, 'murderer')!.id)}，${answerText(s)}`,
+        `角色：${s.players.map((p) => `${mention(p.id)} ${ROLE_NAME[p.role!]}`).join('、')}`,
+        '破案紀錄：',
+        ...(s.guesses.length ? s.guesses.map((g) => `${guessText(g)} → ${g.ok ? '對' : '不對'}`) : ['（沒有人破案）']),
+      ].join('\n'),
+      gif: winner === 'good' ? 'goodWin' : 'wolvesWin',
+    },
+    { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },
+  );
+}
+
+// 我的身分：只讓自己看到角色和這個角色知道的事
+function showMe(c: Ctx, user: string): boolean {
+  const s = c.s;
+  const me = find(s, user);
+  if (!me?.role) return reply(c, user, NOT_PLAYER);
+  const info = s.answer.clue ? nightInfo(s, me) : '';
+  return reply(c, user, [ROLE_INTRO[me.role], ...(info ? [info] : [])].join('\n'));
 }
 
 function handle(c: Ctx, action: GameAction): boolean {
@@ -516,8 +642,13 @@ function handle(c: Ctx, action: GameAction): boolean {
       return reply(c, action.user, '詭影神探不支援 bot。');
     case 'start':
       return start(c, action.user);
-    case 'cancel':
-      return cancelGame(c, action.user);
+    case 'cancel': {
+      const s = c.s;
+      const answer = s.answer.clue ? `\n答案：兇手 ${mention(withRole(s, 'murderer')!.id)}，${answerText(s)}` : '';
+      return cancelGame(c, action.user, answer);
+    }
+    case 'me':
+      return showMe(c, action.user);
     case 'nightMeans':
       return nightMeans(c, action.user, action.i);
     case 'nightClue':
@@ -537,11 +668,24 @@ function handle(c: Ctx, action: GameAction): boolean {
       return fsNew(c, action.user, action.pseq, action.slot, action.opt);
     case 'done':
       return done(c, action.user, action.tseq);
+    case 'solveMenu':
+      return solveMenu(c, action.user);
+    case 'suspect':
+      return suspect(c, action.user, action.target);
+    case 'solveMeans':
+      return solveMeans(c, action.user, action.target, action.mi);
+    case 'solveBack':
+      return action.target ? suspect(c, action.user, action.target) : solveMenu(c, action.user);
+    case 'solve':
+      return solve(c, action.user, action.target, action.mi, action.ci);
+    case 'witness':
+      return witness(c, action.user, action.target);
     case 'timeout':
       if (action.id !== c.s.timers.phase) return false;
       if (c.s.phase === 'night') nightTimeout(c);
       else if (c.s.phase === 'evidence') evidenceTimeout(c);
       else if (c.s.phase === 'present') nextSpeaker(c);
+      else if (c.s.phase === 'reversal') endGame(c, 'good', '兇手沒有指認目擊者');
       else return false;
       return true;
     default:
