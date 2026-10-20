@@ -2,6 +2,7 @@
 import type { GameEvent, Rng } from '../engine.js';
 
 export const WIKI = 'https://github.com/eric0324/slack-gamebuddy/wiki';
+export const DISCUSSIONS = 'https://github.com/eric0324/slack-gamebuddy/discussions';
 
 export type Category = 'deduction' | 'bluff' | 'party' | 'team' | 'coop' | 'strategy';
 
