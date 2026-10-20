@@ -236,8 +236,8 @@ describe('splendor/setup: 回合面板', () => {
     expect(i3 < i2 && i2 < i1).toBe(true);
     expect(board.text).toContain('1-1 白 0分｜紅2 黑1');
     expect(board.text).toContain('3-4 白 5分｜白3 黑7');
-    expect(board.text).toContain('{{name:p1}} 0 分｜籌碼 無 (0)｜折扣 無 (0 張)｜保留 0｜貴族 0');
-    expect(board.text).toContain('👉 {{name:p2}} 0 分');
+    expect(board.text).toContain('<@p1> 0 分｜籌碼 無 (0)｜折扣 無 (0 張)｜保留 0｜貴族 0');
+    expect(board.text).toContain('👉 <@p2> 0 分');
     expect(board.options).toEqual([
       { value: `turnMenu:${state.seq}`, label: '💍 行動' },
       { value: 'status', label: '📜 我的狀態' },
@@ -253,7 +253,7 @@ describe('splendor/setup: 回合面板', () => {
     });
     const [, next] = boards(timeout(s).events);
     expect(next.text).toContain('1-2 (空)');
-    expect(next.text).toContain('👉 {{name:p2}} 0 分｜籌碼 白1 藍2 (3)｜折扣 綠2 (2 張)｜保留 1｜貴族 0');
+    expect(next.text).toContain('👉 <@p2> 0 分｜籌碼 白1 藍2 (3)｜折扣 綠2 (2 張)｜保留 1｜貴族 0');
     expect(next.text).not.toContain('紅7 黑3');
     expect(next.text).not.toMatch(/💎|🔴|🟢|🔵|⚪|⚫|🟡|🟤|🪙|♦️/u);
   });
@@ -263,7 +263,7 @@ describe('splendor/setup: 回合面板', () => {
     const [old, next] = boards(timeout(s).events);
     expect(old.ref).toBe(`splendor:${s.seq}`);
     expect(old.options).toEqual([]);
-    expect(old.text).toBe('✅ {{name:p1}} 的回合結束：{{name:p1}} 逾時，跳過');
+    expect(old.text).toBe('✅ <@p1> 的回合結束：{{name:p1}} 逾時，跳過');
     expect(next.ref).toBe(`splendor:${s.seq + 1}`);
     expect(next.text).toContain('上一步：{{name:p1}} 逾時，跳過');
   });
@@ -614,7 +614,7 @@ describe('splendor/turns: 貴族來訪', () => {
     expect(text).toContain('貴族 1 來訪 {{name:p1}} (+3 分)');
     expect(text).not.toContain('貴族 1：');
     expect(text).toContain('貴族 2：綠4 藍4');
-    expect(text).toContain('{{name:p1}} 3 分');
+    expect(text).toContain('<@p1> 3 分');
   });
 
   it('籌碼不算進貴族條件', () => {

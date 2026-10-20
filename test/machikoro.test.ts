@@ -390,8 +390,8 @@ describe('machikoro/setup: 開局', () => {
     expect(board.text).toContain('👉 輪到 <@p4>');
     expect(board.text).toContain('第 1 輪');
     expect(board.text).toContain('麥田 (藍｜1 元｜骰 1) 剩 6 張');
-    expect(board.text).toContain('{{name:p1}} 3 元｜地標：(沒有)｜建築 2 張');
-    expect(board.text).toContain('👉 {{name:p4}} 3 元');
+    expect(board.text).toContain('<@p1> 3 元｜地標：(沒有)｜建築 2 張');
+    expect(board.text).toContain('👉 <@p4> 3 元');
     expect(board.options).toEqual([
       { value: `turnMenu:${state.seq}`, label: '🏘️ 行動' },
       { value: 'town', label: '📋 城鎮一覽' },
@@ -442,6 +442,7 @@ describe('machikoro/turns: 回合面板', () => {
     const [old, next] = boards(events);
     expect(old.ref).toBe(`machikoro:turn:${s.seq}`);
     expect(old.text).toContain('回合結束');
+    expect(old.text).toContain('<@p1>');
     expect(old.options).toEqual([]);
     expect(next.ref).toBe(`machikoro:turn:${s.seq + 1}`);
     expect(next.text).toContain('👉 輪到 <@p2>');

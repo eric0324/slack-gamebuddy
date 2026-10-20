@@ -131,7 +131,7 @@ const payOf = (p: SPlayer, id: number) => payment(cardOf(id).cost, discountOf(p)
 
 const playerLine = (s: SState, p: SPlayer) =>
   say(s, 'playerLine', {
-    who: quiet(p.id),
+    who: mention(p.id),
     score: scoreOf(p),
     tokens: tokensText(s, p.tokens),
     disc: gemsOf(s, discountOf(p)),
@@ -144,7 +144,7 @@ const playerLine = (s: SState, p: SPlayer) =>
 function board(s: SState, ended = false): GameEvent {
   const me = current(s);
   const base = { type: 'prompt' as const, kind: 'splendor', audience: 'channel' as const, ref: `splendor:${s.seq}` };
-  if (ended) return { ...base, text: say(s, 'turnOver', { who: quiet(me.id), last: s.last ?? '' }), options: [] };
+  if (ended) return { ...base, text: say(s, 'turnOver', { who: mention(me.id), last: s.last ?? '' }), options: [] };
   const bank = [...COLORS, 'o' as const].map((x) => say(s, 'bankItem', { gem: gemWord(x, s.lang), n: s.bank[x] })).join(say(s, 'gemSep'));
   const nobles = s.nobles.flatMap((id, i) => (id === null ? [] : [say(s, 'nobleLine', { i: i + 1, need: nobleText(nobleOf(id), s.lang) })]));
   const rows = [2, 1, 0].flatMap((lv) => [

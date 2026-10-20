@@ -366,10 +366,11 @@ describe('saboteur/turns: 回合面板', () => {
     const [old, next] = boards(events);
     expect(old.ref).toBe(`saboteur:turn:${s.seq}`);
     expect(old.options).toEqual([]);
+    expect(old.text).toContain('<@p1>');
     expect(next.ref).toBe(`saboteur:turn:${s.seq + 1}`);
     expect(next.text).toContain('👉 輪到 <@p2>');
     expect(next.text).toContain('牌庫剩');
-    expect(next.text).toContain('{{name:p2}}：🃏 6 張｜壞了：鎬子、礦車');
+    expect(next.text).toContain('👉 <@p2>：🃏 6 張｜壞了：鎬子、礦車');
     expect(next.text).toContain('上一步：{{name:p1}} 逾時，自動蓋掉一張牌');
     expect(next.options.map((o) => o.label)).toEqual(['⛏️ 行動', '🎒 我的手牌']);
     expect(next.text).not.toMatch(/破壞者|金礦工/);

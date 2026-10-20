@@ -116,18 +116,18 @@ const cardCount = (p: MPlayer) => Object.values(p.cards).reduce((a, b) => a + b,
 const marketLines = (s: MState) => marketOrder(s.market).map((code) => say(s, 'marketLine', { card: cardLabel(code, s.lang), n: s.market[code] }));
 const playerLine = (s: MState, p: MPlayer) =>
   say(s, 'playerLine', {
-    who: quiet(p.id),
+    who: mention(p.id),
     coins: p.coins,
     landmarks: built(p).map((l) => ln(s, l)).join(say(s, 'listSep')) || say(s, 'noneParen'),
     cards: cardCount(p),
   });
 const roundText = (s: MState) => (s.round >= 25 ? say(s, 'roundOf', { round: s.round, max: MAX_ROUNDS }) : say(s, 'round', { round: s.round }));
 
-// 回合面板：只 @ 輪到的人；ended 時拿掉按鈕
+// 回合面板：輪到的人和玩家清單用 @ 標記；ended 時拿掉按鈕
 function board(s: MState, ended = false): GameEvent {
   const me = current(s);
   const lines = [
-    ended ? say(s, 'turnEnded', { round: roundText(s), who: quiet(me.id) }) : say(s, 'turnHeader', { round: roundText(s), who: mention(me.id), sec: TURN_MS / 1000 }),
+    ended ? say(s, 'turnEnded', { round: roundText(s), who: mention(me.id) }) : say(s, 'turnHeader', { round: roundText(s), who: mention(me.id), sec: TURN_MS / 1000 }),
     ...(s.turn?.log ?? []),
     say(s, 'market'),
     ...marketLines(s),
