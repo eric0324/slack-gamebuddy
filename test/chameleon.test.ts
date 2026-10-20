@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { type GameEvent } from '../src/engine.js';
 import { applyChameleon, type CAction, type CState } from '../src/chameleon.js';
 import { CHAMELEON_CARDS } from '../src/chameleonCards.js';
+import { CHAMELEON_CARDS_EN } from '../src/chameleonCardsEn.js';
+import { chameleon } from '../src/games/chameleon.js';
 
 const rng = () => 0.99999;
 
@@ -376,5 +378,61 @@ describe('chameleon/rounds: 猜祕密詞、勝負', () => {
     const z = run([{ type: 'rematch', user: 'z', channel: 'C1' }], ended);
     expect(z.state).toBe(ended);
     expect(ephemeralTo(z.events, 'z')!.text).toContain('上一局的玩家');
+  });
+});
+
+// 英文局：同樣抽第 1 張主題卡、祕密詞 B2，4 人局 p4 是變色龍、p1 先說
+describe('chameleon/i18n: 英文版', () => {
+  const EN = CHAMELEON_CARDS_EN[0];
+  const enLobby = run([
+    { type: 'new', user: 'p1', channel: 'C1', lang: 'en' },
+    ...['p2', 'p3', 'p4'].map((user) => ({ type: 'join', user }) as CAction),
+  ]).state;
+  const enStarted = () => run([{ type: 'start', user: 'p1' }], enLobby, seq(0, 5.5 / 16, 3.5 / 4, 0.5 / 4));
+  const enCaught = () => {
+    const spoken = run(['p1', 'p2', 'p3', 'p4'].map((u, i) => ({ type: 'say', user: u, text: `word${i}` }) as CAction), enStarted().state);
+    return run([{ type: 'startVote', user: 'p1' }, vote('p1', 'p4'), vote('p2', 'p4'), vote('p3', 'p4'), vote('p4', 'p1')], spoken.state);
+  };
+
+  it('開局公告、私訊和說詞按鈕是英文，主題卡從英文題卡抽', () => {
+    const { state, events } = enStarted();
+    expect(state.topic).toBe(EN.topic);
+    const text = announces(events).join('\n');
+    expect(text).toContain('🦎 The Chameleon begins!');
+    expect(text).toContain(`🃏 Topic: *${EN.topic}*`);
+    expect(text).toContain(`A1 ${EN.words[0]}`);
+    expect(dmTo(events, 'p1')[0]).toContain(`B2 "${EN.words[5]}"`);
+    expect(dmTo(events, 'p4')[0]).toContain("🦎 You're the chameleon");
+    expect(prompts(events).at(-1)!.options).toEqual([{ value: 'say', label: '✍️ Say a word' }]);
+  });
+
+  it('說主題卡上的詞不分大小寫都被拒；錯誤訊息是英文', () => {
+    const s = enStarted().state;
+    const bad = run([{ type: 'say', user: 'p1', text: ` ${EN.words[3].toUpperCase()} ` }], s);
+    expect(bad.state).toBe(s);
+    expect(ephemeralTo(bad.events, 'p1')!.text).toBe("You can't say a word on the topic card. Try another one.");
+    expect(ephemeralTo(run([{ type: 'say', user: 'p2', text: 'x' }], s).events, 'p2')!.text).toBe("It's not your turn yet.");
+  });
+
+  it('抓到變色龍、猜祕密詞是英文；用英文詞猜不分大小寫', () => {
+    const { state, events } = enCaught();
+    expect(announces(events).join('\n')).toContain('🎯 Caught the chameleon <@p4>!');
+    const right = run([{ type: 'guess', user: 'p4', text: EN.words[5].toLowerCase() }], state);
+    expect(announces(right.events).join('\n')).toContain('The chameleon wins!');
+  });
+
+  it('GameDef 有英文名稱和英文說明', () => {
+    expect(chameleon.locales.en).toMatchObject({ name: 'The Chameleon', players: '3-8 players' });
+    expect(chameleon.locales.en.help).toContain('*The Chameleon commands*');
+  });
+
+  it('英文題卡和中文一樣多：主題不重複，每張 16 個不重複、20 字以內的詞', () => {
+    expect(CHAMELEON_CARDS_EN).toHaveLength(CHAMELEON_CARDS.length);
+    expect(new Set(CHAMELEON_CARDS_EN.map((c) => c.topic)).size).toBe(CHAMELEON_CARDS_EN.length);
+    for (const { topic, words } of CHAMELEON_CARDS_EN) {
+      expect(words, topic).toHaveLength(16);
+      expect(new Set(words.map((w) => w.toLowerCase())).size, topic).toBe(16);
+      for (const w of words) expect(w.length >= 1 && w.length <= 20 && w.trim() === w, `${topic}: ${w}`).toBe(true);
+    }
   });
 });

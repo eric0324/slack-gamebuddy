@@ -1,0 +1,48 @@
+// 變色龍的英文主題卡：和 CHAMELEON_CARDS 一對一翻譯、順序相同，每張 16 個詞 (用逗號分隔，可以是短詞)。
+// 台灣在地、翻成英文沒意義的詞換成意思接近的英文常用詞。
+import type { ChameleonCard } from './chameleonCards.js';
+
+const card = (topic: string, words: string): ChameleonCard => ({ topic, words: words.split(/,\s*/) });
+
+export const CHAMELEON_CARDS_EN: ChameleonCard[] = [
+  card('Fruit', 'Apple, Banana, Mango, Watermelon, Pineapple, Grape, Strawberry, Guava, Lychee, Longan, Kiwi, Papaya, Orange, Lemon, Cherry, Grapefruit'),
+  card('Street Food', 'Stinky Tofu, Oyster Omelet, Fried Chicken, Bubble Tea, Hot Dog, Popcorn Chicken, Sweet Potato Balls, Pepper Bun, Grilled Corn, Kebab, Scallion Pancake, Pork Bun, Corn Dog, Waffle, Fish Cake, Meatball'),
+  card('Animals', 'Lion, Tiger, Elephant, Giraffe, Panda, Monkey, Zebra, Kangaroo, Penguin, Hippo, Fox, Wolf, Rabbit, Squirrel, Camel, Rhino'),
+  card('Jobs', 'Doctor, Nurse, Teacher, Police Officer, Firefighter, Chef, Lawyer, Engineer, Driver, Farmer, Reporter, Actor, Designer, Accountant, Plumber, Astronaut'),
+  card('Sports', 'Basketball, Baseball, Soccer, Tennis, Badminton, Ping Pong, Volleyball, Swimming, Running, Golf, Boxing, Skiing, Surfing, Yoga, Weightlifting, Archery'),
+  card('Transportation', 'Car, Scooter, Bicycle, Bus, Subway, Bullet Train, Train, Airplane, Helicopter, Ship, Taxi, Truck, Ambulance, Hot Air Balloon, Submarine, Cable Car'),
+  card('Countries', 'Japan, Korea, USA, France, UK, Germany, Italy, Thailand, Vietnam, Australia, Brazil, Egypt, India, Canada, Mexico, Spain'),
+  card('Instruments', 'Piano, Guitar, Violin, Cello, Drums, Flute, Saxophone, Trumpet, Harmonica, Ukulele, Harp, Banjo, Accordion, Xylophone, Tambourine, Bass'),
+  card('Kitchen Items', 'Knife, Cutting Board, Wok, Spoon, Chopsticks, Rice Cooker, Microwave, Fridge, Oven, Blender, Spatula, Bowl, Plate, Dish Towel, Kettle, Bottle Opener'),
+  card('Convenience Store', 'Tea Egg, Oden, Rice Ball, Coffee, Newspaper, Umbrella, Tissues, Instant Noodles, Bottled Water, Gum, Ice Cream, Lunch Box, Sandwich, Batteries, Band-Aid, Beer'),
+  card('Holidays', 'Lunar New Year, Lantern Festival, Easter, Dragon Boat Festival, Mid-Autumn Festival, Christmas, Halloween, Valentine\'s Day, Mother\'s Day, Father\'s Day, Teachers\' Day, New Year\'s Eve, National Day, Children\'s Day, Anniversary, Thanksgiving'),
+  card('Weather', 'Sunny, Rainy, Typhoon, Snow, Thunder, Lightning, Rainbow, Fog, Hail, Tornado, Earthquake, Cold Snap, Monsoon, Drought, Sandstorm, Heat Wave'),
+  card('Colors', 'Red, Orange, Yellow, Green, Blue, Purple, Black, White, Gray, Pink, Brown, Gold, Silver, Sky Blue, Beige, Neon Green'),
+  card('Fairy Tales', 'Snow White, Cinderella, Red Riding Hood, Sleeping Beauty, Little Mermaid, Three Little Pigs, Frog Prince, Rapunzel, Ugly Duckling, Peter Pan, Pinocchio, Hansel and Gretel, Jack & the Beanstalk, Aladdin, Thumbelina, Emperor\'s Clothes'),
+  card('Superheroes', 'Spider-Man, Iron Man, Batman, Superman, Captain America, Thor, Hulk, Black Widow, Wonder Woman, The Flash, Deadpool, Wolverine, Black Panther, Doctor Strange, Aquaman, Ant-Man'),
+  card('Movie Genres', 'Action, Comedy, Horror, Romance, Sci-Fi, Animation, Documentary, War, Musical, Mystery, Martial Arts, Western, Disaster, Fantasy, Crime, Biopic'),
+  card('Desserts', 'Cake, Pudding, Macaron, Waffle, Ice Cream, Chocolate, Donut, Tiramisu, Cream Puff, Egg Tart, Tofu Pudding, Taro Balls, Shaved Ice, Mochi, Pineapple Cake, Pancake'),
+  card('Drinks', 'Black Tea, Green Tea, Milk Tea, Coffee, Cola, Soda, Orange Juice, Soy Milk, Milk, Beer, Red Wine, Yogurt Drink, Lemonade, Coconut Water, Iced Tea, Sports Drink'),
+  card('Furniture', 'Sofa, Bed, Wardrobe, Desk, Chair, Dining Table, Bookshelf, TV Stand, Shoe Rack, Lamp, Rug, Curtains, Mirror, Rocking Chair, Crib, Nightstand'),
+  card('Body Parts', 'Eyes, Nose, Mouth, Ears, Hair, Fingers, Knees, Shoulders, Belly, Toes, Eyebrows, Neck, Elbow, Heart, Teeth, Tongue'),
+  card('School Subjects', 'Literature, English, Math, Physics, Chemistry, Biology, History, Geography, Civics, Art, Music, PE, Home Economics, Computer Science, Earth Science, Health'),
+  card('Theme Park Rides', 'Roller Coaster, Carousel, Ferris Wheel, Pirate Ship, Bumper Cars, Haunted House, Drop Tower, Teacups, Log Flume, Mini Train, Swing Ride, Laser Tag, Observation Tower, Water Slide, Wave Swinger, 3D Theater'),
+  card('Sea Creatures', 'Shark, Whale, Dolphin, Octopus, Squid, Jellyfish, Sea Turtle, Starfish, Crab, Lobster, Seahorse, Clownfish, Stingray, Sea Lion, Coral, Sea Urchin'),
+  card('Stationery', 'Pencil, Pen, Eraser, Ruler, Scissors, Glue, Stapler, Correction Tape, Notebook, Sticky Notes, Highlighter, Compass, Paper Clip, Protractor, Pencil Sharpener, Folder'),
+  card('Clothing', 'T-Shirt, Shirt, Jeans, Skirt, Jacket, Sweater, Suit, Dress, Shorts, Hat, Scarf, Gloves, Socks, Raincoat, Pajamas, Swimsuit'),
+  card('Stars and Zodiac', 'Aries, Taurus, Gemini, Cancer, Leo, Virgo, Libra, Scorpio, Sagittarius, Capricorn, Aquarius, Pisces, Big Dipper, Orion, North Star, Milky Way'),
+  card('Famous Landmarks', 'Eiffel Tower, Great Wall, Statue of Liberty, Grand Canyon, Big Ben, Colosseum, Pyramids, Taj Mahal, Mount Fuji, Sydney Opera House, Niagara Falls, Stonehenge, Machu Picchu, Golden Gate Bridge, Leaning Tower, Louvre'),
+  card('Breakfast', 'Egg Crepe, Hash Brown, Bagel, Croissant, Rice Ball, Burger, Toast, Pancakes, Waffles, Cereal, Omelet, Milk Tea, Soy Milk, Sausage, Bacon, Steamed Bun'),
+  card('Gadgets', 'Phone, Laptop, Tablet, Headphones, Smartwatch, Camera, Printer, Mouse, Keyboard, USB Drive, Power Bank, Speaker, Game Console, Projector, Drone, Monitor'),
+  card('Insects', 'Butterfly, Bee, Ant, Mosquito, Fly, Cockroach, Dragonfly, Firefly, Ladybug, Cricket, Cicada, Rhino Beetle, Praying Mantis, Grasshopper, Moth, Beetle'),
+  card('Birds', 'Eagle, Pigeon, Sparrow, Crow, Parrot, Peacock, Swan, Owl, Woodpecker, Flamingo, Ostrich, Swallow, Seagull, Magpie, Hummingbird, Egret'),
+  card('Vegetables', 'Cabbage, Bok Choy, Spinach, Water Spinach, Carrot, Radish, Potato, Onion, Tomato, Eggplant, Green Pepper, Pumpkin, Corn, Broccoli, Cucumber, Sweet Potato'),
+  card('Chores', 'Sweeping, Mopping, Washing Dishes, Doing Laundry, Hanging Clothes, Folding Clothes, Taking Out Trash, Cooking, Cleaning Windows, Scrubbing Toilet, Watering Plants, Walking the Dog, Making the Bed, Ironing, Vacuuming, Changing Lightbulbs'),
+  card('Music Genres', 'Rock, Jazz, Hip Hop, Classical, Pop, Blues, EDM, Country, Heavy Metal, Reggae, Folk, Rap, R&B, Punk, Opera, K-Pop'),
+  card('Office', 'Meeting, Presentation, Overtime, Clock In, Boss, Coworker, Printer, Copier, Break Room, Year-End Bonus, Day Off, Business Trip, Office Party, Email, Desk, Business Card'),
+  card('Childhood Toys', 'LEGO, Doll, Spinning Top, Yo-Yo, Marbles, Jump Rope, Kite, Building Blocks, Puzzle, RC Car, Diabolo, Hula Hoop, Paper Airplane, Bubbles, Toy Gun, Robot'),
+  card('Fantasy Creatures', 'Dragon, Unicorn, Mermaid, Vampire, Werewolf, Elf, Wizard, Phoenix, Zombie, Ghost, Giant, Dwarf, Angel, Demon, Fairy, Nine-Tailed Fox'),
+  card('Natural Landscapes', 'Mountain, River, Waterfall, Desert, Forest, Beach, Volcano, Glacier, Canyon, Lake, Grassland, Cave, Island, Hot Spring, Swamp, Coral Reef'),
+  card('Bathroom Items', 'Toothbrush, Toothpaste, Towel, Soap, Shampoo, Body Wash, Hair Dryer, Comb, Razor, Bathtub, Shower Head, Toilet, Toilet Paper, Mirror, Lotion, Shower Cap'),
+  card('Weddings', 'Bride, Groom, Wedding Dress, Ring, Wedding Cake, Gift Money, Bridesmaid, Bouquet, Banquet, Honeymoon, Invitation, Officiant, Toast, Photo Shoot, First Dance, Proposal'),
+];

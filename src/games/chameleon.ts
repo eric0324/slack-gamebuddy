@@ -16,6 +16,19 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*The Chameleon commands*',
+  '• `/game chameleon new`: open a room (anyone)',
+  '• `/game chameleon start`: start the game, needs 3-8 human players (host)',
+  '• Saying a word: on your turn press "✍️ Say a word" and enter a word related to the secret word (not a word on the topic card); or type `/game chameleon say <word>`',
+  '• `/game chameleon next`: skip the current speaker (host)',
+  '• `/game chameleon vote`: start the vote early during discussion (host)',
+  '• `/game chameleon guess <word or coordinate>`: the caught chameleon guesses the secret word, e.g. `B3`; or press a channel button',
+  '• `/game chameleon cancel`: cancel the game (host)',
+  'Vote for the chameleon with the channel buttons; every step is 2 minutes',
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 // 變色龍的子指令：say <詞>、next (房主跳過)、vote (房主提早投票)、guess <詞或座標>
 export function parseChameleonCommand(text: string, user: string, channel: string): ChAction | null {
   const [sub, ...rest] = text.trim().split(/\s+/);
@@ -47,6 +60,7 @@ export const chameleon = {
   category: 'deduction',
   desc: '大家各說一個和祕密詞有關的詞，找出不知道祕密詞的變色龍',
   noBots: true,
+  locales: { en: { name: 'The Chameleon', players: '3-8 players', desc: "Everyone says a word related to the secret word; find the chameleon who doesn't know it", help: HELP_EN } },
   help: HELP,
   apply: applyChameleon,
   parse: parseChameleonCommand,
