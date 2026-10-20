@@ -572,3 +572,78 @@ describe('kittens/bots', () => {
     expect(all.some((e) => e.type === 'result')).toBe(true);
   });
 });
+
+describe('kittens/en: 英文版', () => {
+  const HAN = /[一-鿿]/;
+  const enLobby = (n: number) =>
+    run([
+      { type: 'new', user: 'p1', channel: 'C1', lang: 'en' } as KAction,
+      ...Array.from({ length: n - 1 }, (_, i) => ({ type: 'join', user: `p${i + 2}` }) as KAction),
+    ]);
+  const enStarted = (n: number) => run([{ type: 'start', user: 'p1' }], enLobby(n).state);
+  const enTable = (hands: Card[][], deck: Card[], turn = 0): KState => {
+    const s = structuredClone(enStarted(hands.length).state);
+    s.players.forEach((p, i) => (p.hand = [...hands[i]]));
+    s.deck = [...deck];
+    s.turn = turn;
+    s.turnsLeft = 1;
+    return s;
+  };
+
+  it('開局公告、規則私訊、牌桌和按鈕都是英文', () => {
+    const { events } = enStarted(3);
+    const text = announces(events).join('\n');
+    expect(text).toContain('💣 Exploding Kittens begins!');
+    expect(text).not.toMatch(HAN);
+    const dm = events.find((e) => e.type === 'dm' && e.to === 'p1') as { text: string };
+    expect(dm.text).toContain('🧯 Defuse');
+    expect(dm.text).not.toMatch(HAN);
+    const b = boards(events).at(-1)!;
+    expect(b.text).toContain("It's");
+    expect(b.text).not.toMatch(HAN);
+    expect(b.options.map((o) => o.label)).toEqual(['🃏 My hand', '🂠 Draw']);
+  });
+
+  it('手牌選單、反對按鈕、ephemeral 錯誤訊息是英文', () => {
+    const s = enTable([['attack', 'taco', 'taco', 'defuse'], ['nope'], ['skip']], FILL);
+    const hand = run([{ type: 'hand', user: 'p1' }], s).events;
+    const m = menuOf(hand, 'p1')!;
+    expect(m.text).toContain('🃏 Your hand: 🧯 Defuse ×1, ⚔️ Attack ×1, 🌮 Tacocat ×2');
+    expect(m.options.map((o) => o.label)).toEqual(['⚔️ Attack', '🌮 Play a pair of Tacocat']);
+    const played = run([{ type: 'play', user: 'p1', seq: s.seq, card: 'attack' }], s).events;
+    expect(announces(played)).toContain('<@p1> played ⚔️ Attack');
+    const np = nopePrompts(played).at(-1)!;
+    expect(np.options.map((o) => o.label)).toEqual(['🚫 Nope']);
+    expect(np.text).not.toMatch(HAN);
+    const notYet = run([{ type: 'draw', user: 'p2', seq: s.seq }], s).events;
+    expect(ephemeralTo(notYet, 'p2')[0]).toBe("It's not your turn.");
+  });
+
+  it('沒有拆解抽到炸彈出局，結束公告和再來一局是英文', () => {
+    const s = enTable([['skip'], ['skip']], ['bomb', ...FILL]);
+    const { state, events } = run([{ type: 'draw', user: 'p1', seq: s.seq }], s);
+    expect(state.winners).toEqual(['p2']);
+    const text = announces(events).join('\n');
+    expect(text).toContain('💀 <@p1> is out! (no Defuse)');
+    expect(text).toContain('🏆 Game over, <@p2> wins!');
+    expect(text).not.toMatch(HAN);
+    const rematch = prompts(events).find((p) => p.kind === 'rematch')!;
+    expect(rematch.text).toBe('Play again?');
+    expect(rematch.options[0].label).toBe('Play again');
+  });
+
+  it('中文局維持中文', () => {
+    const { events } = started(3);
+    expect(announces(events).join()).toContain('💣 炸彈貓開始！');
+  });
+
+  it('GameDef 有英文名稱、人數、說明', () => {
+    const en = kittens.locales!.en!;
+    expect(en.name).toBe('Exploding Kittens');
+    expect(en.players).toBe('2-5 players');
+    expect(en.desc).not.toMatch(HAN);
+    expect(en.help).toContain('`/game kittens new`');
+    expect(en.help).toContain('Exploding-Kittens');
+    expect(en.help).not.toMatch(HAN);
+  });
+});

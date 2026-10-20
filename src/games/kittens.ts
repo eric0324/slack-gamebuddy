@@ -14,6 +14,17 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Exploding Kittens commands*',
+  '• `/game kittens new`: open a room (anyone)',
+  '• `/game kittens addbot [count]`: add bots to fill seats (host, before start)',
+  '• `/game kittens removebot [count]`: remove bots (host, before start)',
+  '• `/game kittens start`: start the game, needs 2-5 players (host)',
+  '• `/game kittens cancel`: cancel the game (host)',
+  'On your turn, press "🃏 My hand" on the table message to play action cards, then press "🂠 Draw" to end your turn; within 5s after someone plays a card, press "🚫 Nope" to cancel it',
+  `📖 Full guide: <${WIKI}/Exploding-Kittens|wiki>`,
+].join('\n');
+
 // 炸彈貓：沒有遊戲中的打字指令，全部用按鈕
 export function parseKittensCommand(text: string, user: string, channel: string): KAction | null {
   return parseRoomCommand(text, user, channel) as KAction | null;
@@ -46,6 +57,9 @@ export const kittens = {
   category: 'strategy',
   desc: '輪流出牌、抽牌，抽到炸彈貓又沒有拆解就出局，最後活下來的人贏',
   help: HELP,
+  locales: {
+    en: { name: 'Exploding Kittens', players: '2-5 players', desc: 'Take turns playing and drawing cards; draw an Exploding Kitten without a Defuse and you are out', help: HELP_EN },
+  },
   apply: applyKittens,
   parse: parseKittensCommand,
   button: kittensButton,
