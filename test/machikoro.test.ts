@@ -115,7 +115,7 @@ describe('machikoro/setup: 市場', () => {
     expect(Object.keys(market)).toHaveLength(9);
   });
 
-  it('顯示順序依最小骰點、同骰點依費用（再依卡表順序）', () => {
+  it('顯示順序依最小骰點、同骰點依費用 (再依卡表順序)', () => {
     expect(marketOrder({ family: 1, mine: 1, cafe: 2, wheat: 1, bakery: 1, ranch: 1, sushi: 1, stadium: 1, florist: 1 })).toEqual([
       'wheat',
       'sushi',
@@ -156,7 +156,7 @@ describe('machikoro/buildings: 藍色和綠色', () => {
     expect(b[0].coins).toBe(6);
   });
 
-  it('蔬果市場算麥穗（含花田），花店算花田', () => {
+  it('蔬果市場算麥穗 (含花田)，花店算花田', () => {
     const a = [town('A', 0, { produce: 1, wheat: 1, flower: 1, apple: 1 })];
     settleBlueGreen(a, 0, 11, noTuna);
     expect(a[0].coins).toBe(6);
@@ -244,7 +244,7 @@ describe('machikoro/buildings: 紫色自動結算', () => {
     expect(ps.map((p) => p.coins)).toEqual([4, 2, 0]);
   });
 
-  it('稅務局向 10 元以上的人收一半（捨去）', () => {
+  it('稅務局向 10 元以上的人收一半 (捨去)', () => {
     const ps = [town('A', 0, { tax: 1 }), town('B', 15), town('C', 9)];
     settlePurple(ps, 0, 9);
     expect(ps.map((p) => p.coins)).toEqual([7, 8, 9]);
@@ -315,7 +315,7 @@ describe('machikoro/setup: 骰子街的房間', () => {
     expect(ephemeralTo(events, 'p1').join()).toContain('至少需要 2 人');
   });
 
-  it('房間已滿（5 人）時拒絕加入', () => {
+  it('房間已滿 (5 人) 時拒絕加入', () => {
     const { state, events } = run([{ type: 'join', user: 'x' }], lobbyWith(5).state);
     expect(state.players).toHaveLength(5);
     expect(ephemeralTo(events, 'x').join()).toContain('房間已滿');
@@ -379,7 +379,7 @@ describe('machikoro/setup: 開局', () => {
     expect(text).toContain('紅色');
     expect(text).toContain('港口、火車站、購物中心、遊樂園、廣播塔、機場');
     expect(text).toContain('30 輪');
-    expect(text).toContain('麥田（藍｜1 元｜骰 1）');
+    expect(text).toContain('麥田 (藍｜1 元｜骰 1)');
     expect(otherEmoji(text)).toBeNull();
   });
 
@@ -389,8 +389,8 @@ describe('machikoro/setup: 開局', () => {
     expect(board.ref).toBe(`machikoro:turn:${state.seq}`);
     expect(board.text).toContain('👉 輪到 <@p4>');
     expect(board.text).toContain('第 1 輪');
-    expect(board.text).toContain('麥田（藍｜1 元｜骰 1）剩 6 張');
-    expect(board.text).toContain('{{name:p1}} 3 元｜地標：（沒有）｜建築 2 張');
+    expect(board.text).toContain('麥田 (藍｜1 元｜骰 1) 剩 6 張');
+    expect(board.text).toContain('{{name:p1}} 3 元｜地標：(沒有)｜建築 2 張');
     expect(board.text).toContain('👉 {{name:p4}} 3 元');
     expect(board.options).toEqual([
       { value: `turnMenu:${state.seq}`, label: '🏘️ 行動' },
@@ -421,7 +421,7 @@ const fire = (s: MState, r: () => number = rng) => run([{ type: 'timeout', id: s
 const turnMenu = (s: MState, user = cur(s)) => run([{ type: 'turnMenu', user, seq: s.seq }], s);
 const timers = (events: GameEvent[]) => events.filter((e) => e.type === 'startTimer');
 const STALE = '這個選單已經過期，請重新按「🏘️ 行動」。';
-// 擲 1 顆（預設 6，沒有人有 6 的建築）然後不買
+// 擲 1 顆 (預設 6，沒有人有 6 的建築) 然後不買
 const skipTurn = (s: MState) => pass(roll(s).state).state;
 
 describe('machikoro/turns: 回合面板', () => {
@@ -556,7 +556,7 @@ describe('machikoro/turns: 港口加二', () => {
   it('10 以上才出現，+2 後結算', () => {
     const r1 = roll(harbor(), 2, dice(6, 5));
     expect(r1.state.turn!.step).toBe('harbor');
-    expect(labels(r1.events, 'p1')).toEqual(['+2（變成 13）', '不加']);
+    expect(labels(r1.events, 'p1')).toEqual(['+2 (變成 13)', '不加']);
     const r2 = run([{ type: 'harbor', user: 'p1', seq: r1.state.seq, yes: true }], r1.state);
     expect(r2.state.turn).toMatchObject({ step: 'buy', total: 13, harbor: true });
     expect(boards(r2.events)[0].text).toContain('擲出 6 + 5 = 11，港口 +2 = 13');
@@ -606,7 +606,7 @@ describe('machikoro/turns: 買建築', () => {
   it('選單只列買得起的、寫出現金和效果；1 元時沒有地標', () => {
     const s = market({ cafe: 2, wheat: 3, pizza: 1 }, 1);
     const { events } = turnMenu(s);
-    expect(labels(events, 'p1')).toEqual(['麥田（1 元）', '披薩店（1 元）', '不買']);
+    expect(labels(events, 'p1')).toEqual(['麥田 (1 元)', '披薩店 (1 元)', '不買']);
     expect(menuOf(events, 'p1')!.text).toContain('現金 1 元');
     expect(menuOf(events, 'p1')!.text).toContain('別人擲 7：向他收 1 元');
     expect(buy(s, 'cafe').state).toBe(s);
@@ -621,7 +621,7 @@ describe('machikoro/turns: 買建築', () => {
 
   it('蓋地標：買得起的才有按鈕，扣錢、面板寫蓋了', () => {
     const s = market({ cafe: 1 }, 4);
-    expect(labels(turnMenu(s).events, 'p1')).toEqual(['咖啡館（2 元）', '港口（2 元）', '火車站（4 元）', '不買']);
+    expect(labels(turnMenu(s).events, 'p1')).toEqual(['咖啡館 (2 元)', '港口 (2 元)', '火車站 (4 元)', '不買']);
     const { state, events } = buy(s, 'station');
     expect(P(state, 'p1')).toMatchObject({ coins: 0, landmarks: ['cityhall', 'station'] });
     expect(boards(events)[0].text).toContain('{{name:p1}} 蓋了火車站');
@@ -668,7 +668,7 @@ describe('machikoro/turns: 輪流、遊樂園與計時', () => {
     expect(order).toEqual(['p3@1', 'p4@1', 'p1@1', 'p2@1', 'p3@2']);
   });
 
-  it('遊樂園擲出相同點數再一回合（新 seq、新面板、不算輪），可以連續', () => {
+  it('遊樂園擲出相同點數再一回合 (新 seq、新面板、不算輪)，可以連續', () => {
     const s = setup((s) => P(s, 'p1').landmarks.push('station', 'park'));
     const r1 = pass(roll(s, 2, dice(4, 4)).state);
     expect(announces(r1.events).join()).toContain('{{name:p1}} 擲出相同點數，再一回合');
@@ -744,7 +744,7 @@ describe('machikoro/buildings: 電視台', () => {
   it('每位對手一顆按鈕標示現金；收 5 元，面板公告', () => {
     const r1 = tv((s) => (P(s, 'p2').coins = 8));
     expect(r1.state.turn!.step).toBe('tv');
-    expect(labels(r1.events, 'p1')).toEqual(['p2（8 元）', 'p3（3 元）', 'p4（3 元）']);
+    expect(labels(r1.events, 'p1')).toEqual(['p2 (8 元)', 'p3 (3 元)', 'p4 (3 元)']);
     const { state, events } = run([{ type: 'tv', user: 'p1', seq: r1.state.seq, target: 'p2' }], r1.state);
     expect(P(state, 'p2').coins).toBe(3);
     expect(P(state, 'p1').coins).toBe(8);
@@ -841,7 +841,7 @@ const results = (events: GameEvent[]) => events.filter((e) => e.type === 'result
 
 describe('machikoro/scoring: 勝負', () => {
   const FIVE = ['harbor', 'station', 'mall', 'park', 'radio'];
-  // 已經有 5 個地標、30 元；擲完骰子保留（有廣播塔）
+  // 已經有 5 個地標、30 元；擲完骰子保留 (有廣播塔)
   const almost = (r: () => number) => {
     const s = setup((s) => {
       P(s, 'p1').landmarks.push(...FIVE);
@@ -1091,7 +1091,7 @@ describe('machikoro/setup: Slack 設定', () => {
     expect(machikoro.parse('removebot', 'u', 'C1')).toEqual({ type: 'removeBot', user: 'u', count: 1 });
   });
 
-  it('help 和不認識的子指令回傳 null（顯示說明），說明列出所有指令和按鈕', () => {
+  it('help 和不認識的子指令回傳 null (顯示說明)，說明列出所有指令和按鈕', () => {
     expect(machikoro.parse('help', 'u', 'C1')).toBeNull();
     expect(machikoro.parse('roll', 'u', 'C1')).toBeNull();
     for (const cmd of ['new', 'addbot', 'removebot', 'start', 'cancel']) expect(machikoro.help).toContain(`/game machikoro ${cmd}`);
@@ -1099,7 +1099,7 @@ describe('machikoro/setup: Slack 設定', () => {
     expect(machikoro.help).toContain('📋 城鎮一覽');
   });
 
-  it('按鈕路由：房間按鈕和遊戲中的每種按鈕（bot id 含冒號）', () => {
+  it('按鈕路由：房間按鈕和遊戲中的每種按鈕 (bot id 含冒號)', () => {
     const b = (value: string, kind = 'machikoro') => machikoro.button(kind, value, 'u', 'C1');
     const bot = 'bot:2:Lily';
     expect(b('join', 'join')).toEqual({ type: 'join', user: 'u' });

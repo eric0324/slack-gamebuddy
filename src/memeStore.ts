@@ -1,4 +1,4 @@
-// 梗圖大亂鬥的頻道梗圖庫：玩家投稿的梗圖存在 SQLite（和戰績同一個檔案），每個頻道各自一份
+// 梗圖大亂鬥的頻道梗圖庫：玩家投稿的梗圖存在 SQLite (和戰績同一個檔案)，每個頻道各自一份
 import Database from 'better-sqlite3';
 
 export type SubmittedMeme = { id: number; url: string; name: string; by: string };

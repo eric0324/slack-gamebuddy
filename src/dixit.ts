@@ -1,4 +1,4 @@
-// 妙語說書人（Dixit）遊戲引擎：純邏輯，不碰任何 I/O。說書人看自己的一張梗圖給一句提示，其他人出牌混淆，大家猜哪張是說書人的。
+// 妙語說書人 (Dixit) 遊戲引擎：純邏輯，不碰任何 I/O。說書人看自己的一張梗圖給一句提示，其他人出牌混淆，大家猜哪張是說書人的。
 // 介面和其他遊戲一樣：applyDixit(state, action, rng) → { state, events }。
 import { mention, type GameEvent, type Rng } from './engine.js';
 import { cancelGame, joinRoom, leaveRoom, lobbyEvent, reply, runGame, shuffle, startTimer } from './common.js';
@@ -14,14 +14,14 @@ const VOTE_MS = 60_000;
 const MAX_CLUE = 50;
 const STALE = '這個選單已經過期了，請重新按「🃏 我的手牌」。';
 
-// 一張牌：只有圖片；by 是頻道投稿者（內建的沒有），不顯示
+// 一張牌：只有圖片；by 是頻道投稿者 (內建的沒有)，不顯示
 export type Card = { url: string; by?: string };
 
 export interface DixitPlayer {
   id: string;
   hand: Card[]; // 這輪出的牌留在原位，揭曉後才拿掉，舊選單的按鈕位置才不會錯
   score: number;
-  played: Card[]; // 這輪出的牌（說書人不算）
+  played: Card[]; // 這輪出的牌 (說書人不算)
   vote?: number; // 投給 table 的第幾張
 }
 
@@ -35,7 +35,7 @@ export interface DixitState {
   teller: number; // 說書人在 players 的 index
   round: number;
   seq: number; // 頻道訊息的 ref，也用來擋掉舊按鈕
-  pick?: number; // 說書人在手牌選單選的牌（還沒送出提示）
+  pick?: number; // 說書人在手牌選單選的牌 (還沒送出提示)
   clue?: string;
   tellerCard?: Card;
   table: { card: Card; by: string }[]; // 投票時打亂後的牌
@@ -55,7 +55,7 @@ export type DixitAction =
   | { type: 'removeBot'; user: string; count: number }
   | { type: 'hand'; user: string }
   | { type: 'pick'; user: string; seq: number; card: number }
-  | { type: 'clue'; user: string; text: string; card?: number } // card：指令帶的手牌 index（從 0 起）；視窗送出時用 pick
+  | { type: 'clue'; user: string; text: string; card?: number } // card：指令帶的手牌 index (從 0 起)；視窗送出時用 pick
   | { type: 'play'; user: string; seq: number; card: number }
   | { type: 'vote'; user: string; seq: number; n: number }
   | { type: 'timeout'; id: number }
@@ -74,7 +74,7 @@ const perPlay = (s: DixitState) => (s.players.length === 3 ? 2 : 1);
 const pickIndex = (rng: Rng, n: number) => Math.floor(rng() * n);
 const scores = (s: DixitState) => [...s.players].sort((a, b) => b.score - a.score).map((p) => `${mention(p.id)} ${p.score}`).join('、');
 
-// 手牌第 i 張這輪已經出了（說書人的牌或出到桌上的牌）
+// 手牌第 i 張這輪已經出了 (說書人的牌或出到桌上的牌)
 const used = (s: DixitState, p: DixitPlayer, i: number) => {
   const url = p.hand[i]?.url;
   return url === undefined || s.tellerCard?.url === url || p.played.some((c) => c.url === url);
@@ -88,7 +88,7 @@ function clueBoard(s: DixitState): GameEvent {
     ref: `dixit:${s.seq}`,
     text: [
       `🎨 第 ${s.round} 輪，說書人是 ${mention(teller(s).id)}`,
-      `說書人按「🃏 我的手牌」選一張牌，再輸入一句提示（${CLUE_MS / 1000} 秒）；其他人可以先看看自己的手牌`,
+      `說書人按「🃏 我的手牌」選一張牌，再輸入一句提示 (${CLUE_MS / 1000} 秒)；其他人可以先看看自己的手牌`,
     ].join('\n'),
     options: [HAND_BUTTON],
   };
@@ -121,7 +121,7 @@ function playBoard(s: DixitState): GameEvent {
     ref: `dixit:${s.seq}`,
     text: [
       `🃏 第 ${s.round} 輪出牌：${mention(teller(s).id)} 的提示是「${s.clue}」`,
-      `其他人按「🃏 我的手牌」出${perPlay(s) === 2 ? ' 2 張' : '一張'}最符合提示的牌，出了不能改（${PLAY_MS / 1000} 秒）`,
+      `其他人按「🃏 我的手牌」出${perPlay(s) === 2 ? ' 2 張' : '一張'}最符合提示的牌，出了不能改 (${PLAY_MS / 1000} 秒)`,
       `已出 ${total - waiting.length}/${total}${waiting.length ? `，還沒出完：${waiting.map((p) => mention(p.id)).join(' ')}` : ''}`,
     ].join('\n'),
     options: [HAND_BUTTON],
@@ -152,10 +152,10 @@ function handMenu(c: Ctx, user: string): boolean {
   const left = me.hand.flatMap((_, i) => (used(s, me, i) ? [] : [i]));
   const text =
     act === 'pick'
-      ? '🃏 你是說書人：選一張牌，接著輸入一句提示（也可以用 `/game dixit clue <編號> <提示>`）'
+      ? '🃏 你是說書人：選一張牌，接著輸入一句提示 (也可以用 `/game dixit clue <編號> <提示>`)'
       : act === 'play'
-        ? `🃏 挑一張最符合提示「${s.clue}」的牌（還要出 ${perPlay(s) - me.played.length} 張，出了不能改）`
-        : '🃏 你的手牌（現在不用出牌）';
+        ? `🃏 挑一張最符合提示「${s.clue}」的牌 (還要出 ${perPlay(s) - me.played.length} 張，出了不能改)`
+        : '🃏 你的手牌 (現在不用出牌)';
   c.events.push({
     type: 'prompt',
     kind: 'dixit',
@@ -168,7 +168,7 @@ function handMenu(c: Ctx, user: string): boolean {
   return false;
 }
 
-// 說書階段的共同檢查：回傳說書人，不行時回傳 null（已經回覆原因）
+// 說書階段的共同檢查：回傳說書人，不行時回傳 null (已經回覆原因)
 function storyteller(c: Ctx, user: string): DixitPlayer | null {
   const s = c.s;
   if (!find(s, user)) return (reply(c, user, '你不在這局遊戲裡。'), null);
@@ -182,7 +182,7 @@ function pick(c: Ctx, user: string, seq: number, card: number): boolean {
   if (!me) return false;
   if (seq !== c.s.seq || !Number.isInteger(card) || !me.hand[card]) return reply(c, user, STALE);
   c.s.pick = card;
-  c.events.push({ type: 'modal', to: user, kind: 'dixitClue', title: '說書人的提示', label: `提示（1～${MAX_CLUE} 字）` });
+  c.events.push({ type: 'modal', to: user, kind: 'dixitClue', title: '說書人的提示', label: `提示 (1～${MAX_CLUE} 字)` });
   return true;
 }
 
@@ -225,7 +225,7 @@ function voteBoard(s: DixitState, ended = false): GameEvent {
     text: [
       ended
         ? `🗳️ 第 ${s.round} 輪投票：已結束`
-        : `🗳️ 第 ${s.round} 輪：哪一張是說書人 ${mention(teller(s).id)} 的牌？提示是「${s.clue}」（不能投自己的牌，${VOTE_MS / 1000} 秒內可以改票）`,
+        : `🗳️ 第 ${s.round} 輪：哪一張是說書人 ${mention(teller(s).id)} 的牌？提示是「${s.clue}」(不能投自己的牌，${VOTE_MS / 1000} 秒內可以改票)`,
       ...(ended ? [] : [`已投 ${voted}/${voters.length}`]),
     ].join('\n'),
     images: s.table.map((t, i) => ({ url: t.card.url, title: String(i + 1) })),
@@ -254,7 +254,7 @@ function play(c: Ctx, user: string, seq: number, card: number): boolean {
   if (seq !== s.seq || !Number.isInteger(card) || used(s, me, card)) return reply(c, user, STALE);
   me.played.push(me.hand[card]); // 牌留在手牌原位，揭曉後才拿掉
   if (me.played.length < perPlay(s)) {
-    c.events.push({ type: 'ephemeral', to: user, text: '✅ 已出 1 張，再出一張（同一個選單或重新按「🃏 我的手牌」）。' });
+    c.events.push({ type: 'ephemeral', to: user, text: '✅ 已出 1 張，再出一張 (同一個選單或重新按「🃏 我的手牌」)。' });
     c.events.push(playBoard(s));
     return true;
   }
@@ -319,7 +319,7 @@ function reveal(c: Ctx) {
       `🎉 第 ${s.round} 輪揭曉：說書人 ${mention(t.id)} 的牌是第 ${answer + 1} 號`,
       ...s.table.map((x, i) => {
         const voters = s.players.filter((p) => p.vote === i).map((p) => mention(p.id));
-        return `${i + 1}. ${mention(x.by)}${i === answer ? '（說書人）' : ''} ← ${voters.join(' ') || '沒有人'}`;
+        return `${i + 1}. ${mention(x.by)}${i === answer ? ' (說書人)' : ''} ← ${voters.join(' ') || '沒有人'}`;
       }),
       `本輪得分：${s.players.map((p) => `${mention(p.id)} +${gain.get(p.id)}`).join('、')}`,
       `目前總分：${scores(s)}`,
@@ -345,7 +345,7 @@ function endGame(c: Ctx, reason: string) {
     {
       type: 'announce',
       text: [
-        `🏆 遊戲結束（${reason}），${s.winners.map(mention).join('、')} 獲勝！`,
+        `🏆 遊戲結束 (${reason})，${s.winners.map(mention).join('、')} 獲勝！`,
         ...ranking.map((p, i) => `${i + 1}. ${mention(p.id)} ${p.score} 分${p.score === top ? ' 🏆' : ''}`),
       ].join('\n'),
       gif: 'goodWin',
@@ -358,7 +358,7 @@ function rules(s: DixitState): string {
   return [
     '🎨 妙語說書人開始！',
     `說書人順序：${s.players.map((p) => mention(p.id)).join(' → ')}`,
-    '每輪說書人從手牌選一張牌，給一句提示；其他人從手牌出一張最符合提示的牌混進去，大家再匿名猜哪張是說書人的（不能投自己的牌）。',
+    '每輪說書人從手牌選一張牌，給一句提示；其他人從手牌出一張最符合提示的牌混進去，大家再匿名猜哪張是說書人的 (不能投自己的牌)。',
     ...(s.players.length === 3 ? ['3 人局：每人 7 張手牌，非說書人每輪出 2 張。'] : []),
     '計分：全部猜對或全部沒猜對時，說書人 0 分、其他人各 2 分；否則說書人和猜對的人各 3 分。說書人以外的牌每被投 1 票，出牌的人 +1。',
     `有人到 ${TARGET} 分，或牌庫不夠補牌時遊戲結束，總分最高的人獲勝。`,

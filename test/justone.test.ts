@@ -56,7 +56,7 @@ describe('justone/setup: 一字千金的房間', () => {
   });
 });
 
-// rng 固定：牌堆是詞庫最前面的 13 個詞（不洗牌），第一位猜詞的是最後一位玩家
+// rng 固定：牌堆是詞庫最前面的 13 個詞 (不洗牌)，第一位猜詞的是最後一位玩家
 const started = (n: number, r: () => number = rng) => run([{ type: 'start', user: 'p1' }], lobbyWith(n).state, r);
 
 describe('justone/setup: 牌堆', () => {
@@ -143,7 +143,7 @@ const guessing = () => clues([['p1', 'a'], ['p2', 'b'], ['p3', 'c']], started(4)
 const guess = (user: string, word: string, s: JState) => run([{ type: 'guess', user, word }], s);
 
 describe('justone/rounds: 猜詞與計分', () => {
-  it('猜對（忽略前後空白和大小寫）：得分，公開答案和被刪掉的提示，換下一位猜詞', () => {
+  it('猜對 (忽略前後空白和大小寫)：得分，公開答案和被刪掉的提示，換下一位猜詞', () => {
     const s = clues([['p1', '水果'], ['p2', '水果'], ['p3', '牛頓']], started(4).state).state;
     const { state, events } = guess('p4', ` ${s.word!.toUpperCase()} `, s);
     expect(state).toMatchObject({ score: 1, card: 2, guesser: 0, phase: 'clue' });

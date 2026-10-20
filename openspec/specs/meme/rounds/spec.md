@@ -6,10 +6,10 @@ TBD - created by archiving change add-meme-game. Update Purpose after archive.
 ## Requirements
 
 ### Requirement: 配圖
-每輪開始時，頻道 SHALL 公告「第 N／6 輪」並顯示這輪的梗圖（圖片和名稱），接著貼一則配圖訊息，有「🃏 我的手牌」和「✍️ 自己寫」兩個按鈕，並顯示「已送出 N／M」。配圖時間 SHALL 是 90 秒。
+每輪開始時，頻道 SHALL 公告「第 N／6 輪」並顯示這輪的梗圖 (圖片和名稱)，接著貼一則配圖訊息，有「🃏 我的手牌」和「✍️ 自己寫」兩個按鈕，並顯示「已送出 N／M」。配圖時間 SHALL 是 90 秒。
 
 - 按「🃏 我的手牌」：只有自己看到 7 張文字卡的按鈕，按一張就是送出這張。
-- 按「✍️ 自己寫」：打開視窗輸入一句話（1～40 字，前後空白去掉），送出就是這句。視窗打不開時提示改用 `/game meme write <文字>`。
+- 按「✍️ 自己寫」：打開視窗輸入一句話 (1～40 字，前後空白去掉)，送出就是這句。視窗打不開時提示改用 `/game meme write <文字>`。
 - 每人每輪只能送出一次，送出後 SHALL NOT 能改；SHALL 只讓本人看到「✅ 已送出」，配圖訊息的進度用同一則訊息更新。
 - 不在遊戲中的人、配圖時間以外、送出空白或超過 40 字、出手上沒有的牌 SHALL 被拒絕，只讓本人看到原因。
 
@@ -34,7 +34,7 @@ TBD - created by archiving change add-meme-game. Update Purpose after archive.
 - **THEN** 系統拒絕，只讓他看到字數限制
 
 ### Requirement: 配圖結束
-所有玩家都送出時 SHALL 立刻進入投票；90 秒到時還沒送出的玩家，系統 SHALL 從他的手牌隨機出一張（並補牌），頻道公告「⌛ @某人 沒送出，系統幫他出了一張」，然後進入投票。
+所有玩家都送出時 SHALL 立刻進入投票；90 秒到時還沒送出的玩家，系統 SHALL 從他的手牌隨機出一張 (並補牌)，頻道公告「⌛ @某人 沒送出，系統幫他出了一張」，然後進入投票。
 
 #### Scenario: 全部送出
 - **WHEN** 最後一位玩家送出
@@ -45,9 +45,9 @@ TBD - created by archiving change add-meme-game. Update Purpose after archive.
 - **THEN** 系統從 B 的手牌隨機出一張，頻道公告 B 沒送出，進入投票
 
 ### Requirement: 匿名投票
-投票時，頻道 SHALL 貼一則投票訊息：所有答案打亂順序，用 A、B、C… 標示並列出文字，SHALL NOT 顯示作者，也 SHALL NOT 標示哪些是自己寫的；每個答案一顆按鈕，訊息顯示「已投 N／M」（M 是真人人數）。投票時間 SHALL 是 60 秒。
+投票時，頻道 SHALL 貼一則投票訊息：所有答案打亂順序，用 A、B、C… 標示並列出文字，SHALL NOT 顯示作者，也 SHALL NOT 標示哪些是自己寫的；每個答案一顆按鈕，訊息顯示「已投 N／M」(M 是真人人數)。投票時間 SHALL 是 60 秒。
 
-- 每人投一票，SHALL NOT 能投自己的答案（只讓本人看到「不能投自己」）。
+- 每人投一票，SHALL NOT 能投自己的答案 (只讓本人看到「不能投自己」)。
 - 投票結束前 SHALL 可以改票，改票不改進度。
 - SHALL 只讓本人看到「你投了 X」；投票訊息用同一則訊息更新進度，SHALL NOT 顯示誰投了誰。
 - 所有真人都投過票時 SHALL 立刻揭曉；60 秒到時沒投的人當作棄權。
@@ -69,18 +69,18 @@ TBD - created by archiving change add-meme-game. Update Purpose after archive.
 - **THEN** 立刻揭曉
 
 ### Requirement: 揭曉與計分
-揭曉時，頻道 SHALL 依票數從高到低列出每個答案、作者、票數，自己寫的答案標 ✍️；每得 1 票 SHALL 加 1 分；接著公布目前每個人的總分。投票訊息 SHALL 改成已結束（沒有按鈕）。
+揭曉時，頻道 SHALL 依票數從高到低列出每個答案、作者、票數，自己寫的答案標 ✍️；每得 1 票 SHALL 加 1 分；接著公布目前每個人的總分。投票訊息 SHALL 改成已結束 (沒有按鈕)。
 
 #### Scenario: 揭曉
 - **WHEN** 4 人局投票結束，A 的答案得 2 票、B 得 1 票、C 得 0 票、D 得 1 票，B 是自己寫的
-- **THEN** 頻道依序列出 A（2 票）、B ✍️（1 票）、D（1 票）、C（0 票）和作者，A +2、B +1、D +1，公布總分
+- **THEN** 頻道依序列出 A (2 票)、B ✍️ (1 票)、D (1 票)、C (0 票) 和作者，A +2、B +1、D +1，公布總分
 
 ### Requirement: 輪數與結束
-遊戲 SHALL 共 6 輪。第 6 輪揭曉後遊戲結束：頻道公告最終排名，總分最高的人獲勝，同分並列；系統 SHALL 送出 `result` 事件（players 是所有玩家、winners 是所有最高分的玩家），並貼「再來一局」按鈕。房主取消時 SHALL NOT 送出 `result`。
+遊戲 SHALL 共 6 輪。第 6 輪揭曉後遊戲結束：頻道公告最終排名，總分最高的人獲勝，同分並列；系統 SHALL 送出 `result` 事件 (players 是所有玩家、winners 是所有最高分的玩家)，並貼「再來一局」按鈕。房主取消時 SHALL NOT 送出 `result`。
 
 #### Scenario: 遊戲結束
 - **WHEN** 第 6 輪揭曉，A 總分 7 最高
-- **THEN** 頻道公告最終排名和 A 獲勝，送出 `result`（winners 是 A），出現「再來一局」
+- **THEN** 頻道公告最終排名和 A 獲勝，送出 `result` (winners 是 A)，出現「再來一局」
 
 #### Scenario: 同分並列
 - **WHEN** 遊戲結束時 A 和 B 都是 6 分最高

@@ -76,7 +76,7 @@ interface Ctx {
 
 const left = (s: CState, team: Team) => s.cards.filter((x) => x.color === team && !x.revealed).length;
 
-// 牌桌：5×5 按鈕，翻開的牌加上顏色 emoji 和樣式；reveal 為 true 時全部翻開（遊戲結束）
+// 牌桌：5×5 按鈕，翻開的牌加上顏色 emoji 和樣式；reveal 為 true 時全部翻開 (遊戲結束)
 function boardEvent(s: CState, reveal = false): GameEvent {
   const buttons = s.cards.map((x, i) => {
     const shown = x.revealed || reveal;
@@ -122,7 +122,7 @@ function deal(c: Ctx) {
   c.events.push(
     {
       type: 'announce',
-      text: `🕵️ 機密代號開始！\n${roster('red')}\n${roster('blue')}\n${TEAM_NAME[s.startTeam]}先攻（9 張），${TEAM_NAME[other(s.startTeam)]} 8 張。答案已經私訊給兩位隊長。`,
+      text: `🕵️ 機密代號開始！\n${roster('red')}\n${roster('blue')}\n${TEAM_NAME[s.startTeam]}先攻 (9 張)，${TEAM_NAME[other(s.startTeam)]} 8 張。答案已經私訊給兩位隊長。`,
       gif: 'start',
     },
     boardEvent(s),
@@ -137,7 +137,7 @@ function deal(c: Ctx) {
     c.events.push({
       type: 'dm',
       to: p.id,
-      text: `🗝️ 你是${TEAM_NAME[p.team!]}隊長，這是答案（不要給隊員看）：\n${answer}\n輪到你們隊時，用 \`/game codenames clue <詞> <數字>\` 給提示。`,
+      text: `🗝️ 你是${TEAM_NAME[p.team!]}隊長，這是答案 (不要給隊員看)：\n${answer}\n輪到你們隊時，用 \`/game codenames clue <詞> <數字>\` 給提示。`,
     });
   }
 }
@@ -152,7 +152,7 @@ function startTurn(c: Ctx) {
   s.guessed = 0;
   c.events.push({
     type: 'announce',
-    text: `🔔 輪到 ${EMOJI[s.turn]} ${TEAM_NAME[s.turn]}：隊長 ${mention(captainOf(s, s.turn))} 請用 \`/game codenames clue <詞> <數字>\` 給提示（${CLUE_MS / 60_000} 分鐘）\n🟥 紅隊剩 ${left(s, 'red')} 張　🟦 藍隊剩 ${left(s, 'blue')} 張`,
+    text: `🔔 輪到 ${EMOJI[s.turn]} ${TEAM_NAME[s.turn]}：隊長 ${mention(captainOf(s, s.turn))} 請用 \`/game codenames clue <詞> <數字>\` 給提示 (${CLUE_MS / 60_000} 分鐘)\n🟥 紅隊剩 ${left(s, 'red')} 張　🟦 藍隊剩 ${left(s, 'blue')} 張`,
   });
   startTimer(c, CLUE_MS);
 }
@@ -165,14 +165,14 @@ function endTurn(c: Ctx) {
 function giveClue(c: Ctx, user: string, word: string, count: number): boolean {
   const s = c.s;
   if (s.phase !== 'clue' || user !== captainOf(s, s.turn)) return reply(c, user, '現在不是你給提示的時間。');
-  if (!word || /\s/.test(word)) return reply(c, user, '提示只能是一個詞（不能有空白）。');
+  if (!word || /\s/.test(word)) return reply(c, user, '提示只能是一個詞 (不能有空白)。');
   if (s.cards.some((x) => !x.revealed && x.word === word)) return reply(c, user, '不能用牌桌上的詞當提示。');
   if (!Number.isInteger(count) || count < 1 || count > 9) return reply(c, user, '提示的數字要是 1～9。');
   s.phase = 'guess';
   s.clue = { word, count };
   c.events.push({
     type: 'announce',
-    text: `🕵️ ${TEAM_NAME[s.turn]}隊長：「${word}」${count}\n${TEAM_NAME[s.turn]}隊員請在牌桌上按字卡猜，最多 ${count + 1} 張（${GUESS_MS / 60_000} 分鐘）`,
+    text: `🕵️ ${TEAM_NAME[s.turn]}隊長：「${word}」${count}\n${TEAM_NAME[s.turn]}隊員請在牌桌上按字卡猜，最多 ${count + 1} 張 (${GUESS_MS / 60_000} 分鐘)`,
   });
   c.events.push({ type: 'prompt', kind: 'endGuess', audience: 'channel', text: '猜完了可以按「結束猜牌」', options: [{ value: 'end', label: '結束猜牌' }] });
   startTimer(c, GUESS_MS);
@@ -181,7 +181,7 @@ function giveClue(c: Ctx, user: string, word: string, count: number): boolean {
 
 const COLOR_NAME: Record<CardColor, string> = { red: '🟥 紅隊', blue: '🟦 藍隊', neutral: '⬜ 中立', assassin: '💀 刺客' };
 
-// 翻牌：自己隊的牌可以繼續猜（最多提示數字＋1 張），其他顏色回合結束
+// 翻牌：自己隊的牌可以繼續猜 (最多提示數字＋1 張)，其他顏色回合結束
 function guessCard(c: Ctx, user: string, index: number): boolean {
   const s = c.s;
   const card = s.cards[index];
@@ -222,7 +222,7 @@ function endGame(c: Ctx, winner: Team) {
   const members = (t: Team) =>
     `${EMOJI[t]} ${TEAM_NAME[t]}：${s.players
       .filter((p) => p.team === t)
-      .map((p) => `${mention(p.id)}${p.spymaster ? '（隊長）' : ''}`)
+      .map((p) => `${mention(p.id)}${p.spymaster ? ' (隊長)' : ''}`)
       .join('、')}`;
   c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: s.players.filter((p) => p.team === winner).map((p) => p.id) });
   c.events.push(

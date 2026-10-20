@@ -38,7 +38,7 @@ describe('coup/setup: 政變的房間', () => {
     expect(ephemeralTo(events, 'p1')).toMatchObject({ text: expect.stringContaining('至少需要 3 人') });
   });
 
-  it('房間已滿（6 人）時拒絕加入', () => {
+  it('房間已滿 (6 人) 時拒絕加入', () => {
     const { state, events } = run([{ type: 'join', user: 'x' }], lobbyWith(6).state);
     expect(state.players).toHaveLength(6);
     expect(ephemeralTo(events, 'x')).toMatchObject({ text: expect.stringContaining('房間已滿') });
@@ -263,7 +263,7 @@ describe('coup/turns: 質疑', () => {
     expect(announces(after.events).join('\n')).toContain('<@p1> 出局');
   });
 
-  it('勒索：從目標拿 2 枚（不足就拿光）', () => {
+  it('勒索：從目標拿 2 枚 (不足就拿光)', () => {
     const s = coins(started(3).state, [1, 2, 2]);
     expect(passWindow(passWindow(target('p3', 'p2', act('p3', 'steal', s).state))).state.players.map((p) => p.coins)).toEqual([1, 0, 4]);
     expect(passWindow(passWindow(target('p3', 'p1', act('p3', 'steal', s).state))).state.players.map((p) => p.coins)).toEqual([0, 2, 3]);
@@ -327,7 +327,7 @@ const keep = (user: string, indexes: number[], s: KState) =>
   run(indexes.map((index) => ({ type: 'keep', user, index }) as KAction), s);
 
 describe('coup/turns: 交換', () => {
-  // p3（刺客刺客）宣稱大使交換，沒人質疑；牌堆最上面是隊長、隊長
+  // p3 (刺客刺客) 宣稱大使交換，沒人質疑；牌堆最上面是隊長、隊長
   const exchanging = () => passWindow(act('p3', 'exchange', started(3).state));
 
   it('私訊手上的牌加上牌堆抽的 2 張，選要留下的張數', () => {
@@ -361,7 +361,7 @@ describe('coup/turns: 交換', () => {
   });
 });
 
-// 1 真人 + 2 bot：p1 公爵公爵、bot1 公爵刺客、bot2 刺客刺客；bot2 先（金幣不夠刺殺，收入），接著 p1
+// 1 真人 + 2 bot：p1 公爵公爵、bot1 公爵刺客、bot2 刺客刺客；bot2 先 (金幣不夠刺殺，收入)，接著 p1
 const withBots = () => run([{ type: 'addBot', user: 'p1', count: 2 }, { type: 'start', user: 'p1' }], lobbyWith(1).state);
 const seeded = (seed: number) => () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
 

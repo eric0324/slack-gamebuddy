@@ -7,7 +7,7 @@
 
 ## Capabilities
 ### New Capabilities
-（無）
+(無)
 
 ### Modified Capabilities
 - `game-commands`：「遊戲清單與使用說明」

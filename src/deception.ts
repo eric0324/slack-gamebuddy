@@ -1,4 +1,4 @@
-// 詭影神探（Deception: Murder in Hong Kong）遊戲引擎：純邏輯，不碰任何 I/O。鑑識官知道答案、只能用提示板上的子彈給暗示，大家從每人面前的手段卡和線索卡推敲兇手用了哪一組。
+// 詭影神探 (Deception: Murder in Hong Kong) 遊戲引擎：純邏輯，不碰任何 I/O。鑑識官知道答案、只能用提示板上的子彈給暗示，大家從每人面前的手段卡和線索卡推敲兇手用了哪一組。
 // 介面和其他遊戲一樣：applyDeception(state, action, rng) → { state, events }。
 import { mention, type GameEvent, type Rng } from './engine.js';
 import { cancelGame, joinRoom, leaveRoom, lobbyEvent, reply, runGame, shuffle, startTimer } from './common.js';
@@ -27,11 +27,11 @@ const ROLE_NAME: Record<Role, string> = {
   investigator: '🕵️ 調查員',
 };
 const ROLE_INTRO: Record<Role, string> = {
-  scientist: '🔬 你是鑑識官（好人陣營）。你只能用提示板上的子彈給提示，不能在頻道透露答案，也不發言、不能破案。天亮後會私下告訴你兇手、共犯和答案。',
+  scientist: '🔬 你是鑑識官 (好人陣營)。你只能用提示板上的子彈給提示，不能在頻道透露答案，也不發言、不能破案。天亮後會私下告訴你兇手、共犯和答案。',
   murderer: '🔪 你是兇手。馬上會私訊你，從自己面前選 1 張手段和 1 張線索當答案；之後混在調查員裡誤導大家。',
-  accomplice: '🤝 你是共犯（兇手陣營）。天亮後會私下告訴你兇手是誰和答案，幫兇手誤導大家。',
-  witness: '👀 你是目擊者（好人陣營）。天亮後會私下告訴你兇手和共犯是哪兩位（不知道誰是誰）；小心別被兇手發現，破案後兇手可以指認你翻盤。',
-  investigator: '🕵️ 你是調查員（好人陣營）。目標：從大家面前的卡和鑑識官的子彈，找出兇手和他用的手段、線索。',
+  accomplice: '🤝 你是共犯 (兇手陣營)。天亮後會私下告訴你兇手是誰和答案，幫兇手誤導大家。',
+  witness: '👀 你是目擊者 (好人陣營)。天亮後會私下告訴你兇手和共犯是哪兩位 (不知道誰是誰)；小心別被兇手發現，破案後兇手可以指認你翻盤。',
+  investigator: '🕵️ 你是調查員 (好人陣營)。目標：從大家面前的卡和鑑識官的子彈，找出兇手和他用的手段、線索。',
 };
 
 export interface DPlayer {
@@ -56,12 +56,12 @@ export interface DState {
   round: number; // 1～3
   answer: { means?: string; clue?: string };
   cause: Placed; // 死因板
-  location?: Placed; // 選定的地點板（還沒選或沒選到是 undefined）
+  location?: Placed; // 選定的地點板 (還沒選或沒選到是 undefined)
   scenes: Placed[]; // 4 張場景板
   sceneDeck: Board[];
   fresh?: Board; // 第 2、3 輪新抽、還沒放的板
-  seen: string[]; // 目擊者看到的兩個名字（順序隨機）
-  last?: string; // 這一輪最近的變化（面板用），例如換掉了哪張板
+  seen: string[]; // 目擊者看到的兩個名字 (順序隨機)
+  last?: string; // 這一輪最近的變化 (面板用)，例如換掉了哪張板
   speakers: string[];
   speaker: number;
   pseq: number; // 每個蒐證／發言階段 +1：面板的 ref，也用來擋掉舊按鈕
@@ -112,7 +112,7 @@ const suspects = (s: DState) => s.players.filter((p) => p.role !== 'scientist');
 // 場上一覽：鑑識官以外每人一行
 const tableLines = (s: DState) => suspects(s).map((p) => `${mention(p.id)}　手段：${p.means.join('、')}　線索：${p.clues.join('、')}`);
 
-// 人數 → 角色（鑑識官另外選）；6 人以上一律有共犯和目擊者
+// 人數 → 角色 (鑑識官另外選)；6 人以上一律有共犯和目擊者
 function roleDeck(n: number): Role[] {
   const extra: Role[] = n >= 6 ? ['accomplice', 'witness'] : [];
   return ['murderer', ...extra, ...Array<Role>(n - 2 - extra.length).fill('investigator')];
@@ -122,7 +122,7 @@ function rules(s: DState) {
   const extra = withRole(s, 'witness') ? '這局有共犯和目擊者' : '這局沒有共犯和目擊者';
   return [
     `🔎 詭影神探開始！玩家：${s.players.map((p) => mention(p.id)).join('、')}`,
-    `${ROLE_NAME.scientist}：${mention(scientist(s).id)}（身分公開）｜${extra}｜共 ${ROUNDS} 輪`,
+    `${ROLE_NAME.scientist}：${mention(scientist(s).id)} (身分公開)｜${extra}｜共 ${ROUNDS} 輪`,
     '兇手會暗中選自己面前的 1 張手段和 1 張線索；鑑識官知道答案，但只能用提示板上的子彈給暗示。',
     '鑑識官以外每人整局只有一次破案機會，要選對嫌犯、手段和線索；3 輪都沒人破案，兇手贏。',
     '身分已經用私訊傳給大家。',
@@ -175,7 +175,7 @@ function startNight(c: Ctx) {
     kind: 'deception',
     audience: 'user',
     user: m.id,
-    text: `🔪 選一張你面前的手段卡當作行兇手段（${NIGHT_MS / 1000} 秒）`,
+    text: `🔪 選一張你面前的手段卡當作行兇手段 (${NIGHT_MS / 1000} 秒)`,
     options: m.means.map((label, i) => ({ value: `nm:${i}`, label })),
   });
   startTimer(c, NIGHT_MS);
@@ -222,7 +222,7 @@ function nightInfo(s: DState, p: DPlayer): string {
     case 'accomplice':
       return `兇手：${m}｜答案：${answerText(s)}`;
     case 'witness':
-      return `${s.seen.map(mention).join(' 和 ')} 是兇手和共犯（不知道誰是誰）`;
+      return `${s.seen.map(mention).join(' 和 ')} 是兇手和共犯 (不知道誰是誰)`;
     case 'murderer':
       return `你選的答案：${answerText(s)}`;
     default:
@@ -259,13 +259,13 @@ const boardLine = (title: string, x: Placed) => `${title}：${x.board.options.ma
 
 function boardLines(s: DState): string[] {
   const loc = s.location
-    ? boardLine(`案發地點（${s.location.board.title}）`, s.location)
-    : `案發地點：${s.round === 1 && s.phase === 'evidence' ? '（還沒選）' : '（沒有使用）'}`;
+    ? boardLine(`案發地點 (${s.location.board.title})`, s.location)
+    : `案發地點：${s.round === 1 && s.phase === 'evidence' ? '(還沒選)' : '(沒有使用)'}`;
   return [
     boardLine(s.cause.board.title, s.cause),
     loc,
     ...s.scenes.map((x) => boardLine(x.board.title, x)),
-    ...(s.fresh ? [`${boardLine(`新抽的板．${s.fresh.title}`, { board: s.fresh })}（還沒放子彈）`] : []),
+    ...(s.fresh ? [`${boardLine(`新抽的板．${s.fresh.title}`, { board: s.fresh })} (還沒放子彈)`] : []),
   ];
 }
 
@@ -275,7 +275,7 @@ function panel(s: DState): GameEvent {
   const head =
     s.phase === 'evidence'
       ? `第 ${s.round}/${ROUNDS} 輪．蒐證｜輪到鑑識官 ${sci} 放子彈`
-      : `第 ${s.round}/${ROUNDS} 輪．發言｜輪到 ${mention(s.speakers[s.speaker])}（鑑識官：${sci}）`;
+      : `第 ${s.round}/${ROUNDS} 輪．發言｜輪到 ${mention(s.speakers[s.speaker])} (鑑識官：${sci})`;
   const badges = suspects(s).filter((p) => p.badge);
   const lines = [
     head,
@@ -284,7 +284,7 @@ function panel(s: DState): GameEvent {
     '',
     '場上一覽',
     ...tableLines(s),
-    `還有徽章：${badges.length ? badges.map((p) => mention(p.id)).join(' ') : '（沒有）'}`,
+    `還有徽章：${badges.length ? badges.map((p) => mention(p.id)).join(' ') : '(沒有)'}`,
   ];
   const options = [
     ...(s.phase === 'evidence' ? [{ value: `fs:${s.pseq}`, label: '🧪 鑑識官放子彈' }] : []),
@@ -325,7 +325,7 @@ function fsCheck(s: DState, user: string, pseq: number): string | null {
 function openSlots(s: DState): [string, string][] {
   const list: [string, string][] = [];
   if (s.cause.bullet === undefined) list.push(['cause', s.cause.board.title]);
-  if (!s.location) list.push(['loc', '案發地點（4 選 1）']);
+  if (!s.location) list.push(['loc', '案發地點 (4 選 1)']);
   s.scenes.forEach((x, i) => {
     if (x.bullet === undefined) list.push([`s${i}`, x.board.title]);
   });
@@ -342,7 +342,7 @@ function fsMenu(c: Ctx, user: string, pseq: number): boolean {
   if (err) return deny(c, user, err);
   if (s.round === 1) {
     const options = openSlots(s).map(([slot, label]) => ({ value: `fb:${pseq}:${slot}`, label }));
-    return menu(c, user, '🧪 選一張板放子彈（放下就不能移動）', options);
+    return menu(c, user, '🧪 選一張板放子彈 (放下就不能移動)', options);
   }
   if (!s.fresh) return deny(c, user, STALE);
   const options = s.scenes.map((x, i) => ({ value: `fx:${pseq}:s${i}`, label: x.board.title }));
@@ -465,7 +465,7 @@ function speakerTurn(c: Ctx) {
     type: 'prompt',
     kind: 'deception',
     audience: 'channel',
-    text: `輪到 ${mention(s.speakers[s.speaker])} 發言（${SPEAK_MS / 1000} 秒）`,
+    text: `輪到 ${mention(s.speakers[s.speaker])} 發言 (${SPEAK_MS / 1000} 秒)`,
     options: [
       { value: `done:${s.tseq}`, label: '✅ 說完了' },
       { value: 'solve', label: '🔍 破案' },
@@ -517,7 +517,7 @@ function solveMenu(c: Ctx, user: string): boolean {
   const options = suspects(c.s)
     .filter((p) => p.id !== user)
     .map((p) => ({ value: `sus:${p.id}`, label: p.id }));
-  return menu(c, user, '🔍 破案（整局只有一次機會）：嫌犯是誰？', options);
+  return menu(c, user, '🔍 破案 (整局只有一次機會)：嫌犯是誰？', options);
 }
 
 function suspect(c: Ctx, user: string, target: string): boolean {
@@ -571,13 +571,13 @@ function startReversal(c: Ctx) {
   const s = c.s;
   const m = withRole(s, 'murderer')!;
   s.phase = 'reversal';
-  c.events.push({ type: 'announce', text: `🎯 破案成功！兇手是 ${mention(m.id)}，但兇手還有最後機會指認目擊者（${REVERSAL_MS / 1000} 秒）。` });
+  c.events.push({ type: 'announce', text: `🎯 破案成功！兇手是 ${mention(m.id)}，但兇手還有最後機會指認目擊者 (${REVERSAL_MS / 1000} 秒)。` });
   c.events.push({
     type: 'prompt',
     kind: 'deception',
     audience: 'user',
     user: m.id,
-    text: `🔪 你被抓到了！指認一位玩家，指到目擊者你們就翻盤獲勝（${REVERSAL_MS / 1000} 秒）`,
+    text: `🔪 你被抓到了！指認一位玩家，指到目擊者你們就翻盤獲勝 (${REVERSAL_MS / 1000} 秒)`,
     options: s.players.filter((p) => p.role !== 'scientist' && p.role !== 'murderer' && p.role !== 'accomplice').map((p) => ({ value: `wit:${p.id}`, label: p.id })),
   });
   const acc = withRole(s, 'accomplice');
@@ -614,7 +614,7 @@ function endGame(c: Ctx, winner: 'good' | 'evil', why: string) {
         `答案：兇手 ${mention(withRole(s, 'murderer')!.id)}，${answerText(s)}`,
         `角色：${s.players.map((p) => `${mention(p.id)} ${ROLE_NAME[p.role!]}`).join('、')}`,
         '破案紀錄：',
-        ...(s.guesses.length ? s.guesses.map((g) => `${guessText(g)} → ${g.ok ? '對' : '不對'}`) : ['（沒有人破案）']),
+        ...(s.guesses.length ? s.guesses.map((g) => `${guessText(g)} → ${g.ok ? '對' : '不對'}`) : ['(沒有人破案)']),
       ].join('\n'),
       gif: winner === 'good' ? 'goodWin' : 'wolvesWin',
     },

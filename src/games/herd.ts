@@ -5,17 +5,17 @@ import { parseRoomCommand } from './undercover.js';
 
 const HELP = [
   '*從眾心理指令*',
-  '• `/game herd new`：開房（任何人）',
-  '• `/game herd start`：開始遊戲，需要 4～12 位真人（房主）',
-  '• `/game herd answer <答案>`：作答（1～20 字，分組前可以改），和按「✍️ 作答」一樣',
-  '• `/game herd merge <編號> <編號>…`：把意思一樣的組合併（房主，例如 `merge 1 3`）',
-  '• `/game herd done`：合併完成，開始計分（房主）',
-  '• `/game herd cancel`：取消遊戲（房主）',
+  '• `/game herd new`：開房 (任何人)',
+  '• `/game herd start`：開始遊戲，需要 4～12 位真人 (房主)',
+  '• `/game herd answer <答案>`：作答 (1～20 字，分組前可以改)，和按「✍️ 作答」一樣',
+  '• `/game herd merge <編號> <編號>…`：把意思一樣的組合併 (房主，例如 `merge 1 3`)',
+  '• `/game herd done`：合併完成，開始計分 (房主)',
+  '• `/game herd cancel`：取消遊戲 (房主)',
   '跟最多人一樣的那組每人 +1；唯一一個單獨答案的人拿到 🐮 粉紅牛。先到 8 分且沒有粉紅牛的人獲勝，最多 15 題',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
-// 從眾心理的子指令：answer <答案>（可以有空白）、merge <編號>…、done
+// 從眾心理的子指令：answer <答案> (可以有空白)、merge <編號>…、done
 export function parseHerdCommand(text: string, user: string, channel: string): HerdAction | null {
   const t = text.trim();
   const ans = t.match(/^answer\s+([\s\S]+)$/);

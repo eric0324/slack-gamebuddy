@@ -1,4 +1,4 @@
-// 星際探險隊的自編關卡表（40 關）：名稱、劇情、任務數、順序標記和特殊規則全部自編，只沿用原版的通用機制
+// 星際探險隊的自編關卡表 (40 關)：名稱、劇情、任務數、順序標記和特殊規則全部自編，只沿用原版的通用機制
 export type Token = '1' | '2' | '3' | '4' | '5' | '>' | '>>' | '>>>' | '>>>>' | 'Ω';
 export type Rule = 'deadZone' | `delay:${number}` | 'silence' | 'commanderPick' | 'solo' | 'sick';
 
@@ -64,4 +64,4 @@ const RULE_LABEL: Record<string, string> = {
   sick: '🤒 隊員失能',
 };
 
-export const ruleLabel = (r: Rule) => (r.startsWith('delay:') ? `⏳ 通訊延遲（第 ${r.slice(6)} 墩起）` : RULE_LABEL[r]);
+export const ruleLabel = (r: Rule) => (r.startsWith('delay:') ? `⏳ 通訊延遲 (第 ${r.slice(6)} 墩起)` : RULE_LABEL[r]);

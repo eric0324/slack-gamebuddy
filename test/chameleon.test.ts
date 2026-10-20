@@ -38,10 +38,10 @@ const dmTo = (events: GameEvent[], user: string) =>
   events.filter((e) => e.type === 'dm' && e.to === user).map((e) => (e as { text: string }).text);
 const lastTimer = (events: GameEvent[]) => (events.filter((e) => e.type === 'startTimer') as { id: number; ms: number }[]).at(-1)!;
 
-// 亂數依序：主題卡（第 1 張「水果」）、祕密詞（第 6 格 B2「葡萄」）、變色龍、起始玩家
+// 亂數依序：主題卡 (第 1 張「水果」)、祕密詞 (第 6 格 B2「葡萄」)、變色龍、起始玩家
 const CARD = CHAMELEON_CARDS[0];
 const SECRET = CARD.words[5];
-// n 人局：變色龍是最後一位 pN，起始玩家是 p1（說詞順序 p1 → … → pN）
+// n 人局：變色龍是最後一位 pN，起始玩家是 p1 (說詞順序 p1 → … → pN)
 const started = (n = 4) => run([{ type: 'start', user: 'p1' }], lobbyWith(n).state, seq(0, 5.5 / 16, (n - 0.5) / n, 0.5 / n));
 
 describe('chameleon/setup: 變色龍的房間', () => {
@@ -98,7 +98,7 @@ describe('chameleon/setup: 主題卡、祕密詞與身分', () => {
     expect(text).not.toContain('祕密詞是');
   });
 
-  it('祕密詞是主題卡上的詞（任何亂數都一樣）', () => {
+  it('祕密詞是主題卡上的詞 (任何亂數都一樣)', () => {
     for (const r of [0, 0.3, 0.7, 0.99999]) {
       const { state } = run([{ type: 'start', user: 'p1' }], lobbyWith(3).state, () => r);
       const card = CHAMELEON_CARDS.find((c) => c.topic === state.topic)!;
@@ -156,7 +156,7 @@ describe('chameleon/rounds: 輪流說詞', () => {
   it('輪到的人看到說詞按鈕；openSay 開視窗；不是輪到的人被拒', () => {
     const { state, events } = started();
     const p = prompts(events).at(-1)!;
-    expect(p.text).toContain('🎤 輪到 <@p1> 說詞（2 分鐘）');
+    expect(p.text).toContain('🎤 輪到 <@p1> 說詞 (2 分鐘)');
     expect(values(p)).toEqual(['say']);
     expect(lastTimer(events).ms).toBe(120_000);
     const open = run([{ type: 'openSay', user: 'p1' }], state);
@@ -174,7 +174,7 @@ describe('chameleon/rounds: 輪流說詞', () => {
     expect(prompts(events).at(-1)!.text).toContain('輪到 <@p2>');
   });
 
-  it('空白、超過 20 字、主題卡上的詞被拒，還是輪到他（變色龍也一樣）', () => {
+  it('空白、超過 20 字、主題卡上的詞被拒，還是輪到他 (變色龍也一樣)', () => {
     const game = started().state;
     for (const text of ['   ', '一'.repeat(21)]) {
       const r = run([say('p1', text)], game);
@@ -224,7 +224,7 @@ describe('chameleon/rounds: 輪流說詞', () => {
     const { state, events } = run([say('p1', '紫色'), { type: 'next', user: 'p1' }, say('p3', '酸'), say('p4', '圓')], started().state);
     expect(state.phase).toBe('discuss');
     const text = [...announces(events), ...prompts(events).map((p) => p.text)].join('\n');
-    expect(text).toContain('<@p2>：（沒有說詞）');
+    expect(text).toContain('<@p2>：(沒有說詞)');
     expect(text).toContain('<@p4>：圓');
     expect(text).toContain('找出變色龍');
     expect(values(prompts(events).at(-1)!)).toEqual(['startVote']);
@@ -281,7 +281,7 @@ describe('chameleon/rounds: 討論與投票', () => {
   });
 
   it('平手由起始玩家的票決定', () => {
-    // p1（起始玩家）投 p4、p2 投 p4、p3 投 p2、p4 投 p2 → 平手，p1 投的 p4 被指認
+    // p1 (起始玩家) 投 p4、p2 投 p4、p3 投 p2、p4 投 p2 → 平手，p1 投的 p4 被指認
     const { state } = run([vote('p1', 'p4'), vote('p2', 'p4'), vote('p3', 'p2'), vote('p4', 'p2')], voting().state);
     expect(state.phase).toBe('guess');
   });

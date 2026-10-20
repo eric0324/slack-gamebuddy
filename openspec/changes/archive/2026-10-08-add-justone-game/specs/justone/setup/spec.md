@@ -25,7 +25,7 @@
 - **THEN** 頻道公告遊戲開始、牌堆 13 張和第一位猜詞的人
 
 ### Requirement: 遊戲清單與指令說明
-`/game` 的遊戲清單 SHALL 列出一字千金的名稱、代號 `justone`、人數（3～7 人）和開房指令 `/game justone new`。輸入 `/game justone help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到一字千金的條列式指令說明。
+`/game` 的遊戲清單 SHALL 列出一字千金的名稱、代號 `justone`、人數 (3～7 人) 和開房指令 `/game justone new`。輸入 `/game justone help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到一字千金的條列式指令說明。
 
 #### Scenario: 查看指令
 - **WHEN** 使用者輸入 `/game justone help`

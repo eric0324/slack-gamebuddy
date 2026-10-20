@@ -23,12 +23,12 @@ export interface TState {
   players: { id: string; team?: Team }[];
   order: string[]; // 每輪的描述者，兩隊輪流
   round: number;
-  deck: number[]; // 還沒抽的卡（TABOO_CARDS 的 index），用完重洗
+  deck: number[]; // 還沒抽的卡 (TABOO_CARDS 的 index)，用完重洗
   card?: number; // 目前的卡
   cardSeq: number; // 卡的流水號：跳過按鈕綁定某一張卡
   log: { word: string; result: 'correct' | 'foul' | 'skip' }[]; // 這輪每張卡的結果
   scores: Record<Team, number>;
-  winner?: Team | 'tie'; // 正常結束才有（取消的沒有）→ 可以再來一局
+  winner?: Team | 'tie'; // 正常結束才有 (取消的沒有)→ 可以再來一局
   timerSeq: number;
   timers: { phase?: number };
 }
@@ -101,7 +101,7 @@ function startReady(c: Ctx) {
       type: 'announce',
       text: `🎙️ 第 ${s.round + 1}／${s.order.length} 輪：${TEAM_NAME[describerTeam(s)]} ${mention(d)} 描述，隊友 ${mates(s).map(mention).join('、')} 負責猜；${TEAM_NAME[other(describerTeam(s))]}監督。`,
     },
-    { type: 'prompt', kind: 'taboo', audience: 'channel', text: `${mention(d)} 準備好就按開始（${READY_MS / 1000} 秒內）`, options: [{ value: 'go', label: '▶️ 開始' }] },
+    { type: 'prompt', kind: 'taboo', audience: 'channel', text: `${mention(d)} 準備好就按開始 (${READY_MS / 1000} 秒內)`, options: [{ value: 'go', label: '▶️ 開始' }] },
   );
   startTimer(c, READY_MS);
 }
@@ -118,7 +118,7 @@ function go(c: Ctx, user: string): boolean {
   return true;
 }
 
-// 抽下一張卡（同一局不重複，用完重洗），只讓描述者看到
+// 抽下一張卡 (同一局不重複，用完重洗)，只讓描述者看到
 function drawCard(c: Ctx) {
   const s = c.s;
   if (!s.deck.length) s.deck = shuffle(TABOO_CARDS.map((_, i) => i), c.rng);
@@ -143,7 +143,7 @@ function showCard(c: Ctx) {
 // 比對前正規化：全形轉半形、英文轉小寫、去掉空白、標點和符號
 const normalize = (t: string) => t.normalize('NFKC').toLowerCase().replace(/[\s\p{P}\p{S}]/gu, '');
 export const contains = (text: string, w: string) => normalize(text).includes(normalize(w));
-// 描述者不能用來代替文字的字（例如「老x」）；比對原始訊息，因為 normalize 會去掉符號
+// 描述者不能用來代替文字的字 (例如「老x」)；比對原始訊息，因為 normalize 會去掉符號
 const placeholder = (t: string) => t.normalize('NFKC').match(/[x×✕✖○〇●*]/i)?.[0];
 
 // 一張卡結束：記錄、加分、公告，換下一張
@@ -188,7 +188,7 @@ const scoreLine = (s: TState) => `${TEAM_NAME.red} ${s.scores.red}｜${TEAM_NAME
 function endRound(c: Ctx) {
   const s = c.s;
   const team = describerTeam(s);
-  const words = (r: 'correct' | 'foul' | 'skip') => s.log.filter((x) => x.result === r).map((x) => x.word).join('、') || '（無）';
+  const words = (r: 'correct' | 'foul' | 'skip') => s.log.filter((x) => x.result === r).map((x) => x.word).join('、') || '(無)';
   const gained = (t: Team) => s.log.filter((x) => (x.result === 'correct') === (t === team)).length;
   c.events.push({
     type: 'announce',

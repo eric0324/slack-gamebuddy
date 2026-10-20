@@ -1,41 +1,41 @@
 ## Why
 
-推理分類目前的遊戲（狼人殺、阿瓦隆、間諜危機……）一局都要 15 分鐘以上。犯人在跳舞（Criminal Dance／犯人は踊る）是日本的推理小卡牌遊戲：每人只有 4 張牌，輪流出一張、發動效果，犯人想撐到最後一張逃走，偵探、神犬想把犯人抓出來；一局大約 5 分鐘，3～8 人都能玩。出牌、指定對象、私下交換都能用按鈕完成，手牌和偷看結果用只有自己看得到的訊息，和情書的做法一樣，適合在 Slack 上當午休小遊戲。
+推理分類目前的遊戲 (狼人殺、阿瓦隆、間諜危機……) 一局都要 15 分鐘以上。犯人在跳舞 (Criminal Dance／犯人は踊る) 是日本的推理小卡牌遊戲：每人只有 4 張牌，輪流出一張、發動效果，犯人想撐到最後一張逃走，偵探、神犬想把犯人抓出來；一局大約 5 分鐘，3～8 人都能玩。出牌、指定對象、私下交換都能用按鈕完成，手牌和偷看結果用只有自己看得到的訊息，和情書的做法一樣，適合在 Slack 上當午休小遊戲。
 
 ## What Changes
 
-- 新增遊戲「🕺 犯人在跳舞」（代號 `criminal`），3～8 人，支援 bot（`addbot`／`removebot`），大廳分類「🔍 推理」
-- 照官方規則（勝方、神犬、張數依官方卡牌介紹）：32 張牌（第一發現者 1、犯人 1、偵探 4、不在場證明 5、共犯 2、目擊者 3、情報交換 3、交易 5、謠言 4、普通人 2、少年 1、神犬 1），依人數組牌組（3 人 12 張、4 人 16 張……8 人 32 張；第一發現者、犯人一定在，偵探、不在場證明、共犯依人數表放入，其餘從剩下的牌隨機補滿），每人 4 張
+- 新增遊戲「🕺 犯人在跳舞」(代號 `criminal`)，3～8 人，支援 bot (`addbot`／`removebot`)，大廳分類「🔍 推理」
+- 照官方規則 (勝方、神犬、張數依官方卡牌介紹)：32 張牌 (第一發現者 1、犯人 1、偵探 4、不在場證明 5、共犯 2、目擊者 3、情報交換 3、交易 5、謠言 4、普通人 2、少年 1、神犬 1)，依人數組牌組 (3 人 12 張、4 人 16 張……8 人 32 張；第一發現者、犯人一定在，偵探、不在場證明、共犯依人數表放入，其餘從剩下的牌隨機補滿)，每人 4 張
 - 持有第一發現者的人自動先出它開始，之後依座位輪流，每人每次出 1 張並發動效果：
   - 犯人：只能在手上剩最後一張時出 → 逃跑成功，犯人陣營贏
   - 偵探：指定一人，對方手上有犯人而且沒有不在場證明 → 抓到犯人；沒猜中只公告「不是犯人」；第一圈不能出
   - 共犯：出了就加入犯人陣營
   - 目擊者：偷看一人的整副手牌；少年：私下知道現在誰拿著犯人
   - 情報交換：所有人同時選一張牌傳給下一位；謠言：所有人同時從上一位手上隨機抽一張
-  - 交易：和一人各選一張交換；神犬：從一人手上盲抽一張公開，抽到犯人就抓到（不看不在場證明），沒抽到就把那張還回去、神犬也放進他手牌
+  - 交易：和一人各選一張交換；神犬：從一人手上盲抽一張公開，抽到犯人就抓到 (不看不在場證明)，沒抽到就把那張還回去、神犬也放進他手牌
   - 第一發現者、不在場證明、普通人：出了沒有效果
 - 手牌、偷看結果只有自己看得到；頻道牌桌訊息顯示輪到誰、每人手牌張數、所有出過的牌和共犯是誰
-- 每次選擇（出牌、指定對象、交換時選牌）都有 60 秒限制，超時由系統隨機替他選合法的
-- 一次遊戲就是一局；結束公告勝方、每人最後的手牌和身分（犯人、共犯），送出 `result`，貼「再來一局」
+- 每次選擇 (出牌、指定對象、交換時選牌) 都有 60 秒限制，超時由系統隨機替他選合法的
+- 一次遊戲就是一局；結束公告勝方、每人最後的手牌和身分 (犯人、共犯)，送出 `result`，貼「再來一局」
 - 再來一局、取消、一個頻道一局、遊戲清單／大廳／help 和其他遊戲相同
 
-### 誰算贏（戰績）
+### 誰算贏 (戰績)
 
-遊戲正常結束時送出 `{ type: 'result', players, winners }`：`players` 是所有玩家。犯人逃跑成功時，`winners` 是結束時拿著犯人的玩家和所有出過共犯的玩家；犯人被偵探抓到時，`winners` 只有打出偵探的人；被神犬抓到時，`winners` 只有打出神犬的人；但打出偵探／神犬的人如果出過共犯（共犯優先），他不算贏，`winners` 是空的。取消的遊戲不送 `result`；有 bot 的遊戲由戰績模組照既有規則不記錄。
+遊戲正常結束時送出 `{ type: 'result', players, winners }`：`players` 是所有玩家。犯人逃跑成功時，`winners` 是結束時拿著犯人的玩家和所有出過共犯的玩家；犯人被偵探抓到時，`winners` 只有打出偵探的人；被神犬抓到時，`winners` 只有打出神犬的人；但打出偵探／神犬的人如果出過共犯 (共犯優先)，他不算贏，`winners` 是空的。取消的遊戲不送 `result`；有 bot 的遊戲由戰績模組照既有規則不記錄。
 
 ## Capabilities
 
 ### New Capabilities
 - `criminal/setup`：房間、bot 加減、依人數組牌組與發牌、開局、遊戲清單與說明
-- `criminal/rounds`：牌桌訊息、出牌與指定對象、各張牌的效果、同時選牌（情報交換、交易）、神犬盲抽、超時、勝負與結束
+- `criminal/rounds`：牌桌訊息、出牌與指定對象、各張牌的效果、同時選牌 (情報交換、交易)、神犬盲抽、超時、勝負與結束
 - `criminal/bots`：bot 出牌和選擇的策略，一個真人也能玩完
 
 ### Modified Capabilities
-- `game-commands`：「遊戲清單與使用說明」的 🔍 推理分類加上犯人在跳舞（主控統一寫 delta）
-- `player-stats`：「記錄各遊戲結果」的獲勝規則表加上犯人在跳舞（主控統一寫 delta）
+- `game-commands`：「遊戲清單與使用說明」的 🔍 推理分類加上犯人在跳舞 (主控統一寫 delta)
+- `player-stats`：「記錄各遊戲結果」的獲勝規則表加上犯人在跳舞 (主控統一寫 delta)
 
 ## Impact
 
-- Code：新增 `src/criminal.ts`（engine，用 `src/common.ts` 的 `joinRoom`、`leaveRoom`、`addBots`、`removeBots`、`cancelGame`、`runGame`、`shuffle`、`reply`、`startTimer`、`lobbyEvent`）；新增 `src/games/criminal.ts`（`GameDef`）；`src/games/index.ts` 的 `GAMES` 加一行。不需要新的 GameEvent 種類，不需要改 `src/slack.ts`
-- Tests：新增 `test/criminal.test.ts`；`test/slack.test.ts`（KINDS、大廳推理分類）；`test/characterization.test.ts` 的 KINDS 和 snapshot
-- Docs：README（遊戲列表、wiki 連結、manifest description／usage_hint）、wiki 新增「犯人在跳舞」「犯人在跳舞-遊戲規則」「犯人在跳舞-指令」三頁
+- Code：新增 `src/criminal.ts` (engine，用 `src/common.ts` 的 `joinRoom`、`leaveRoom`、`addBots`、`removeBots`、`cancelGame`、`runGame`、`shuffle`、`reply`、`startTimer`、`lobbyEvent`)；新增 `src/games/criminal.ts` (`GameDef`)；`src/games/index.ts` 的 `GAMES` 加一行。不需要新的 GameEvent 種類，不需要改 `src/slack.ts`
+- Tests：新增 `test/criminal.test.ts`；`test/slack.test.ts` (KINDS、大廳推理分類)；`test/characterization.test.ts` 的 KINDS 和 snapshot
+- Docs：README (遊戲列表、wiki 連結、manifest description／usage_hint)、wiki 新增「犯人在跳舞」「犯人在跳舞-遊戲規則」「犯人在跳舞-指令」三頁

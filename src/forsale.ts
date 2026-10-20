@@ -1,5 +1,5 @@
-// 地產大亨（For Sale）遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyForSale(state, action, rng) → { state, events }。
-// 金額一律用 $1,000 為單位的整數（1 = $1,000），顯示時經過 money()
+// 地產大亨 (For Sale) 遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyForSale(state, action, rng) → { state, events }。
+// 金額一律用 $1,000 為單位的整數 (1 = $1,000)，顯示時經過 money()
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
 
@@ -9,7 +9,7 @@ const TITLE = '地產大亨';
 export const BID_MS = 30_000;
 export const SELL_MS = 45_000;
 
-// 房產 1～30；支票 $0 兩張、$2,000～$15,000 各兩張（沒有 $1,000）
+// 房產 1～30；支票 $0 兩張、$2,000～$15,000 各兩張 (沒有 $1,000)
 export const PROPERTIES = Array.from({ length: 30 }, (_, i) => i + 1);
 export const CHECKS = [0, 0, ...Array.from({ length: 14 }, (_, i) => [i + 2, i + 2]).flat()];
 
@@ -21,11 +21,11 @@ export interface FPlayer {
   money: number; // 剩下的金幣
   props: number[]; // 手上的房產
   checks: number[]; // 拿到的支票
-  bid: number; // 這一輪出價（第一階段）
-  passed: boolean; // 這一輪已放棄（第一階段）
-  took?: number; // 這一輪拿到的房產（第一階段）
-  paid?: number; // 這一輪付給銀行的錢（第一階段）
-  choice?: number; // 這一輪選的房產（第二階段）
+  bid: number; // 這一輪出價 (第一階段)
+  passed: boolean; // 這一輪已放棄 (第一階段)
+  took?: number; // 這一輪拿到的房產 (第一階段)
+  paid?: number; // 這一輪付給銀行的錢 (第一階段)
+  choice?: number; // 這一輪選的房產 (第二階段)
   auto?: boolean; // 這一步是逾時自動出最小
 }
 
@@ -40,11 +40,11 @@ export interface FState {
   seq: number; // 擋舊按鈕：第一階段每換一位出價者 +1，第二階段每輪 +1
   propDeck: number[];
   checkDeck: number[];
-  table: number[]; // 第一階段桌上的房產（由小到大）
-  checks: number[]; // 第二階段這一輪的支票（由大到小）
+  table: number[]; // 第一階段桌上的房產 (由小到大)
+  checks: number[]; // 第二階段這一輪的支票 (由大到小)
   high: number; // 目前最高出價
   highBy?: string;
-  turn: number; // 輪到誰（players 的 index）
+  turn: number; // 輪到誰 (players 的 index)
   starter: number; // 這一輪的起始玩家
   log: string[]; // 這一輪的動作
   winners?: string[];
@@ -83,7 +83,7 @@ const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 const current = (s: FState) => s.players[s.turn];
 
 function bidLine(s: FState, p: FPlayer): string {
-  const state = p.passed ? `已放棄（拿走${propName(p.took!)}）` : p.bid ? `出價 ${money(p.bid)}` : '還沒出價';
+  const state = p.passed ? `已放棄 (拿走${propName(p.took!)})` : p.bid ? `出價 ${money(p.bid)}` : '還沒出價';
   return `${p === current(s) ? '👉 ' : ''}${mention(p.id)} ${state}`;
 }
 
@@ -93,13 +93,13 @@ function bidBoard(s: FState, ended = false): GameEvent {
   const lines = ended
     ? [`*✅ ${head}結束*`, ...s.players.map((p) => `${mention(p.id)} 拿走${propName(p.took!)}，付 ${money(p.paid!)}`)]
     : [
-        `*🏠 ${head}*｜房產牌庫剩 ${s.propDeck.length} 張（每次 ${BID_MS / 1000} 秒）`,
+        `*🏠 ${head}*｜房產牌庫剩 ${s.propDeck.length} 張 (每次 ${BID_MS / 1000} 秒)`,
         `🏠 桌上：${s.table.join('、')}`,
-        s.high ? `目前最高 ${money(s.high)}（${mention(s.highBy!)}）` : '目前最高：還沒有人出價',
+        s.high ? `目前最高 ${money(s.high)} (${mention(s.highBy!)})` : '目前最高：還沒有人出價',
         ...s.players.map((p) => bidLine(s, p)),
         ...(s.log.length ? [`上一步：${s.log[s.log.length - 1]}`] : []),
       ];
-  const raise = (n: number) => ({ value: `bid:${s.seq}:${s.high + n}`, label: `出 ${money(s.high + n)}（+${n}）` });
+  const raise = (n: number) => ({ value: `bid:${s.seq}:${s.high + n}`, label: `出 ${money(s.high + n)} (+${n})` });
   return {
     type: 'prompt',
     kind: 'forsale',
@@ -170,7 +170,7 @@ function bidMenu(c: Ctx, user: string, seq: number): boolean {
   if (err) return reply(c, user, err);
   const me = current(s);
   const amounts = Array.from({ length: Math.max(0, me.money - s.high) }, (_, i) => s.high + 1 + i);
-  const text = amounts.length ? `🔢 選擇你的出價（目前最高 ${money(s.high)}）` : '你的錢不夠出價，只能放棄。';
+  const text = amounts.length ? `🔢 選擇你的出價 (目前最高 ${money(s.high)})` : '你的錢不夠出價，只能放棄。';
   const options = [...amounts.map((n) => ({ value: `bid:${seq}:${n}`, label: money(n) })), { value: `pass:${seq}`, label: '🙅 放棄' }];
   c.events.push({ type: 'prompt', kind: 'forsale', audience: 'ephemeral', user, text, options, perRow: 6 });
   return false;
@@ -183,15 +183,15 @@ function pass(c: Ctx, user: string, seq: number): boolean {
   return true;
 }
 
-// 放棄：拿桌上最小的、拿回一半出價（無條件捨去）；只剩一人時他拿最大的並付全額
+// 放棄：拿桌上最小的、拿回一半出價 (無條件捨去)；只剩一人時他拿最大的並付全額
 function doPass(c: Ctx, auto: boolean) {
   const s = c.s;
   const me = current(s);
   const back = Math.floor(me.bid / 2);
   take(me, s.table.shift()!, me.bid - back);
   me.passed = true;
-  const refund = me.bid ? `拿回 ${money(back)}（出價 ${money(me.bid)}）` : '沒出價，免費';
-  s.log.push(`${mention(me.id)} 放棄，拿走${propName(me.took!)}，${refund}${auto ? '（逾時，自動放棄）' : ''}`);
+  const refund = me.bid ? `拿回 ${money(back)} (出價 ${money(me.bid)})` : '沒出價，免費';
+  s.log.push(`${mention(me.id)} 放棄，拿走${propName(me.took!)}，${refund}${auto ? ' (逾時，自動放棄)' : ''}`);
   const left = s.players.filter((p) => !p.passed);
   if (left.length > 1) return nextBidder(c);
   take(left[0], s.table.pop()!, left[0].bid);
@@ -206,7 +206,7 @@ function take(p: FPlayer, prop: number, paid: number) {
   p.props.push(prop);
 }
 
-const sortedProps = (p: FPlayer) => [...p.props].sort((a, b) => a - b).join('、') || '（沒有）';
+const sortedProps = (p: FPlayer) => [...p.props].sort((a, b) => a - b).join('、') || '(沒有)';
 
 function endBidPhase(c: Ctx) {
   const s = c.s;
@@ -230,10 +230,10 @@ function sellBoard(s: FState, revealed = false): GameEvent {
     ? [
         `*✅ ${head}揭曉*`,
         checks,
-        ...ranked(s).map((p, i) => `${mention(p.id)} ${propName(p.choice!)} → ${money(s.checks[i])}${p.auto ? '（逾時，自動出最小）' : ''}`),
+        ...ranked(s).map((p, i) => `${mention(p.id)} ${propName(p.choice!)} → ${money(s.checks[i])}${p.auto ? ' (逾時，自動出最小)' : ''}`),
       ]
     : [
-        `*🏠 ${head}*（${SELL_MS / 1000} 秒）`,
+        `*🏠 ${head}* (${SELL_MS / 1000} 秒)`,
         checks,
         `🏠 剩下：${s.players.map((p) => `${mention(p.id)} ${p.props.length} 間`).join('、')}`,
         `已選 ${s.players.length - waiting.length}/${s.players.length}${waiting.length ? `，還沒選：${waiting.map((p) => mention(p.id)).join(' ')}` : ''}`,
@@ -276,7 +276,7 @@ function sellMenu(c: Ctx, user: string, seq: number): boolean {
   if (err) return reply(c, user, err);
   const me = find(c.s, user)!;
   const options = [...me.props].sort((a, b) => a - b).map((n) => ({ value: `sell:${seq}:${n}`, label: propName(n) }));
-  c.events.push({ type: 'prompt', kind: 'forsale', audience: 'ephemeral', user, text: '🏠 選一間房產出售（揭曉前可以改）', options, perRow: 5 });
+  c.events.push({ type: 'prompt', kind: 'forsale', audience: 'ephemeral', user, text: '🏠 選一間房產出售 (揭曉前可以改)', options, perRow: 5 });
   return false;
 }
 
@@ -288,7 +288,7 @@ function sell(c: Ctx, user: string, seq: number, prop: number): boolean {
   if (!me.props.includes(prop)) return reply(c, user, STALE);
   const first = me.choice === undefined;
   me.choice = prop;
-  c.events.push({ type: 'ephemeral', to: user, text: `你選了${propName(prop)}（揭曉前可以改）`, replace: true });
+  c.events.push({ type: 'ephemeral', to: user, text: `你選了${propName(prop)} (揭曉前可以改)`, replace: true });
   if (s.players.every((p) => p.choice !== undefined)) reveal(c);
   else if (first) c.events.push(sellBoard(s));
   return true;
@@ -320,7 +320,7 @@ export function botBid(s: FState, me: FPlayer): number | 'pass' {
 // bot 賣房產：這輪最大的支票 ≥ $12,000 出最大的房產，否則出最小的
 export const botSell = (s: FState, me: FPlayer) => (s.checks[0] >= 12 ? Math.max(...me.props) : Math.min(...me.props));
 
-// 輪到 bot 喊價就立刻行動（第二階段 bot 在開輪時就選好了）
+// 輪到 bot 喊價就立刻行動 (第二階段 bot 在開輪時就選好了)
 function botsAct(c: Ctx) {
   for (let guard = 0; guard < 1000; guard++) {
     const s = c.s;
@@ -348,7 +348,7 @@ function endGame(c: Ctx) {
       type: 'announce',
       text: [
         `🏆 遊戲結束，${s.winners.map(mention).join('、')} 獲勝！`,
-        ...ranking.map((p, i) => `${i + 1}. ${mention(p.id)} ${money(totalOf(p))}（支票 ${money(sum(p.checks))}＋金幣 ${money(p.money)}）${won(p) ? ' 🏆' : ''}`),
+        ...ranking.map((p, i) => `${i + 1}. ${mention(p.id)} ${money(totalOf(p))} (支票 ${money(sum(p.checks))}＋金幣 ${money(p.money)})${won(p) ? ' 🏆' : ''}`),
       ].join('\n'),
       gif: 'goodWin',
     },
@@ -360,7 +360,7 @@ function statusText(s: FState, me: FPlayer): string {
   return [
     `💰 金幣 ${money(me.money)}${s.phase === 'bid' && me.bid ? `｜這輪出價 ${money(me.bid)}` : ''}`,
     `🏠 房產：${sortedProps(me)}`,
-    `💵 支票：${me.checks.map(money).join('、') || '（沒有）'}，總額 ${money(sum(me.checks))}`,
+    `💵 支票：${me.checks.map(money).join('、') || '(沒有)'}，總額 ${money(sum(me.checks))}`,
   ].join('\n');
 }
 
@@ -392,9 +392,9 @@ function start(c: Ctx, user: string): boolean {
     checkDeck: shuffle(CHECKS, c.rng).slice(removed),
   });
   const rules = [
-    `第一階段：每輪翻開 ${n} 間房產，輪流出價（要比目前最高價高）或放棄；放棄的人拿桌上最小的房產並拿回一半出價（無條件捨去），最後剩下的人拿最大的房產並付全額。`,
+    `第一階段：每輪翻開 ${n} 間房產，輪流出價 (要比目前最高價高) 或放棄；放棄的人拿桌上最小的房產並拿回一半出價 (無條件捨去)，最後剩下的人拿最大的房產並付全額。`,
     '第二階段：每輪翻開支票，大家同時私下出一張房產，大的換到大的支票。',
-    '支票加剩下金幣最多的人贏（同分比剩下金幣）。',
+    '支票加剩下金幣最多的人贏 (同分比剩下金幣)。',
   ].join('\n');
   c.events.push({
     type: 'announce',

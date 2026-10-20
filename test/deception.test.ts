@@ -45,7 +45,7 @@ describe('deception/clues: 提示板內容', () => {
 
 // ---------- engine ----------
 
-const rng = () => 0.99999; // 洗牌不動：最後一位是鑑識官，p1 兇手、p2 共犯、p3 目擊者（6 人以上），其他調查員
+const rng = () => 0.99999; // 洗牌不動：最後一位是鑑識官，p1 兇手、p2 共犯、p3 目擊者 (6 人以上)，其他調查員
 
 function run(actions: DAction[], start?: DState, r: () => number = rng) {
   let state = start;
@@ -87,7 +87,7 @@ describe('deception/setup: 詭影神探的房間', () => {
     expect(ephemeralTo(events, 'p1').join()).toContain('至少需要 4 人');
   });
 
-  it('房間已滿（12 人）時拒絕加入', () => {
+  it('房間已滿 (12 人) 時拒絕加入', () => {
     const { state, events } = run([{ type: 'join', user: 'x' }], lobbyWith(12).state);
     expect(state.players).toHaveLength(12);
     expect(ephemeralTo(events, 'x').join()).toContain('房間已滿');
@@ -329,7 +329,7 @@ describe('deception/clues: 提示板與回合面板', () => {
     expect(panel.ref).toBe(`deception:panel:${state.pseq}`);
     expect(panel.text).toContain('第 1/3 輪．蒐證');
     expect(panel.text).toContain(lineOf(CAUSE_BOARD));
-    expect(panel.text).toContain('案發地點：（還沒選）');
+    expect(panel.text).toContain('案發地點：(還沒選)');
     for (const x of state.scenes) expect(panel.text).toContain(lineOf(x.board));
     expect(panel.text).toContain('場上一覽');
     for (const p of state.players.slice(0, 5)) expect(panel.text).toContain(`<@${p.id}>　手段：${p.means.join('、')}　線索：${p.clues.join('、')}`);
@@ -357,7 +357,7 @@ describe('deception/clues: 第 1 輪蒐證', () => {
     expect(m.replace).toBe(true);
     const p = s.pseq;
     expect(values(m)).toEqual([`fb:${p}:cause`, `fb:${p}:loc`, `fb:${p}:s0`, `fb:${p}:s1`, `fb:${p}:s2`, `fb:${p}:s3`]);
-    expect(labels(m)).toEqual(['死因', '案發地點（4 選 1）', ...SCENE_BOARDS.slice(0, 4).map((b) => b.title)]);
+    expect(labels(m)).toEqual(['死因', '案發地點 (4 選 1)', ...SCENE_BOARDS.slice(0, 4).map((b) => b.title)]);
     const b = menuOf(fsAct(s, { type: 'fsBoard', slot: 'cause' }).events, 'p6')!;
     expect(b.replace).toBe(true);
     expect(values(b)).toEqual([...[0, 1, 2, 3, 4, 5].map((o) => `fp:${p}:cause:${o}`), `fback:${p}`]);
@@ -386,7 +386,7 @@ describe('deception/clues: 第 1 輪蒐證', () => {
     const { state, events } = fsAct(s, { type: 'fsLocation', board: 1, opt: 3 });
     expect(state.location).toEqual({ board: LOCATION_BOARDS[1], bullet: 3 });
     const text = panels(events).at(-1)!.text;
-    expect(text).toContain('案發地點（公共場所）：餐廳／商場／電影院／【醫院】／學校／圖書館');
+    expect(text).toContain('案發地點 (公共場所)：餐廳／商場／電影院／【醫院】／學校／圖書館');
     expect(text).not.toContain('居家');
     expect(values(menuOf(events, 'p6'))).not.toContain(`fb:${s.pseq}:loc`);
     expect(fsAct(state, { type: 'fsLocation', board: 0, opt: 0 }).state).toBe(state);
@@ -443,7 +443,7 @@ describe('deception/clues: 蒐證逾時與鑑識官掛機', () => {
     expect(state.location).toBeUndefined();
     expect(announces(events).join()).toContain('鑑識官時間到，沒放子彈的板沒有提示');
     expect(state.phase).toBe('present');
-    expect(panels(events).at(-1)!.text).toContain('案發地點：（沒有使用）');
+    expect(panels(events).at(-1)!.text).toContain('案發地點：(沒有使用)');
   });
 
   it('第 1 輪 0 顆 → 中止、公告答案、沒有 result、沒有再來一局', () => {
@@ -476,7 +476,7 @@ describe('deception/clues: 發言', () => {
     expect(placeAll(s).state.speakers).toEqual(['p4', 'p5', 'p1', 'p2']);
   });
 
-  it('發言開始：新面板和「輪到 @X 發言（90 秒）」短訊息（不帶 ref）', () => {
+  it('發言開始：新面板和「輪到 @X 發言 (90 秒)」短訊息 (不帶 ref)', () => {
     const { state, events } = present1();
     expect(state.speakers).toEqual(['p1', 'p2', 'p3', 'p4', 'p5']);
     const panel = panels(events).at(-1)!;
@@ -485,7 +485,7 @@ describe('deception/clues: 發言', () => {
     expect(panel.text).toContain('輪到 <@p1>');
     expect(values(panel)).toEqual(['solve', 'me']);
     const [msg] = shortMsgs(events);
-    expect(msg.text).toBe('輪到 <@p1> 發言（90 秒）');
+    expect(msg.text).toBe('輪到 <@p1> 發言 (90 秒)');
     expect(values(msg)).toEqual([`done:${state.tseq}`, 'solve']);
     expect(labels(msg)).toEqual(['✅ 說完了', '🔍 破案']);
   });
@@ -495,7 +495,7 @@ describe('deception/clues: 發言', () => {
     const r = run([{ type: 'done', user: 'p1', tseq: s.tseq }], s);
     expect(panels(r.events).map((p) => p.ref)).toEqual([`deception:panel:${s.pseq}`]);
     expect(panels(r.events)[0].text).toContain('輪到 <@p2>');
-    expect(shortMsgs(r.events).map((p) => p.text)).toEqual(['輪到 <@p2> 發言（90 秒）']);
+    expect(shortMsgs(r.events).map((p) => p.text)).toEqual(['輪到 <@p2> 發言 (90 秒)']);
     const other = run([{ type: 'done', user: 'p3', tseq: s.tseq }], s);
     expect(other.state).toBe(s);
     expect(ephemeralTo(other.events, 'p3')).toEqual(['還沒輪到你。']);
@@ -506,7 +506,7 @@ describe('deception/clues: 發言', () => {
     s.players[1].badge = false;
     const r = timeout(s);
     expect(r.state.speakers[r.state.speaker]).toBe('p2');
-    expect(shortMsgs(r.events).map((p) => p.text)).toEqual(['輪到 <@p2> 發言（90 秒）']);
+    expect(shortMsgs(r.events).map((p) => p.text)).toEqual(['輪到 <@p2> 發言 (90 秒)']);
   });
 
   it('第 1 輪最後一位說完進入第 2 輪蒐證', () => {
@@ -666,7 +666,7 @@ describe('deception/solve: 翻盤', () => {
 });
 
 describe('deception/solve: 勝負與結束', () => {
-  it('結束公告（陣營、每人角色、答案、破案紀錄）；好人勝的 result', () => {
+  it('結束公告 (陣營、每人角色、答案、破案紀錄)；好人勝的 result', () => {
     const s = solve(solve(present1().state, 'p5', 'p2', 0, 0).state, 'p4', 'p1', 0, 0).state;
     const { state, events } = run([{ type: 'witness', user: 'p1', target: 'p4' }], s);
     const text = announces(events).join('\n');
@@ -708,14 +708,14 @@ describe('deception/solve: 勝負與結束', () => {
   });
 });
 
-describe('deception/setup: Slack 設定（GameDef）', () => {
+describe('deception/setup: Slack 設定 (GameDef)', () => {
   it('大廳資訊', () => {
     expect(deception).toMatchObject({ kind: 'deception', emoji: '🔎', name: '詭影神探', players: '4～12 人', category: 'deduction', noBots: true });
     expect(deception.apply).toBe(applyDeception);
     expect('chat' in deception).toBe(false);
   });
 
-  it('指令解析：new、start、cancel、addbot、removebot；help 和不認識的子指令回傳 null（顯示說明）', () => {
+  it('指令解析：new、start、cancel、addbot、removebot；help 和不認識的子指令回傳 null (顯示說明)', () => {
     expect(deception.parse('new', 'U1', 'C1')).toEqual({ type: 'new', user: 'U1', channel: 'C1' });
     expect(deception.parse('start', 'U1', 'C1')).toEqual({ type: 'start', user: 'U1' });
     expect(deception.parse('cancel', 'U1', 'C1')).toEqual({ type: 'cancel', user: 'U1' });

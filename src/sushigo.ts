@@ -1,4 +1,4 @@
-// 壽司派對（Sushi Go!）遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applySushiGo(state, action, rng) → { state, events }。
+// 壽司派對 (Sushi Go!) 遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applySushiGo(state, action, rng) → { state, events }。
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
 
@@ -36,7 +36,7 @@ function nigiriScore(table: Card[]): number {
   return total;
 }
 
-// 壽司捲：最多 6、第二多 3（平分捨去小數）；最多同分時沒有第二名；沒有壽司捲不得分
+// 壽司捲：最多 6、第二多 3 (平分捨去小數)；最多同分時沒有第二名；沒有壽司捲不得分
 function makiScores(tables: Card[][]): number[] {
   const counts = tables.map(makiOf);
   const out = counts.map(() => 0);
@@ -65,7 +65,7 @@ export function scoreRound(tables: Card[][]): { total: number; detail: Detail }[
   });
 }
 
-// 布丁：最多 +6、最少 −6（平分捨去小數）；2 人局不扣分；大家一樣多都是 0
+// 布丁：最多 +6、最少 −6 (平分捨去小數)；2 人局不扣分；大家一樣多都是 0
 export function scorePudding(counts: number[]): number[] {
   const out = counts.map(() => 0);
   const max = Math.max(...counts);
@@ -102,7 +102,7 @@ export interface SGPlayer {
   id: string;
   hand: Card[];
   table: Card[]; // 這一輪出過的牌，依出牌順序
-  puddings: number; // 前幾輪累積的布丁（不含這一輪桌上的）
+  puddings: number; // 前幾輪累積的布丁 (不含這一輪桌上的)
   rounds: number[]; // 每輪分數
   pick?: Card;
   extra?: Card | null; // undefined＝還沒回答筷子，null＝不用筷子
@@ -149,14 +149,14 @@ const done = (p: SGPlayer) => p.pick !== undefined && p.extra !== undefined;
 // 相同的牌合併：🍤 天婦羅 ×2，依牌種順序
 export function groupText(cards: Card[]): string {
   const parts = CARDS.filter((c) => cards.includes(c)).map((c) => `${CARD_NAME[c]} ×${count(cards, c)}`);
-  return parts.length ? parts.join('、') : '（還沒有）';
+  return parts.length ? parts.join('、') : '(還沒有)';
 }
 
 function board(s: SGState, revealed = false): GameEvent {
   const waiting = s.players.filter((p) => !done(p));
   const head = `🍣 第 ${s.round}/${ROUNDS} 輪第 ${s.turn}/${handSize(s)} 回合`;
   const lines = [
-    revealed ? `${head}：已揭曉` : `${head}：按「🍣 我的手牌」選一張牌（${PICK_MS / 1000} 秒）`,
+    revealed ? `${head}：已揭曉` : `${head}：按「🍣 我的手牌」選一張牌 (${PICK_MS / 1000} 秒)`,
     ...s.players.map((p) => `• ${mention(p.id)}：${groupText(p.table)}｜🍮 ${p.puddings + count(p.table, 'pudding')}｜累積 ${total(p)} 分`),
   ];
   if (!revealed) lines.push(`已選 ${s.players.length - waiting.length}/${s.players.length}${waiting.length ? `，還沒選：${waiting.map((p) => mention(p.id)).join(' ')}` : ''}`);
@@ -196,7 +196,7 @@ function startTurn(c: Ctx) {
   if (s.players.every(done)) reveal(c);
 }
 
-// bot 估每種牌的價值（看自己這一輪桌上的牌），出最高的；同分依牌種順序。超時的真人也用這個
+// bot 估每種牌的價值 (看自己這一輪桌上的牌)，出最高的；同分依牌種順序。超時的真人也用這個
 function cardValue(card: Card, hand: Card[], table: Card[]): number {
   switch (card) {
     case 'tempura':
@@ -229,7 +229,7 @@ export function botCard(hand: Card[], table: Card[]): Card {
   return CARDS.filter((c) => hand.includes(c)).reduce((best, c) => (value(c) > value(best) ? c : best));
 }
 
-// 時間到：沒選的人依 bot 規則出牌（不用筷子），選了第一張沒回答筷子的只出第一張
+// 時間到：沒選的人依 bot 規則出牌 (不用筷子)，選了第一張沒回答筷子的只出第一張
 function timeout(c: Ctx) {
   for (const p of c.s.players) {
     if (p.pick === undefined) Object.assign(p, { pick: botCard(p.hand, p.table), auto: true });
@@ -255,7 +255,7 @@ function handMenu(c: Ctx, user: string): boolean {
     kind: 'sushigo',
     audience: 'ephemeral',
     user,
-    text: `🍣 選一張牌（揭曉前可以改）${me.pick ? `，目前選了 ${CARD_NAME[me.pick]}` : ''}\n你桌上的牌：${groupText(me.table)}`,
+    text: `🍣 選一張牌 (揭曉前可以改)${me.pick ? `，目前選了 ${CARD_NAME[me.pick]}` : ''}\n你桌上的牌：${groupText(me.table)}`,
     options: cardOptions(me.hand, `pick:${s.seq}`),
     perRow: 4,
   });
@@ -271,7 +271,7 @@ function pickCard(c: Ctx, user: string, seq: number, card: Card): boolean {
   const wasDone = done(me);
   me.pick = card;
   me.extra = canChop(me) ? undefined : null;
-  c.events.push({ type: 'ephemeral', to: user, text: `你選了 ${CARD_NAME[card]}（揭曉前可以改）` });
+  c.events.push({ type: 'ephemeral', to: user, text: `你選了 ${CARD_NAME[card]} (揭曉前可以改)` });
   if (me.extra === undefined) chopMenu(c, me);
   afterPick(c, wasDone !== done(me));
   return true;
@@ -291,7 +291,7 @@ function chopMenu(c: Ctx, me: SGPlayer) {
     kind: 'sushigo',
     audience: 'ephemeral',
     user: me.id,
-    text: `🥢 要用筷子再出一張嗎？（第一張：${CARD_NAME[me.pick!]}）`,
+    text: `🥢 要用筷子再出一張嗎？(第一張：${CARD_NAME[me.pick!]})`,
     options: [...cardOptions(withoutPick(me), `extra:${c.s.seq}`), { value: `extra:${c.s.seq}:none`, label: '不用筷子' }],
     perRow: 4,
   });
@@ -307,7 +307,7 @@ function extraCard(c: Ctx, user: string, seq: number, card: Card | 'none'): bool
   if (card !== 'none' && !withoutPick(me).includes(card)) return reply(c, user, `你手上沒有第二張 ${CARD_NAME[card]}。`);
   const wasDone = done(me);
   me.extra = card === 'none' ? null : card;
-  const text = card === 'none' ? '這回合不用筷子（揭曉前可以改）' : `🥢 你用筷子再出 ${CARD_NAME[card]}（揭曉前可以改）`;
+  const text = card === 'none' ? '這回合不用筷子 (揭曉前可以改)' : `🥢 你用筷子再出 ${CARD_NAME[card]} (揭曉前可以改)`;
   c.events.push({ type: 'ephemeral', to: user, text });
   afterPick(c, wasDone !== done(me));
   return true;
@@ -326,7 +326,7 @@ function reveal(c: Ctx) {
   c.events.push(board(s, true));
   const lines = s.players.map((p) => {
     const cards = played(p).map((x) => CARD_NAME[x]).join('＋');
-    return `${mention(p.id)} ${p.extra ? '🥢 ' : ''}${cards}${p.auto ? '（超時自動出牌）' : ''}`;
+    return `${mention(p.id)} ${p.extra ? '🥢 ' : ''}${cards}${p.auto ? ' (超時自動出牌)' : ''}`;
   });
   c.events.push({ type: 'announce', text: `🍣 揭曉：${lines.join('、')}` });
   for (const p of s.players) {
@@ -381,7 +381,7 @@ function endGame(c: Ctx) {
       text: [
         `🏆 遊戲結束，${s.winners.map(mention).join('、')} 獲勝！`,
         `🍮 布丁：${final.map((x) => `${mention(x.p.id)} ${x.p.puddings} 個 ${signed(x.bonus)}`).join('、')}`,
-        ...ranking.map((x, i) => `${i + 1}. ${mention(x.p.id)} ${x.score} 分（各輪 ${x.p.rounds.join('/')}，布丁 ${signed(x.bonus)}，🍮 ${x.p.puddings} 個）${won(x) ? ' 🏆' : ''}`),
+        ...ranking.map((x, i) => `${i + 1}. ${mention(x.p.id)} ${x.score} 分 (各輪 ${x.p.rounds.join('/')}，布丁 ${signed(x.bonus)}，🍮 ${x.p.puddings} 個)${won(x) ? ' 🏆' : ''}`),
       ].join('\n'),
       gif: 'goodWin',
     },
@@ -391,8 +391,8 @@ function endGame(c: Ctx) {
 
 const RULES = [
   '🍣 壽司派對規則：共 3 輪，每回合大家同時從手牌選一張出到桌上，再把剩下的手牌傳給下一位，直到手牌出完。每回合 60 秒，超時系統替你出一張。',
-  '計分（每輪）：🍤 天婦羅 2 張 5 分｜🐟 生魚片 3 張 10 分｜🥟 煎餃 1/3/6/10/15｜🌀 壽司捲圖示最多 6 分、第二多 3 分｜握壽司 🍳玉子 1、🍣鮭魚 2、🦑魷魚 3｜🟢 芥末讓之後的一張握壽司 ×3｜🥢 筷子 0 分',
-  '🍮 布丁留到 3 輪結束：最多 +6、最少 −6（2 人局不扣）。',
+  '計分 (每輪)：🍤 天婦羅 2 張 5 分｜🐟 生魚片 3 張 10 分｜🥟 煎餃 1/3/6/10/15｜🌀 壽司捲圖示最多 6 分、第二多 3 分｜握壽司 🍳玉子 1、🍣鮭魚 2、🦑魷魚 3｜🟢 芥末讓之後的一張握壽司 ×3｜🥢 筷子 0 分',
+  '🍮 布丁留到 3 輪結束：最多 +6、最少 −6 (2 人局不扣)。',
   '🥢 筷子：桌上有筷子時，選完第一張會問你要不要用筷子再出一張；兩張一起出，筷子回到手牌傳下去。',
   '總分最高的人贏，同分比布丁多。',
 ].join('\n');
@@ -409,7 +409,7 @@ function start(c: Ctx, user: string): boolean {
   s.phase = 'pick';
   c.events.push({
     type: 'announce',
-    text: `🍣 壽司派對開始！座位（傳牌方向）：${s.players.map((p) => mention(p.id)).join(' → ')}\n共 ${ROUNDS} 輪，每輪每人 ${handSize(s)} 張手牌；每回合大家同時出一張，再把手牌傳給下一位。\n總分最高的人贏，同分比布丁多。`,
+    text: `🍣 壽司派對開始！座位 (傳牌方向)：${s.players.map((p) => mention(p.id)).join(' → ')}\n共 ${ROUNDS} 輪，每輪每人 ${handSize(s)} 張手牌；每回合大家同時出一張，再把手牌傳給下一位。\n總分最高的人贏，同分比布丁多。`,
   });
   for (const p of s.players) if (!isBot(p.id)) c.events.push({ type: 'dm', to: p.id, text: RULES });
   startRound(c);

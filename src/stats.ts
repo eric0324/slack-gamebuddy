@@ -19,7 +19,7 @@ export type Leaderboard =
   | { by: 'wins'; rows: { user: string; wins: number; games: number }[] }
   | { by: 'score'; rows: { user: string; best: number; games: number }[] };
 
-// 狼人殺的舊表和其他遊戲的新表合在一起看（合作遊戲 won 是 NULL）
+// 狼人殺的舊表和其他遊戲的新表合在一起看 (合作遊戲 won 是 NULL)
 const ALL_PLAYS = `
   SELECT g.channel AS channel, 'werewolf' AS kind, gp.user_id AS user_id, gp.won AS won, NULL AS score
   FROM games g JOIN game_players gp ON gp.game_id = g.id
@@ -156,7 +156,7 @@ export class StatsStore {
   }
 }
 
-const line = (r: Tally) => `${r.games} 場 ${r.wins} 勝（${Math.round((r.wins / r.games) * 100)}%）`;
+const line = (r: Tally) => `${r.games} 場 ${r.wins} 勝 (${Math.round((r.wins / r.games) * 100)}%)`;
 
 export function formatStats(who: string, stats: PlayerStats | null): string {
   if (!stats) return `這個頻道還沒有 ${who} 的戰績。`;
@@ -170,16 +170,16 @@ export function formatStats(who: string, stats: PlayerStats | null): string {
 
 const pct = (wins: number, games: number) => `${Math.round((wins / games) * 100)}%`;
 
-// label：遊戲代號 → 顯示名稱（例如「💀 骷髏與玫瑰」）
+// label：遊戲代號 → 顯示名稱 (例如「💀 骷髏與玫瑰」)
 export function formatSummary(who: string, rows: GameSummary[], label: (kind: string) => string): string {
   if (!rows.length) return `這個頻道還沒有 ${who} 的戰績。`;
   const games = rows.reduce((n, r) => n + r.games, 0);
   const versus = rows.filter((r) => r.wins !== null);
   const vGames = versus.reduce((n, r) => n + r.games, 0);
   const vWins = versus.reduce((n, r) => n + r.wins!, 0);
-  const total = vGames ? `總計 ${games} 場，對戰 ${vGames} 場 ${vWins} 勝（${pct(vWins, vGames)}）` : `總計 ${games} 場`;
+  const total = vGames ? `總計 ${games} 場，對戰 ${vGames} 場 ${vWins} 勝 (${pct(vWins, vGames)})` : `總計 ${games} 場`;
   const lines = rows.map((r) =>
-    r.wins === null ? `${label(r.kind)} ${r.games} 場，最高 ${r.best} 分` : `${label(r.kind)} ${r.games} 場 ${r.wins} 勝（${pct(r.wins, r.games)}）`,
+    r.wins === null ? `${label(r.kind)} ${r.games} 場，最高 ${r.best} 分` : `${label(r.kind)} ${r.games} 場 ${r.wins} 勝 (${pct(r.wins, r.games)})`,
   );
   return [`📊 ${who} 在這個頻道的戰績`, total, ...lines].join('\n');
 }
@@ -191,7 +191,7 @@ export function formatLeaderboard(board: Leaderboard, title: string): string {
   const rank = (i: number) => MEDALS[i] ?? `${i + 1}.`;
   const lines =
     board.by === 'wins'
-      ? board.rows.map((r, i) => `${rank(i)} <@${r.user}> ${r.wins} 勝／${r.games} 場（${pct(r.wins, r.games)}）`)
-      : board.rows.map((r, i) => `${rank(i)} <@${r.user}> 最高 ${r.best} 分（${r.games} 場）`);
+      ? board.rows.map((r, i) => `${rank(i)} <@${r.user}> ${r.wins} 勝／${r.games} 場 (${pct(r.wins, r.games)})`)
+      : board.rows.map((r, i) => `${rank(i)} <@${r.user}> 最高 ${r.best} 分 (${r.games} 場)`);
   return [`🏆 ${title}`, ...lines].join('\n');
 }

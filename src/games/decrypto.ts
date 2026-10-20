@@ -5,15 +5,15 @@ import { parseRoomCommand } from './undercover.js';
 
 const HELP = [
   '*截碼戰指令*',
-  '• `/game decrypto new`：開房（任何人）',
-  '• `/game decrypto start`：開始遊戲，需要 4～12 位真人（房主）',
-  '• 加密：輪到你時按「✍️ 寫提示」依序寫 3 個提示；也可以打 `/game decrypto clue 海 / 火 / 鐘`（用 / 分開）',
-  '• `/game decrypto cancel`：取消遊戲（房主）',
+  '• `/game decrypto new`：開房 (任何人)',
+  '• `/game decrypto start`：開始遊戲，需要 4～12 位真人 (房主)',
+  '• 加密：輪到你時按「✍️ 寫提示」依序寫 3 個提示；也可以打 `/game decrypto clue 海 / 火 / 鐘` (用 / 分開)',
+  '• `/game decrypto cancel`：取消遊戲 (房主)',
   '解碼、攔截、提示紀錄都用頻道按鈕',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
-// 截碼戰的子指令：clue <提示1> / <提示2> / <提示3>（提示可以有空白）
+// 截碼戰的子指令：clue <提示1> / <提示2> / <提示3> (提示可以有空白)
 export function parseDecryptoCommand(text: string, user: string, channel: string): DAction | null {
   const [sub, ...rest] = text.trim().split(/\s+/);
   if (sub === 'clue') {

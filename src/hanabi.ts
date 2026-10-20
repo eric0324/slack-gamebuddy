@@ -94,7 +94,7 @@ function deal(c: Ctx) {
   s.turn = Math.floor(c.rng() * s.players.length);
   c.events.push({
     type: 'announce',
-    text: `🎆 花火開始！大家看得到別人的牌、看不到自己的，靠提示合力依序打出五種顏色的煙火（1 到 5）。\n按「👀 看牌」可以看別人的手牌和自己已知的提示。`,
+    text: `🎆 花火開始！大家看得到別人的牌、看不到自己的，靠提示合力依序打出五種顏色的煙火 (1 到 5)。\n按「👀 看牌」可以看別人的手牌和自己已知的提示。`,
     gif: 'start',
   });
   startTurn(c);
@@ -108,7 +108,7 @@ function startTurn(c: Ctx) {
   c.events.push(
     {
       type: 'announce',
-      text: `🎇 輪到 ${mention(p.id)}（${TURN_MS / 60_000} 分鐘）\n煙火：${fireworksLine(s)}｜提示 ${s.hints}｜失誤 ${s.fuses}／${MAX_FUSES}｜牌堆 ${s.deck.length}`,
+      text: `🎇 輪到 ${mention(p.id)} (${TURN_MS / 60_000} 分鐘)\n煙火：${fireworksLine(s)}｜提示 ${s.hints}｜失誤 ${s.fuses}／${MAX_FUSES}｜牌堆 ${s.deck.length}`,
     },
     {
       type: 'prompt',
@@ -134,7 +134,7 @@ function peek(c: Ctx, user: string) {
   if (!me) return reply(c, user, '你不在這局遊戲裡。');
   const others = s.players.filter((p) => p.id !== user).map((p) => `${mention(p.id)}：${p.hand.map(show).join(' ')}`);
   const mine = me.hand.map((x, i) => `第 ${i + 1} 張：${known(x)}`).join('\n');
-  return reply(c, user, `👀 別人的手牌：\n${others.join('\n')}\n\n你的手牌（已知的提示）：\n${mine}`);
+  return reply(c, user, `👀 別人的手牌：\n${others.join('\n')}\n\n你的手牌 (已知的提示)：\n${mine}`);
 }
 
 // 棄牌堆：公開資訊，誰都能看；依顏色分行、數字由小到大
@@ -152,7 +152,7 @@ function takeCard(s: HState, p: HPlayer, index: number) {
   const [card] = p.hand.splice(index, 1);
   if (s.deck.length) {
     p.hand.push(s.deck.shift()!);
-    // 抽到最後一張：包含自己在內每人再輪一次（這個回合結束時會先扣 1）
+    // 抽到最後一張：包含自己在內每人再輪一次 (這個回合結束時會先扣 1)
     if (!s.deck.length) s.remaining = s.players.length + 1;
   }
   return card;
@@ -172,7 +172,7 @@ function playCard(c: Ctx, user: string, index: number): boolean {
   } else {
     s.fuses++;
     s.discard.push(card);
-    c.events.push({ type: 'announce', text: `💥 ${mention(user)} 打出 ${show(card)}，失誤！（${s.fuses}／${MAX_FUSES}）` });
+    c.events.push({ type: 'announce', text: `💥 ${mention(user)} 打出 ${show(card)}，失誤！(${s.fuses}／${MAX_FUSES})` });
     if (s.fuses >= MAX_FUSES) {
       endGame(c, true);
       return true;
@@ -189,7 +189,7 @@ function playCard(c: Ctx, user: string, index: number): boolean {
 function discardCard(c: Ctx, user: string, index: number): boolean {
   const s = c.s;
   if (s.phase !== 'turn' || user !== currentId(s)) return reply(c, user, '還沒輪到你。');
-  if (s.hints >= MAX_HINTS) return reply(c, user, '提示標記滿了（8 個），不能棄牌。');
+  if (s.hints >= MAX_HINTS) return reply(c, user, '提示標記滿了 (8 個)，不能棄牌。');
   const p = s.players[s.turn];
   if (!p.hand[index]) return false;
   const card = takeCard(s, p, index);

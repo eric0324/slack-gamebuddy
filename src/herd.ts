@@ -1,4 +1,4 @@
-// 從眾心理（Herd Mentality）遊戲引擎：純邏輯，不碰任何 I/O。每題大家私下寫答案，跟多數人一樣就得分。
+// 從眾心理 (Herd Mentality) 遊戲引擎：純邏輯，不碰任何 I/O。每題大家私下寫答案，跟多數人一樣就得分。
 // 介面和其他遊戲一樣：applyHerd(state, action, rng) → { state, events }。
 import { mention, type GameEvent, type Rng } from './engine.js';
 import { cancelGame, joinRoom, leaveRoom, lobbyEvent, reply, runGame, shuffle, startTimer } from './common.js';
@@ -19,15 +19,15 @@ export interface HerdState {
   host: string;
   phase: 'lobby' | 'answer' | 'merge' | 'ended';
   players: { id: string; score: number }[];
-  deck: number[]; // 還沒抽的題目（HERD_QUESTIONS 的 index），跨局沿用
+  deck: number[]; // 還沒抽的題目 (HERD_QUESTIONS 的 index)，跨局沿用
   question?: number;
-  round: number; // 第幾題（1 起算）
+  round: number; // 第幾題 (1 起算)
   answers: { user: string; text: string }[]; // 這題的原始答案，依送出順序
   groups: { text: string; members: string[] }[]; // 分組／合併後
   selected: number[]; // 房主已選的組
   cow?: string; // 粉紅牛持有者
   seq: number; // 題目／分組訊息的 ref，也用來擋掉舊按鈕
-  winners?: string[]; // 正常結束才有（取消的沒有）
+  winners?: string[]; // 正常結束才有 (取消的沒有)
   timerSeq: number;
   timers: { phase?: number };
 }
@@ -43,7 +43,7 @@ export type HerdAction =
   | { type: 'openWrite'; user: string }
   | { type: 'answer'; user: string; text: string }
   | { type: 'pick'; user: string; seq: number; group: number }
-  | { type: 'merge'; user: string; seq?: number; groups?: number[] } // 按鈕帶 seq；指令帶組的編號（1 起算）
+  | { type: 'merge'; user: string; seq?: number; groups?: number[] } // 按鈕帶 seq；指令帶組的編號 (1 起算)
   | { type: 'done'; user: string; seq?: number }
   | { type: 'timeout'; id: number }
   | { type: 'rematch'; user: string; channel: string };
@@ -66,7 +66,7 @@ function answerBoard(s: HerdState): GameEvent {
     ref: `herd:${s.seq}`,
     text: [
       `🐑 第 ${s.round}/${MAX_ROUNDS} 題：${HERD_QUESTIONS[s.question!]}`,
-      `按「✍️ 作答」寫下你覺得多數人會寫的答案（${ANSWER_MS / 1000} 秒，送出前可以改）`,
+      `按「✍️ 作答」寫下你覺得多數人會寫的答案 (${ANSWER_MS / 1000} 秒，送出前可以改)`,
       `已作答 ${s.answers.length}/${s.players.length}${waiting.length ? `，還沒作答：${waiting.map((p) => mention(p.id)).join(' ')}` : ''}`,
     ].join('\n'),
     options: [{ value: 'write', label: '✍️ 作答' }],
@@ -81,7 +81,7 @@ function groupBoard(s: HerdState): GameEvent {
     ref: `herd:${s.seq}`,
     text: [
       `📋 第 ${s.round} 題「${HERD_QUESTIONS[s.question!]}」的答案：`,
-      ...s.groups.map((g, i) => `${i + 1}. ${g.text}（${g.members.length} 人）：${g.members.map(mention).join('、')}`),
+      ...s.groups.map((g, i) => `${i + 1}. ${g.text} (${g.members.length} 人)：${g.members.map(mention).join('、')}`),
       ...(s.phase === 'merge' ? [`房主 ${mention(s.host)} ${MERGE_MS / 1000} 秒內可以合併意思一樣的答案`] : []),
     ].join('\n'),
     options: [],
@@ -95,9 +95,9 @@ function mergeMenu(c: Ctx) {
     kind: 'herd',
     audience: 'ephemeral',
     user: s.host,
-    text: '選要合併的組（意思一樣的答案），再按「🔗 合併」；合併完按「✅ 完成」',
+    text: '選要合併的組 (意思一樣的答案)，再按「🔗 合併」；合併完按「✅ 完成」',
     options: [
-      ...s.groups.map((g, i) => ({ value: `pick:${s.seq}:${i}`, label: `${s.selected.includes(i) ? '✅ ' : ''}${i + 1}. ${g.text}（${g.members.length}）` })),
+      ...s.groups.map((g, i) => ({ value: `pick:${s.seq}:${i}`, label: `${s.selected.includes(i) ? '✅ ' : ''}${i + 1}. ${g.text} (${g.members.length})` })),
       { value: `merge:${s.seq}`, label: '🔗 合併' },
       { value: `done:${s.seq}`, label: '✅ 完成' },
     ],
@@ -160,7 +160,7 @@ function score(c: Ctx) {
   if (singles.length === 1 && singles[0].members[0] !== s.cow) {
     const prev = s.cow;
     s.cow = singles[0].members[0];
-    lines.push(`🐮 只有 ${mention(s.cow)} 答「${singles[0].text}」，拿到粉紅牛${prev ? `（從 ${mention(prev)} 手上轉過來）` : ''}`);
+    lines.push(`🐮 只有 ${mention(s.cow)} 答「${singles[0].text}」，拿到粉紅牛${prev ? ` (從 ${mention(prev)} 手上轉過來)` : ''}`);
   }
   lines.push(scoreLine(s));
   c.events.push({ type: 'announce', text: lines.join('\n') });
@@ -218,7 +218,7 @@ function answer(c: Ctx, user: string, raw: string): boolean {
 function openWrite(c: Ctx, user: string): boolean {
   if (!isPlayer(c.s, user)) return reply(c, user, '你不在這局遊戲裡。');
   if (c.s.phase !== 'answer') return reply(c, user, '現在不是作答的時間。');
-  c.events.push({ type: 'modal', to: user, kind: 'herdAnswer', title: '作答', label: `你的答案（1～${MAX_TEXT} 字）` });
+  c.events.push({ type: 'modal', to: user, kind: 'herdAnswer', title: '作答', label: `你的答案 (1～${MAX_TEXT} 字)` });
   return false;
 }
 
@@ -262,7 +262,7 @@ function done(c: Ctx, user: string, seq?: number): boolean {
 const RULES = (s: HerdState) =>
   [
     `🐑 從眾心理開始！玩家：${s.players.map((p) => mention(p.id)).join('、')}`,
-    `每題大家私下寫答案（${ANSWER_MS / 1000} 秒），跟最多人一樣的那組每人得 1 分（最多人數平手就沒人得分）。`,
+    `每題大家私下寫答案 (${ANSWER_MS / 1000} 秒)，跟最多人一樣的那組每人得 1 分 (最多人數平手就沒人得分)。`,
     '只有一個人的答案跟大家都不一樣時，他拿到 🐮 粉紅牛；粉紅牛會轉給下一個唯一單獨答案的人。',
     `先到 ${TARGET} 分且手上沒有粉紅牛的人獲勝；最多 ${MAX_ROUNDS} 題。房主可以合併意思一樣的答案。`,
   ].join('\n');

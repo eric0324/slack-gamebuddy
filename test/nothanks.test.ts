@@ -47,7 +47,7 @@ describe('nothanks: 計分', () => {
   it('連號顯示成一組', () => {
     expect(runsText([5, 6, 7, 19])).toBe('5-7 · 19');
     expect(runsText([20, 5, 6])).toBe('5-6 · 20');
-    expect(runsText([])).toBe('（還沒有）');
+    expect(runsText([])).toBe('(還沒有)');
   });
 });
 
@@ -64,7 +64,7 @@ describe('nothanks/setup: 不要謝謝的房間', () => {
     expect(ephemeralTo(events, 'p1')?.text).toContain('至少需要 3 人');
   });
 
-  it('房間已滿（7 人）時拒絕加入', () => {
+  it('房間已滿 (7 人) 時拒絕加入', () => {
     const { state, events } = run([{ type: 'join', user: 'x' }], lobbyWith(7).state);
     expect(state.players).toHaveLength(7);
     expect(ephemeralTo(events, 'x')?.text).toContain('房間已滿');
@@ -328,7 +328,7 @@ describe('nothanks/bots', () => {
     const { state } = run([{ type: 'start', user: 'p1' }], lobby);
     expect(cur(state).id).toBe('p1');
     expect(state.pot).toBe(1); // bot2 對 12 不要謝謝
-    // p1 不要謝謝 → bot1（2 個）、bot2（3 個）都不要謝謝 → 輪回 p1
+    // p1 不要謝謝 → bot1 (2 個)、bot2 (3 個) 都不要謝謝 → 輪回 p1
     const s1 = run([pass(state)], state).state;
     expect(s1).toMatchObject({ pot: 4, turn: 0 });
     // p1 再不要謝謝 → bot1 看到 5 個，5 × 3 ≥ 12 收下，之後 13、14…都連號，一路收到結束

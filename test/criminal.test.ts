@@ -132,7 +132,7 @@ describe('criminal/setup: 組牌組與發牌', () => {
     expect([...buildDeck(8, () => 0.3)].sort()).toEqual([...FULL_DECK].sort());
   });
 
-  it('開始後每人 4 張（第一發現者打出後持有者剩 3 張）', () => {
+  it('開始後每人 4 張 (第一發現者打出後持有者剩 3 張)', () => {
     const { state } = run([{ type: 'start', user: 'p1' }], lobbyWith(5).state);
     const sizes = state.players.map((p) => p.hand.length + p.played.length);
     expect(sizes).toEqual([4, 4, 4, 4, 4]);
@@ -201,7 +201,7 @@ describe('criminal/rounds: 手牌選單與出牌', () => {
     expect(ephemeralTo(stale.events, 'p1')[0]).toBe('這個選單已經過期了。');
   });
 
-  it('需要對象的牌：只給出牌的人對象選單（手上有牌的其他人），選了才打出', () => {
+  it('需要對象的牌：只給出牌的人對象選單 (手上有牌的其他人)，選了才打出', () => {
     const s = table([['witness', 'citizen'], [], ['culprit', 'alibi']]);
     const picked = run([play('p1', 0)], s);
     expect(picked.state.phase).toBe('target');
@@ -320,7 +320,7 @@ describe('criminal/rounds: 各張牌的效果', () => {
     expect(state.phase).toBe('turn');
   });
 
-  it('神犬：盲抽選單只給出牌者，抽到犯人就抓到（不看不在場證明）', () => {
+  it('神犬：盲抽選單只給出牌者，抽到犯人就抓到 (不看不在場證明)', () => {
     const s = table([['dog', 'citizen'], ['citizen'], ['culprit', 'alibi']]);
     const d = pickTarget(s, 'p1', 0, 'p3');
     expect(d.state.phase).toBe('dog');
@@ -453,7 +453,7 @@ describe('criminal: Slack 設定', () => {
     expect(criminal.help).toContain('/game criminal new');
   });
 
-  it('指令解析：房間指令；不認識的子指令回 null（顯示說明）', () => {
+  it('指令解析：房間指令；不認識的子指令回 null (顯示說明)', () => {
     expect(criminal.parse('new', 'A', 'C')).toEqual({ type: 'new', user: 'A', channel: 'C' });
     expect(criminal.parse('addbot 2', 'A', 'C')).toEqual({ type: 'addBot', user: 'A', count: 2 });
     expect(criminal.parse('foo', 'A', 'C')).toBeNull();

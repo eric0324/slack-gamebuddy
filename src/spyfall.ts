@@ -75,7 +75,7 @@ interface Ctx {
 
 const pick = <T>(items: T[], rng: Rng): T => items[Math.floor(rng() * items.length)];
 
-// 發牌：隨機一位間諜、抽一個地點，平民依序拿角色（人比角色多時重複）
+// 發牌：隨機一位間諜、抽一個地點，平民依序拿角色 (人比角色多時重複)
 function deal(c: Ctx) {
   const s = c.s;
   const spyIndex = Math.floor(c.rng() * s.players.length);
@@ -112,7 +112,7 @@ function startTimer(c: Ctx, ms: number): number {
   return id;
 }
 
-// 提問階段：隨機第一位提問者，總時長 8 分鐘（剩 1 分鐘時提醒）
+// 提問階段：隨機第一位提問者，總時長 8 分鐘 (剩 1 分鐘時提醒)
 function startQa(c: Ctx) {
   const s = c.s;
   s.phase = 'qa';
@@ -136,7 +136,7 @@ function askNext(c: Ctx, asker: string, lastAsker: string | undefined) {
     type: 'prompt',
     kind: 'askTarget',
     audience: 'channel',
-    text: `❓ 輪到 ${mention(asker)} 提問，選擇要問誰（${STEP_MS / 1000} 秒）`,
+    text: `❓ 輪到 ${mention(asker)} 提問，選擇要問誰 (${STEP_MS / 1000} 秒)`,
     options: targetsOf(s).map((id) => ({ value: id, label: id })),
   });
   s.timers.step = startTimer(c, STEP_MS);
@@ -160,14 +160,14 @@ function ask(c: Ctx, target: string) {
     type: 'prompt',
     kind: 'endAnswer',
     audience: 'channel',
-    text: `🎤 ${mention(qa.asker)} 問 ${mention(target)}（${STEP_MS / 1000} 秒）`,
+    text: `🎤 ${mention(qa.asker)} 問 ${mention(target)} (${STEP_MS / 1000} 秒)`,
     options: [{ value: target, label: '回答完畢' }],
   });
   botAsks();
   s.timers.step = startTimer(c, STEP_MS);
 }
 
-// bot 回答：平民用這局地點的描述句，間諜用模糊的回答（同一位 bot 盡量不重複）
+// bot 回答：平民用這局地點的描述句，間諜用模糊的回答 (同一位 bot 盡量不重複)
 function botAnswer(c: Ctx, id: string) {
   const s = c.s;
   const me = s.players.find((p) => p.id === id)!;
@@ -179,7 +179,7 @@ function botAnswer(c: Ctx, id: string) {
   c.events.push({ type: 'announce', text: `${mention(id)}：${line}` });
 }
 
-// 找出下一個輪到 bot 的行動：投票（不投自己、不棄票）、PK 辯解、被指控的間諜猜地點
+// 找出下一個輪到 bot 的行動：投票 (不投自己、不棄票)、PK 辯解、被指控的間諜猜地點
 function nextBotAction(s: SState, rng: Rng): GameAction | null {
   if (s.phase === 'vote' || s.phase === 'pkVote') {
     const voter = s.voters.find((v) => isBot(v) && !s.votes[v]);
@@ -226,7 +226,7 @@ function openVote(c: Ctx, phase: 'vote' | 'pkVote', candidates: string[], voters
     type: 'prompt',
     kind: phase === 'vote' ? 'dayVote' : 'pkVote',
     audience: 'channel',
-    text: phase === 'vote' ? '🗳️ 提問結束！請投票指控你覺得是間諜的人。' : '⚔️ PK 投票：請在平票的玩家中選一位（PK 中的玩家不能投票）。',
+    text: phase === 'vote' ? '🗳️ 提問結束！請投票指控你覺得是間諜的人。' : '⚔️ PK 投票：請在平票的玩家中選一位 (PK 中的玩家不能投票)。',
     options: [...candidates.map((id) => ({ value: id, label: id })), { value: 'abstain', label: '棄票' }],
   });
   s.timers.step = startTimer(c, VOTE_MS);
@@ -278,7 +278,7 @@ function nextSpeaker(c: Ctx) {
     type: 'prompt',
     kind: 'endSpeech',
     audience: 'channel',
-    text: `🎤 輪到 ${mention(id)} 辯解（${STEP_MS / 1000} 秒）`,
+    text: `🎤 輪到 ${mention(id)} 辯解 (${STEP_MS / 1000} 秒)`,
     options: [{ value: id, label: '結束發言' }],
   });
   s.timers.step = startTimer(c, STEP_MS);

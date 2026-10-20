@@ -32,7 +32,7 @@ const dmTo = (events: GameEvent[], user: string) =>
   events.filter((e) => e.type === 'dm' && e.to === user).map((e) => (e as { text: string }).text);
 const lastTimer = (events: GameEvent[]) => (events.filter((e) => e.type === 'startTimer') as { id: number; ms: number }[]).at(-1)!;
 
-// rng 固定時不洗牌：主持人是 p1（也是房主）、圈內人是 p2，其他是平民；答案是詞庫第一個詞
+// rng 固定時不洗牌：主持人是 p1 (也是房主)、圈內人是 p2，其他是平民；答案是詞庫第一個詞
 const WORD = DECRYPTO_WORDS[0];
 const started = (n = 5) => run([{ type: 'start', user: 'p1' }], lobbyWith(n).state);
 
@@ -80,7 +80,7 @@ describe('insider/setup: 圈內人的房間', () => {
 });
 
 describe('insider/setup: 角色與答案', () => {
-  it('剛好 1 位主持人、1 位圈內人（不同人）', () => {
+  it('剛好 1 位主持人、1 位圈內人 (不同人)', () => {
     const { state } = started(5);
     expect(state.phase).toBe('question');
     expect(state.master).toBe('p1');
@@ -234,7 +234,7 @@ describe('insider/rounds: 猜中', () => {
   });
 });
 
-// p4 猜中後進入討論；房主 p1（也是主持人）提早投票
+// p4 猜中後進入討論；房主 p1 (也是主持人) 提早投票
 const guessed = () => run([ask('p4', '是貓嗎'), answer(1, 'correct')], started().state);
 const voting = () => run([{ type: 'skip', user: 'p1' }], guessed().state);
 const vote = (user: string, target: string): IAction => ({ type: 'vote', user, target });

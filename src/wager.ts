@@ -1,4 +1,4 @@
-// 猜猜看（Wits & Wagers 簡化版）遊戲引擎：純邏輯，不碰任何 I/O。每題大家寫一個數字答案，再用 2 個標記押最接近但不超過正解的答案。
+// 猜猜看 (Wits & Wagers 簡化版) 遊戲引擎：純邏輯，不碰任何 I/O。每題大家寫一個數字答案，再用 2 個標記押最接近但不超過正解的答案。
 // 介面和其他遊戲一樣：applyWager(state, action, rng) → { state, events }。
 import { mention, type GameEvent, type Rng } from './engine.js';
 import { cancelGame, joinRoom, leaveRoom, lobbyEvent, reply, runGame, shuffle, startTimer } from './common.js';
@@ -20,9 +20,9 @@ export interface WState {
   host: string;
   phase: 'lobby' | 'answer' | 'bet' | 'ended';
   players: { id: string; score: number }[];
-  deck: number[]; // 還沒出的題目（WAGER_QUESTIONS 的 index），同一頻道跨局接續，用完重洗
+  deck: number[]; // 還沒出的題目 (WAGER_QUESTIONS 的 index)，同一頻道跨局接續，用完重洗
   q?: number; // 目前的題目
-  round: number; // 第幾題（1～7）
+  round: number; // 第幾題 (1～7)
   answers: Record<string, number>; // user → 答案
   slots: { value: number | null; by: string[] }[]; // 押注板；value null 是「全部太大」
   bets: Record<string, number[]>; // user → 押的格子
@@ -56,10 +56,10 @@ const fmt = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 10
 const question = (s: WState) => WAGER_QUESTIONS[s.q!];
 const isPlayer = (s: WState, id: string) => s.players.some((p) => p.id === id);
 const slotLabel = (x: WState['slots'][number]) => (x.value === null ? TOO_HIGH : fmt(x.value));
-const slotText = (x: WState['slots'][number]) => (x.value === null ? TOO_HIGH : `${fmt(x.value)}（${x.by.map(mention).join('、')}）`);
+const slotText = (x: WState['slots'][number]) => (x.value === null ? TOO_HIGH : `${fmt(x.value)} (${x.by.map(mention).join('、')})`);
 const totals = (s: WState) => `目前總分：${s.players.map((p) => `${mention(p.id)} ${p.score}`).join('、')}`;
 
-// 全形轉半形、去掉空白和逗號後，必須是阿拉伯數字（可以有一個小數點）
+// 全形轉半形、去掉空白和逗號後，必須是阿拉伯數字 (可以有一個小數點)
 export function parseNumber(text: string): number | null {
   const t = text.normalize('NFKC').replace(/[\s,]/g, '');
   return /^\d+(\.\d+)?$/.test(t) ? Number(t) : null;
@@ -74,8 +74,8 @@ function answerBoard(s: WState, ended = false): GameEvent {
     audience: 'channel',
     ref: `wager:${s.seq}`,
     text: [
-      `💰 第 ${s.round}／${ROUNDS} 題：${q}（單位：${unit}）`,
-      ended ? '作答結束' : `按「✍️ 寫答案」或打 \`/game wager answer <數字>\`（${ANSWER_MS / 1000} 秒）`,
+      `💰 第 ${s.round}／${ROUNDS} 題：${q} (單位：${unit})`,
+      ended ? '作答結束' : `按「✍️ 寫答案」或打 \`/game wager answer <數字>\` (${ANSWER_MS / 1000} 秒)`,
       `已答 ${done}/${s.players.length}`,
     ].join('\n'),
     options: ended ? [] : [{ value: 'answer', label: '✍️ 寫答案' }],
@@ -90,9 +90,9 @@ function betBoard(s: WState, ended = false): GameEvent {
     audience: 'channel',
     ref: `wager:${s.seq}`,
     text: [
-      `🎯 第 ${s.round}／${ROUNDS} 題押注：${question(s).q}（單位：${question(s).unit}）`,
+      `🎯 第 ${s.round}／${ROUNDS} 題押注：${question(s).q} (單位：${question(s).unit})`,
       ...s.slots.map(slotText),
-      ended ? '押注結束' : `每人 ${MARKS} 個標記，押最接近但不超過正解的答案（${BET_MS / 1000} 秒）`,
+      ended ? '押注結束' : `每人 ${MARKS} 個標記，押最接近但不超過正解的答案 (${BET_MS / 1000} 秒)`,
       `已押完 ${done}/${s.players.length}`,
     ].join('\n'),
     options: ended ? [] : [{ value: 'betMenu', label: '🎯 押注' }],
@@ -183,7 +183,7 @@ function canAnswer(c: Ctx, user: string): boolean {
 }
 
 function openAnswer(c: Ctx, user: string): boolean {
-  if (canAnswer(c, user)) c.events.push({ type: 'modal', to: user, kind: 'wagerAnswer', title: '寫答案', label: `你的答案（單位：${question(c.s).unit}）` });
+  if (canAnswer(c, user)) c.events.push({ type: 'modal', to: user, kind: 'wagerAnswer', title: '寫答案', label: `你的答案 (單位：${question(c.s).unit})` });
   return false;
 }
 
@@ -209,7 +209,7 @@ function canBet(c: Ctx, user: string, seq?: number): boolean {
 
 const myBets = (s: WState, user: string) => {
   const mine = s.bets[user] ?? [];
-  return `你的押注（${mine.length}/${MARKS}）：${mine.length ? mine.map((i) => slotLabel(s.slots[i])).join('、') : '還沒押'}`;
+  return `你的押注 (${mine.length}/${MARKS})：${mine.length ? mine.map((i) => slotLabel(s.slots[i])).join('、') : '還沒押'}`;
 };
 
 function betMenu(c: Ctx, user: string): boolean {
@@ -252,8 +252,8 @@ function rebet(c: Ctx, user: string, seq: number): boolean {
 const RULES = (s: WState) =>
   [
     `💰 猜猜看開始！玩家：${s.players.map((p) => mention(p.id)).join('、')}，共 ${ROUNDS} 題。`,
-    `每題先私下寫一個數字答案（${ANSWER_MS / 1000} 秒），接著答案公開排成押注板。`,
-    `每人用 ${MARKS} 個標記押「最接近但不超過正解」的答案（${BET_MS / 1000} 秒），都太大就押「${TOO_HIGH}」。`,
+    `每題先私下寫一個數字答案 (${ANSWER_MS / 1000} 秒)，接著答案公開排成押注板。`,
+    `每人用 ${MARKS} 個標記押「最接近但不超過正解」的答案 (${BET_MS / 1000} 秒)，都太大就押「${TOO_HIGH}」。`,
     `押中每個標記 +1，寫出贏的答案再 +1；${ROUNDS} 題後總分最高的人獲勝。`,
   ].join('\n');
 

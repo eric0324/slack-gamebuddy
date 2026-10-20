@@ -1,4 +1,4 @@
-// 情書（Love Letter 2019 版）遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyLoveLetter(state, action, rng) → { state, events }。
+// 情書 (Love Letter 2019 版) 遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyLoveLetter(state, action, rng) → { state, events }。
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
 
@@ -11,11 +11,11 @@ export type Role = 'spy' | 'guard' | 'priest' | 'baron' | 'handmaid' | 'prince' 
 
 export const CARDS: { role: Role; value: number; count: number; name: string; help: string }[] = [
   { role: 'spy', value: 0, count: 2, name: '間諜', help: '沒有立即效果；一輪結束時只有你出過間諜就多得 1 個好感' },
-  { role: 'guard', value: 1, count: 6, name: '衛兵', help: '猜一位其他玩家的角色（不能猜衛兵），猜中他出局' },
+  { role: 'guard', value: 1, count: 6, name: '衛兵', help: '猜一位其他玩家的角色 (不能猜衛兵)，猜中他出局' },
   { role: 'priest', value: 2, count: 2, name: '神父', help: '偷看一位其他玩家的手牌' },
   { role: 'baron', value: 3, count: 2, name: '男爵', help: '和一位其他玩家私下比手牌，點數小的出局' },
   { role: 'handmaid', value: 4, count: 2, name: '侍女', help: '直到你下次輪到前，其他人的效果不能選你' },
-  { role: 'prince', value: 5, count: 2, name: '王子', help: '讓一位玩家（可以是自己）棄掉手牌再抽一張' },
+  { role: 'prince', value: 5, count: 2, name: '王子', help: '讓一位玩家 (可以是自己) 棄掉手牌再抽一張' },
   { role: 'chancellor', value: 6, count: 2, name: '宰相', help: '抽 2 張，和手牌一起留 1 張，其他放回牌堆底' },
   { role: 'king', value: 7, count: 1, name: '國王', help: '和一位其他玩家交換手牌' },
   { role: 'countess', value: 8, count: 1, name: '伯爵夫人', help: '手上同時有國王或王子時一定要出伯爵夫人' },
@@ -32,7 +32,7 @@ export const cardLabel = (r: Role) => `${CARD[r].value} ${CARD[r].name}`;
 export interface LPlayer {
   id: string;
   hand: Role[];
-  discards: Role[]; // 這一輪打出或被棄掉的牌（公開）
+  discards: Role[]; // 這一輪打出或被棄掉的牌 (公開)
   out: boolean;
   protected: boolean;
   tokens: number;
@@ -97,7 +97,7 @@ const dm = (c: Ctx, to: string, text: string) => {
 };
 const handText = (p: LPlayer) => p.hand.map(cardLabel).join('、');
 
-// 每輪：洗牌、蓋 1 張（2 人局再翻開 3 張）、每人 1 張；上一輪勝者先開始
+// 每輪：洗牌、蓋 1 張 (2 人局再翻開 3 張)、每人 1 張；上一輪勝者先開始
 function startRound(c: Ctx) {
   const s = c.s;
   s.round++;
@@ -111,7 +111,7 @@ function startRound(c: Ctx) {
   const order = ids.map((_, i) => ids[(s.turn + i) % ids.length]);
   const lines = [
     `💌 第 ${s.round} 輪開始！順序：${order.map(mention).join(' → ')}`,
-    `好感標記（先拿到 ${TOKENS_TO_WIN[ids.length]} 個獲勝）：${s.players.map((p) => `${mention(p.id)} 💌${p.tokens}`).join('、')}`,
+    `好感標記 (先拿到 ${TOKENS_TO_WIN[ids.length]} 個獲勝)：${s.players.map((p) => `${mention(p.id)} 💌${p.tokens}`).join('、')}`,
   ];
   if (s.faceUp.length) lines.push(`翻開放在一旁：${s.faceUp.map(cardLabel).join('、')}`);
   c.events.push({ type: 'announce', text: lines.join('\n'), gif: s.round === 1 ? 'start' : undefined });
@@ -126,13 +126,13 @@ function beginTurn(c: Ctx) {
   p.hand.push(s.deck.shift()!);
   s.turnSeq++;
   s.phase = 'turn';
-  say(c, `👉 輪到 ${mention(p.id)}（第 ${s.round} 輪，牌堆剩 ${s.deck.length} 張）`);
+  say(c, `👉 輪到 ${mention(p.id)} (第 ${s.round} 輪，牌堆剩 ${s.deck.length} 張)`);
   if (!isBot(p.id)) {
     c.events.push({
       type: 'prompt',
       kind: 'loveletter',
       audience: 'channel',
-      text: `${mention(p.id)} 請按「🃏 出牌」（${TURN_MS / 60_000} 分鐘）`,
+      text: `${mention(p.id)} 請按「🃏 出牌」(${TURN_MS / 60_000} 分鐘)`,
       options: [
         { value: 'menu', label: '🃏 出牌' },
         { value: 'hand', label: '👀 我的手牌' },
@@ -143,7 +143,7 @@ function beginTurn(c: Ctx) {
   startTimer(c, TURN_MS);
 }
 
-// 可以出的牌（同一種只列一次）：伯爵夫人和國王／王子同時在手只能出伯爵夫人；公主不能主動出
+// 可以出的牌 (同一種只列一次)：伯爵夫人和國王／王子同時在手只能出伯爵夫人；公主不能主動出
 function playable(p: LPlayer): number[] {
   const forced = p.hand.includes('countess') && (p.hand.includes('king') || p.hand.includes('prince'));
   return p.hand
@@ -243,7 +243,7 @@ function eliminate(c: Ctx, t: LPlayer) {
   t.out = true;
   t.discards.push(...shown);
   t.hand = [];
-  say(c, `💀 ${mention(t.id)} 出局${shown.length ? `（手牌是 ${shown.map(cardLabel).join('、')}）` : ''}`);
+  say(c, `💀 ${mention(t.id)} 出局${shown.length ? ` (手牌是 ${shown.map(cardLabel).join('、')})` : ''}`);
 }
 
 // 打出一張牌並執行效果
@@ -315,7 +315,7 @@ function promptKeep(c: Ctx) {
     kind: 'loveletter',
     audience: 'ephemeral',
     user: current(s).id,
-    text: `📜 宰相：選 1 張留下，其他放回牌堆底（${TURN_MS / 60_000} 分鐘，超時留原本的牌）`,
+    text: `📜 宰相：選 1 張留下，其他放回牌堆底 (${TURN_MS / 60_000} 分鐘，超時留原本的牌)`,
     options: s.chancellor!.pool.map((r, i) => ({ value: `keep:${s.turnSeq}:${i}`, label: cardLabel(r) })),
   });
 }
@@ -385,7 +385,7 @@ function endGame(c: Ctx, winners: string[]) {
   );
 }
 
-// 每個角色還沒公開出現的張數（打出、棄掉、出局、2 人局翻開的都算公開）
+// 每個角色還沒公開出現的張數 (打出、棄掉、出局、2 人局翻開的都算公開)
 function unseen(s: LState): Record<Role, number> {
   const left = Object.fromEntries(CARDS.map((x) => [x.role, x.count])) as Record<Role, number>;
   for (const r of [...s.faceUp, ...s.players.flatMap((p) => p.discards)]) left[r]--;
@@ -398,7 +398,7 @@ function showLog(c: Ctx, user: string) {
   const lines = [`📜 第 ${s.round} 輪棄牌紀錄`];
   for (const p of s.players) {
     const tags = `${p.out ? ' 💀出局' : ''}${p.protected ? ' 🛡️侍女保護中' : ''}`;
-    lines.push(`${mention(p.id)} 💌${p.tokens}${tags}：${p.discards.length ? p.discards.map(cardLabel).join('、') : '（還沒有）'}`);
+    lines.push(`${mention(p.id)} 💌${p.tokens}${tags}：${p.discards.length ? p.discards.map(cardLabel).join('、') : '(還沒有)'}`);
   }
   if (s.faceUp.length) lines.push(`翻開放在一旁：${s.faceUp.map(cardLabel).join('、')}`);
   lines.push(`還沒公開的牌：${CARDS.map((x) => `${x.name} ${Math.max(0, left[x.role])}`).join('、')}`);
@@ -417,7 +417,7 @@ function showHand(c: Ctx, user: string) {
   c.events.push({ type: 'ephemeral', to: user, text: lines.join('\n') });
 }
 
-// 超時（smart=false）和 bot（smart=true）共用的自動出牌
+// 超時 (smart=false) 和 bot (smart=true) 共用的自動出牌
 function autoPlay(c: Ctx, p: LPlayer, smart: boolean) {
   const opts = playable(p);
   const maid = opts.find((i) => p.hand[i] === 'handmaid');

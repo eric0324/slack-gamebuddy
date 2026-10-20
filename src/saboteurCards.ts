@@ -1,4 +1,4 @@
-// 矮人礦坑的牌和地圖：通道牌形狀、牌庫組成、放牌規則、連通判斷、翻開終點、地圖繪製（純函式）
+// 矮人礦坑的牌和地圖：通道牌形狀、牌庫組成、放牌規則、連通判斷、翻開終點、地圖繪製 (純函式)
 // 開口用 bitmask：上 1、右 2、下 4、左 8
 export const N = 1;
 export const E = 2;
@@ -58,7 +58,7 @@ export function cellAt(name: string): Pos | null {
   return m ? { r: Number(m[2]) - 1, c: m[1].charCodeAt(0) - 65 } : null;
 }
 
-// 起點在 C5；終點在 K3、K5、K7，gold 是金礦的位置（0～2），兩張石頭依序是「左上」「左下」
+// 起點在 C5；終點在 K3、K5、K7，gold 是金礦的位置 (0～2)，兩張石頭依序是「左上」「左下」
 export function newGrid(gold: number): Grid {
   const grid: Grid = Array.from({ length: ROWS }, () => Array<Cell | null>(COLS).fill(null));
   grid[START.r][START.c] = { kind: 'start' };
@@ -79,7 +79,7 @@ const DIRS: [number, number, number][] = [
 const inside = (r: number, c: number) => r >= 0 && r < ROWS && c >= 0 && c < COLS;
 const key = (r: number, c: number) => `${r},${c}`;
 
-// 這格對外的開口；蓋著的終點和空格當作 null（不檢查）
+// 這格對外的開口；蓋著的終點和空格當作 null (不檢查)
 function edgesOf(cell: Cell | null): number | null {
   if (!cell) return null;
   if (cell.kind === 'start') return 15;
@@ -153,7 +153,7 @@ export function placements(grid: Grid, edges: number): { cell: string; rot: 0 | 
   return out;
 }
 
-// 放下通道牌（edges 是已經轉好的方向），回傳這次翻開的終點
+// 放下通道牌 (edges 是已經轉好的方向)，回傳這次翻開的終點
 export function place(grid: Grid, at: Pos, edges: number, dead: boolean): { cell: string; gold: boolean }[] {
   grid[at.r][at.c] = { kind: 'path', edges, dead };
   const found: { cell: string; gold: boolean }[] = [];
@@ -164,7 +164,7 @@ export function place(grid: Grid, at: Pos, edges: number, dead: boolean): { cell
       const { r, c } = cellAt(name)!;
       const goal = grid[r][c];
       if (goal?.kind !== 'goal' || goal.open) continue;
-      // 連過來的那一側（從終點看出去的方向）
+      // 連過來的那一側 (從終點看出去的方向)
       const from = DIRS.find(([d, dr, dc]) => {
         const nr = r + dr;
         const nc = c + dc;
@@ -194,7 +194,7 @@ function drawCell(cell: Cell | null): string {
   return first + (dead ? 'x' : edges & E ? '━' : ' ');
 }
 
-// 地圖文字（不含 code block 的 ```）：第一行欄名，每列開頭列號，每格 2 字元（死路是「形狀＋x」）
+// 地圖文字 (不含 code block 的 ```)：第一行欄名，每列開頭列號，每格 2 字元 (死路是「形狀＋x」)
 export function render(grid: Grid): string {
   const header = `  ${Array.from({ length: COLS }, (_, c) => String.fromCharCode(65 + c)).join(' ')}`;
   return [header, ...grid.map((row, r) => `${r + 1} ${row.map(drawCell).join('')}`.trimEnd())].join('\n');

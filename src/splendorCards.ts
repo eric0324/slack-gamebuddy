@@ -1,6 +1,6 @@
-// 璀璨寶石（Splendor 基本版）的牌組資料：90 張發展卡、10 張貴族、顏色代號和顯示文字、付款計算（純函式）
+// 璀璨寶石 (Splendor 基本版) 的牌組資料：90 張發展卡、10 張貴族、顏色代號和顯示文字、付款計算 (純函式)
 export type Color = 'w' | 'b' | 'g' | 'r' | 'k';
-export type Gem = Color | 'o'; // o 是黃金（萬用）
+export type Gem = Color | 'o'; // o 是黃金 (萬用)
 export type Gems = Record<Gem, number>;
 export type Level = 1 | 2 | 3;
 
@@ -21,7 +21,7 @@ export interface Noble {
   need: [Color, number][]; // 照牌表的順序
 }
 
-// [等級, 顏色, 分數, 白, 藍, 綠, 紅, 黑]；順序就是 id（從 1 開始），照原版牌表
+// [等級, 顏色, 分數, 白, 藍, 綠, 紅, 黑]；順序就是 id (從 1 開始)，照原版牌表
 const CARD_ROWS: [Level, Color, number, number, number, number, number, number][] = [
   [1, 'w', 0, 0, 0, 0, 2, 1],
   [1, 'w', 0, 0, 1, 1, 1, 1],
@@ -118,7 +118,7 @@ const CARD_ROWS: [Level, Color, number, number, number, number, number, number][
 export const CARDS: Card[] = CARD_ROWS.map(([level, color, points, w, b, g, r, k], i) => ({ id: i + 1, level, color, points, cost: { w, b, g, r, k } }));
 export const cardOf = (id: number) => CARDS[id - 1];
 
-// 貴族條件是折扣（已買卡的顏色張數），照牌表的順序
+// 貴族條件是折扣 (已買卡的顏色張數)，照牌表的順序
 const NOBLE_NEEDS: [Color, number][][] = [
   [['r', 4], ['g', 4]],
   [['g', 4], ['b', 4]],

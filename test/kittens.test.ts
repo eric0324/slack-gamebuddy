@@ -33,7 +33,7 @@ const menuOf = (events: GameEvent[], user: string) => prompts(events).find((p) =
 const timers = (events: GameEvent[]) => events.filter((e) => e.type === 'startTimer') as { id: number; ms: number }[];
 const count = (cards: Card[], card: Card) => cards.filter((c) => c === card).length;
 
-// 自訂局面：3 人（p1、p2、p3），輪到 turn 那位，手牌和牌堆照指定
+// 自訂局面：3 人 (p1、p2、p3)，輪到 turn 那位，手牌和牌堆照指定
 function table(hands: Card[][], deck: Card[], turn = 0, turnsLeft = 1): KState {
   const s = structuredClone(started(hands.length).state);
   s.players.forEach((p, i) => (p.hand = [...hands[i]]));
@@ -147,7 +147,7 @@ describe('kittens/setup: 開局公告', () => {
 });
 
 describe('kittens/setup: 指令與按鈕', () => {
-  it('help 列出指令；不認識的子指令回傳 null（顯示說明）', () => {
+  it('help 列出指令；不認識的子指令回傳 null (顯示說明)', () => {
     for (const w of ['new', 'addbot', 'removebot', 'start', 'cancel', '我的手牌', '抽牌', '反對']) expect(kittens.help).toContain(w);
     expect(kittens.parse('foo', 'U', 'C')).toBeNull();
     expect(kittens.parse('new', 'U', 'C')).toEqual({ type: 'new', user: 'U', channel: 'C' });
@@ -196,7 +196,7 @@ describe('kittens/rounds: 牌桌訊息', () => {
     const s = table([['attack'], ['defuse'], ['defuse']], ['taco', 'bomb']);
     const played = run([{ type: 'play', user: 'p1', seq: s.seq, card: 'attack' }], s).state;
     const { events } = fire(played);
-    expect(boards(events).at(-1)!.text).toContain('輪到 <@p2>（還要 2 回合）');
+    expect(boards(events).at(-1)!.text).toContain('輪到 <@p2> (還要 2 回合)');
   });
 });
 
@@ -291,7 +291,7 @@ describe('kittens/rounds: 出牌與反對', () => {
     expect(state.phase).toBe('play');
   });
 
-  it('反對被反對（偶數）照常生效', () => {
+  it('反對被反對 (偶數) 照常生效', () => {
     const s = base();
     let r = run([{ type: 'play', user: 'p1', seq: s.seq, card: 'favor' }], s);
     r = run([{ type: 'target', user: 'p1', seq: s.seq, target: 'p2' }], r.state);
@@ -356,7 +356,7 @@ describe('kittens/rounds: 功能牌效果', () => {
     const s = table([['favor'], ['defuse', 'attack'], ['defuse']], ['taco', 'bomb']);
     let r = run([{ type: 'play', user: 'p1', seq: s.seq, card: 'favor' }], s);
     expect(menuOf(r.events, 'p1')!.options.map((o) => o.value)).toEqual([`target:${s.seq}:p2`, `target:${s.seq}:p3`]);
-    // 按鈕文字放純 id，adapter 會換成名字（按鈕不能顯示 <@id>）
+    // 按鈕文字放純 id，adapter 會換成名字 (按鈕不能顯示 <@id>)
     expect(menuOf(r.events, 'p1')!.options.map((o) => o.label)).toEqual(['p2', 'p3']);
     r = fire(run([{ type: 'target', user: 'p1', seq: s.seq, target: 'p2' }], r.state).state);
     expect(r.state.phase).toBe('favor');

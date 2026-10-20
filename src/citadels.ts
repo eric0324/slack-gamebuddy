@@ -1,4 +1,4 @@
-// 富饒之城（Citadels 經典版）遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyCitadels(state, action, rng) → { state, events }。
+// 富饒之城 (Citadels 經典版) 遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyCitadels(state, action, rng) → { state, events }。
 import { isBot, mention, quiet, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, runGame, shuffle, startTimer } from './common.js';
 import { CHARS, COLORS, DECK, DISTRICTS, districtInfo, districtLabel, RANKS, type Rank } from './citadelsCards.js';
@@ -30,7 +30,7 @@ export interface CState {
   crown: number; // 王冠持有者 index
   round: number;
   draft?: { pool: Rank[]; faceUp: Rank[]; faceDown: Rank; order: number[]; at: number };
-  calling: number; // 目前叫到幾號（0 表示還沒開始叫號）
+  calling: number; // 目前叫到幾號 (0 表示還沒開始叫號)
   turn?: Turn;
   notes: string[]; // 沒人拿的角色，附註在下一則牌桌訊息
   revealed: Rank[]; // 這輪已經翻開的角色
@@ -99,7 +99,7 @@ const NOT_YET = '還沒輪到你。';
 const STALE = '這個選單已經過期，請重新按「🏰 行動」。';
 
 const find = (s: CState, id: string) => s.players.find((p) => p.id === id);
-// 只對真人送私下訊息（bot 不需要）；replace：在私下選單上按的，回應取代那則選單
+// 只對真人送私下訊息 (bot 不需要)；replace：在私下選單上按的，回應取代那則選單
 const tell = (c: Ctx, to: string, text: string) => {
   if (!isBot(to)) c.events.push({ type: 'ephemeral', to, text, replace: true });
 };
@@ -118,19 +118,19 @@ const current = (s: CState) => s.players[s.turn!.player];
 const holder = (s: CState, r: Rank) => s.players.findIndex((p) => p.char === r);
 const has = (p: CPlayer, card: string) => p.city.some((x) => x.card === card);
 const maxBuilds = (p: CPlayer) => (p.char === 7 ? 3 : 1);
-// 手上付得起、城市裡沒有同名的建築（同名的只列一次）
+// 手上付得起、城市裡沒有同名的建築 (同名的只列一次)
 const buildable = (p: CPlayer) => p.hand.filter((card, i) => p.hand.indexOf(card) === i && !has(p, card) && DISTRICTS[card].cost <= p.gold);
 // 魔法學校收稅時算成該角色的顏色
 const taxAmount = (p: CPlayer) => p.city.filter((x) => DISTRICTS[x.card].color === CHARS[p.char!].tax || x.card === 'schoolOfMagic').length;
-const handText = (hand: string[]) => (hand.length ? hand.map(districtInfo).join('\n') : '（沒有手牌）');
-const cityText = (p: CPlayer) => (p.city.length ? p.city.map((x) => districtLabel(x.card)).join('、') : '（還沒有建築）');
+const handText = (hand: string[]) => (hand.length ? hand.map(districtInfo).join('\n') : '(沒有手牌)');
+const cityText = (p: CPlayer) => (p.city.length ? p.city.map((x) => districtLabel(x.card)).join('、') : '(還沒有建築)');
 // 場上一覽：每人金幣、手牌數、棟數
 const overview = (s: CState) => ['👥 場上：', ...s.players.map((p) => `• ${mention(p.id)}：💰 ${p.gold} 金｜🃏 ${p.hand.length} 張｜🏘️ ${p.city.length} 棟`)].join('\n');
-const myCity = (p: CPlayer) => `🏘️ 你的城市（${p.city.length} 棟）：${cityText(p)}`;
+const myCity = (p: CPlayer) => `🏘️ 你的城市 (${p.city.length} 棟)：${cityText(p)}`;
 
 const RULES = [
-  '🏛️ 富饒之城規則：每輪先祕密選一個角色，再依角色編號 1→8 叫號行動。輪到你時先「💰 拿 2 金」或「🃏 抽 2 張留 1 張」，再可以用角色能力、建 1 棟建築（付等於費用的金幣；不能蓋同名建築）。',
-  '有人建滿 8 棟後，這一輪打完遊戲結束：建築費用總和 + 五色齊全 3 分 + 第一個建滿 4 分（其他建滿 2 分），分數最高者獲勝。',
+  '🏛️ 富饒之城規則：每輪先祕密選一個角色，再依角色編號 1→8 叫號行動。輪到你時先「💰 拿 2 金」或「🃏 抽 2 張留 1 張」，再可以用角色能力、建 1 棟建築 (付等於費用的金幣；不能蓋同名建築)。',
+  '有人建滿 8 棟後，這一輪打完遊戲結束：建築費用總和 + 五色齊全 3 分 + 第一個建滿 4 分 (其他建滿 2 分)，分數最高者獲勝。',
   RANKS.map((r) => `${r} ${CHARS[r].name}：${CHARS[r].desc}`).join('\n'),
 ].join('\n');
 
@@ -139,8 +139,8 @@ function status(c: Ctx, user: string): boolean {
   if (!me) return reply(c, user, NOT_PLAYER);
   const lines = [
     `📜 你的狀態｜💰 ${me.gold} 金${me.char ? `｜角色：${CHARS[me.char].name}` : ''}`,
-    `🏘️ 城市（${me.city.length} 棟）：${cityText(me)}`,
-    `🃏 手牌（${me.hand.length} 張）：`,
+    `🏘️ 城市 (${me.city.length} 棟)：${cityText(me)}`,
+    `🃏 手牌 (${me.hand.length} 張)：`,
     handText(me.hand),
     overview(c.s),
   ];
@@ -173,7 +173,7 @@ function start(c: Ctx, user: string): boolean {
   return true;
 }
 
-// 每輪開始：洗角色、面朝下棄 1 張、依人數面朝上棄牌（國王不能面朝上），從王冠持有者開始選角
+// 每輪開始：洗角色、面朝下棄 1 張、依人數面朝上棄牌 (國王不能面朝上)，從王冠持有者開始選角
 function startRound(c: Ctx) {
   const s = c.s;
   const n = s.players.length;
@@ -204,7 +204,7 @@ function draftMsg(s: CState, done = false): GameEvent {
   const d = s.draft!;
   const text = done
     ? `🎭 第 ${s.round} 輪選角完成，開始叫號！`
-    : `🎭 第 ${s.round} 輪選角：輪到 ${mention(drafter(s).id)}（${DRAFT_MS / 1000} 秒）｜已選 ${d.at}/${s.players.length}`;
+    : `🎭 第 ${s.round} 輪選角：輪到 ${mention(drafter(s).id)} (${DRAFT_MS / 1000} 秒)｜已選 ${d.at}/${s.players.length}`;
   return { type: 'prompt', kind: 'citadels', audience: 'channel', ref: `citadels:draft:${s.round}`, text, options: done ? [] : [{ value: 'pickMenu', label: '🎭 選角色' }] };
 }
 
@@ -218,9 +218,9 @@ function pickMenu(c: Ctx, user: string): boolean {
   if (!find(s, user)) return reply(c, user, NOT_PLAYER);
   if (s.phase !== 'draft' || drafter(s).id !== user) return reply(c, user, NOT_YET);
   const d = s.draft!;
-  const options = pickChoices(s).map((r) => ({ value: `pick:${r}`, label: CHARS[r].name + (isLastOf7(s) && r === d.faceDown ? '（面朝下的棄牌）' : '') }));
+  const options = pickChoices(s).map((r) => ({ value: `pick:${r}`, label: CHARS[r].name + (isLastOf7(s) && r === d.faceDown ? ' (面朝下的棄牌)' : '') }));
   const text = [
-    '🎭 選一個角色（只有你知道）：',
+    '🎭 選一個角色 (只有你知道)：',
     ...pickChoices(s).map((r) => `${r} ${CHARS[r].name}：${CHARS[r].desc}`),
     ...(d.faceUp.length ? [`面朝上棄掉：${d.faceUp.map((r) => CHARS[r].name).join('、')}`] : []),
   ].join('\n');
@@ -301,7 +301,7 @@ function reveal(c: Ctx, i: number, r: Rank) {
 
 function endRound(c: Ctx) {
   const s = c.s;
-  if (s.notes.length) c.events.push({ type: 'announce', text: s.notes.map((n) => `（${n}）`).join('\n') });
+  if (s.notes.length) c.events.push({ type: 'announce', text: s.notes.map((n) => `(${n})`).join('\n') });
   const king = holder(s, 4);
   if (s.killed === 4 && king >= 0) {
     s.crown = king;
@@ -325,9 +325,9 @@ function board(s: CState, ended = false): GameEvent {
   const lines = ended
     ? [`✅ 第 ${s.round} 輪 ${role} ${mention(me.id)} 的回合結束`]
     : [
-        `*👉 現在輪到：${mention(me.id)}（${role}）⏳ ${TURN_MS / 1000} 秒*`,
+        `*👉 現在輪到：${mention(me.id)} (${role}) ⏳ ${TURN_MS / 1000} 秒*`,
         `🏰 第 ${s.round} 輪｜👑 王冠：${mention(s.players[s.crown].id)}｜已翻開：${s.revealed.map((r) => `${CHARS[r].name} ${mention(s.players[holder(s, r)].id)}`).join('、')}`,
-        ...s.notes.map((n) => `（${n}）`),
+        ...s.notes.map((n) => `(${n})`),
         ...s.players.map((p) => (p === me ? `👉 ${playerLine(p)}` : playerLine(p))),
       ];
   return {
@@ -384,14 +384,14 @@ function turnMenu(c: Ctx, user: string, seq: number, sub?: Sub): boolean {
     ...(canSmithy(s) ? [o('smithy', '⚒️ 鐵匠鋪')] : []),
     o('end', '✅ 結束回合'),
   ];
-  menu(c, user, [...takeNotice(c, user), `🏰 你的回合（${CHARS[me.char!].name}）｜💰 ${me.gold} 金｜🃏 ${me.hand.length} 張`, myCity(me), overview(s)].join('\n'), options);
+  menu(c, user, [...takeNotice(c, user), `🏰 你的回合 (${CHARS[me.char!].name})｜💰 ${me.gold} 金｜🃏 ${me.hand.length} 張`, myCity(me), overview(s)].join('\n'), options);
   return false;
 }
 
 function keepMenu(c: Ctx) {
   const s = c.s;
   const t = s.turn!;
-  menu(c, current(s).id, `🃏 你抽到這些牌，選 ${t.keep} 張留下（其他放到牌堆底）：`, t.drawn!.map((card) => ({ value: `keep:${s.seq}:${card}`, label: districtLabel(card) })));
+  menu(c, current(s).id, `🃏 你抽到這些牌，選 ${t.keep} 張留下 (其他放到牌堆底)：`, t.drawn!.map((card) => ({ value: `keep:${s.seq}:${card}`, label: districtLabel(card) })));
 }
 
 function gather(c: Ctx, user: string, seq: number, kind: 'gold' | 'draw'): boolean {
@@ -457,7 +457,7 @@ function afterGather(c: Ctx) {
     const extra = s.deck.splice(0, 2);
     me.hand.push(...extra);
     c.events.push({ type: 'announce', text: `📐 建築師 ${mention(me.id)} 多抽了 ${extra.length} 張` });
-    note(c, me.id, `📐 你多抽到 ${extra.map(districtLabel).join('、') || '（牌堆沒有牌了）'}。`);
+    note(c, me.id, `📐 你多抽到 ${extra.map(districtLabel).join('、') || '(牌堆沒有牌了)'}。`);
   }
 }
 
@@ -500,7 +500,7 @@ function destroyTargets(s: CState): { owner: CPlayer; card: string; cost: number
   });
 }
 
-// 回合選單上的角色能力按鈕（還沒用過、有可用目標時）
+// 回合選單上的角色能力按鈕 (還沒用過、有可用目標時)
 function abilityButtons(s: CState): { sub: Sub; label: string }[] {
   const me = current(s);
   switch (me.char) {
@@ -532,7 +532,7 @@ function abilityMenu(c: Ctx, sub: Sub) {
     case 'redraw':
       return redrawMenu(c, []);
     case 'destroy':
-      return menu(c, me.id, `💥 要破壞哪一棟？（你有 ${me.gold} 金）`, destroyTargets(s).map((x) => ({ value: `destroy:${seq}:${x.card}:${x.owner.id}`, label: `${x.owner.id} 的 ${districtLabel(x.card)}：${x.cost} 金` })));
+      return menu(c, me.id, `💥 要破壞哪一棟？(你有 ${me.gold} 金)`, destroyTargets(s).map((x) => ({ value: `destroy:${seq}:${x.card}:${x.owner.id}`, label: `${x.owner.id} 的 ${districtLabel(x.card)}：${x.cost} 金` })));
   }
 }
 
@@ -547,7 +547,7 @@ function redrawMenu(c: Ctx, picked: number[]) {
     ...me.hand.map((card, i) => ({ value: `redrawToggle:${seq}:${toggle(i).join(',')}`, label: `${picked.includes(i) ? '✅ ' : ''}${districtLabel(card)}` })),
     ...(picked.length ? [{ value: `redraw:${seq}:${picked.join(',')}`, label: `♻️ 確認重抽 ${picked.length} 張` }] : []),
   ];
-  menu(c, me.id, '♻️ 選要棄掉的手牌（放到牌堆底，再抽同樣張數）：', options);
+  menu(c, me.id, '♻️ 選要棄掉的手牌 (放到牌堆底，再抽同樣張數)：', options);
 }
 
 // 能力動作的共同檢查
@@ -590,7 +590,7 @@ function swap(c: Ctx, user: string, seq: number, target: string): boolean {
   if (!other || other === me) return reply(c, user, '不能和這位玩家交換。');
   [me.hand, other.hand] = [other.hand, me.hand];
   s.turn!.ability = true;
-  c.events.push({ type: 'announce', text: `🔄 ${mention(me.id)} 和 ${mention(other.id)} 交換手牌（${mention(me.id)} 拿到 ${me.hand.length} 張、${mention(other.id)} 拿到 ${other.hand.length} 張）` });
+  c.events.push({ type: 'announce', text: `🔄 ${mention(me.id)} 和 ${mention(other.id)} 交換手牌 (${mention(me.id)} 拿到 ${me.hand.length} 張、${mention(other.id)} 拿到 ${other.hand.length} 張)` });
   note(c, me.id, `🔄 交換後你的手牌：\n${handText(me.hand)}`);
   tell(c, other.id, `🔄 交換後你的手牌：\n${handText(other.hand)}`);
   c.events.push(board(s));
@@ -625,7 +625,7 @@ function destroy(c: Ctx, user: string, seq: number, target: string, card: string
   x.owner.city.splice(x.owner.city.findIndex((d) => d.card === card), 1);
   s.turn!.ability = true;
   c.events.push({ type: 'announce', text: `💥 軍閥 ${mention(me.id)} 花 ${x.cost} 金破壞了 ${mention(target)} 的 ${districtLabel(card)}` });
-  // 墓地主人（不是軍閥、至少 1 金）可以付 1 金收回；墓地本身被破壞時已經不在城市裡
+  // 墓地主人 (不是軍閥、至少 1 金) 可以付 1 金收回；墓地本身被破壞時已經不在城市裡
   const owner = s.players.find((p) => p !== me && has(p, 'graveyard') && p.gold >= 1);
   if (!owner) {
     s.deck.push(card);
@@ -634,7 +634,7 @@ function destroy(c: Ctx, user: string, seq: number, target: string, card: string
   }
   s.phase = 'graveyard';
   s.graveyard = { owner: owner.id, card };
-  c.events.push({ type: 'announce', text: `⚰️ 等 ${mention(owner.id)} 決定要不要用墓地收回 ${districtLabel(card)}（${GRAVE_MS / 1000} 秒）` });
+  c.events.push({ type: 'announce', text: `⚰️ 等 ${mention(owner.id)} 決定要不要用墓地收回 ${districtLabel(card)} (${GRAVE_MS / 1000} 秒)` });
   if (!isBot(owner.id)) {
     c.events.push({
       type: 'prompt',
@@ -704,7 +704,7 @@ function smithy(c: Ctx, user: string, seq: number): boolean {
   me.hand.push(...drawn);
   s.turn!.smithy = true;
   c.events.push({ type: 'announce', text: `⚒️ ${mention(me.id)} 用鐵匠鋪付 2 金抽了 ${drawn.length} 張` });
-  note(c, me.id, `⚒️ 你抽到 ${drawn.map(districtLabel).join('、') || '（牌堆沒有牌了）'}。`);
+  note(c, me.id, `⚒️ 你抽到 ${drawn.map(districtLabel).join('、') || '(牌堆沒有牌了)'}。`);
   c.events.push(board(s));
   return true;
 }
@@ -772,7 +772,7 @@ const costOf = (p: CPlayer) => p.city.reduce((sum, x) => sum + DISTRICTS[x.card]
 export function scoreOf(s: CState, p: CPlayer) {
   const cost = costOf(p);
   const bonus = 2 * p.city.filter((x) => x.card === 'university' || x.card === 'dragonGate').length;
-  // 鬼城（不是最後一輪建的）可以補任何一種顏色；魔法學校只算紫色
+  // 鬼城 (不是最後一輪建的) 可以補任何一種顏色；魔法學校只算紫色
   const ghost = p.city.find((x) => x.card === 'hauntedCity');
   const wild = !!ghost && ghost.round !== s.lastRound;
   const colors = new Set(p.city.filter((x) => !(wild && x === ghost)).map((x) => DISTRICTS[x.card].color));
@@ -781,7 +781,7 @@ export function scoreOf(s: CState, p: CPlayer) {
   return { cost, bonus, five, complete, total: cost + bonus + five + complete };
 }
 
-// 依總分、建築費用（大學、龍門算 8）、金幣排序
+// 依總分、建築費用 (大學、龍門算 8)、金幣排序
 function ranking(s: CState) {
   const key = (p: CPlayer) => {
     const sc = scoreOf(s, p);
@@ -810,7 +810,7 @@ function endGame(c: Ctx) {
     const place = sorted.findIndex((q) => cmp(p, q) === 0) + 1;
     const purple = p.city.filter((x) => DISTRICTS[x.card].desc).map((x) => districtInfo(x.card));
     return [
-      `${place}. ${mention(p.id)}${s.winners!.includes(p.id) ? ' 🏆' : ''}：建築 ${sc.cost}${sc.bonus ? `｜紫卡 +${sc.bonus}` : ''}${sc.five ? `｜五色 +${sc.five}` : ''}${sc.complete ? `｜建滿 +${sc.complete}` : ''}｜總分 ${sc.total}（${p.city.length} 棟、${p.gold} 金）`,
+      `${place}. ${mention(p.id)}${s.winners!.includes(p.id) ? ' 🏆' : ''}：建築 ${sc.cost}${sc.bonus ? `｜紫卡 +${sc.bonus}` : ''}${sc.five ? `｜五色 +${sc.five}` : ''}${sc.complete ? `｜建滿 +${sc.complete}` : ''}｜總分 ${sc.total} (${p.city.length} 棟、${p.gold} 金)`,
       ...purple.map((x) => `　　${x}`),
     ].join('\n');
   });
@@ -825,11 +825,11 @@ function endGame(c: Ctx) {
 const BOT_ORDER: Rank[] = [6, 7, 4, 2, 8, 5, 3, 1];
 const TAX_RANKS: Rank[] = [4, 5, 6, 8];
 const cost = (card: string) => DISTRICTS[card].cost;
-// 費用最高的（一樣高取前面的）
+// 費用最高的 (一樣高取前面的)
 const priciest = (cards: string[]) => cards.reduce((best, x) => (cost(x) > cost(best) ? x : best));
 const randomOf = <T>(c: Ctx, items: T[]) => items[Math.floor(c.rng() * items.length)];
 
-// 選角：同色 2 棟以上就選對應的收稅角色（棟數最多、同樣多編號小的優先），否則照預設順序
+// 選角：同色 2 棟以上就選對應的收稅角色 (棟數最多、同樣多編號小的優先)，否則照預設順序
 function botPick(s: CState, p: CPlayer): Rank {
   const choices = pickChoices(s);
   let best: Rank | undefined;
@@ -896,7 +896,7 @@ function runBots(c: Ctx) {
   for (let i = 0; i < 500 && c.s.phase !== 'ended' && botStep(c); i++);
 }
 
-// 回合面板：這些動作完成後自動送下一步；沒用到的私下資訊（例如逾時）另外告訴本人
+// 回合面板：這些動作完成後自動送下一步；沒用到的私下資訊 (例如逾時) 另外告訴本人
 const PANEL_ACTIONS = new Set(['gather', 'keep', 'build', 'tax', 'kill', 'rob', 'swap', 'redraw', 'destroy', 'lab', 'smithy']);
 
 function handle(c: Ctx, action: GameAction): boolean {

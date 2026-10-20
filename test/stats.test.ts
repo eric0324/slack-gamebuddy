@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import type { Role } from '../src/engine.js';
 import { formatLeaderboard, formatStats, formatSummary, StatsStore } from '../src/stats.js';
 
-// A 在 C1 玩了 4 場：好人 3 場贏 2 場（預言家贏、村民贏、女巫輸），狼人 1 場贏
+// A 在 C1 玩了 4 場：好人 3 場贏 2 場 (預言家贏、村民贏、女巫輸)，狼人 1 場贏
 function seed(store: StatsStore) {
   const game = (channel: string, winner: 'good' | 'wolves', roleOfA: Role) =>
     store.record(channel, winner, [
@@ -59,11 +59,11 @@ describe('player-stats: 查詢戰績', () => {
     seed(store);
     const text = formatStats('<@A>', store.stats('C1', 'A'));
     expect(text).toContain('📊 <@A> 在這個頻道的戰績');
-    expect(text).toContain('總計：4 場 3 勝（75%）');
-    expect(text).toContain('好人陣營：3 場 2 勝（67%）');
-    expect(text).toContain('狼人陣營：1 場 1 勝（100%）');
-    expect(text).toContain('預言家 1 場 1 勝（100%）');
-    expect(text).toContain('女巫 1 場 0 勝（0%）');
+    expect(text).toContain('總計：4 場 3 勝 (75%)');
+    expect(text).toContain('好人陣營：3 場 2 勝 (67%)');
+    expect(text).toContain('狼人陣營：1 場 1 勝 (100%)');
+    expect(text).toContain('預言家 1 場 1 勝 (100%)');
+    expect(text).toContain('女巫 1 場 0 勝 (0%)');
 
     const onlyGood = new StatsStore(':memory:');
     onlyGood.record('C1', 'good', [{ id: 'A', role: 'seer' }]);
@@ -126,7 +126,7 @@ describe('player-stats: 跨遊戲戰績', () => {
     const store = new StatsStore(':memory:');
     seedAll(store);
     expect(formatSummary('<@A>', store.summary('C1', 'A'), label)).toBe(
-      ['📊 <@A> 在這個頻道的戰績', '總計 7 場，對戰 6 場 4 勝（67%）', '🐺 狼人殺 4 場 3 勝（75%）', '💀 骷髏與玫瑰 2 場 1 勝（50%）', '🎆 花火 1 場，最高 18 分'].join('\n'),
+      ['📊 <@A> 在這個頻道的戰績', '總計 7 場，對戰 6 場 4 勝 (67%)', '🐺 狼人殺 4 場 3 勝 (75%)', '💀 骷髏與玫瑰 2 場 1 勝 (50%)', '🎆 花火 1 場，最高 18 分'].join('\n'),
     );
     expect(formatSummary('<@Z>', [], label)).toBe('這個頻道還沒有 <@Z> 的戰績。');
   });
@@ -187,9 +187,9 @@ describe('player-stats: 排行榜', () => {
     const store = new StatsStore(':memory:');
     seedRank(store);
     expect(formatLeaderboard(store.leaderboard('C1'), '這個頻道的排行榜')).toBe(
-      ['🏆 這個頻道的排行榜', '🥇 <@B> 5 勝／6 場（83%）', '🥈 <@A> 5 勝／8 場（63%）', '🥉 <@C> 2 勝／3 場（67%）'].join('\n'),
+      ['🏆 這個頻道的排行榜', '🥇 <@B> 5 勝／6 場 (83%)', '🥈 <@A> 5 勝／8 場 (63%)', '🥉 <@C> 2 勝／3 場 (67%)'].join('\n'),
     );
-    expect(formatLeaderboard({ by: 'score', rows: [{ user: 'C', best: 22, games: 2 }] }, '🎆 花火排行榜')).toBe('🏆 🎆 花火排行榜\n🥇 <@C> 最高 22 分（2 場）');
+    expect(formatLeaderboard({ by: 'score', rows: [{ user: 'C', best: 22, games: 2 }] }, '🎆 花火排行榜')).toBe('🏆 🎆 花火排行榜\n🥇 <@C> 最高 22 分 (2 場)');
     expect(formatLeaderboard({ by: 'wins', rows: [] }, '這個頻道的排行榜')).toBe('這個頻道還沒有戰績。');
   });
 });

@@ -47,7 +47,7 @@ describe('forsale/setup: 地產大亨的房間', () => {
     expect(ephemeralTo(events, 'p1')?.text).toContain('至少需要 3 人');
   });
 
-  it('房間已滿（6 人）時拒絕加入', () => {
+  it('房間已滿 (6 人) 時拒絕加入', () => {
     const { state, events } = run([{ type: 'join', user: 'x' }], lobbyWith(6).state);
     expect(state.players).toHaveLength(6);
     expect(ephemeralTo(events, 'x')?.text).toContain('房間已滿');
@@ -200,14 +200,14 @@ describe('forsale/bidding: 喊價面板', () => {
     expect(b.perRow).toBe(5);
     expect(b.text).toContain('第一階段第 1/7 輪');
     expect(b.text).toContain('🏠 桌上：4、12、21、30');
-    expect(b.text).toContain('目前最高 $3,000（<@p1>）');
+    expect(b.text).toContain('目前最高 $3,000 (<@p1>)');
     expect(b.text).toContain('<@p1> 出價 $3,000');
     expect(b.text).toContain('👉 <@p2>');
     expect(b.text).toContain('<@p3> 還沒出價');
     expect(b.text).toContain('<@p4> 還沒出價');
     expect(b.text).toContain('上一步：<@p1> 出價 $3,000');
     expect(b.text).not.toContain('$18,000');
-    expect(labels(b)).toEqual(['出 $4,000（+1）', '出 $5,000（+2）', '出 $8,000（+5）', '🔢 其他金額', '🙅 放棄', '💰 我的狀態']);
+    expect(labels(b)).toEqual(['出 $4,000 (+1)', '出 $5,000 (+2)', '出 $8,000 (+5)', '🔢 其他金額', '🙅 放棄', '💰 我的狀態']);
     const q = state.seq;
     expect(values(b)).toEqual([`bid:${q}:4`, `bid:${q}:5`, `bid:${q}:8`, `bidMenu:${q}`, `pass:${q}`, 'status']);
   });
@@ -215,18 +215,18 @@ describe('forsale/bidding: 喊價面板', () => {
   it('還沒有人出價時從 $1,000 起跳', () => {
     const b = lastBoard(started(4).events);
     expect(b.text).toContain('目前最高：還沒有人出價');
-    expect(labels(b).slice(0, 3)).toEqual(['出 $1,000（+1）', '出 $2,000（+2）', '出 $5,000（+5）']);
+    expect(labels(b).slice(0, 3)).toEqual(['出 $1,000 (+1)', '出 $2,000 (+2)', '出 $5,000 (+5)']);
   });
 });
 
 describe('forsale/bidding: 出價', () => {
-  it('B 按「出 $5,000（+2）」：出價變 $5,000，輪到下一位，重設 30 秒計時', () => {
+  it('B 按「出 $5,000 (+2)」：出價變 $5,000，輪到下一位，重設 30 秒計時', () => {
     const s = play(bidRound(), [['p1', 3]]).state;
     const { state, events } = run([bid(s, 'p2', 5)], s);
     expect(state.players[1].bid).toBe(5);
     expect(state).toMatchObject({ high: 5, highBy: 'p2', turn: 2 });
     expect(state.players[1].money).toBe(18); // 錢在這一輪結算時才扣
-    expect(lastBoard(events).text).toContain('目前最高 $5,000（<@p2>）');
+    expect(lastBoard(events).text).toContain('目前最高 $5,000 (<@p2>)');
     expect(events).toContainEqual({ type: 'startTimer', id: state.timers.phase, ms: 30_000 });
   });
 
@@ -238,7 +238,7 @@ describe('forsale/bidding: 出價', () => {
     expect(ephemeralTo(events, 'p3')?.text).toContain('你的錢不夠，最多能出 $10,000');
   });
 
-  it('沒有比目前最高高（或是 $0）被拒', () => {
+  it('沒有比目前最高高 (或是 $0) 被拒', () => {
     const s = play(bidRound(), [['p1', 3]]).state;
     expect(run([bid(s, 'p2', 3)], s).state).toBe(s);
     const s0 = bidRound();
@@ -294,7 +294,7 @@ describe('forsale/bidding: 放棄與最後一位', () => {
     expect(state.turn).toBe(1);
     const b = lastBoard(events);
     expect(b.text).toContain('<@p1> 放棄，拿走房產 4，拿回 $1,000');
-    expect(b.text).toContain('<@p1> 已放棄（拿走房產 4）');
+    expect(b.text).toContain('<@p1> 已放棄 (拿走房產 4)');
   });
 
   it('沒出價就放棄：免費拿最小的', () => {
@@ -352,7 +352,7 @@ describe('forsale/bidding: 喊價計時與第一階段結束', () => {
   });
 });
 
-// 進入第二階段第 1 輪：第一階段最後一輪 p1、p2…依序放棄（桌上 4、12、21、30 的前 n 間），
+// 進入第二階段第 1 輪：第一階段最後一輪 p1、p2…依序放棄 (桌上 4、12、21、30 的前 n 間)，
 // 放棄前手上的房產照 before、支票牌庫照 checks；setup 可以再改 state
 function toSell(checks: number[], before: number[][] = [[1, 25], [3, 5], [18, 19], [2, 6]], n = 4, setup = (_: FState) => {}) {
   const s = bidRound([4, 12, 21, 30].slice(0, n), 0, n);
@@ -393,7 +393,7 @@ describe('forsale/selling: 每輪翻開支票與賣房產面板', () => {
 });
 
 describe('forsale/selling: 同時選擇', () => {
-  it('「🏠 選房產」：私下列出手上每一間（由小到大），state 不變', () => {
+  it('「🏠 選房產」：私下列出手上每一間 (由小到大)，state 不變', () => {
     const s = toSell(CHECKS3).state;
     const { state, events } = run([{ type: 'sellMenu', user: 'p1', seq: s.seq }], s);
     expect(state).toBe(s);
@@ -405,7 +405,7 @@ describe('forsale/selling: 同時選擇', () => {
   it('選擇私下確認、頻道只更新已選 1/4；揭曉前可以改，已選人數不變', () => {
     const s = toSell(CHECKS3).state;
     const first = run([sell(s, 'p1', 25)], s);
-    expect(ephemeralTo(first.events, 'p1')).toMatchObject({ text: '你選了房產 25（揭曉前可以改）', replace: true });
+    expect(ephemeralTo(first.events, 'p1')).toMatchObject({ text: '你選了房產 25 (揭曉前可以改)', replace: true });
     expect(lastBoard(first.events).text).toContain('已選 1/4');
     expect(lastBoard(first.events).text).not.toContain('房產 25');
     const changed = run([sell(first.state, 'p1', 1)], first.state);
@@ -453,7 +453,7 @@ describe('forsale/selling: 揭曉與分配支票', () => {
     expect(run([{ type: 'timeout', id: state.timers.phase! - 1 }], state).state).toBe(state);
     const { state: after, events } = run([{ type: 'timeout', id: state.timers.phase! }], state);
     expect(after.players[1].props).toEqual([5, 12]);
-    expect(boards(events).find((b) => b.ref === 'forsale:sell:1')!.text).toContain('<@p2> 房產 3 → $0（逾時，自動出最小）');
+    expect(boards(events).find((b) => b.ref === 'forsale:sell:1')!.text).toContain('<@p2> 房產 3 → $0 (逾時，自動出最小)');
   });
 });
 
@@ -467,9 +467,9 @@ describe('forsale/selling: 計分、勝負與結束', () => {
     expect(state.phase).toBe('ended');
     const text = announces(seen).join('\n');
     expect(text).toContain('<@p1> 獲勝');
-    expect(text).toContain('1. <@p1> $55,000（支票 $52,000＋金幣 $3,000）');
-    expect(text).toContain('2. <@p2> $53,000（支票 $47,000＋金幣 $6,000）');
-    expect(text).toContain('3. <@p3> $42,000（支票 $40,000＋金幣 $2,000）');
+    expect(text).toContain('1. <@p1> $55,000 (支票 $52,000＋金幣 $3,000)');
+    expect(text).toContain('2. <@p2> $53,000 (支票 $47,000＋金幣 $6,000)');
+    expect(text).toContain('3. <@p3> $42,000 (支票 $40,000＋金幣 $2,000)');
     expect(resultOf(seen)).toEqual({ type: 'result', players: ['p1', 'p2', 'p3'], winners: ['p1'] });
     expect(prompts(seen).some((p) => p.kind === 'rematch')).toBe(true);
   });
@@ -581,7 +581,7 @@ describe('forsale/bots: 一個人也能玩完整局', () => {
   });
 });
 
-describe('forsale/setup: 指令解析與按鈕（GameDef）', () => {
+describe('forsale/setup: 指令解析與按鈕 (GameDef)', () => {
   it('大廳資訊：🏠 地產大亨、3～6 人、心理戰', () => {
     expect(forsale).toMatchObject({ kind: 'forsale', emoji: '🏠', name: '地產大亨', players: '3～6 人', category: 'bluff' });
     expect(forsale.desc).toBeTruthy();
@@ -597,7 +597,7 @@ describe('forsale/setup: 指令解析與按鈕（GameDef）', () => {
     expect(forsale.parse('removebot 2', 'u', 'C1')).toEqual({ type: 'removeBot', user: 'u', count: 2 });
   });
 
-  it('help 和不認識的子指令回傳 null（顯示說明），說明條列所有指令和遊戲中的按鈕', () => {
+  it('help 和不認識的子指令回傳 null (顯示說明)，說明條列所有指令和遊戲中的按鈕', () => {
     expect(forsale.parse('help', 'u', 'C1')).toBeNull();
     expect(forsale.parse('buy', 'u', 'C1')).toBeNull();
     for (const cmd of ['new', 'addbot', 'removebot', 'start', 'cancel']) expect(forsale.help).toContain(`/game forsale ${cmd}`);

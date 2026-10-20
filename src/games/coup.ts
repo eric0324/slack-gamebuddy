@@ -5,11 +5,11 @@ import { parseRoomCommand } from './undercover.js';
 
 const HELP = [
   '*政變指令*',
-  '• `/game coup new`：開房（任何人）',
-  '• `/game coup addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/game coup removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/game coup start`：開始遊戲，需要 3～6 人（房主）',
-  '• `/game coup cancel`：取消遊戲（房主）',
+  '• `/game coup new`：開房 (任何人)',
+  '• `/game coup addbot [數量]`：加入 bot 補人數 (房主，開始前)',
+  '• `/game coup removebot [數量]`：移除 bot (房主，開始前)',
+  '• `/game coup start`：開始遊戲，需要 3～6 人 (房主)',
+  '• `/game coup cancel`：取消遊戲 (房主)',
   '行動、選目標、質疑、阻擋都用頻道按鈕；翻牌和大使交換用私訊按鈕',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');

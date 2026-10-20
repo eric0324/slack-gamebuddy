@@ -194,7 +194,7 @@ describe('wager/rounds: 押注板', () => {
       { value: 300, by: ['A', 'C'] },
     ]);
     const board = boards(events).at(-1)!;
-    expect(board.text).toMatch(/🔺 全部太大[\s\S]*100（<@B>）[\s\S]*300（<@A>、<@C>）/);
+    expect(board.text).toMatch(/🔺 全部太大[\s\S]*100 \(<@B>\)[\s\S]*300 \(<@A>、<@C>\)/);
     expect(board.text).toContain('45 秒');
     expect(board.options.map((o) => o.value)).toEqual(['betMenu']);
   });

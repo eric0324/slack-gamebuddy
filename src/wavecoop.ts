@@ -1,4 +1,4 @@
-// 心電感應（合作）遊戲引擎：純邏輯，不碰任何 I/O。全員同一隊，輪流出題、其他人一起猜，拚總分。
+// 心電感應 (合作) 遊戲引擎：純邏輯，不碰任何 I/O。全員同一隊，輪流出題、其他人一起猜，拚總分。
 // 介面和其他遊戲一樣：applyWavecoop(state, action, rng) → { state, events }。光譜卡和兩隊對抗版共用。
 import { mention, type GameEvent, type Rng } from './engine.js';
 import { cancelGame, reply, runGame, shuffle, startTimer } from './common.js';
@@ -6,7 +6,7 @@ import { SPECTRUMS } from './wavelengthCards.js';
 
 export const MIN_WAVECOOP_PLAYERS = 2;
 export const MAX_WAVECOOP_PLAYERS = 12;
-const TITLE = '心電感應（合作）';
+const TITLE = '心電感應 (合作)';
 const BASE_ROUNDS = 7;
 const PHASE_MS = 180_000;
 const MAX_CLUE = 30;
@@ -32,7 +32,7 @@ export interface WCState {
   phase: WCPhase;
   players: string[];
   order: string[]; // 出題順序，輪完再從頭
-  round: number; // 第幾題（0 起算）
+  round: number; // 第幾題 (0 起算)
   total: number; // 目前總題數：基本 7 題，正中 +1
   used: number[]; // 這局用過的光譜卡
   spectrum?: [string, string];
@@ -84,7 +84,7 @@ function deal(c: Ctx) {
   s.order = shuffle(s.players, c.rng);
   c.events.push({
     type: 'announce',
-    text: `📡 心電感應（合作）開始！大家同一隊，輪流出題、其他人一起猜，共 ${s.total} 題（正中目標會加一題）。\n出題順序：${s.order.map(mention).join(' → ')}`,
+    text: `📡 心電感應 (合作) 開始！大家同一隊，輪流出題、其他人一起猜，共 ${s.total} 題 (正中目標會加一題)。\n出題順序：${s.order.map(mention).join(' → ')}`,
     gif: 'start',
   });
   startRound(c);
@@ -106,9 +106,9 @@ function startRound(c: Ctx) {
     {
       type: 'dm',
       to: p,
-      text: `🎯 你這題的光譜是「${s.spectrum[0]} ↔ ${s.spectrum[1]}」，目標在 ${s.target}（0 是最左「${s.spectrum[0]}」，10 是最右「${s.spectrum[1]}」）。\n回到頻道按「✍️ 寫提示」，給一個讓大家猜到這個位置的提示詞。`,
+      text: `🎯 你這題的光譜是「${s.spectrum[0]} ↔ ${s.spectrum[1]}」，目標在 ${s.target} (0 是最左「${s.spectrum[0]}」，10 是最右「${s.spectrum[1]}」)。\n回到頻道按「✍️ 寫提示」，給一個讓大家猜到這個位置的提示詞。`,
     },
-    { type: 'announce', text: `🔮 第 ${s.round + 1}／${s.total} 題（總分 ${s.score}）：輪到 ${mention(p)} 出題（${minutes}）\n光譜：${dial(s)}` },
+    { type: 'announce', text: `🔮 第 ${s.round + 1}／${s.total} 題 (總分 ${s.score})：輪到 ${mention(p)} 出題 (${minutes})\n光譜：${dial(s)}` },
     { type: 'prompt', kind: 'wavecoop', audience: 'channel', text: `${mention(p)} 想好了就按這裡寫提示`, options: [{ value: 'clue', label: '✍️ 寫提示' }] },
   );
   startTimer(c, PHASE_MS);
@@ -122,7 +122,7 @@ function giveClue(c: Ctx, user: string, text: string): boolean {
   s.clue = clue;
   s.phase = 'guess';
   c.events.push(
-    { type: 'announce', text: `💬 ${mention(user)} 的提示：「${clue}」\n光譜：${dial(s)}\n${guessers(s).map(mention).join('、')} 請按 0～10 猜目標位置，可以改選（${minutes}）` },
+    { type: 'announce', text: `💬 ${mention(user)} 的提示：「${clue}」\n光譜：${dial(s)}\n${guessers(s).map(mention).join('、')} 請按 0～10 猜目標位置，可以改選 (${minutes})` },
     {
       type: 'prompt',
       kind: 'wavecoop',
@@ -217,7 +217,7 @@ function handle(c: Ctx, action: GameAction): boolean {
     }
     case 'addBot':
     case 'removeBot':
-      return reply(c, action.user, '心電感應（合作）不支援 bot。');
+      return reply(c, action.user, '心電感應 (合作) 不支援 bot。');
     case 'start': {
       if (action.user !== s.host) return reply(c, action.user, '只有房主可以開始遊戲。');
       if (s.phase !== 'lobby') return false;
@@ -231,7 +231,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       return cancelGame(c, action.user);
     case 'openClue':
       if (s.phase !== 'clue' || action.user !== psychic(s)) return reply(c, action.user, '現在不是你出題。');
-      c.events.push({ type: 'modal', to: action.user, kind: 'wavecoopClue', title: '寫提示', label: `提示詞（1～${MAX_CLUE} 字）` });
+      c.events.push({ type: 'modal', to: action.user, kind: 'wavecoopClue', title: '寫提示', label: `提示詞 (1～${MAX_CLUE} 字)` });
       return false;
     case 'clue':
       return giveClue(c, action.user, action.text);

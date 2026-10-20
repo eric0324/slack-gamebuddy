@@ -68,7 +68,7 @@ function startRound(c: Ctx, starter: number) {
   const alive = s.players.filter((p) => p.dice.length);
   c.events.push({
     type: 'announce',
-    text: `🎲 第 ${s.round} 輪：${alive.map((p) => `${mention(p.id)} ${p.dice.length} 顆`).join('、')}（全場 ${totalDice(s)} 顆）`,
+    text: `🎲 第 ${s.round} 輪：${alive.map((p) => `${mention(p.id)} ${p.dice.length} 顆`).join('、')} (全場 ${totalDice(s)} 顆)`,
   });
   for (const p of alive) {
     c.events.push({ type: 'dm', to: p.id, text: `🎲 第 ${s.round} 輪，你的骰子：${p.dice.map((d) => FACES[d - 1]).join(' ')}` });
@@ -85,7 +85,7 @@ function promptTurn(c: Ctx) {
   const id = current(s);
   c.events.push({
     type: 'announce',
-    text: `👉 輪到 ${mention(id)} 喊數：\`/game liarsdice bid <數量> <點數>\`（${TURN_MS / 1000} 秒）`,
+    text: `👉 輪到 ${mention(id)} 喊數：\`/game liarsdice bid <數量> <點數>\` (${TURN_MS / 1000} 秒)`,
   });
   if (s.bid) {
     c.events.push({
@@ -118,7 +118,7 @@ function placeBid(c: Ctx, user: string, quantity: number, face: number): boolean
   if (!Number.isInteger(quantity) || quantity < 1) return reply(c, user, '數量至少要 1。');
   const prev = s.bid;
   if (prev && !(quantity > prev.quantity || (quantity === prev.quantity && rank(face) > rank(prev.face)))) {
-    return reply(c, user, `要喊得比「${prev.quantity} 個 ${prev.face}」更大：數量更多，或數量相同、點數更大（1 最大）。`);
+    return reply(c, user, `要喊得比「${prev.quantity} 個 ${prev.face}」更大：數量更多，或數量相同、點數更大 (1 最大)。`);
   }
   s.bid = { quantity, face, by: user };
   if (face === 1) s.onesCalled = true;
@@ -128,7 +128,7 @@ function placeBid(c: Ctx, user: string, quantity: number, face: number): boolean
   return true;
 }
 
-// 開：公開所有骰子，數喊的點數（1 點萬用，除非這輪喊過 1 點），輸的人少一顆
+// 開：公開所有骰子，數喊的點數 (1 點萬用，除非這輪喊過 1 點)，輸的人少一顆
 function challengeBid(c: Ctx, user: string): boolean {
   const s = c.s;
   if (s.phase !== 'bid' || user !== current(s) || !s.bid) return reply(c, user, '現在不能開。');
@@ -145,9 +145,9 @@ function challengeBid(c: Ctx, user: string): boolean {
   loser.dice.pop();
   c.events.push({
     type: 'announce',
-    text: `🔍 ${mention(user)} 開「${quantity} 個 ${face}」！\n${reveal}\n${face} 點${wild ? '（含萬用 1 點）' : ''}實際有 ${count} 顆 → ${mention(loserId)} 輸了，少一顆骰子。`,
+    text: `🔍 ${mention(user)} 開「${quantity} 個 ${face}」！\n${reveal}\n${face} 點${wild ? ' (含萬用 1 點)' : ''}實際有 ${count} 顆 → ${mention(loserId)} 輸了，少一顆骰子。`,
   });
-  if (!loser.dice.length) c.events.push({ type: 'announce', text: `💀 ${mention(loserId)} 出局（沒有骰子了）！` });
+  if (!loser.dice.length) c.events.push({ type: 'announce', text: `💀 ${mention(loserId)} 出局 (沒有骰子了)！` });
   const alive = s.players.filter((p) => p.dice.length);
   if (alive.length === 1) {
     endGame(c, alive[0].id);

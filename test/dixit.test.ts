@@ -109,12 +109,12 @@ describe('dixit/setup: 牌庫與發牌', () => {
   });
 });
 
-// 說書人（目前輪）用手牌第 card 張（index）給提示
+// 說書人 (目前輪) 用手牌第 card 張 (index) 給提示
 const clueBy = (s: DixitState, text = '週一早上', card = 0) => run([{ type: 'clue', user: s.players[s.teller].id, text, card }], s);
 const timeoutNow = (s: DixitState) => run([{ type: 'timeout', id: s.timers.phase! }], s);
 
 describe('dixit/rounds: 查看手牌', () => {
-  it('說書人在說書階段：只有本人看到手牌圖片（編號 1～6）和 6 顆編號按鈕，不顯示名稱', () => {
+  it('說書人在說書階段：只有本人看到手牌圖片 (編號 1～6) 和 6 顆編號按鈕，不顯示名稱', () => {
     const s = started(4).state;
     const r = run([{ type: 'hand', user: 'p1' }], s);
     const m = menu(r.events, 'p1')!;
@@ -132,7 +132,7 @@ describe('dixit/rounds: 查看手牌', () => {
     expect(ephemeralTo(run([{ type: 'hand', user: 'x' }], s).events, 'x')!.text).toContain('不在');
   });
 
-  it('舊選單（不是這一輪）的按鈕被拒，提示重新按我的手牌', () => {
+  it('舊選單 (不是這一輪) 的按鈕被拒，提示重新按我的手牌', () => {
     const s = started(4).state;
     const r = run([{ type: 'pick', user: 'p1', seq: s.seq - 1, card: 0 }], s);
     expect(ephemeralTo(r.events, 'p1')!.text).toContain('🃏 我的手牌');
@@ -188,7 +188,7 @@ describe('dixit/rounds: 說書', () => {
 });
 
 describe('dixit/rounds: 說書逾時', () => {
-  it('說書人沒出提示（只選了牌也算）：公告跳過、分數和手牌不變、換下一位說書人', () => {
+  it('說書人沒出提示 (只選了牌也算)：公告跳過、分數和手牌不變、換下一位說書人', () => {
     const s = started(4).state;
     const picked = run([{ type: 'pick', user: 'p1', seq: s.seq, card: 0 }], s).state;
     const r = timeoutNow(picked);
@@ -227,7 +227,7 @@ describe('dixit/rounds: 說書逾時', () => {
   });
 });
 
-// 每位非說書人出手牌前幾張（3 人局 2 張）
+// 每位非說書人出手牌前幾張 (3 人局 2 張)
 const playAll = (s: DixitState) =>
   run(
     s.players
@@ -257,7 +257,7 @@ describe('dixit/rounds: 出牌', () => {
     expect(board.text).not.toContain('<@p2> <@p3>');
   });
 
-  it('出牌選單：非說書人有按鈕；說書人只看到圖片（說書人的牌不在裡面）', () => {
+  it('出牌選單：非說書人有按鈕；說書人只看到圖片 (說書人的牌不在裡面)', () => {
     const s = clueBy(started(4).state).state;
     const m = menu(run([{ type: 'hand', user: 'p2' }], s).events, 'p2')!;
     expect(m.options[0]).toEqual({ value: `play:${s.seq}:0`, label: '1' });
@@ -355,7 +355,7 @@ describe('dixit/rounds: 匿名投票', () => {
     expect(boards(again.events).at(-1)!.text).not.toContain('<@p2>');
   });
 
-  it('不能投自己的牌（3 人局兩張都不能）；說書人不投票', () => {
+  it('不能投自己的牌 (3 人局兩張都不能)；說書人不投票', () => {
     const s = voting(4).state;
     const own = run([{ type: 'vote', user: 'p2', seq: s.seq, n: 1 }], s);
     expect(ephemeralTo(own.events, 'p2')!.text).toContain('不能投自己的牌');
@@ -384,7 +384,7 @@ const votingWith = (n: number, preset: Record<string, number>, deck?: number) =>
   return s;
 };
 
-describe('dixit/rounds: 揭曉與計分（4 人局說書人 p1，桌上依序是 p1、p2、p3、p4 的牌）', () => {
+describe('dixit/rounds: 揭曉與計分 (4 人局說書人 p1，桌上依序是 p1、p2、p3、p4 的牌)', () => {
   it('部分猜對：說書人和猜對的人 +3，被投的牌每票 +1，說書人的牌得票不加分', () => {
     expect(scoreOf(voteAll(voting(4).state, { p2: 0, p3: 1, p4: 1 }).state)).toEqual({ p1: 3, p2: 5, p3: 0, p4: 0 });
   });
@@ -411,7 +411,7 @@ describe('dixit/rounds: 揭曉與計分（4 人局說書人 p1，桌上依序是
     const r = voteAll(s.state, { p2: 0, p3: 1, p4: 1 });
     const text = announces(r.events).find((a) => a.text.includes('揭曉'))!.text;
     expect(text).toContain('說書人 <@p1> 的牌是第 1 號');
-    expect(text).toContain('1. <@p1>（說書人） ← <@p2>');
+    expect(text).toContain('1. <@p1> (說書人) ← <@p2>');
     expect(text).toContain('2. <@p2> ← <@p3> <@p4>');
     expect(text).toContain('3. <@p3> ← 沒有人');
     expect(text).toContain('本輪得分：<@p1> +3、<@p2> +5、<@p3> +0、<@p4> +0');
@@ -500,7 +500,7 @@ describe('dixit/rounds: 補牌、勝負與結束', () => {
   });
 });
 
-describe('dixit/setup: Slack 設定（GameDef）', () => {
+describe('dixit/setup: Slack 設定 (GameDef)', () => {
   it('大廳資訊', () => {
     expect(dixit).toMatchObject({ kind: 'dixit', emoji: '🎨', name: '妙語說書人', players: '3～8 人', category: 'bluff', noBots: true });
     expect(dixit.apply).toBe(applyDixit);
@@ -515,7 +515,7 @@ describe('dixit/setup: Slack 設定（GameDef）', () => {
     expect(dixit.parse('clue 9 好累', 'U1', 'C1')).toEqual({ type: 'clue', user: 'U1', card: 8, text: '好累' });
   });
 
-  it('help 與不認識的子指令回傳 null（adapter 顯示說明）；說明列出指令、我的手牌和投稿', () => {
+  it('help 與不認識的子指令回傳 null (adapter 顯示說明)；說明列出指令、我的手牌和投稿', () => {
     expect(dixit.parse('help', 'U1', 'C1')).toBeNull();
     expect(dixit.parse('foo', 'U1', 'C1')).toBeNull();
     for (const s of ['/game dixit new', '/game dixit start', '/game dixit cancel', '/game dixit clue <編號> <提示>', '🃏 我的手牌', '/game meme add', '3～8']) expect(dixit.help).toContain(s);

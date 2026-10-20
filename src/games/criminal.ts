@@ -5,12 +5,12 @@ import { parseRoomCommand } from './undercover.js';
 
 const HELP = [
   '*犯人在跳舞指令*',
-  '• `/game criminal new`：開房（任何人）',
-  '• `/game criminal addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/game criminal removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/game criminal start`：開始遊戲，需要 3～8 人（房主）',
-  '• `/game criminal cancel`：取消遊戲（房主）',
-  '輪到你時按牌桌上的「🃏 我的手牌」選牌和對象；情報交換、交易、神犬也從這裡私下選（只有你看得到）',
+  '• `/game criminal new`：開房 (任何人)',
+  '• `/game criminal addbot [數量]`：加入 bot 補人數 (房主，開始前)',
+  '• `/game criminal removebot [數量]`：移除 bot (房主，開始前)',
+  '• `/game criminal start`：開始遊戲，需要 3～8 人 (房主)',
+  '• `/game criminal cancel`：取消遊戲 (房主)',
+  '輪到你時按牌桌上的「🃏 我的手牌」選牌和對象；情報交換、交易、神犬也從這裡私下選 (只有你看得到)',
   '🔪 犯人：手上只剩這張時打出就逃跑成功｜🕵️ 偵探：第 2 圈起指認犯人｜🛡️ 不在場證明：擋偵探｜🤝 共犯：加入犯人陣營',
   '👀 目擊者：偷看一人手牌｜👦 少年：知道誰拿犯人｜🔄 情報交換：各傳一張給下一位｜🗣️ 謠言：從上一位抽一張｜💱 交易：和一人換一張｜🐕 神犬：盲抽一人一張',
   `📖 完整說明：<${WIKI}|wiki>`,
@@ -21,7 +21,7 @@ export function parseCriminalCommand(text: string, user: string, channel: string
   return parseRoomCommand(text, user, channel) as CAction | null;
 }
 
-// value：hand、play:<seq>:<i>、target:<seq>:<對象>、give:<seq>:<i>、draw:<seq>:<第幾張>（bot 的 id 有冒號，對象放最後）
+// value：hand、play:<seq>:<i>、target:<seq>:<對象>、give:<seq>:<i>、draw:<seq>:<第幾張> (bot 的 id 有冒號，對象放最後)
 function criminalButton(kind: string, value: string, user: string, channel: string): CAction | null {
   if (kind === 'join' || kind === 'leave' || kind === 'start') return { type: kind, user };
   if (kind === 'rematch') return { type: 'rematch', user, channel };

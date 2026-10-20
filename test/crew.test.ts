@@ -44,7 +44,7 @@ describe('crew/setup: 星際探險隊的房間', () => {
     for (const s of ['第 7 關', '月背通訊站', '3 個任務', '🔇 通訊干擾']) expect(info).toContain(s);
   });
 
-  it('全破（unlocked 41）時預設第 40 關並公告已經全破', () => {
+  it('全破 (unlocked 41) 時預設第 40 關並公告已經全破', () => {
     const { state, events } = run([{ type: 'new', user: 'A', channel: 'C1', unlocked: 41 }]);
     expect(state.mission).toBe(40);
     expect(prompts(events)[0].text).toContain('全破');
@@ -56,7 +56,7 @@ describe('crew/setup: 星際探險隊的房間', () => {
     expect(ephemeralTo(events, 'p1')?.text).toContain('至少需要 3 人');
   });
 
-  it('房間已滿（5 人）時拒絕加入', () => {
+  it('房間已滿 (5 人) 時拒絕加入', () => {
     const { state, events } = run([{ type: 'join', user: 'x' }], lobbyWith(5).state);
     expect(state.players).toHaveLength(5);
     expect(ephemeralTo(events, 'x')?.text).toContain('房間已滿');
@@ -160,7 +160,7 @@ describe('crew/missions: 任務分配', () => {
     const { state, events } = started(3, 3);
     expect(state.players[state.commander].id).toBe('p3');
     const p = prompts(events).find((x) => x.audience === 'channel' && x.text.includes('挑任務'))!;
-    for (const s of ['🟦1（1）', '🟦2（2）', '輪到 <@p3> 挑任務']) expect(p.text).toContain(s);
+    for (const s of ['🟦1 (1)', '🟦2 (2)', '輪到 <@p3> 挑任務']) expect(p.text).toContain(s);
     expect(values(p)).toContain(`pick:${state.seq}:0`);
     expect(values(p)).toContain('hand');
   });
@@ -232,7 +232,7 @@ describe('crew/missions: 指揮官指派', () => {
     expect(ephemeralTo(r.events, 'p3')?.text).toContain('任務要平均分配');
   });
 
-  it('90 秒逾時給目前任務最少的人（同數從指揮官開始）', () => {
+  it('90 秒逾時給目前任務最少的人 (同數從指揮官開始)', () => {
     const s0 = started(3, 18).state;
     const s1 = run([{ type: 'assign', user: 'p3', seq: s0.seq, target: 'p1' }], s0).state;
     const s2 = run([timeoutOf(s1)], s1).state;
@@ -315,7 +315,7 @@ const ready = (n = 3, mission = 1) => {
   const s = assigned(n, mission).state;
   return run([timeoutOf(s)], s).state;
 };
-// 換掉手牌（依玩家 id）和其他欄位
+// 換掉手牌 (依玩家 id) 和其他欄位
 function withHands(s: CState, hands: Record<string, Card[]>, extra: Partial<CState> = {}): CState {
   const c = structuredClone(s);
   for (const p of c.players) if (hands[p.id]) p.hand = hands[p.id];
@@ -425,7 +425,7 @@ describe('crew/tricks: 每墩開始的通訊時間', () => {
 });
 
 describe('crew/tricks: 出牌計時', () => {
-  it('2 分鐘逾時代出最小的合法彩色牌（同數依藍綠黃紫），公告是系統代出', () => {
+  it('2 分鐘逾時代出最小的合法彩色牌 (同數依藍綠黃紫)，公告是系統代出', () => {
     const s = withHands(ready(), { p3: ['green:4', 'blue:4', 'rocket:2'] });
     const { state, events } = run([timeoutOf(s)], s);
     expect(state.trick).toEqual([{ id: 'p3', card: 'blue:4' }]);
@@ -444,7 +444,7 @@ describe('crew/tricks: 出牌計時', () => {
   });
 });
 
-// 依序出牌（每一墩開始時先跳過通訊時間）；回傳最後的 state 和所有 events
+// 依序出牌 (每一墩開始時先跳過通訊時間)；回傳最後的 state 和所有 events
 function playAll(s: CState, cards: [string, Card][]) {
   let state = s;
   const events: GameEvent[] = [];
@@ -545,7 +545,7 @@ describe('crew/missions: 成功與失敗', () => {
     expect(table(events).some((t) => t.ref === `crew:${state.seq}:2`)).toBe(false);
   });
 
-  it('牌都打完還有任務沒完成：失敗（3 人局剩下的那張是任務牌）', () => {
+  it('牌都打完還有任務沒完成：失敗 (3 人局剩下的那張是任務牌)', () => {
     const s = judged({ p3: ['blue:9', 'green:5'], p1: ['blue:1'], p2: ['blue:2'] }, [task('blue:9', 'p3'), task('green:5', 'p3')], { tricks: 1 });
     const { state, events } = playAll(s, trickOf('blue'));
     expect(state.outcome).toBe('fail');
@@ -560,7 +560,7 @@ describe('crew/missions: 通訊', () => {
   it('選單只列每色最大、最小、唯一，沒有火箭', () => {
     const s = withHands(ready(), { p1: COMM_HAND });
     const p = promptTo(run([{ type: 'comm', user: 'p1' }], s).events, 'p1');
-    expect(labels(p)).toEqual(['🟦2（最小）', '🟦7（最大）', '🟩3（唯一）', '🟨1（最小）', '🟨6（最大）']);
+    expect(labels(p)).toEqual(['🟦2 (最小)', '🟦7 (最大)', '🟩3 (唯一)', '🟨1 (最小)', '🟨6 (最大)']);
     expect(values(p)).toContain(`commCard:${s.seq}:blue:7`);
   });
 
@@ -569,7 +569,7 @@ describe('crew/missions: 通訊', () => {
     expect(s.ready).toBe(false);
     const { state, events } = run([commCard('p1', s, 'blue:7')], s);
     expect(announces(events)).toContain('📡 <@p1> 通訊：🟦7 是我藍色最大的');
-    expect(table(events).at(-1)!.text).toContain('📡 🟦7（最大）');
+    expect(table(events).at(-1)!.text).toContain('📡 🟦7 (最大)');
     expect(state.players[0]).toMatchObject({ commUsed: true, comm: { card: 'blue:7', pos: 'top' } });
   });
 
@@ -599,7 +599,7 @@ describe('crew/missions: 通訊', () => {
   it('🔇 通訊干擾：照樣只能選最大／唯一／最小，但不公開位置', () => {
     const s = withHands(ready(3, 7), { p1: COMM_HAND });
     const { events } = run([commCard('p1', s, 'blue:7')], s);
-    expect(announces(events)).toContain('📡 <@p1> 通訊：🟦7（位置不公開）');
+    expect(announces(events)).toContain('📡 <@p1> 通訊：🟦7 (位置不公開)');
     expect(table(events).at(-1)!.text).not.toContain('最大');
   });
 
@@ -707,7 +707,7 @@ describe('crew/missions: 選關', () => {
     expect(ephemeralTo(r.events, 'p1')?.text).toContain('遊戲已經開始');
   });
 
-  it('不帶數字：只讓他看到已解鎖的關卡清單（有沒有房間都可以）', () => {
+  it('不帶數字：只讓他看到已解鎖的關卡清單 (有沒有房間都可以)', () => {
     const r = run([{ type: 'level', user: 'Z', unlocked: 3 }], lobbyWith(3, 3).state);
     const text = ephemeralTo(r.events, 'Z')!.text;
     for (const s of ['第 1 關「點火測試」1 個任務', '第 2 關', '第 3 關「繞地軌道」2 個任務，順序標記 1 2']) expect(text).toContain(s);
@@ -745,12 +745,12 @@ describe('crew/missions: 重設進度', () => {
 });
 
 describe('crew/missions: 結束與戰績', () => {
-  it('成功：公告結果、剩下的手牌、進度；result 的 score 是關卡編號；貼「🚀 下一關（第 6 關）」', () => {
+  it('成功：公告結果、剩下的手牌、進度；result 的 score 是關卡編號；貼「🚀 下一關 (第 6 關)」', () => {
     const { events } = finish('success', 5, 5);
     expect(events).toContainEqual({ type: 'result', players: ['p1', 'p2', 'p3'], winners: [], score: 5 });
     const text = announces(events).join('\n');
     for (const s of ['第 5 關「補給艙回收」成功', '剩下的手牌', '🟩9', '解鎖到第 6 關']) expect(text).toContain(s);
-    expect(labels(rematchPrompt(events))).toEqual(['🚀 下一關（第 6 關）']);
+    expect(labels(rematchPrompt(events))).toEqual(['🚀 下一關 (第 6 關)']);
   });
 
   it('失敗：公告原因，score 是 0，貼「🔁 重打第 5 關」', () => {

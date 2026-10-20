@@ -1,4 +1,4 @@
-// 各遊戲 engine 共用的小工具：洗牌、只讓某人看到的回覆、階段計時、房間公告，以及房間邏輯（加入、離開、bot、取消、開房和再來一局）
+// 各遊戲 engine 共用的小工具：洗牌、只讓某人看到的回覆、階段計時、房間公告，以及房間邏輯 (加入、離開、bot、取消、開房和再來一局)
 import { randomBotName } from './botLines.js';
 import { isBot, type GameEvent, type Rng } from './engine.js';
 
@@ -93,7 +93,7 @@ export function removeBots<P extends { id: string }>(c: RoomCtx<P>, title: strin
   return true;
 }
 
-// 房主取消遊戲；extra 是附加在公告後面的文字（例如公布答案）
+// 房主取消遊戲；extra 是附加在公告後面的文字 (例如公布答案)
 export function cancelGame(c: { s: { host: string; phase: string; timers: object }; events: GameEvent[] }, user: string, extra = ''): boolean {
   if (user !== c.s.host) return reply(c, user, '只有房主可以取消遊戲。');
   c.s.phase = 'ended';
@@ -105,17 +105,17 @@ export function cancelGame(c: { s: { host: string; phase: string; timers: object
 type Result<S> = { state: S; events: GameEvent[] };
 type RoomAction = { type: 'new'; user: string; channel: string } | { type: 'rematch'; user: string; channel: string };
 
-// 每款遊戲 applyX 的外殼：開房、再來一局、遊戲結束後忽略，其他 action 交給 handle（在複製的 state 上改）
+// 每款遊戲 applyX 的外殼：開房、再來一局、遊戲結束後忽略，其他 action 交給 handle (在複製的 state 上改)
 export function runGame<S extends { phase: string }, A extends { type: string }, C extends { s: S; events: GameEvent[]; rng: Rng }>(
   state: S | undefined,
   action: A,
   rng: Rng,
   opts: {
-    finished(s: S): boolean; // 正常結束（取消的不算），才能再來一局
+    finished(s: S): boolean; // 正常結束 (取消的不算)，才能再來一局
     isPlayer(s: S, user: string): boolean;
     createLobby(prev: S | undefined, host: string, channel: string): Result<S>;
     handle(c: C, action: Exclude<A, RoomAction>): boolean;
-    afterChange?(c: C): void; // state 有變時接著做的事（例如讓 bot 行動）
+    afterChange?(c: C): void; // state 有變時接著做的事 (例如讓 bot 行動)
     extra?: Omit<C, 's' | 'events' | 'rng'>; // ctx 的額外欄位
   },
 ): Result<S> {

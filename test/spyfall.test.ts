@@ -39,7 +39,7 @@ describe('spyfall/setup: 間諜危機的房間', () => {
     expect(ephemeralTo(events, 'p1')).toMatchObject({ text: expect.stringContaining('至少需要 4 人') });
   });
 
-  it('房間已滿（10 人）時拒絕加入', () => {
+  it('房間已滿 (10 人) 時拒絕加入', () => {
     const { state, events } = run([{ type: 'join', user: 'x' }], lobbyWith(10).state);
     expect(state.players).toHaveLength(10);
     expect(ephemeralTo(events, 'x')).toMatchObject({ text: expect.stringContaining('房間已滿') });
@@ -119,7 +119,7 @@ const timers = (events: GameEvent[]) => events.filter((e) => e.type === 'startTi
 const timerOf = (events: GameEvent[], ms: number) => timers(events).filter((t) => t.ms === ms).at(-1)!;
 const values = (p: { options: { value: string }[] }) => p.options.map((o) => o.value);
 
-// 4 人局（p4 是間諜），rng 固定時第一位提問者是 p4
+// 4 人局 (p4 是間諜)，rng 固定時第一位提問者是 p4
 describe('spyfall/rounds: 接力提問', () => {
   it('提問開始：公告 8 分鐘，第一位提問者收到選人按鈕', () => {
     const { state, events } = started(4);
@@ -136,7 +136,7 @@ describe('spyfall/rounds: 接力提問', () => {
     const asked = run([{ type: 'askTarget', user: 'p4', target: 'p2' }], started(4).state);
     expect(asked.state.qa).toMatchObject({ step: 'answer', asker: 'p4', target: 'p2' });
     const ans = prompts(asked.events, 'endAnswer').at(-1)!;
-    expect(ans.text).toContain('🎤 <@p4> 問 <@p2>（40 秒）');
+    expect(ans.text).toContain('🎤 <@p4> 問 <@p2> (40 秒)');
     expect(values(ans)).toEqual(['p2']);
     const next = run([{ type: 'endAnswer', user: 'p2' }], asked.state);
     expect(next.state.qa).toMatchObject({ step: 'choose', asker: 'p2' });
@@ -246,7 +246,7 @@ describe('spyfall/rounds: 投票與 PK', () => {
 describe('spyfall/rounds: 間諜猜地點', () => {
   const guess = (user: string, location: string, s: SState) => run([{ type: 'guess', user, location }], s);
 
-  it('間諜在提問中猜中（忽略前後空白）：間諜獲勝，遊戲結束', () => {
+  it('間諜在提問中猜中 (忽略前後空白)：間諜獲勝，遊戲結束', () => {
     const { state, events } = guess('p4', ' 飯店 ', started(4).state);
     expect(state.phase).toBe('ended');
     expect(events.find((e) => e.type === 'result')).toEqual({ type: 'result', players: state.players.map((p) => p.id), winners: state.players.filter((p) => p.role === 'spy').map((p) => p.id) });
@@ -340,7 +340,7 @@ describe('spyfall/win-condition: 勝負與結束公開', () => {
   });
 });
 
-// rng 固定為 0：p1（真人）是間諜、地點是公司尾牙、p1 先提問
+// rng 固定為 0：p1 (真人) 是間諜、地點是公司尾牙、p1 先提問
 const zero = () => 0;
 const withBots = (bots = 3) => run([{ type: 'addBot', user: 'p1', count: bots }, { type: 'start', user: 'p1' }], lobbyWith(1).state, zero);
 const botN = (s: SState, n: number) => s.players.find((p) => p.id.startsWith(`bot:${n}:`))!.id;

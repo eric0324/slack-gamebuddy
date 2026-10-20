@@ -5,17 +5,17 @@ import { parseRoomCommand } from './undercover.js';
 
 const HELP = [
   '*妙語說書人指令*',
-  '• `/game dixit new`：開房（任何人）',
-  '• `/game dixit start`：開始遊戲，需要 3～8 位真人（房主）',
-  '• `/game dixit clue <編號> <提示>`：說書人用手牌第幾張給提示（1～50 字），和在「🃏 我的手牌」選牌再輸入提示一樣',
-  '• `/game dixit cancel`：取消遊戲（房主）',
-  '按「🃏 我的手牌」看自己的牌（只有自己看得到）：說書人在這裡選牌給提示，其他人在這裡出牌',
+  '• `/game dixit new`：開房 (任何人)',
+  '• `/game dixit start`：開始遊戲，需要 3～8 位真人 (房主)',
+  '• `/game dixit clue <編號> <提示>`：說書人用手牌第幾張給提示 (1～50 字)，和在「🃏 我的手牌」選牌再輸入提示一樣',
+  '• `/game dixit cancel`：取消遊戲 (房主)',
+  '按「🃏 我的手牌」看自己的牌 (只有自己看得到)：說書人在這裡選牌給提示，其他人在這裡出牌',
   '說書人給一句提示，其他人出一張最符合的牌混進去，大家匿名猜哪張是說書人的；全部猜對或全部沒猜對時說書人 0 分，有人到 20 分或牌庫不夠補牌時結束',
   '牌來自梗圖大亂鬥的梗圖庫，可以用 `/game meme add <圖片網址>` 投稿到這個頻道',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
-// 妙語說書人的子指令：clue <編號> <提示>（提示可以有空白）
+// 妙語說書人的子指令：clue <編號> <提示> (提示可以有空白)
 export function parseDixitCommand(text: string, user: string, channel: string): DixitAction | null {
   const m = text.trim().match(/^clue\s+(\S+)(?:\s+([\s\S]*))?$/);
   if (m) return { type: 'clue', user, card: Number(m[1]) - 1, text: (m[2] ?? '').trim() };

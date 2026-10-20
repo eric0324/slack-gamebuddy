@@ -97,7 +97,7 @@ describe('sushigo/setup: 壽司派對的房間', () => {
     expect(ephemeralTo(events, 'p1')?.text).toContain('至少需要 2 人');
   });
 
-  it('房間已滿（5 人）時拒絕加入', () => {
+  it('房間已滿 (5 人) 時拒絕加入', () => {
     const { state, events } = run([{ type: 'join', user: 'x' }], lobbyWith(5).state);
     expect(state.players).toHaveLength(5);
     expect(ephemeralTo(events, 'x')?.text).toContain('房間已滿');
@@ -207,7 +207,7 @@ describe('sushigo/rounds: 牌桌訊息與選牌進度', () => {
     const again = run([pick(s, 'p1', 'dumpling')], a.state);
     expect(boards(again.events)).toHaveLength(0);
     expect(again.state.players[0].pick).toBe('dumpling');
-    expect(ephemeralTo(again.events, 'p1')?.text).toBe('你選了 🥟 煎餃（揭曉前可以改）');
+    expect(ephemeralTo(again.events, 'p1')?.text).toBe('你選了 🥟 煎餃 (揭曉前可以改)');
   });
 });
 
@@ -269,7 +269,7 @@ describe('sushigo/rounds: 用筷子出兩張', () => {
       s.players[0].table = ['chopsticks'];
     });
 
-  it('有可用筷子：選完第一張收到筷子選單（剩下的牌＋不用筷子）', () => {
+  it('有可用筷子：選完第一張收到筷子選單 (剩下的牌＋不用筷子)', () => {
     const s = withChop();
     const { events } = run([pick(s, 'p1', 'salmon')], s);
     const m = menus(events, 'p1')[0];
@@ -371,7 +371,7 @@ describe('sushigo/rounds: 超時', () => {
     expect(state.players[0].table).toEqual(['squid']);
     expect(state.players[1].table).toEqual(['chopsticks', 'tempura']);
     const text = announces(events).join();
-    expect(text).toContain('<@p1> 🦑 魷魚握壽司（超時自動出牌）');
+    expect(text).toContain('<@p1> 🦑 魷魚握壽司 (超時自動出牌)');
     expect(text).toContain('<@p2> 🍤 天婦羅、');
     const old = run([{ type: 'timeout', id: s.timers.phase! }], state);
     expect(old.state).toBe(state);

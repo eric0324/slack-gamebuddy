@@ -1,4 +1,4 @@
-// 璀璨寶石（Splendor）遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applySplendor(state, action, rng) → { state, events }。
+// 璀璨寶石 (Splendor) 遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applySplendor(state, action, rng) → { state, events }。
 import { isBot, mention, quiet, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
 import {
@@ -35,7 +35,7 @@ export interface SPlayer {
   id: string;
   tokens: Gems;
   cards: number[]; // 已買的卡 id
-  reserved: number[]; // 保留的卡 id（最多 3）
+  reserved: number[]; // 保留的卡 id (最多 3)
   nobles: number[]; // 來訪的貴族 id
 }
 
@@ -48,15 +48,15 @@ export interface SState {
   bank: Gems;
   decks: [number[], number[], number[]]; // 各級牌堆，[0] 是頂
   table: [(number | null)[], (number | null)[], (number | null)[]]; // 各級 4 個位置
-  nobles: (number | null)[]; // 場上的貴族 id，顯示編號是 index + 1（固定不變），來訪後改成 null
+  nobles: (number | null)[]; // 場上的貴族 id，顯示編號是 index + 1 (固定不變)，來訪後改成 null
   first: number; // 第一位玩家 index
   turn: number; // 輪到的玩家 index
-  round: number; // 第幾輪（1 起）
+  round: number; // 第幾輪 (1 起)
   step: 'act' | 'return';
   seq: number; // 每次輪到新玩家 +1：回合面板的 ref，也用來擋掉舊按鈕
   passStreak: number; // 連續跳過的次數，有人做動作歸零
   lastRound?: boolean; // 有人達到 15 分
-  last?: string; // 上一步做了什麼（面板用）
+  last?: string; // 上一步做了什麼 (面板用)
   winners?: string[];
   timerSeq: number;
   timers: { phase?: number };
@@ -121,11 +121,11 @@ export function discountOf(p: SPlayer): Record<Color, number> {
   return d;
 }
 export const scoreOf = (p: SPlayer) => p.cards.reduce((sum, id) => sum + cardOf(id).points, 0) + p.nobles.length * 3;
-const tokensText = (g: Gems) => `${gemsText(g)}（${total(g)}）`;
+const tokensText = (g: Gems) => `${gemsText(g)} (${total(g)})`;
 const payOf = (p: SPlayer, id: number) => payment(cardOf(id).cost, discountOf(p), p.tokens);
 
 const playerLine = (p: SPlayer) =>
-  `${quiet(p.id)} ${scoreOf(p)} 分｜籌碼 ${tokensText(p.tokens)}｜折扣 ${gemsText(discountOf(p))}（${p.cards.length} 張）｜保留 ${p.reserved.length}｜貴族 ${p.nobles.length}`;
+  `${quiet(p.id)} ${scoreOf(p)} 分｜籌碼 ${tokensText(p.tokens)}｜折扣 ${gemsText(discountOf(p))} (${p.cards.length} 張)｜保留 ${p.reserved.length}｜貴族 ${p.nobles.length}`;
 
 // 回合面板：回合內用同一個 ref 更新；ended 時收成一行、拿掉按鈕
 function board(s: SState, ended = false): GameEvent {
@@ -135,15 +135,15 @@ function board(s: SState, ended = false): GameEvent {
   const bank = [...COLORS, 'o' as const].map((x) => `${GEM_WORD[x]} ${s.bank[x]}`).join(' ');
   const nobles = s.nobles.flatMap((id, i) => (id === null ? [] : [`貴族 ${i + 1}：${nobleText(nobleOf(id))}`]));
   const rows = [2, 1, 0].flatMap((lv) => [
-    `${LEVEL_WORD[lv]}（牌堆 ${s.decks[lv].length}）`,
-    ...s.table[lv].map((id, i) => (id === null ? `${lv + 1}-${i + 1} （空）` : cardText(cardOf(id), `${lv + 1}-${i + 1}`))),
+    `${LEVEL_WORD[lv]} (牌堆 ${s.decks[lv].length})`,
+    ...s.table[lv].map((id, i) => (id === null ? `${lv + 1}-${i + 1} (空)` : cardText(cardOf(id), `${lv + 1}-${i + 1}`))),
   ]);
   const lines = [
-    `*💍 璀璨寶石｜第 ${s.round} 輪${s.lastRound ? '｜最後一輪' : ''}｜👉 輪到 ${mention(me.id)}（${TURN_MS / 1000} 秒）*`,
+    `*💍 璀璨寶石｜第 ${s.round} 輪${s.lastRound ? '｜最後一輪' : ''}｜👉 輪到 ${mention(me.id)} (${TURN_MS / 1000} 秒)*`,
     ...(s.last ? [`上一步：${s.last}`] : []),
-    ...(s.step === 'return' ? [`⏳ 等 ${quiet(me.id)} 退回 ${total(me.tokens) - 10} 個籌碼（${RETURN_MS / 1000} 秒）`] : []),
+    ...(s.step === 'return' ? [`⏳ 等 ${quiet(me.id)} 退回 ${total(me.tokens) - 10} 個籌碼 (${RETURN_MS / 1000} 秒)`] : []),
     `庫存：${bank}`,
-    ...(nobles.length ? nobles : ['貴族：（沒有了）']),
+    ...(nobles.length ? nobles : ['貴族：(沒有了)']),
     ...rows,
     ...s.players.map((p) => (p === me ? `👉 ${playerLine(p)}` : playerLine(p))),
   ];
@@ -155,13 +155,13 @@ function status(c: Ctx, user: string): boolean {
   if (!me) return reply(c, user, NOT_PLAYER);
   const reserved = me.reserved.map((id, i) => {
     const pay = payOf(me, id);
-    return `${cardText(cardOf(id), `保留 ${i + 1}`)}（${pay ? `買得起，付 ${gemsText(pay)}` : '買不起'}）`;
+    return `${cardText(cardOf(id), `保留 ${i + 1}`)} (${pay ? `買得起，付 ${gemsText(pay)}` : '買不起'})`;
   });
   const lines = [
     `📜 你的狀態｜${scoreOf(me)} 分`,
     `籌碼 ${tokensText(me.tokens)}｜折扣 ${gemsText(discountOf(me))}`,
-    `已買的卡（${me.cards.length} 張）：${me.cards.map((id) => cardText(cardOf(id))).join('、') || '無'}`,
-    `保留的卡（${me.reserved.length} 張）：`,
+    `已買的卡 (${me.cards.length} 張)：${me.cards.map((id) => cardText(cardOf(id))).join('、') || '無'}`,
+    `保留的卡 (${me.reserved.length} 張)：`,
     ...(reserved.length ? reserved : ['無']),
     `貴族：${me.nobles.map((id) => nobleText(nobleOf(id))).join('、') || '無'}`,
   ];
@@ -215,7 +215,7 @@ function turnMenu(c: Ctx, user: string, seq: number, sub?: Sub): boolean {
   const why = blocked(s, me);
   if (!sub) {
     const options = SUBS.filter((x) => why[x] === null).map((x) => ({ value: `turnMenu:${seq}:${x}`, label: SUB_LABEL[x] }));
-    const notes = SUBS.flatMap((x) => (why[x] ? [`（${why[x]}）`] : []));
+    const notes = SUBS.flatMap((x) => (why[x] ? [`(${why[x]})`] : []));
     return menu(c, user, [`💍 你的回合｜籌碼 ${tokensText(me.tokens)}｜折扣 ${gemsText(discountOf(me))}`, ...notes].join('\n'), options);
   }
   if (why[sub]) return deny(c, user, STALE);
@@ -223,19 +223,19 @@ function turnMenu(c: Ctx, user: string, seq: number, sub?: Sub): boolean {
     case 'take3':
       return pick3Menu(c, user, []);
     case 'take2':
-      return menu(c, user, '要拿 2 個哪一種顏色？（拿之前庫存要有 4 個以上）', [
+      return menu(c, user, '要拿 2 個哪一種顏色？(拿之前庫存要有 4 個以上)', [
         ...pairColors(s).map((x) => ({ value: `take2:${seq}:${x}`, label: GEM_WORD[x] })),
         BACK(seq),
       ]);
     case 'reserve':
-      return menu(c, user, `要保留哪一張？${s.bank.o ? '（拿 1 個黃金）' : '（黃金沒了，不拿黃金）'}`, [
+      return menu(c, user, `要保留哪一張？${s.bank.o ? '(拿 1 個黃金)' : '(黃金沒了，不拿黃金)'}`, [
         ...tableSlots(s).map((x) => ({ value: `reserve:${seq}:${x.slot}`, label: cardText(cardOf(x.id), x.label) })),
         ...deckSlots(s).map((x) => ({ value: `reserve:${seq}:${x.slot}`, label: x.label })),
         BACK(seq),
       ]);
     case 'buy':
-      return menu(c, user, '要買哪一張？（自動付款：先付同色，不夠的用黃金）', [
-        ...buyable(s, me).map((x) => ({ value: `buy:${seq}:${x.slot}`, label: `${cardText(cardOf(x.id), x.label)}（付 ${gemsText(payOf(me, x.id)!)}）` })),
+      return menu(c, user, '要買哪一張？(自動付款：先付同色，不夠的用黃金)', [
+        ...buyable(s, me).map((x) => ({ value: `buy:${seq}:${x.slot}`, label: `${cardText(cardOf(x.id), x.label)} (付 ${gemsText(payOf(me, x.id)!)})` })),
         BACK(seq),
       ]);
   }
@@ -258,7 +258,7 @@ function pick3Menu(c: Ctx, user: string, colors: Color[]): boolean {
   });
   const key = colorKey(colors);
   if (pickOk(s, colors, true)) options.push({ value: `take3:${seq}:${key}`, label: `確認拿 ${[...key].map((x) => GEM_WORD[x as Color]).join(' ')}` });
-  return menu(c, user, '選 3 種不同顏色各拿 1 個（再按一次取消）：', [...options, BACK(seq)]);
+  return menu(c, user, '選 3 種不同顏色各拿 1 個 (再按一次取消)：', [...options, BACK(seq)]);
 }
 
 function take(c: Ctx, user: string, got: Partial<Gems>) {
@@ -304,9 +304,9 @@ function reserve(c: Ctx, user: string, seq: number, slot: string): boolean {
   me.reserved.push(id);
   const gold = s.bank.o > 0;
   if (gold) move(s.bank, me.tokens, { o: 1 });
-  const tail = gold ? ' 並拿 1 金' : '（黃金沒了，沒拿黃金）';
+  const tail = gold ? ' 並拿 1 金' : ' (黃金沒了，沒拿黃金)';
   const card = cardOf(id);
-  tell(c, user, `✅ 你保留了 ${cardText(card)}${deck ? '（只有你看得到）' : ''}${tail}`);
+  tell(c, user, `✅ 你保留了 ${cardText(card)}${deck ? ' (只有你看得到)' : ''}${tail}`);
   const what = deck ? `從${LEVEL_WORD[lv]}牌堆保留一張` : `保留了 ${slot} ${GEM_WORD[card.color]} ${card.points}分`;
   finishTurn(c, `${quiet(me.id)} ${what}${tail}`, true);
   return true;
@@ -325,7 +325,7 @@ function buy(c: Ctx, user: string, seq: number, slot: string): boolean {
   move(me.tokens, s.bank, pay);
   me.cards.push(id);
   const card = cardOf(id);
-  const what = `買了${own ? '保留的' : ` ${slot}`} ${GEM_WORD[card.color]} ${card.points}分（付 ${gemsText(pay)}）`;
+  const what = `買了${own ? '保留的' : ` ${slot}`} ${GEM_WORD[card.color]} ${card.points}分 (付 ${gemsText(pay)})`;
   tell(c, user, `✅ 你${what}`);
   finishTurn(c, `${quiet(me.id)} ${what}`, true);
   return true;
@@ -350,12 +350,12 @@ function returnMenu(c: Ctx, user: string, counts: number[]): boolean {
   const options = GEMS.flatMap((x, i) => {
     if (!me.tokens[x]) return [];
     const more = counts[i] < me.tokens[x] && sum < excess ? counts.map((n, j) => (j === i ? n + 1 : n)) : counts;
-    return [{ value: `retPick:${s.seq}:${digits(more)}`, label: `退 ${GEM_WORD[x]}${counts[i] ? `（已選 ${counts[i]}）` : ''}` }];
+    return [{ value: `retPick:${s.seq}:${digits(more)}`, label: `退 ${GEM_WORD[x]}${counts[i] ? ` (已選 ${counts[i]})` : ''}` }];
   });
   options.push({ value: `retPick:${s.seq}:000000`, label: '重選' });
   if (sum === excess) options.push({ value: `return:${s.seq}:${digits(counts)}`, label: `確認退回 ${gemsText(countsGems(counts))}` });
   const lines = [
-    `你有 ${total(me.tokens)} 個籌碼，要退回 ${excess} 個（${RETURN_MS / 1000} 秒內沒確認會自動退回）`,
+    `你有 ${total(me.tokens)} 個籌碼，要退回 ${excess} 個 (${RETURN_MS / 1000} 秒內沒確認會自動退回)`,
     `手上：${gemsText(me.tokens)}｜已選：${gemsText(countsGems(counts))}`,
   ];
   return menu(c, user, lines.join('\n'), options);
@@ -378,7 +378,7 @@ function giveBack(c: Ctx, user: string, seq: number, counts: number[]): boolean 
   return true;
 }
 
-// 逾時自動退：每次從持有最多的顏色退 1 個（同樣多依白藍綠紅黑），黃金最後
+// 逾時自動退：每次從持有最多的顏色退 1 個 (同樣多依白藍綠紅黑)，黃金最後
 export function autoReturn(p: SPlayer): Gems {
   const left = { ...p.tokens };
   const back = emptyGems();
@@ -391,7 +391,7 @@ export function autoReturn(p: SPlayer): Gems {
   return back;
 }
 
-// 做完動作（或跳過）：更新連續跳過的次數；籌碼超過 10 個先退回，否則結束回合
+// 做完動作 (或跳過)：更新連續跳過的次數；籌碼超過 10 個先退回，否則結束回合
 function finishTurn(c: Ctx, last: string, acted: boolean) {
   const s = c.s;
   const me = current(s);
@@ -407,7 +407,7 @@ function finishTurn(c: Ctx, last: string, acted: boolean) {
   endTurn(c);
 }
 
-// 回合結束：貴族來訪（一回合最多 1 位，編號最小的），收起這次的面板，輪到下一位
+// 回合結束：貴族來訪 (一回合最多 1 位，編號最小的)，收起這次的面板，輪到下一位
 function endTurn(c: Ctx) {
   const s = c.s;
   const me = current(s);
@@ -416,7 +416,7 @@ function endTurn(c: Ctx) {
   if (at >= 0) {
     me.nobles.push(s.nobles[at]!);
     s.nobles[at] = null;
-    s.last += `，貴族 ${at + 1} 來訪 ${quiet(me.id)}（+3 分）`;
+    s.last += `，貴族 ${at + 1} 來訪 ${quiet(me.id)} (+3 分)`;
   }
   if (!s.lastRound && scoreOf(me) >= WIN_POINTS) {
     s.lastRound = true;
@@ -466,7 +466,7 @@ function endGame(c: Ctx) {
   );
 }
 
-// 輪到新玩家：沒有任何能做的動作就自動跳過（併進下一個面板的上一步）
+// 輪到新玩家：沒有任何能做的動作就自動跳過 (併進下一個面板的上一步)
 function beginTurn(c: Ctx) {
   const s = c.s;
   const me = current(s);
@@ -493,7 +493,7 @@ function timeout(c: Ctx) {
 
 // ---------- bot ----------
 
-// 候選卡的固定順序：保留卡在前（依保留順序），再來是翻開的卡（三級到一級、位置 1～4）
+// 候選卡的固定順序：保留卡在前 (依保留順序)，再來是翻開的卡 (三級到一級、位置 1～4)
 const candidates = (s: SState, me: SPlayer) => [...reservedSlots(me), ...tableSlots(s)];
 const points = (x: Slot) => cardOf(x.id).points;
 
@@ -514,7 +514,7 @@ const targetNeed = (s: SState, me: SPlayer) => {
   return t ? need(cardOf(t.id).cost, discountOf(me)) : { w: 0, b: 0, g: 0, r: 0, k: 0 };
 };
 
-// bot 這一步要做什麼（回傳和真人按按鈕一樣的 action）；沒有能做的回傳 null
+// bot 這一步要做什麼 (回傳和真人按按鈕一樣的 action)；沒有能做的回傳 null
 export function botMove(s: SState, me: SPlayer): SAction | null {
   const base = { user: me.id, seq: s.seq };
   // 1. 買得起就買分數最高的；同分付最少的；再相同取固定順序在前的
@@ -551,7 +551,7 @@ export function botMove(s: SState, me: SPlayer): SAction | null {
   return slot ? { type: 'reserve', ...base, slot } : null;
 }
 
-// bot 退回：先退目標卡用不到的（超過應付的部分，最多的先退），再退持有最多的，黃金最後
+// bot 退回：先退目標卡用不到的 (超過應付的部分，最多的先退)，再退持有最多的，黃金最後
 export function botReturn(s: SState, me: SPlayer): number[] {
   const owe = targetNeed(s, me);
   const left = { ...me.tokens };
@@ -583,9 +583,9 @@ function runBots(c: Ctx) {
 }
 
 const RULES = [
-  '輪到時做一件事：拿 3 個不同顏色的寶石各 1 個／拿 2 個同色寶石（該色庫存至少 4 個）／保留 1 張卡並拿 1 個黃金（最多保留 3 張）／買 1 張翻開的或保留的卡。',
-  '買卡時成本先扣掉已買卡的折扣（每張卡給該色 1 個永久折扣），不夠的自動用黃金補。',
-  '回合結束時手上籌碼超過 10 個要退回到 10 個；折扣達到貴族條件時貴族自動來訪（+3 分，一回合最多 1 位）。',
+  '輪到時做一件事：拿 3 個不同顏色的寶石各 1 個／拿 2 個同色寶石 (該色庫存至少 4 個)／保留 1 張卡並拿 1 個黃金 (最多保留 3 張)／買 1 張翻開的或保留的卡。',
+  '買卡時成本先扣掉已買卡的折扣 (每張卡給該色 1 個永久折扣)，不夠的自動用黃金補。',
+  '回合結束時手上籌碼超過 10 個要退回到 10 個；折扣達到貴族條件時貴族自動來訪 (+3 分，一回合最多 1 位)。',
   '有人達到 15 分時這一輪打完就結束，分數最高者勝，同分比買的發展卡張數少的勝。',
 ].join('\n');
 

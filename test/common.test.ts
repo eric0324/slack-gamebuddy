@@ -3,7 +3,7 @@ import { type GameEvent } from '../src/engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from '../src/common.js';
 
 describe('共用小工具', () => {
-  it('shuffle：回傳新陣列、不改原陣列，固定 rng 時結果固定（Fisher–Yates）', () => {
+  it('shuffle：回傳新陣列、不改原陣列，固定 rng 時結果固定 (Fisher–Yates)', () => {
     const items = [1, 2, 3, 4, 5];
     const seq = [0.1, 0.9, 0.5, 0.3];
     let i = 0;
@@ -86,7 +86,7 @@ describe('共用房間邏輯', () => {
     expect(ephemeral(c).slice(1)).toEqual(['房間已滿。', '只有房主可以加入 bot。', '只有房主可以移除 bot。']);
   });
 
-  it('cancelGame：只有房主；結束遊戲、清掉計時器、公告（可以附加文字）', () => {
+  it('cancelGame：只有房主；結束遊戲、清掉計時器、公告 (可以附加文字)', () => {
     const c = room('turn');
     expect(cancelGame(c, 'A')).toBe(false);
     expect(ephemeral(c)).toEqual(['只有房主可以取消遊戲。']);

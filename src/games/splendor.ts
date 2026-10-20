@@ -6,12 +6,12 @@ import { parseRoomCommand } from './undercover.js';
 
 const HELP = [
   '*璀璨寶石指令*',
-  '• `/game splendor new`：開房（任何人）',
-  '• `/game splendor addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/game splendor removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/game splendor start`：開始遊戲，需要 2～4 人（房主）',
-  '• `/game splendor cancel`：取消遊戲（房主）',
-  '• 「💍 行動」：輪到你時按，拿寶石、保留卡或買卡；籌碼超過 10 個時改成退回籌碼（90 秒，沒動作就跳過）',
+  '• `/game splendor new`：開房 (任何人)',
+  '• `/game splendor addbot [數量]`：加入 bot 補人數 (房主，開始前)',
+  '• `/game splendor removebot [數量]`：移除 bot (房主，開始前)',
+  '• `/game splendor start`：開始遊戲，需要 2～4 人 (房主)',
+  '• `/game splendor cancel`：取消遊戲 (房主)',
+  '• 「💍 行動」：輪到你時按，拿寶石、保留卡或買卡；籌碼超過 10 個時改成退回籌碼 (90 秒，沒動作就跳過)',
   '• 「📜 我的狀態」：隨時私下看自己的籌碼、折扣、已買的卡和保留的卡',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');

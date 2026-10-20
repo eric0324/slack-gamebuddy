@@ -1,4 +1,4 @@
-// 炸彈貓（Exploding Kittens 原版）遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyKittens(state, action, rng) → { state, events }。
+// 炸彈貓 (Exploding Kittens 原版) 遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyKittens(state, action, rng) → { state, events }。
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
 
@@ -12,7 +12,7 @@ export const PLACE_MS = 30_000;
 
 export const CATS = ['taco', 'melon', 'potato', 'beard', 'rainbow'] as const;
 export type Cat = (typeof CATS)[number];
-// 手牌的固定順序（也是選單排序）；炸彈不會留在手上
+// 手牌的固定順序 (也是選單排序)；炸彈不會留在手上
 export const CARDS = ['defuse', 'nope', 'attack', 'skip', 'favor', 'shuffle', 'future', ...CATS] as const;
 export type Card = 'bomb' | (typeof CARDS)[number];
 const ACTIONS = ['attack', 'skip', 'favor', 'shuffle', 'future'] as const;
@@ -54,10 +54,10 @@ export interface KState {
   players: KPlayer[];
   deck: Card[]; // deck[0] 是最上面
   turn: number; // 輪到的玩家 index
-  turnsLeft: number; // 這位還要進行幾回合（被攻擊是 2）
+  turnsLeft: number; // 這位還要進行幾回合 (被攻擊是 2)
   seq: number; // 每回合 +1：牌桌訊息的 ref，也用來擋掉舊選單
   nopeSeq: number; // 反對等待訊息的 ref
-  played: string[]; // 這回合出過的牌（顯示用）
+  played: string[]; // 這回合出過的牌 (顯示用)
   outCount: number;
   pending?: { card: Card; pair?: boolean; by: string; target?: string; nopes: number }; // 等反對的牌
   choosing?: { card: Card; pair?: boolean }; // phase 'target'：選對象中
@@ -98,7 +98,7 @@ const alive = (s: KState) => s.players.filter((p) => !p.out);
 const current = (s: KState) => s.players[s.turn];
 const find = (s: KState, id: string) => s.players.find((p) => p.id === id);
 const take = (hand: Card[], card: Card) => hand.splice(hand.indexOf(card), 1)[0];
-const grouped = (cards: Card[]) => CARDS.filter((c) => cards.includes(c)).map((c) => `${CARD_NAME[c]} ×${count(cards, c)}`).join('、') || '（沒有手牌）';
+const grouped = (cards: Card[]) => CARDS.filter((c) => cards.includes(c)).map((c) => `${CARD_NAME[c]} ×${count(cards, c)}`).join('、') || '(沒有手牌)';
 const playName = (card: Card, pair?: boolean) => (pair ? `一對 ${CARD_NAME[card]}` : CARD_NAME[card]);
 const targetsOf = (s: KState, id: string) => alive(s).filter((p) => p.id !== id && p.hand.length > 0);
 const nextAlive = (s: KState, from: number) => {
@@ -109,7 +109,7 @@ const nextAlive = (s: KState, from: number) => {
   return from;
 };
 
-// 只對真人送私下訊息（bot 不需要）
+// 只對真人送私下訊息 (bot 不需要)
 const tell = (c: Ctx, to: string, text: string) => {
   if (!isBot(to)) c.events.push({ type: 'ephemeral', to, text });
 };
@@ -122,7 +122,7 @@ function board(s: KState, ended = false): GameEvent {
   const lines = ended
     ? [`💣 ${mention(me.id)} 的回合結束`]
     : [
-        `💣 輪到 ${mention(me.id)}${s.turnsLeft > 1 ? `（還要 ${s.turnsLeft} 回合）` : ''}｜牌堆 ${s.deck.length} 張｜出牌或抽牌（${PLAY_MS / 1000} 秒）`,
+        `💣 輪到 ${mention(me.id)}${s.turnsLeft > 1 ? ` (還要 ${s.turnsLeft} 回合)` : ''}｜牌堆 ${s.deck.length} 張｜出牌或抽牌 (${PLAY_MS / 1000} 秒)`,
         ...s.players.map((p) => `• ${mention(p.id)}：${p.out ? '💀 出局' : `${p.hand.length} 張`}`),
         ...(s.played.length ? [`這回合出過：${s.played.join('、')}`] : []),
       ];
@@ -262,7 +262,7 @@ function nope(c: Ctx, user: string): boolean {
   take(me.hand, 'nope');
   s.pending.nopes++;
   const p = s.pending;
-  c.events.push({ type: 'announce', text: `🚫 ${mention(user)} 反對！（第 ${p.nopes} 張）` });
+  c.events.push({ type: 'announce', text: `🚫 ${mention(user)} 反對！(第 ${p.nopes} 張)` });
   c.events.push(nopePrompt(s, `🚫 ${mention(p.by)} 的 ${playName(p.card, p.pair)} 已被反對 ${p.nopes} 次：${NOPE_MS / 1000} 秒內可以再按「🚫 反對」`, true));
   c.events.push(board(s));
   startTimer(c, NOPE_MS);
@@ -296,7 +296,7 @@ function resolve(c: Ctx) {
       return backToPlay(c);
     case 'future': {
       const top = s.deck.slice(0, 3);
-      tell(c, p.by, `🔮 牌堆最上面（由上到下）：${top.map((x) => CARD_NAME[x]).join(' → ')}`);
+      tell(c, p.by, `🔮 牌堆最上面 (由上到下)：${top.map((x) => CARD_NAME[x]).join(' → ')}`);
       if (isBot(p.by)) s.botTop[p.by] = top[0] ?? null;
       c.events.push({ type: 'announce', text: `🔮 ${mention(p.by)} 看了未來。` });
       return backToPlay(c);
@@ -315,7 +315,7 @@ function askFavor(c: Ctx, to: string, from: string) {
   }
   s.phase = 'favor';
   s.favor = { from, to };
-  c.events.push({ type: 'announce', text: `🙏 等 ${mention(from)} 選一張牌給 ${mention(to)}（${FAVOR_MS / 1000} 秒）` });
+  c.events.push({ type: 'announce', text: `🙏 等 ${mention(from)} 選一張牌給 ${mention(to)} (${FAVOR_MS / 1000} 秒)` });
   menu(c, from, `🙏 選一張牌給 ${mention(to)}`, CARDS.filter((x) => giver.hand.includes(x)).map((x) => ({ value: `give:${x}`, label: `${CARD_NAME[x]} ×${count(giver.hand, x)}` })));
   startTimer(c, FAVOR_MS);
 }
@@ -372,7 +372,7 @@ function drawCard(c: Ctx) {
     take(me.hand, 'defuse');
     s.phase = 'place';
     c.events.push({ type: 'announce', text: `🧯 ${mention(me.id)} 拆解成功！正在把炸彈放回牌堆…` });
-    menu(c, me.id, '💣 要把炸彈放回牌堆哪裡？（只有你知道）', placeOptions(s.deck.length));
+    menu(c, me.id, '💣 要把炸彈放回牌堆哪裡？(只有你知道)', placeOptions(s.deck.length));
     return startTimer(c, PLACE_MS);
   }
   eliminate(c, me);
@@ -398,7 +398,7 @@ function eliminate(c: Ctx, me: KPlayer) {
   const s = c.s;
   me.hand = [];
   me.out = ++s.outCount;
-  c.events.push({ type: 'announce', text: `💀 ${mention(me.id)} 出局！（沒有拆解）` });
+  c.events.push({ type: 'announce', text: `💀 ${mention(me.id)} 出局！(沒有拆解)` });
   if (alive(s).length === 1) return endGame(c);
   passTurn(c, 1);
 }
@@ -483,8 +483,8 @@ function runBots(c: Ctx) {
 
 const RULES = [
   '💣 炸彈貓規則：輪到你時可以出任意張功能牌，最後抽一張牌結束回合。抽到 💣 炸彈貓時，有 🧯 拆解就自動拆掉並私下選炸彈放回哪裡；沒有拆解就出局。最後活下來的人贏！',
-  '⚔️ 攻擊：不抽牌結束回合，下一位要進行 2 回合｜⏭️ 跳過：不抽牌結束 1 回合｜🙏 索取：指定一人給你一張牌（他選）｜🔀 洗牌：洗牌堆｜🔮 預見未來：偷看牌堆最上面 3 張',
-  '🐱 兩張相同的貓咪卡：指定一人隨機偷一張｜🚫 反對：別人出牌後 5 秒內按頻道的「🚫 反對」讓它失效（反對也能被反對）',
+  '⚔️ 攻擊：不抽牌結束回合，下一位要進行 2 回合｜⏭️ 跳過：不抽牌結束 1 回合｜🙏 索取：指定一人給你一張牌 (他選)｜🔀 洗牌：洗牌堆｜🔮 預見未來：偷看牌堆最上面 3 張',
+  '🐱 兩張相同的貓咪卡：指定一人隨機偷一張｜🚫 反對：別人出牌後 5 秒內按頻道的「🚫 反對」讓它失效 (反對也能被反對)',
   '每回合 60 秒，超時自動抽牌。按牌桌訊息的「🃏 我的手牌」出牌，「🂠 抽牌」抽牌。',
 ].join('\n');
 

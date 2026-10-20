@@ -1,4 +1,4 @@
-// 骰子街的建築與地標資料、市場翻牌，以及擲骰後結算的純函式（紅 → 藍綠 → 紫）
+// 骰子街的建築與地標資料、市場翻牌，以及擲骰後結算的純函式 (紅 → 藍綠 → 紫)
 export type Color = 'blue' | 'green' | 'red' | 'purple';
 export type Tag = 'wheat' | 'cow' | 'gear' | 'boat' | 'bread' | 'factory' | 'fruit' | 'cup' | 'major';
 
@@ -57,14 +57,14 @@ export const LANDMARK: Record<Landmark | 'cityhall', { name: string; cost: numbe
 export const MARKET_KINDS = 10;
 const COLOR_WORD: Record<Color, string> = { blue: '藍', green: '綠', red: '紅', purple: '紫' };
 
-// 例如「咖啡館（紅｜2 元｜骰 3）」
+// 例如「咖啡館 (紅｜2 元｜骰 3)」
 export function cardLabel(code: string): string {
   const c = CARDS[code];
   const rolls = c.rolls.length > 1 ? `${c.rolls[0]}～${c.rolls[c.rolls.length - 1]}` : `${c.rolls[0]}`;
-  return `${c.name}（${COLOR_WORD[c.color]}｜${c.cost} 元｜骰 ${rolls}）`;
+  return `${c.name} (${COLOR_WORD[c.color]}｜${c.cost} 元｜骰 ${rolls})`;
 }
 
-// 還沒洗的牌堆：非紫色各 6 張，紫色張數＝玩家人數（起始的麥田、麵包店另外準備）
+// 還沒洗的牌堆：非紫色各 6 張，紫色張數＝玩家人數 (起始的麥田、麵包店另外準備)
 export function buildDeck(players: number): string[] {
   return Object.entries(CARDS).flatMap(([code, c]) => Array<string>(c.color === 'purple' ? players : 6).fill(code));
 }
@@ -107,7 +107,7 @@ const hits = (code: string, total: number) => CARDS[code].rolls.includes(total);
 // 購物中心：杯子和麵包類有收入時每張多 1 元
 const bonus = (p: Town, code: string, base: number) => (base > 0 && has(p, 'mall') && ['cup', 'bread'].includes(CARDS[code].tag) ? base + 1 : base);
 
-// 從 from 收錢（不夠就收現有的），回傳實際收到多少
+// 從 from 收錢 (不夠就收現有的)，回傳實際收到多少
 function take(from: Town, to: Town, amount: number): number {
   const paid = Math.min(amount, from.coins);
   from.coins -= paid;
@@ -154,7 +154,7 @@ function greenIncome(p: Town, code: string): number {
   }
 }
 
-// 藍色（所有人）和綠色（擲骰者自己）從銀行收錢；鮪魚船需要時才擲一次，所有鮪魚船共用
+// 藍色 (所有人) 和綠色 (擲骰者自己) 從銀行收錢；鮪魚船需要時才擲一次，所有鮪魚船共用
 export function settleBlueGreen(players: Town[], roller: number, total: number, tunaRoll: () => number[]): { lines: Line[]; tuna?: number[] } {
   const lines: Line[] = [];
   let tuna: number[] | undefined;
@@ -187,7 +187,7 @@ export function settleBlueGreen(players: Town[], roller: number, total: number, 
   return tuna ? { lines, tuna } : { lines };
 }
 
-// 不用選擇的紫色：體育館、出版社、稅務局（電視台和商業中心由 engine 停下來等選擇）
+// 不用選擇的紫色：體育館、出版社、稅務局 (電視台和商業中心由 engine 停下來等選擇)
 export function settlePurple(players: Town[], roller: number, total: number): Line[] {
   const n = players.length;
   const me = players[roller];
@@ -204,7 +204,7 @@ export function settlePurple(players: Town[], roller: number, total: number): Li
   return lines;
 }
 
-// 這個點數對擲骰者自己的收入（藍綠紫，不扣紅色；電視台算 5、商業中心算 0、鮪魚船以 7 估）；在複本上試算
+// 這個點數對擲骰者自己的收入 (藍綠紫，不扣紅色；電視台算 5、商業中心算 0、鮪魚船以 7 估)；在複本上試算
 export function income(players: Town[], roller: number, total: number): number {
   const copy = structuredClone(players);
   const me = copy[roller].id;

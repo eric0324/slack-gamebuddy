@@ -5,17 +5,17 @@ import { parseUndercoverCommand } from './undercover.js';
 
 const HELP = [
   '*阿瓦隆指令*',
-  '• `/game avalon new`：開房（任何人）',
-  '• `/game avalon addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/game avalon removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/game avalon start`：開始遊戲，需要 5～10 人（房主）',
-  '• `/game avalon next`：跳過目前的發言者（房主）',
-  '• `/game avalon cancel`：取消遊戲（房主）',
+  '• `/game avalon new`：開房 (任何人)',
+  '• `/game avalon addbot [數量]`：加入 bot 補人數 (房主，開始前)',
+  '• `/game avalon removebot [數量]`：移除 bot (房主，開始前)',
+  '• `/game avalon start`：開始遊戲，需要 5～10 人 (房主)',
+  '• `/game avalon next`：跳過目前的發言者 (房主)',
+  '• `/game avalon cancel`：取消遊戲 (房主)',
   '選隊員、投票、出任務、刺殺都用按鈕',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
-// 阿瓦隆的子指令：沒有 vote（組隊投票用按鈕）和 guess
+// 阿瓦隆的子指令：沒有 vote (組隊投票用按鈕) 和 guess
 export function parseAvalonCommand(text: string, user: string, channel: string): AAction | null {
   const action = parseUndercoverCommand(text, user, channel);
   if (!action || action.type === 'guess' || action.type === 'endDiscussion') return null;

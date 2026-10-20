@@ -37,7 +37,7 @@ export interface IState {
   questions: IQuestion[];
   guesser?: string;
   votes: Record<string, string>; // 投票者 → 被投的人
-  finished?: boolean; // 正常結束（取消的沒有）→ 可以再來一局
+  finished?: boolean; // 正常結束 (取消的沒有)→ 可以再來一局
   timerSeq: number;
   timers: { phase?: number };
 }
@@ -84,7 +84,7 @@ function deal(c: Ctx) {
     text: [
       `🕴️ 圈內人開始！🎩 主持人是 ${mention(master)}，他知道答案，只會回答是／否／不知道。`,
       '大家之中還藏著一位🕴️圈內人，他也知道答案，會暗中引導大家。',
-      `⏱️ 5 分鐘內猜出答案：直接在頻道打字發問（問答期間在頻道打的字都會送給主持人），或用 \`/game insider ask <問題>\`。`,
+      `⏱️ 5 分鐘內猜出答案：直接在頻道打字發問 (問答期間在頻道打的字都會送給主持人)，或用 \`/game insider ask <問題>\`。`,
     ].join('\n'),
     gif: 'start',
   });
@@ -140,7 +140,7 @@ function answerQuestion(c: Ctx, user: string, id: number, answer: Answer): boole
       type: 'prompt',
       kind: 'insider',
       audience: 'channel',
-      text: `🔎 找出圈內人！討論誰在引導大家（${DISCUSS_MS / 60_000} 分鐘，房主可以提早投票）`,
+      text: `🔎 找出圈內人！討論誰在引導大家 (${DISCUSS_MS / 60_000} 分鐘，房主可以提早投票)`,
       options: [{ value: 'skip', label: '🗳️ 開始投票' }],
     },
   );
@@ -156,7 +156,7 @@ function startVote(c: Ctx) {
     type: 'prompt',
     kind: 'insider',
     audience: 'channel',
-    text: `🗳️ 投票找出圈內人！每人一票（主持人也要投），不能投自己，${VOTE_MS / 60_000} 分鐘內可以改票。`,
+    text: `🗳️ 投票找出圈內人！每人一票 (主持人也要投)，不能投自己，${VOTE_MS / 60_000} 分鐘內可以改票。`,
     options: s.players.filter((p) => p.id !== s.master).map((p) => ({ value: `vote:${p.id}`, label: p.id })),
   });
   startTimer(c, VOTE_MS);

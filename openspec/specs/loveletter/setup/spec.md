@@ -6,7 +6,7 @@ TBD - created by archiving change add-loveletter-game. Update Purpose after arch
 ## Requirements
 
 ### Requirement: 情書的房間
-情書的房間 SHALL 和其他遊戲有相同的操作方式：`/game loveletter new` 開房（開房者為房主並自動加入）、房間公告上有「加入」「離開」「開始遊戲」按鈕、房主可以用 `addbot [數量]`、`removebot [數量]` 加減 bot、`/game loveletter start` 開始、`/game loveletter cancel` 取消、房主開始前離開就取消房間。人數 SHALL 在 2～6 人之間（bot 也算）。房間公告 SHALL 標示這是情書。一個頻道同時只能有一局遊戲（不分遊戲種類）。
+情書的房間 SHALL 和其他遊戲有相同的操作方式：`/game loveletter new` 開房 (開房者為房主並自動加入)、房間公告上有「加入」「離開」「開始遊戲」按鈕、房主可以用 `addbot [數量]`、`removebot [數量]` 加減 bot、`/game loveletter start` 開始、`/game loveletter cancel` 取消、房主開始前離開就取消房間。人數 SHALL 在 2～6 人之間 (bot 也算)。房間公告 SHALL 標示這是情書。一個頻道同時只能有一局遊戲 (不分遊戲種類)。
 
 #### Scenario: 人數不足
 - **WHEN** 房間只有 1 人，房主按下開始
@@ -18,7 +18,7 @@ TBD - created by archiving change add-loveletter-game. Update Purpose after arch
 
 #### Scenario: 加 bot 補位
 - **WHEN** 房間只有房主 1 人，房主輸入 `/game loveletter addbot 2` 後按開始
-- **THEN** 3 人（1 位真人、2 個 bot）開始遊戲
+- **THEN** 3 人 (1 位真人、2 個 bot) 開始遊戲
 
 #### Scenario: bot 超過上限
 - **WHEN** 房間已有 5 人，房主輸入 `/game loveletter addbot 3`
@@ -29,12 +29,12 @@ TBD - created by archiving change add-loveletter-game. Update Purpose after arch
 
 | 點數 | 角色 | 張數 | 效果 |
 |---|---|---|---|
-| 0 | 間諜 | 2 | 沒有立即效果；一輪結束時，如果只有一位還在場的玩家出過（或被棄掉）間諜，他多得 1 個好感標記 |
+| 0 | 間諜 | 2 | 沒有立即效果；一輪結束時，如果只有一位還在場的玩家出過 (或被棄掉) 間諜，他多得 1 個好感標記 |
 | 1 | 衛兵 | 6 | 選一位其他玩家並猜一個不是衛兵的角色，猜中對方出局 |
 | 2 | 神父 | 2 | 偷看一位其他玩家的手牌 |
 | 3 | 男爵 | 2 | 和一位其他玩家私下比手牌，點數小的出局，同點沒事 |
 | 4 | 侍女 | 2 | 直到你下一次輪到之前，其他人的效果不能選你 |
-| 5 | 王子 | 2 | 選一位玩家（可以選自己）棄掉手牌（不執行效果）再抽一張 |
+| 5 | 王子 | 2 | 選一位玩家 (可以選自己) 棄掉手牌 (不執行效果) 再抽一張 |
 | 6 | 宰相 | 2 | 從牌堆抽 2 張，和手牌一起留 1 張，其他放回牌堆底 |
 | 7 | 國王 | 1 | 和一位其他玩家交換手牌 |
 | 8 | 伯爵夫人 | 1 | 沒有效果；手上同時有國王或王子時一定要出伯爵夫人 |
@@ -45,7 +45,7 @@ TBD - created by archiving change add-loveletter-game. Update Purpose after arch
 - **THEN** 共 21 張，各角色張數如上表
 
 ### Requirement: 每輪發牌
-每輪開始時，系統 SHALL 洗牌、蓋掉 1 張牌（這輪都不公開，只有王子在牌堆抽完時會用到），2 人局 SHALL 再翻開 3 張牌公開放在一旁（這輪不會用到）。每位玩家 SHALL 拿 1 張手牌，系統 SHALL 私訊每位真人自己的手牌和所有角色效果的說明。第 1 輪由隨機一位玩家先開始；之後每輪由上一輪得到好感標記的玩家先開始（上一輪有多位勝者時從中隨機一位；間諜的加分不算），順序固定。頻道 SHALL 公告第幾輪、玩家順序、每個人目前的好感標記數和獲勝需要的數量（2 人局另外公告翻開的 3 張），SHALL NOT 洩漏任何人的手牌和蓋掉的牌。
+每輪開始時，系統 SHALL 洗牌、蓋掉 1 張牌 (這輪都不公開，只有王子在牌堆抽完時會用到)，2 人局 SHALL 再翻開 3 張牌公開放在一旁 (這輪不會用到)。每位玩家 SHALL 拿 1 張手牌，系統 SHALL 私訊每位真人自己的手牌和所有角色效果的說明。第 1 輪由隨機一位玩家先開始；之後每輪由上一輪得到好感標記的玩家先開始 (上一輪有多位勝者時從中隨機一位；間諜的加分不算)，順序固定。頻道 SHALL 公告第幾輪、玩家順序、每個人目前的好感標記數和獲勝需要的數量 (2 人局另外公告翻開的 3 張)，SHALL NOT 洩漏任何人的手牌和蓋掉的牌。
 
 #### Scenario: 4 人發牌
 - **WHEN** 4 人開始遊戲
@@ -60,7 +60,7 @@ TBD - created by archiving change add-loveletter-game. Update Purpose after arch
 - **THEN** 第 2 輪由 B 先開始
 
 ### Requirement: 看手牌
-遊戲進行中，每次輪到新的玩家時頻道的按鈕列 SHALL 有「👀 我的手牌」。遊戲裡的玩家按下時，系統 SHALL 只讓他看到自己目前的手牌、是否受到侍女保護、以及自己的好感標記數；不在遊戲裡或已經出局的人按時，SHALL 只讓他看到「你不在這一輪」。手牌因為別人的效果（國王交換、王子棄牌重抽）改變時，系統 SHALL 私訊受影響的真人他的新手牌。
+遊戲進行中，每次輪到新的玩家時頻道的按鈕列 SHALL 有「👀 我的手牌」。遊戲裡的玩家按下時，系統 SHALL 只讓他看到自己目前的手牌、是否受到侍女保護、以及自己的好感標記數；不在遊戲裡或已經出局的人按時，SHALL 只讓他看到「你不在這一輪」。手牌因為別人的效果 (國王交換、王子棄牌重抽) 改變時，系統 SHALL 私訊受影響的真人他的新手牌。
 
 #### Scenario: 查看手牌
 - **WHEN** A 手上是神父，A 按「👀 我的手牌」
@@ -71,7 +71,7 @@ TBD - created by archiving change add-loveletter-game. Update Purpose after arch
 - **THEN** A 收到私訊，告訴他新的手牌
 
 ### Requirement: 遊戲清單與指令說明
-`/game` 的遊戲清單和遊戲大廳 SHALL 列出情書的名稱、代號 `loveletter`、人數（2～6 人）和開房方式。輸入 `/game loveletter help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到情書的條列式指令說明。
+`/game` 的遊戲清單和遊戲大廳 SHALL 列出情書的名稱、代號 `loveletter`、人數 (2～6 人) 和開房方式。輸入 `/game loveletter help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到情書的條列式指令說明。
 
 #### Scenario: 查看指令
 - **WHEN** 使用者輸入 `/game loveletter help`

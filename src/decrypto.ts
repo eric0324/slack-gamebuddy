@@ -18,7 +18,7 @@ const TEAMS: Team[] = ['black', 'white'];
 const TEAM_NAME: Record<Team, string> = { black: '⚫ 黑隊', white: '⚪ 白隊' };
 const other = (t: Team): Team => (t === 'black' ? 'white' : 'black');
 
-// 1～4 取 3 個不重複數字的所有排列（24 組），依字典順序
+// 1～4 取 3 個不重複數字的所有排列 (24 組)，依字典順序
 const CODES = [1, 2, 3, 4].flatMap((a) => [1, 2, 3, 4].flatMap((b) => [1, 2, 3, 4].map((c) => [a, b, c])))
   .filter(([a, b, c]) => a !== b && b !== c && a !== c)
   .map((x) => x.join(''));
@@ -90,7 +90,7 @@ const decoders = (s: DState, t: Team) => s.teams[t].order.filter((id) => id !== 
 const tokens = (s: DState) => TEAMS.map((t) => `${TEAM_NAME[t]} 🕵️ ${s.teams[t].intercept}　❌ ${s.teams[t].miss}`).join('｜');
 const clueLine = (s: DState, t: Team) => {
   const cl = s.teams[t].clues;
-  return `${TEAM_NAME[t]}（${mention(encryptor(s, t))}）：${cl ? cl.join(' → ') : '（沒有提示）'}`;
+  return `${TEAM_NAME[t]} (${mention(encryptor(s, t))})：${cl ? cl.join(' → ') : '(沒有提示)'}`;
 };
 
 // 開局：隨機分隊，每隊 4 個祕密詞，私訊給隊員
@@ -106,7 +106,7 @@ function deal(c: Ctx) {
   const roster = (t: Team) => `${TEAM_NAME[t]}：${s.teams[t].order.map(mention).join('、')}`;
   c.events.push({
     type: 'announce',
-    text: `🔐 截碼戰開始！每隊有 4 個祕密詞（已私訊），加密者用提示讓隊友解出 3 碼密碼，也別讓對手攔截。\n攔截成功 2 次獲勝、自己解錯 2 次落敗，最多 ${MAX_ROUNDS} 回合。\n${roster('black')}\n${roster('white')}`,
+    text: `🔐 截碼戰開始！每隊有 4 個祕密詞 (已私訊)，加密者用提示讓隊友解出 3 碼密碼，也別讓對手攔截。\n攔截成功 2 次獲勝、自己解錯 2 次落敗，最多 ${MAX_ROUNDS} 回合。\n${roster('black')}\n${roster('white')}`,
     gif: 'start',
   });
   for (const t of TEAMS) {
@@ -136,7 +136,7 @@ function startRound(c: Ctx) {
   c.events.push(
     {
       type: 'announce',
-      text: `🔐 第 ${s.round + 1}／${MAX_ROUNDS} 回合：加密者 ${TEAMS.map((t) => `${TEAM_NAME[t]} ${mention(encryptor(s, t))}`).join('、')} 請寫提示（${PHASE_MS / 60_000} 分鐘）\n${tokens(s)}`,
+      text: `🔐 第 ${s.round + 1}／${MAX_ROUNDS} 回合：加密者 ${TEAMS.map((t) => `${TEAM_NAME[t]} ${mention(encryptor(s, t))}`).join('、')} 請寫提示 (${PHASE_MS / 60_000} 分鐘)\n${tokens(s)}`,
     },
     {
       type: 'prompt',
@@ -177,8 +177,8 @@ function startVote(c: Ctx) {
       text: [
         `🔎 第 ${s.round + 1} 回合的提示：`,
         ...TEAMS.map((t) => clueLine(s, t)),
-        steal ? '按「🔓」解自己隊的密碼（加密者不投），按「🕵️」攔截對方的密碼，可以改選' : '按「🔓」解自己隊的密碼（加密者不投），可以改選；第 1 回合不攔截',
-        `（${PHASE_MS / 60_000} 分鐘）`,
+        steal ? '按「🔓」解自己隊的密碼 (加密者不投)，按「🕵️」攔截對方的密碼，可以改選' : '按「🔓」解自己隊的密碼 (加密者不投)，可以改選；第 1 回合不攔截',
+        `(${PHASE_MS / 60_000} 分鐘)`,
       ].join('\n'),
     },
     {
@@ -257,11 +257,11 @@ function reveal(c: Ctx) {
     const code = team.code!.join('');
     const ok = decode === code;
     if (!ok) team.miss++;
-    let line = `${TEAM_NAME[t]} 密碼 ${fmt(code)}｜解碼 ${decode ? fmt(decode) : '（沒有人投）'} ${ok ? '✅' : '❌ 解錯'}`;
+    let line = `${TEAM_NAME[t]} 密碼 ${fmt(code)}｜解碼 ${decode ? fmt(decode) : '(沒有人投)'} ${ok ? '✅' : '❌ 解錯'}`;
     if (s.round > 0) {
       const caught = steal === s.teams[other(t)].code!.join('');
       if (caught) team.intercept++;
-      line += `｜攔截${TEAM_NAME[other(t)]} ${steal ? fmt(steal) : '（沒有人投）'} ${caught ? '🕵️ 成功' : '✗'}`;
+      line += `｜攔截${TEAM_NAME[other(t)]} ${steal ? fmt(steal) : '(沒有人投)'} ${caught ? '🕵️ 成功' : '✗'}`;
     }
     lines.push(line);
     team.code!.forEach((n, i) => team.clues?.[i] && team.history[n - 1].push(team.clues[i]));
@@ -338,7 +338,7 @@ function handle(c: Ctx, action: GameAction): boolean {
         kind: 'decryptoClue',
         title: '寫提示',
         label: `密碼 ${code.join('-')}`,
-        fields: code.map((n, i) => `第 ${i + 1} 個提示（${n} ${s.teams[t].words[n - 1]}）`),
+        fields: code.map((n, i) => `第 ${i + 1} 個提示 (${n} ${s.teams[t].words[n - 1]})`),
       });
       return false;
     }

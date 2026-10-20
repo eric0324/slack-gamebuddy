@@ -85,7 +85,7 @@ const menu = (c: Ctx, user: string, text: string, options: { value: string; labe
 };
 const MINE = { value: 'mine', label: '👀 我的牌' };
 
-// 下一位還沒出局（而且不在 skip 裡）的玩家
+// 下一位還沒出局 (而且不在 skip 裡) 的玩家
 function nextFrom(s: SkState, from: number, skip: string[] = []) {
   for (let i = 1; i <= s.players.length; i++) {
     const k = (from + i) % s.players.length;
@@ -113,13 +113,13 @@ function startRound(c: Ctx, starter: number) {
   c.events.push(
     {
       type: 'announce',
-      text: `🃏 第 ${s.round} 輪：${s.players.filter(alive).map((p) => `${mention(p.id)} ${p.hand.length} 張（成功 ${p.wins}）`).join('、')}\n大家同時蓋第一張牌，之後從 ${mention(s.players[starter].id)} 開始（${STEP_MS / 60_000} 分鐘）`,
+      text: `🃏 第 ${s.round} 輪：${s.players.filter(alive).map((p) => `${mention(p.id)} ${p.hand.length} 張 (成功 ${p.wins})`).join('、')}\n大家同時蓋第一張牌，之後從 ${mention(s.players[starter].id)} 開始 (${STEP_MS / 60_000} 分鐘)`,
     },
     {
       type: 'prompt',
       kind: 'skull',
       audience: 'channel',
-      text: '按「🃏 蓋牌」選一張蓋下去（只有你看得到選了什麼）',
+      text: '按「🃏 蓋牌」選一張蓋下去 (只有你看得到選了什麼)',
       options: [{ value: 'place', label: '🃏 蓋牌' }, MINE],
     },
   );
@@ -149,7 +149,7 @@ function placeDisc(c: Ctx, user: string, disc: Disc): boolean {
     return true;
   }
   const done = s.players.filter((x) => alive(x) && x.stack.length).length;
-  c.events.push({ type: 'announce', text: `🃏 ${mention(user)} 蓋了一張牌（${done}/${aliveCount(s)}）` });
+  c.events.push({ type: 'announce', text: `🃏 ${mention(user)} 蓋了一張牌 (${done}/${aliveCount(s)})` });
   if (done === aliveCount(s)) promptTurn(c, true);
   return true;
 }
@@ -161,7 +161,7 @@ function promptTurn(c: Ctx, first = false) {
   s.step++;
   const p = current(s);
   c.events.push(
-    { type: 'announce', text: `${first ? '✅ 大家都蓋好了。' : ''}👉 輪到 ${mention(p.id)}：再蓋一張或開始挑戰（${STEP_MS / 60_000} 分鐘）\n${status(s)}` },
+    { type: 'announce', text: `${first ? '✅ 大家都蓋好了。' : ''}👉 輪到 ${mention(p.id)}：再蓋一張或開始挑戰 (${STEP_MS / 60_000} 分鐘)\n${status(s)}` },
     {
       type: 'prompt',
       kind: 'skull',
@@ -179,12 +179,12 @@ function promptBid(c: Ctx) {
   const p = current(s);
   const nums = Array.from({ length: total(s) - s.bid!.n }, (_, i) => s.bid!.n + 1 + i);
   c.events.push(
-    { type: 'announce', text: `📢 目前最高 ${s.bid!.n}（${mention(s.bid!.by)}）。輪到 ${mention(p.id)}：加注或放棄（${STEP_MS / 60_000} 分鐘）` },
+    { type: 'announce', text: `📢 目前最高 ${s.bid!.n} (${mention(s.bid!.by)})。輪到 ${mention(p.id)}：加注或放棄 (${STEP_MS / 60_000} 分鐘)` },
     {
       type: 'prompt',
       kind: 'skull',
       audience: 'channel',
-      text: `${mention(p.id)} 要喊多少？（桌上共 ${total(s)} 張）`,
+      text: `${mention(p.id)} 要喊多少？(桌上共 ${total(s)} 張)`,
       options: [...nums.map((n) => ({ value: `bid:${s.step}:${n}`, label: `${n}` })), { value: `pass:${s.step}`, label: '🙅 放棄' }, MINE],
       perRow: 6,
     },
@@ -217,7 +217,7 @@ function passBid(c: Ctx, user: string): boolean {
   return true;
 }
 
-// 挑戰者先自動翻開自己整疊（由上往下）
+// 挑戰者先自動翻開自己整疊 (由上往下)
 function startFlip(c: Ctx): boolean {
   const s = c.s;
   s.phase = 'flip';
@@ -248,8 +248,8 @@ function promptFlip(c: Ctx) {
     type: 'prompt',
     kind: 'skull',
     audience: 'channel',
-    text: `🔍 ${mention(s.bid!.by)} 已翻開 ${s.revealed}／${s.bid!.n} 朵玫瑰，選要翻誰的牌（${STEP_MS / 60_000} 分鐘）`,
-    options: [...flipChoices(s).map((p) => ({ value: `flip:${s.step}:${p.id}`, label: `翻 ${p.id} （剩 ${p.stack.length - p.flipped} 張）` })), MINE],
+    text: `🔍 ${mention(s.bid!.by)} 已翻開 ${s.revealed}／${s.bid!.n} 朵玫瑰，選要翻誰的牌 (${STEP_MS / 60_000} 分鐘)`,
+    options: [...flipChoices(s).map((p) => ({ value: `flip:${s.step}:${p.id}`, label: `翻 ${p.id} (剩 ${p.stack.length - p.flipped} 張)` })), MINE],
   });
   startTimer(c, STEP_MS);
 }
@@ -272,7 +272,7 @@ function success(c: Ctx): boolean {
   const s = c.s;
   const me = find(s, s.bid!.by)!;
   me.wins++;
-  c.events.push({ type: 'announce', text: `🎉 ${mention(me.id)} 挑戰成功！（成功 ${me.wins} 次）` });
+  c.events.push({ type: 'announce', text: `🎉 ${mention(me.id)} 挑戰成功！(成功 ${me.wins} 次)` });
   if (me.wins >= WINS) endGame(c, me.id);
   else startRound(c, s.players.indexOf(me));
   return true;
@@ -292,7 +292,7 @@ function fail(c: Ctx, owner: string): boolean {
     const left = me.hand.length ? me.hand.map((d) => ICON[d]).join(' ') : '沒有牌了';
     c.events.push({ type: 'dm', to: me.id, text: `🗑️ 你失去了${NAME[lost]}，剩下：${left}` });
   }
-  if (!me.hand.length) c.events.push({ type: 'announce', text: `☠️ ${mention(me.id)} 出局（沒有牌了）！` });
+  if (!me.hand.length) c.events.push({ type: 'announce', text: `☠️ ${mention(me.id)} 出局 (沒有牌了)！` });
   const left = s.players.filter(alive);
   if (left.length === 1) {
     endGame(c, left[0].id);
@@ -328,14 +328,14 @@ function placeMenu(c: Ctx, user: string): boolean {
   const options = (['rose', 'skull'] as Disc[])
     .filter((d) => p.hand.includes(d))
     .map((d) => ({ value: `disc:${s.step}:${d}`, label: d === 'rose' ? '🌹 蓋玫瑰' : '💀 蓋骷髏' }));
-  return menu(c, user, '選一張蓋下去（只有你看得到）', options);
+  return menu(c, user, '選一張蓋下去 (只有你看得到)', options);
 }
 
 function challengeMenu(c: Ctx, user: string): boolean {
   const s = c.s;
   if (s.phase !== 'turn' || current(s).id !== user) return reply(c, user, '還沒輪到你。');
   const options = Array.from({ length: total(s) }, (_, i) => ({ value: `bid:${s.step}:${i + 1}`, label: `${i + 1}` }));
-  return menu(c, user, `你能翻開幾朵玫瑰？（桌上共 ${total(s)} 張，只有你看得到）`, options, 6);
+  return menu(c, user, `你能翻開幾朵玫瑰？(桌上共 ${total(s)} 張，只有你看得到)`, options, 6);
 }
 
 function showMine(c: Ctx, user: string): boolean {
@@ -345,11 +345,11 @@ function showMine(c: Ctx, user: string): boolean {
   if (!alive(p)) return reply(c, user, '你已經出局了。');
   const roses = p.hand.filter((d) => d === 'rose').length;
   const skull = p.hand.includes('skull') ? '骷髏在手上' : '骷髏不在手上';
-  const stack = p.stack.length ? p.stack.map((d) => ICON[d]).join(' → ') : '（沒有）';
+  const stack = p.stack.length ? p.stack.map((d) => ICON[d]).join(' → ') : '(沒有)';
   return reply(
     c,
     user,
-    `👀 你的牌：手上 ${roses} 朵玫瑰、${skull}\n牌疊（由下到上）：${stack}\n共 ${p.hand.length + p.stack.length} 張，成功 ${p.wins} 次`,
+    `👀 你的牌：手上 ${roses} 朵玫瑰、${skull}\n牌疊 (由下到上)：${stack}\n共 ${p.hand.length + p.stack.length} 張，成功 ${p.wins} 次`,
   );
 }
 

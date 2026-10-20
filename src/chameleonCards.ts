@@ -1,4 +1,4 @@
-// 變色龍主題卡：每張 16 個詞，依序排成 4×4（A1～A4、B1～B4、C1～C4、D1～D4）
+// 變色龍主題卡：每張 16 個詞，依序排成 4×4 (A1～A4、B1～B4、C1～C4、D1～D4)
 export interface ChameleonCard {
   topic: string;
   words: string[];

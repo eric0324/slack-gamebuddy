@@ -5,7 +5,7 @@
 
 ## 2. 富饒之城牌桌訊息
 
-- [x] 2.1 先寫 `test/citadels.test.ts` 測試，對應 spec「牌桌訊息」四個 scenario（第一行粗體 👉 + @、其他人只有 `{{name:}}`、👉 標在輪到的那一行、回合結束那行沒有 @），並更新既有斷言（例如 `🦹 盜賊 <@p1>`），確認紅燈
+- [x] 2.1 先寫 `test/citadels.test.ts` 測試，對應 spec「牌桌訊息」四個 scenario (第一行粗體 👉 + @、其他人只有 `{{name:}}`、👉 標在輪到的那一行、回合結束那行沒有 @)，並更新既有斷言 (例如 `🦹 盜賊 <@p1>`)，確認紅燈
 - [x] 2.2 改 `src/citadels.ts` 的 `board()`，`npx vitest run test/citadels.test.ts` 全綠
 
 ## 3. Slack adapter 換名字
@@ -19,10 +19,10 @@
 
 ## 5. 回合選單列出自己的城市
 
-- [x] 5.1 先寫 `test/citadels.test.ts` 測試，對應「回合選單」新增的兩個 scenario（收集前後的選單、建造清單都有「🏘️ 你的城市」），確認紅燈
+- [x] 5.1 先寫 `test/citadels.test.ts` 測試，對應「回合選單」新增的兩個 scenario (收集前後的選單、建造清單都有「🏘️ 你的城市」)，確認紅燈
 - [x] 5.2 改 `src/citadels.ts` 的 `turnMenu()`，`npx vitest run` 全綠
 
 ## 6. 場上一覽
 
-- [x] 6.1 先寫 `test/citadels.test.ts` 測試，對應「回合選單」的場上一覽 scenario 和「我的狀態」的場上一覽 scenario（有 `👥 場上：`、每人一行、沒有 `<@`），確認紅燈
+- [x] 6.1 先寫 `test/citadels.test.ts` 測試，對應「回合選單」的場上一覽 scenario 和「我的狀態」的場上一覽 scenario (有 `👥 場上：`、每人一行、沒有 `<@`)，確認紅燈
 - [x] 6.2 改 `src/citadels.ts` 的 `turnMenu()` 和 `status()`，`npx vitest run` 全綠

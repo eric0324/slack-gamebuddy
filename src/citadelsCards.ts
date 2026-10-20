@@ -1,4 +1,4 @@
-// 富饒之城（Citadels 經典版）的牌組資料：8 個角色、66 張建築牌（含 12 張紫卡）
+// 富饒之城 (Citadels 經典版) 的牌組資料：8 個角色、66 張建築牌 (含 12 張紫卡)
 export type Rank = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 export type Color = 'noble' | 'religious' | 'trade' | 'military' | 'special';
 
@@ -38,7 +38,7 @@ export const DISTRICTS: Record<string, District> = {
   prison: d('監獄', 'military', 2, 3),
   battlefield: d('戰場', 'military', 3, 3),
   fortress: d('堡壘', 'military', 5, 2),
-  hauntedCity: d('鬼城', 'special', 2, 1, '結束時算五色可以當任何一種顏色（最後一輪建的不行）'),
+  hauntedCity: d('鬼城', 'special', 2, 1, '結束時算五色可以當任何一種顏色 (最後一輪建的不行)'),
   keep: d('要塞', 'special', 3, 2, '不會被軍閥破壞'),
   laboratory: d('實驗室', 'special', 5, 1, '自己的回合一次：棄 1 張手牌拿 1 金'),
   smithy: d('鐵匠鋪', 'special', 5, 1, '自己的回合一次：付 2 金抽 3 張'),
@@ -56,7 +56,7 @@ export const DECK: string[] = Object.entries(DISTRICTS).flatMap(([id, x]) => Arr
 // 計分時的價值：大學、龍門算 8，其他照費用
 export const districtScore = (id: string) => (id === 'university' || id === 'dragonGate' ? 8 : DISTRICTS[id].cost);
 
-// 顯示：「🟡 城堡（4）」
-export const districtLabel = (id: string) => `${COLOR_EMOJI[DISTRICTS[id].color]} ${DISTRICTS[id].name}（${DISTRICTS[id].cost}）`;
+// 顯示：「🟡 城堡 (4)」
+export const districtLabel = (id: string) => `${COLOR_EMOJI[DISTRICTS[id].color]} ${DISTRICTS[id].name} (${DISTRICTS[id].cost})`;
 // 附紫卡說明
 export const districtInfo = (id: string) => districtLabel(id) + (DISTRICTS[id].desc ? `：${DISTRICTS[id].desc}` : '');

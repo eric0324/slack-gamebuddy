@@ -12,7 +12,7 @@ type Kind = 'werewolf' | GameKind;
 type Panel = { url?: string; user: string }; // 這次按鈕所在的私下訊息：response_url 和按的人
 type OtherKind = GameKind;
 
-// 狼人殺以外的遊戲：代號 → 設定（engine、指令解析、按鈕對應、說明、大廳資訊）
+// 狼人殺以外的遊戲：代號 → 設定 (engine、指令解析、按鈕對應、說明、大廳資訊)
 const DEFS = Object.fromEntries(GAMES.map((g) => [g.kind, g])) as unknown as Record<GameKind, GameDef<any, any>>;
 
 // 只列出用到的 WebClient 方法，測試時可以換成假的 client
@@ -48,27 +48,27 @@ const postJson = async (url: string, payload: object) => {
 
 const HELP = [
   '*狼人殺指令*',
-  '• `/werewolf new`：開房（任何人）',
-  '• `/werewolf addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/werewolf removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/werewolf start`：開始遊戲，需要 6～12 人（房主）',
-  '• `/werewolf next`：跳過目前的發言者或遺言（房主）',
-  '• `/werewolf vote`：結束輪流發言，直接投票（房主）',
-  '• `/werewolf cancel`：取消遊戲（房主）',
-  '• `/werewolf stats [@某人]`：查詢自己或別人在這個頻道的戰績（任何人）',
+  '• `/werewolf new`：開房 (任何人)',
+  '• `/werewolf addbot [數量]`：加入 bot 補人數 (房主，開始前)',
+  '• `/werewolf removebot [數量]`：移除 bot (房主，開始前)',
+  '• `/werewolf start`：開始遊戲，需要 6～12 人 (房主)',
+  '• `/werewolf next`：跳過目前的發言者或遺言 (房主)',
+  '• `/werewolf vote`：結束輪流發言，直接投票 (房主)',
+  '• `/werewolf cancel`：取消遊戲 (房主)',
+  '• `/werewolf stats [@某人]`：查詢自己或別人在這個頻道的戰績 (任何人)',
   `📖 完整說明：<${encodeURI('https://github.com/eric0324/slack-gamebuddy/wiki/狼人殺-指令')}|指令>、<${RULES_URL}|遊戲規則>`,
 ].join('\n');
 
 const GAME_LIST = [
   '*可以玩的遊戲*',
-  '• 🐺 *狼人殺*（`werewolf`）：6～12 人，開房 `/game werewolf new`（或 `/werewolf new`）',
-  ...GAMES.map((g) => `• ${g.emoji} *${g.name}*（\`${g.kind}\`）：${g.players}${'noBots' in g ? '（不支援 bot）' : ''}，開房 \`/game ${g.kind} new\``),
+  '• 🐺 *狼人殺* (`werewolf`)：6～12 人，開房 `/game werewolf new` (或 `/werewolf new`)',
+  ...GAMES.map((g) => `• ${g.emoji} *${g.name}* (\`${g.kind}\`)：${g.players}${'noBots' in g ? ' (不支援 bot)' : ''}，開房 \`/game ${g.kind} new\``),
   '各遊戲的指令：`/game <遊戲代號> help`，例如 `/game liarsdice help`',
   '📊 戰績：`/game stats [@某人]`；排行榜：`/game rank [遊戲代號]`',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
-// 遊戲代號 → 顯示名稱（戰績和排行榜用）
+// 遊戲代號 → 顯示名稱 (戰績和排行榜用)
 const gameLabel = (kind: string) => (kind === 'werewolf' ? '🐺 狼人殺' : kind in DEFS ? `${DEFS[kind as GameKind].emoji} ${DEFS[kind as GameKind].name}` : kind);
 
 // Slack 的 *粗體* 和 `程式碼` 標記外側不能緊貼文字；中文沒有空格，緊貼中文或全形標點時補一個空格
@@ -104,7 +104,7 @@ function lobbyBlocks(channel: string, category = CATEGORIES[0].key) {
     },
     ...CATALOG.map((g, i) => ({ g, i })).filter(({ g }) => g.category === category).map(({ g, i }) => ({
       type: 'section',
-      text: { type: 'mrkdwn', text: slackText(`${g.emoji} *${g.name}*（\`${g.kind}\`）${g.players}\n${g.desc}`) },
+      text: { type: 'mrkdwn', text: slackText(`${g.emoji} *${g.name}* (\`${g.kind}\`) ${g.players}\n${g.desc}`) },
       accessory: button('lobbyOpen', i, '開房', channel, g.kind),
     })),
     { type: 'context', elements: [{ type: 'mrkdwn', text: slackText(`看指令：\`/game <代號> help\`｜📖 <${WIKI}|wiki>`) }] },
@@ -168,7 +168,7 @@ export function buttonAction(kind: string, value: string, user: string, channel 
   }
 }
 
-// 每個按鈕的 action_id 是 `ww:<kind>:<index>`（同一則訊息裡不能重複），value 是 `<遊戲頻道>|<選項值>`
+// 每個按鈕的 action_id 是 `ww:<kind>:<index>` (同一則訊息裡不能重複)，value 是 `<遊戲頻道>|<選項值>`
 const button = (kind: string, i: number, label: string, channel: string, value: string) => ({
   type: 'button',
   action_id: `ww:${kind}:${i}`,
@@ -214,22 +214,22 @@ export class GameHost {
     return kind !== undefined && kind in DEFS;
   }
 
-  // 某款遊戲在這個頻道的狀態（沒有就是 undefined）
+  // 某款遊戲在這個頻道的狀態 (沒有就是 undefined)
   state<K extends GameKind>(kind: K, channel: string): StateOf<K> | undefined {
     return this.states.get(kind)!.get(channel) as StateOf<K> | undefined;
   }
 
-  // 直接設定遊戲狀態（測試用）
+  // 直接設定遊戲狀態 (測試用)
   setState<K extends GameKind>(kind: K, channel: string, state: StateOf<K>): void {
     this.states.get(kind)!.set(channel, state);
   }
 
-  // 等目前排隊中的訊息都送完（測試用）
+  // 等目前排隊中的訊息都送完 (測試用)
   idle(): Promise<void> {
     return this.queue;
   }
 
-  // 頻道裡正在進行（還沒結束）的是哪款遊戲
+  // 頻道裡正在進行 (還沒結束) 的是哪款遊戲
   private active(channel: string): Kind | null {
     const w = this.games.get(channel);
     if (w && w.phase !== 'ended') return 'werewolf';
@@ -263,7 +263,7 @@ export class GameHost {
     return this.showLobby(channel, user);
   }
 
-  // `/werewolf <子指令>`（也是 `/game werewolf <子指令>`）
+  // `/werewolf <子指令>` (也是 `/game werewolf <子指令>`)
   command(channel: string, user: string, userName: string, text: string): Promise<void> {
     this.names.set(user, userName);
     const [sub, ...args] = text.trim().split(/\s+/);
@@ -286,7 +286,7 @@ export class GameHost {
     return this.queue;
   }
 
-  // `/game <遊戲> <子指令>`（狼人殺以外的遊戲）
+  // `/game <遊戲> <子指令>` (狼人殺以外的遊戲)
   private play(kind: OtherKind, channel: string, user: string, text: string): Promise<void> {
     const def = DEFS[kind];
     const action = def.parse(text, user, channel);
@@ -326,8 +326,8 @@ export class GameHost {
       .then((ok) => (ok ? undefined : this.showLobby(channel, user, category)));
   }
 
-  // triggerId：這次按鈕點擊的 trigger_id，engine 要開視窗時用（3 秒內有效）；responseUrl：換掉 ephemeral 訊息用
-  // fromEphemeral：按鈕在私下訊息上，回應可以取代那則訊息（牌桌上的按鈕不行，否則會把牌桌換掉）
+  // triggerId：這次按鈕點擊的 trigger_id，engine 要開視窗時用 (3 秒內有效)；responseUrl：換掉 ephemeral 訊息用
+  // fromEphemeral：按鈕在私下訊息上，回應可以取代那則訊息 (牌桌上的按鈕不行，否則會把牌桌換掉)
   button(actionId: string, value: string, user: string, userName: string, triggerId?: string, responseUrl?: string, fromEphemeral = false): Promise<void> {
     this.names.set(user, userName);
     const kind = actionId.split(':')[1];
@@ -444,7 +444,7 @@ export class GameHost {
     return id;
   }
 
-  // 把選項文字裡的玩家 id 換成名字（按鈕只能放純文字，不能用 <@id>）
+  // 把選項文字裡的玩家 id 換成名字 (按鈕只能放純文字，不能用 <@id>)
   private label(text: string) {
     return text
       .split(' ')
@@ -516,7 +516,7 @@ export class GameHost {
             return send(text, [{ type: 'section', text: { type: 'mrkdwn', text } }, ...actions]);
           }
         };
-        // 只讓某人看到的按鈕選單（例如花火的給提示）
+        // 只讓某人看到的按鈕選單 (例如花火的給提示)
         if (e.audience === 'ephemeral') {
           if (await this.replacePanel(panel, e, e.user!, e.text, blocks)) return;
           await withImages((text, blocks) => chat.postEphemeral({ channel, user: e.user!, text, blocks }));
@@ -590,7 +590,8 @@ export class GameHost {
         const rules = `${WIKI}/${encodeURI(`${title.replaceAll(' ', '-')}-遊戲規則`)}`;
         const def = kind === 'werewolf' ? undefined : DEFS[kind];
         const max = def ? Number(def.players.match(/(\d+) 人/)![1]) : MAX_PLAYERS; // 遊戲清單人數範圍的最大值
-        const text = `${title}房間（房主 ${mention(e.host)}）\n玩家（${e.players.length}/${max}）：${e.players.map(mention).join(' ')}\n📖 第一次玩？先看 <${rules}|${title}遊戲規則>`;
+        const name = title.endsWith(')') ? `${title} ` : title; // 名稱以括號結尾時補空白，例如「心電感應 (合作) 房間」
+        const text = `${name}房間 (房主 ${mention(e.host)})\n玩家 (${e.players.length}/${max})：${e.players.map(mention).join(' ')}\n📖 第一次玩？先看 <${rules}|${name}遊戲規則>`;
         const blocks: unknown[] = [{ type: 'section', text: { type: 'mrkdwn', text } }];
         if (e.open) {
           const elements = [

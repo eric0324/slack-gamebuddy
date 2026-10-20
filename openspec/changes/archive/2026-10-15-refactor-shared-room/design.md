@@ -1,7 +1,7 @@
 ## Context
 
 - ② 已經把 `reply`、`lobbyEvent`、`startTimer`、`shuffle` 抽到 `src/common.ts`。
-- 比對結果：`join` 有 9 種寫法，但只差在上限常數和新玩家物件；`leave` 14 份完全相同（骷髏與玫瑰、蟑螂撲克只是用 `find()` 找玩家）；`addBot`／`removeBot` 只差上限和新玩家物件；`cancel` 15 份相同，變色龍、圈內人多一段文字；`apply` 外殼 11 種寫法，差在「正常結束」的判斷欄位（`winner`、`winners`、`finished`、`loser`、`score`）、要不要 `runBots`、間諜危機的 `botChain`。
+- 比對結果：`join` 有 9 種寫法，但只差在上限常數和新玩家物件；`leave` 14 份完全相同 (骷髏與玫瑰、蟑螂撲克只是用 `find()` 找玩家)；`addBot`／`removeBot` 只差上限和新玩家物件；`cancel` 15 份相同，變色龍、圈內人多一段文字；`apply` 外殼 11 種寫法，差在「正常結束」的判斷欄位 (`winner`、`winners`、`finished`、`loser`、`score`)、要不要 `runBots`、間諜危機的 `botChain`。
 
 ## Decisions
 

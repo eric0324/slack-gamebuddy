@@ -1,4 +1,4 @@
-// 星際探險隊的頻道戰役進度：每個頻道已解鎖的最高關卡，存在 SQLite（和戰績同一個檔案）
+// 星際探險隊的頻道戰役進度：每個頻道已解鎖的最高關卡，存在 SQLite (和戰績同一個檔案)
 import Database from 'better-sqlite3';
 
 export class CrewStore {

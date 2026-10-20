@@ -5,14 +5,14 @@ import { parseUndercoverCommand } from './undercover.js';
 
 const HELP = [
   '*間諜危機指令*',
-  '• `/game spyfall new`：開房（任何人）',
-  '• `/game spyfall addbot [數量]`：加入 bot 補人數（房主，開始前）',
-  '• `/game spyfall removebot [數量]`：移除 bot（房主，開始前）',
-  '• `/game spyfall start`：開始遊戲，需要 4～10 人（房主）',
-  '• `/game spyfall next`：跳過目前卡住的提問或回答（房主）',
-  '• `/game spyfall vote`：結束提問，直接投票（房主）',
-  '• `/game spyfall cancel`：取消遊戲（房主）',
-  '• `/game spyfall guess <地點>`：間諜猜地點（提問期間一次，或被指控後 60 秒內）',
+  '• `/game spyfall new`：開房 (任何人)',
+  '• `/game spyfall addbot [數量]`：加入 bot 補人數 (房主，開始前)',
+  '• `/game spyfall removebot [數量]`：移除 bot (房主，開始前)',
+  '• `/game spyfall start`：開始遊戲，需要 4～10 人 (房主)',
+  '• `/game spyfall next`：跳過目前卡住的提問或回答 (房主)',
+  '• `/game spyfall vote`：結束提問，直接投票 (房主)',
+  '• `/game spyfall cancel`：取消遊戲 (房主)',
+  '• `/game spyfall guess <地點>`：間諜猜地點 (提問期間一次，或被指控後 60 秒內)',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 

@@ -1,5 +1,5 @@
 // 各時刻公告搭配的 GIF。每次公告從清單隨機選一張；清單是空的就只送文字。
-// 想換圖：到 giphy.com 打開 GIF，網址最後一段就是 id，填成 media.giphy.com/media/<id>/200.gif（200 是小尺寸版本）。
+// 想換圖：到 giphy.com 打開 GIF，網址最後一段就是 id，填成 media.giphy.com/media/<id>/200.gif (200 是小尺寸版本)。
 import type { GifKey } from './engine.js';
 
 const giphy = (...ids: string[]) => ids.map((id) => `https://media.giphy.com/media/${id}/200.gif`);

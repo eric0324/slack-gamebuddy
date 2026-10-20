@@ -18,10 +18,10 @@ export type Role = 'duke' | 'assassin' | 'captain' | 'ambassador' | 'contessa';
 const ROLES: Role[] = ['duke', 'assassin', 'captain', 'ambassador', 'contessa'];
 export const ROLE_NAME: Record<Role, string> = { duke: '公爵', assassin: '刺客', captain: '隊長', ambassador: '大使', contessa: '女伯爵' };
 const ROLE_HELP = [
-  '公爵：稅收（拿 3 枚），可以阻擋外援',
+  '公爵：稅收 (拿 3 枚)，可以阻擋外援',
   '刺客：付 3 枚刺殺一人',
-  '隊長：勒索（從一人拿 2 枚），可以阻擋勒索',
-  '大使：交換（抽 2 張再選要留的牌），可以阻擋勒索',
+  '隊長：勒索 (從一人拿 2 枚)，可以阻擋勒索',
+  '大使：交換 (抽 2 張再選要留的牌)，可以阻擋勒索',
   '女伯爵：可以阻擋刺殺',
 ].join('\n');
 
@@ -109,11 +109,11 @@ function deal(c: Ctx) {
 const ACT_LABEL: Record<ActKind, string> = {
   income: '💰 收入 +1',
   foreignAid: '🤲 外援 +2',
-  coup: '💥 政變（付 7）',
-  tax: '👑 稅收 +3（公爵）',
-  assassinate: '🗡️ 刺殺（付 3，刺客）',
-  steal: '🏴‍☠️ 勒索 2 枚（隊長）',
-  exchange: '🔄 交換（大使）',
+  coup: '💥 政變 (付 7)',
+  tax: '👑 稅收 +3 (公爵)',
+  assassinate: '🗡️ 刺殺 (付 3，刺客)',
+  steal: '🏴‍☠️ 勒索 2 枚 (隊長)',
+  exchange: '🔄 交換 (大使)',
 };
 const TARGETED: ActKind[] = ['coup', 'assassinate', 'steal'];
 // 可以被阻擋的行動 → 阻擋用的角色
@@ -140,7 +140,7 @@ function startTurn(c: Ctx) {
   const status = s.players
     .map((x) => {
       const shown = x.cards.filter((k) => k.revealed).map((k) => ROLE_NAME[k.role]);
-      return `${mention(x.id)} 💰${x.coins}${shown.length ? `（翻開：${shown.join('、')}）` : ''}${alive(x) ? '' : ' 💀'}`;
+      return `${mention(x.id)} 💰${x.coins}${shown.length ? ` (翻開：${shown.join('、')})` : ''}${alive(x) ? '' : ' 💀'}`;
     })
     .join('\n');
   c.events.push(
@@ -149,7 +149,7 @@ function startTurn(c: Ctx) {
       type: 'prompt',
       kind: 'coupAction',
       audience: 'channel',
-      text: `${mention(p.id)} 請選擇行動（${ACTION_MS / 1000} 秒）`,
+      text: `${mention(p.id)} 請選擇行動 (${ACTION_MS / 1000} 秒)`,
       options: available(p).map((k) => ({ value: k, label: ACT_LABEL[k] })),
     },
   );
@@ -197,7 +197,7 @@ function declare(c: Ctx, user: string, kind: ActKind): boolean {
       type: 'prompt',
       kind: 'coupTarget',
       audience: 'channel',
-      text: `${mention(p.id)} 選擇${ACT_LABEL[kind]}的目標（${TARGET_MS / 1000} 秒）`,
+      text: `${mention(p.id)} 選擇${ACT_LABEL[kind]}的目標 (${TARGET_MS / 1000} 秒)`,
       options: s.players.filter((x) => x.id !== p.id && alive(x)).map((x) => ({ value: x.id, label: x.id })),
     });
     startTimer(c, TARGET_MS);
@@ -348,7 +348,7 @@ function promptLose(c: Ctx) {
       kind: 'loseCard',
       audience: 'user',
       user: p.id,
-      text: `😵 你要失去一個影響力，選一張牌翻開（${LOSE_MS / 1000} 秒）`,
+      text: `😵 你要失去一個影響力，選一張牌翻開 (${LOSE_MS / 1000} 秒)`,
       options: cards.map(([x, i]) => ({ value: String(i), label: `翻開${ROLE_NAME[x.role]}` })),
     });
     c.events.push({ type: 'announce', text: `⏳ 等 ${mention(p.id)} 選一張牌翻開…` });
@@ -415,7 +415,7 @@ function promptKeep(c: Ctx) {
     kind: 'keepCard',
     audience: 'user',
     user: actor,
-    text: `🔄 選 ${ex.count - ex.keep.length} 張要留下的牌（${EXCHANGE_MS / 1000} 秒，超時留原本的牌）`,
+    text: `🔄 選 ${ex.count - ex.keep.length} 張要留下的牌 (${EXCHANGE_MS / 1000} 秒，超時留原本的牌)`,
     options: ex.pool.map((r, i) => ({ value: String(i), label: ROLE_NAME[r] })).filter((_, i) => !ex.keep.includes(i)),
   });
 }
@@ -486,7 +486,7 @@ function runBots(c: Ctx) {
   }
 }
 
-// 反應視窗結束沒人反應：質疑視窗 → 繼續（阻擋成立或行動照常），阻擋視窗 → 執行
+// 反應視窗結束沒人反應：質疑視窗 → 繼續 (阻擋成立或行動照常)，阻擋視窗 → 執行
 function closeWindow(c: Ctx) {
   const s = c.s;
   if (s.phase === 'block') execute(c);

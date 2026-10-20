@@ -1,4 +1,4 @@
-// 矮人礦坑（Saboteur）遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applySaboteur(state, action, rng) → { state, events }。
+// 矮人礦坑 (Saboteur) 遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applySaboteur(state, action, rng) → { state, events }。
 import { isBot, mention, quiet, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
 import {
@@ -67,7 +67,7 @@ export interface SState {
   grid: Grid;
   goldDeck: number[];
   pick?: { cards: number[]; order: string[]; at: number; log: string[] }; // 金礦工輪流挑金塊
-  last?: string; // 上一步做了什麼（面板用）
+  last?: string; // 上一步做了什麼 (面板用)
   lastActor: number; // 最後行動的玩家 index：下一回合從他的下一位開始
   winners?: string[];
   timerSeq: number;
@@ -137,7 +137,7 @@ const playerLine = (p: SPlayer) => `${quiet(p.id)}：🃏 ${p.hand.length} 張${
 function board(s: SState, ended = false): GameEvent {
   const me = current(s);
   const lines = [
-    ended ? `✅ ${quiet(me.id)} 的回合結束` : `*⛏️ 第 ${s.round}/${ROUNDS} 回合｜👉 輪到 ${mention(me.id)}（${TURN_MS / 1000} 秒）*`,
+    ended ? `✅ ${quiet(me.id)} 的回合結束` : `*⛏️ 第 ${s.round}/${ROUNDS} 回合｜👉 輪到 ${mention(me.id)} (${TURN_MS / 1000} 秒)*`,
     `🂠 牌庫剩 ${s.deck.length} 張`,
     '```',
     render(s.grid),
@@ -191,8 +191,8 @@ function handText(s: SState, me: SPlayer): string {
   const peeked = Object.entries(me.peeked).map(([cell, gold]) => `\`${cell}\`：${gold ? '💰 金礦' : '🪨 石頭'}`);
   return [
     `🎒 第 ${s.round}/${ROUNDS} 回合，你是 ${ROLE_NAME[me.role!]}｜💰 累計 ${me.gold} 金`,
-    `🃏 手牌：${me.hand.map(cardName).join('、') || '（沒有）'}`,
-    `🔧 壞掉的工具：${toolList(me.broken) || '（沒有）'}`,
+    `🃏 手牌：${me.hand.map(cardName).join('、') || '(沒有)'}`,
+    `🔧 壞掉的工具：${toolList(me.broken) || '(沒有)'}`,
     ...(peeked.length ? [`🗺️ 偷看過：${peeked.join('、')}`] : []),
   ].join('\n');
 }
@@ -216,11 +216,11 @@ function turnMenu(c: Ctx, user: string, seq: number): boolean {
   if (err) return deny(c, user, err);
   const me = current(s);
   const notes: string[] = [];
-  if (me.broken.length && me.hand.some((x) => x.kind === 'path')) notes.push('（工具壞了，不能放通道牌）');
+  if (me.broken.length && me.hand.some((x) => x.kind === 'path')) notes.push('(工具壞了，不能放通道牌)');
   const options: { value: string; label: string }[] = [];
   me.hand.forEach((card, i) => {
     if (targets(s, me, card).length) options.push({ value: `card:${seq}:${i}`, label: cardName(card) });
-    else if (card.kind !== 'path' || !me.broken.length) notes.push(`（「${cardName(card)}」${card.kind === 'path' ? '沒有地方可以放' : '現在沒有目標'}）`);
+    else if (card.kind !== 'path' || !me.broken.length) notes.push(`(「${cardName(card)}」${card.kind === 'path' ? '沒有地方可以放' : '現在沒有目標'})`);
   });
   options.push({ value: `discardMenu:${seq}`, label: '🗑️ 蓋掉一張牌' });
   return menu(c, user, [`⛏️ 你的回合：選一張牌`, handText(s, me), ...[...new Set(notes)]].join('\n'), options);
@@ -236,7 +236,7 @@ function cardMenu(c: Ctx, user: string, seq: number, i: number): boolean {
   if (!list.length) return deny(c, user, STALE);
   const hint =
     card.kind === 'path'
-      ? `要把「${cardName(card)}」放在哪裡？${rotate(card.edges) !== card.edges ? `（↻ 是轉 180°，變成 ${glyph(rotate(card.edges))}）` : ''}`
+      ? `要把「${cardName(card)}」放在哪裡？${rotate(card.edges) !== card.edges ? `(↻ 是轉 180°，變成 ${glyph(rotate(card.edges))})` : ''}`
       : `「${cardName(card)}」要打在哪裡？`;
   const options = list.map((x) => ({ value: `${x.act}:${seq}:${i}:${x.rest}`, label: x.label }));
   return menu(c, user, ['```', render(s.grid), '```', hint].join('\n'), [...options, { value: `turnMenu:${seq}`, label: '↩️ 換一張' }]);
@@ -246,7 +246,7 @@ function discardMenu(c: Ctx, user: string, seq: number): boolean {
   const err = turnCheck(c.s, user, seq);
   if (err) return deny(c, user, err);
   const options = current(c.s).hand.map((card, i) => ({ value: `discard:${seq}:${i}`, label: cardName(card) }));
-  return menu(c, user, '🗑️ 要蓋掉哪一張？（不會公開）', [...options, { value: `turnMenu:${seq}`, label: '↩️ 換一張' }]);
+  return menu(c, user, '🗑️ 要蓋掉哪一張？(不會公開)', [...options, { value: `turnMenu:${seq}`, label: '↩️ 換一張' }]);
 }
 
 // 出牌前的檢查：輪到他、選單沒過期、這張牌可以打在這個目標
@@ -298,7 +298,7 @@ function playMap(c: Ctx, a: Extract<SAction, { type: 'map' }>): boolean {
   me.hand.splice(a.i, 1);
   const goal = cellOf(c.s, a.cell) as Extract<Grid[number][number], { kind: 'goal' }>;
   me.peeked[a.cell] = goal.gold;
-  tell(c, a.user, `🗺️ \`${a.cell}\` 是 ${goal.gold ? '💰 金礦' : '🪨 石頭'}（只有你看得到）`);
+  tell(c, a.user, `🗺️ \`${a.cell}\` 是 ${goal.gold ? '💰 金礦' : '🪨 石頭'} (只有你看得到)`);
   finishTurn(c, `${quiet(me.id)} 偷看了 \`${a.cell}\``);
   return true;
 }
@@ -364,7 +364,7 @@ function endRound(c: Ctx, winner: Role) {
   finishRound(c);
 }
 
-// 抽玩家人數張金塊牌；從挖到的人開始（他是破壞者就從下一位金礦工開始），金礦工依座位輪流挑
+// 抽玩家人數張金塊牌；從挖到的人開始 (他是破壞者就從下一位金礦工開始)，金礦工依座位輪流挑
 function startPick(c: Ctx) {
   const s = c.s;
   const n = s.players.length;
@@ -385,7 +385,7 @@ function pickPrompt(c: Ctx) {
   const lines = [
     `💰 金礦工分金塊：${done ? '分完了' : `剩下 ${cards.join('、')} 金`}`,
     ...log,
-    ...(done ? [] : [`👉 輪到 ${mention(picker(s))} 挑（${PICK_MS / 1000} 秒）`]),
+    ...(done ? [] : [`👉 輪到 ${mention(picker(s))} 挑 (${PICK_MS / 1000} 秒)`]),
   ];
   const options = [...new Set(cards)].map((v) => ({ value: `gold:${s.seq}:${v}`, label: `${v} 金` }));
   c.events.push({ type: 'prompt', kind: 'saboteur', audience: 'channel', ref: `saboteur:gold:${s.round}`, text: lines.join('\n'), options });
@@ -490,7 +490,7 @@ export function targetGoal(s: SState, me: SPlayer): string {
 const dist = (a: { r: number; c: number }, b: { r: number; c: number }) => Math.abs(a.r - b.r) + Math.abs(a.c - b.c);
 const frontDist = (grid: Grid, goal: { r: number; c: number }) => Math.min(Infinity, ...frontier(grid).map((p) => dist(p, goal)));
 
-// bot 這一步要做什麼（回傳和真人按按鈕一樣的 action）
+// bot 這一步要做什麼 (回傳和真人按按鈕一樣的 action)
 export function botMove(s: SState, me: SPlayer): SAction {
   const base = { user: me.id, seq: s.seq };
   const goal = cellAt(targetGoal(s, me))!;
@@ -560,8 +560,8 @@ function botsAct(c: Ctx) {
 }
 
 const RULES = [
-  `共 ${ROUNDS} 回合，每回合重新發身分：⛏️ 金礦工要從起點 S 挖到金礦，💣 破壞者暗中阻止（沒人知道有幾個破壞者）。`,
-  '輪到時做一件事：放一張通道牌、打一張行動牌，或蓋掉一張牌，然後抽一張。工具（鎬子、礦燈、礦車）壞掉的人不能放通道牌。',
+  `共 ${ROUNDS} 回合，每回合重新發身分：⛏️ 金礦工要從起點 S 挖到金礦，💣 破壞者暗中阻止 (沒人知道有幾個破壞者)。`,
+  '輪到時做一件事：放一張通道牌、打一張行動牌，或蓋掉一張牌，然後抽一張。工具 (鎬子、礦燈、礦車) 壞掉的人不能放通道牌。',
   '挖到金礦 → 金礦工輪流挑金塊；牌出完還沒挖到 → 破壞者拿金塊。3 回合後金塊最多的人贏。',
   '地圖上格子裡有 x 的是死路，`?` 是蓋著的終點。',
 ].join('\n');

@@ -6,7 +6,7 @@ TBD - created by archiving change add-meme-game. Update Purpose after archive.
 ## Requirements
 
 ### Requirement: bot 出牌與投票
-bot SHALL 在每輪配圖開始時立刻從手牌隨機出一張（並補牌），在投票開始時立刻隨機投給一個不是自己的答案。bot 的動作 SHALL 不需要真人操作；只有 bot 和一位真人時遊戲也能完整玩完。投票進度和「全部投完」只看真人。
+bot SHALL 在每輪配圖開始時立刻從手牌隨機出一張 (並補牌)，在投票開始時立刻隨機投給一個不是自己的答案。bot 的動作 SHALL 不需要真人操作；只有 bot 和一位真人時遊戲也能完整玩完。投票進度和「全部投完」只看真人。
 
 #### Scenario: bot 出牌
 - **WHEN** 有 bot 的一局開始新的一輪

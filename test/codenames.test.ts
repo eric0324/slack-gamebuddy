@@ -38,7 +38,7 @@ describe('codenames/setup: 機密代號的房間', () => {
     expect(ephemeralTo(events, 'p1')).toMatchObject({ text: expect.stringContaining('至少需要 4 人') });
   });
 
-  it('房間已滿（12 人）時拒絕加入', () => {
+  it('房間已滿 (12 人) 時拒絕加入', () => {
     const { state, events } = run([{ type: 'join', user: 'x' }], lobbyWith(12).state);
     expect(state.players).toHaveLength(12);
     expect(ephemeralTo(events, 'x')).toMatchObject({ text: expect.stringContaining('房間已滿') });
@@ -65,7 +65,7 @@ describe('codenames/setup: 機密代號的房間', () => {
   });
 });
 
-// rng 固定時不洗牌：玩家輪流分到紅、藍隊（p1 紅、p2 藍…），各隊第一位是隊長；藍隊先攻
+// rng 固定時不洗牌：玩家輪流分到紅、藍隊 (p1 紅、p2 藍…)，各隊第一位是隊長；藍隊先攻
 // 字卡是詞庫前 25 個，前 9 張藍隊、接著 8 張紅隊、7 張中立、最後 1 張刺客
 const started = (n: number, r: () => number = rng) => run([{ type: 'start', user: 'p1' }], lobbyWith(n).state, r);
 const boards = (events: GameEvent[]) => events.filter((e) => e.type === 'board') as Extract<GameEvent, { type: 'board' }>[];
@@ -132,7 +132,7 @@ const timers = (events: GameEvent[]) => events.filter((e) => e.type === 'startTi
 const lastTimer = (events: GameEvent[]) => timers(events).at(-1)!;
 const clue = (user: string, word: string, count: number, s: CState) => run([{ type: 'clue', user, word, count }], s);
 
-// 4 人局：紅隊 p1（隊長）、p3；藍隊 p2（隊長）、p4；藍隊先攻
+// 4 人局：紅隊 p1 (隊長)、p3；藍隊 p2 (隊長)、p4；藍隊先攻
 describe('codenames/turns: 隊長給提示', () => {
   it('回合開始：公告輪到哪隊和剩餘張數，請隊長給提示，2 分鐘', () => {
     const { state, events } = started(4);
@@ -183,7 +183,7 @@ describe('codenames/turns: 隊長給提示', () => {
   });
 });
 
-// 藍隊（p2 隊長、p4 隊員）給了提示「水果」2；字卡 0～8 藍、9～16 紅、17～23 中立、24 刺客
+// 藍隊 (p2 隊長、p4 隊員) 給了提示「水果」2；字卡 0～8 藍、9～16 紅、17～23 中立、24 刺客
 const guessing = () => clue('p2', '水果', 2, started(4).state);
 const guess = (indexes: number[], s: CState, user = 'p4') =>
   run(indexes.map((index) => ({ type: 'guess', user, index }) as CAction), s);

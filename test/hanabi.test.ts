@@ -302,7 +302,7 @@ describe('hanabi/turns: 結束與計分', () => {
     expect(announces(events).at(-1)).toContain('傳奇');
   });
 
-  it('牌堆抽完後每人（包含抽到最後一張的人）再輪一次就結束，得分是煙火加總', () => {
+  it('牌堆抽完後每人 (包含抽到最後一張的人) 再輪一次就結束，得分是煙火加總', () => {
     const base = started(2).state;
     const s = { ...base, deck: base.deck.slice(0, 1), hints: 5, fireworks: fw(3, 2) };
     const last = discard('p2', 0, s);

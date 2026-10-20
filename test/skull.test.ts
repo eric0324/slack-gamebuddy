@@ -38,7 +38,7 @@ const flip = (s: SkState, user: string, target: string): SkAction => ({ type: 'f
 const timeout = (s: SkState): SkAction => ({ type: 'timeout', id: s.timers.phase! });
 const step = (s: SkState, make: (s: SkState) => SkAction, r: () => number = rng) => run([make(s)], s, r);
 
-// 直接擺好牌疊、進入輪流階段（輪到第 turn 位）
+// 直接擺好牌疊、進入輪流階段 (輪到第 turn 位)
 function table(stacks: Disc[][], turn = 0): SkState {
   const s = structuredClone(started(stacks.length).state);
   s.phase = 'turn';
@@ -66,7 +66,7 @@ describe('skull/setup: 骷髏與玫瑰的房間', () => {
     expect(ephemeralTo(events, 'p1')!.text).toContain('至少需要 3 人');
   });
 
-  it('房間已滿（6 人）時拒絕加入', () => {
+  it('房間已滿 (6 人) 時拒絕加入', () => {
     const { state, events } = run([{ type: 'join', user: 'x' }], lobbyWith(6).state);
     expect(state.players).toHaveLength(6);
     expect(ephemeralTo(events, 'x')!.text).toContain('房間已滿');
@@ -140,7 +140,7 @@ describe('skull/rounds: 蓋第一張牌', () => {
     expect(s.turn).toBe(2);
   });
 
-  it('超時自動蓋玫瑰（只剩骷髏就蓋骷髏）；超時後按舊選單被拒', () => {
+  it('超時自動蓋玫瑰 (只剩骷髏就蓋骷髏)；超時後按舊選單被拒', () => {
     const s0 = started(3).state;
     const s1 = step(s0, (x) => disc(x, 'p1', 'skull')).state;
     const only = structuredClone(s1);
@@ -240,7 +240,7 @@ describe('skull/rounds: 翻牌', () => {
     return { state: s, events };
   }
 
-  it('先自動翻開自己全部的牌，再選別人（只列還有沒翻開牌的人）', () => {
+  it('先自動翻開自己全部的牌，再選別人 (只列還有沒翻開牌的人)', () => {
     const { state, events } = challenge([['rose', 'rose'], ['rose'], ['rose', 'skull']], 4);
     expect(state).toMatchObject({ phase: 'flip', revealed: 2 });
     expect(announces(events).join('\n')).toContain('🌹 🌹');

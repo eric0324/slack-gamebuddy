@@ -50,7 +50,7 @@ describe('nimmt/setup: 誰是牛頭王的房間', () => {
     expect(ephemeralTo(events, 'p1')?.text).toContain('至少需要 2 人');
   });
 
-  it('房間已滿（10 人）時拒絕加入', () => {
+  it('房間已滿 (10 人) 時拒絕加入', () => {
     const { state, events } = run([{ type: 'join', user: 'x' }], lobbyWith(10).state);
     expect(state.players).toHaveLength(10);
     expect(ephemeralTo(events, 'x')?.text).toContain('房間已滿');
@@ -117,7 +117,7 @@ describe('nimmt/setup: 發牌', () => {
   });
 });
 
-// 指定手牌和四列（seq 是 1，第 1 輪第 1 回合）
+// 指定手牌和四列 (seq 是 1，第 1 輪第 1 回合)
 function table(n: number, hands: number[][], rows: number[][], bots = 0) {
   let lobby = lobbyWith(n - bots).state;
   if (bots) lobby = run([{ type: 'addBot', user: 'p1', count: bots }], lobby).state;
@@ -148,7 +148,7 @@ describe('nimmt/rounds: 同時選牌', () => {
     expect(ephemeralTo(run([pick('x', 1)], s).events, 'x')?.text).toContain('你不在這局遊戲中');
   });
 
-  it('選牌、改選、指令選牌（不帶 seq）', () => {
+  it('選牌、改選、指令選牌 (不帶 seq)', () => {
     const s = started(2).state;
     const a = run([pick('p1', 3)], s);
     expect(a.state.players[0].pick).toBe(3);
@@ -213,7 +213,7 @@ describe('nimmt/rounds: 揭曉與超時', () => {
     expect(run([{ type: 'timeout', id: a.state.timers.phase! - 1 }], a.state).state.turn).toBe(1);
     const { state, events } = run([timeoutOf(a.state)], a.state);
     expect(state.rows[1]).toEqual([50, 51]);
-    expect(announces(events).join('\n')).toContain('<@p2> 51（超時自動出牌）');
+    expect(announces(events).join('\n')).toContain('<@p2> 51 (超時自動出牌)');
   });
 });
 
@@ -260,7 +260,7 @@ describe('nimmt/rounds: 選一列收走', () => {
     expect(state).toMatchObject({ phase: 'pick', turn: 2 });
   });
 
-  it('60 秒沒選，自動選牛頭最少（同分列號最小）的列', () => {
+  it('60 秒沒選，自動選牛頭最少 (同分列號最小) 的列', () => {
     const t = table(2, [[3, 1], [60, 2]], [[11], [12, 13], [55], [16, 17]]);
     const choosing = run([pick('p1', 3), pick('p2', 60)], t).state;
     const { state } = run([timeoutOf(choosing)], choosing);
@@ -283,7 +283,7 @@ describe('nimmt/rounds: 牌桌與分數顯示', () => {
   it('擺完公告四列的牌、每列牛頭和每人累積', () => {
     const s = table(2, [[41, 1], [51, 2]], [[40], [50], [60], [70]]);
     const text = announces(run([pick('p1', 41), pick('p2', 51)], s).events).join('\n');
-    expect(text).toContain('第 1 列：40 41（🐮4）');
+    expect(text).toContain('第 1 列：40 41 (🐮4)');
     expect(text).toContain('累積');
   });
 });

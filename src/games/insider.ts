@@ -5,17 +5,17 @@ import { parseRoomCommand } from './undercover.js';
 
 const HELP = [
   '*圈內人指令*',
-  '• `/game insider new`：開房（任何人）',
-  '• `/game insider start`：開始遊戲，需要 4～8 位真人（房主）',
+  '• `/game insider new`：開房 (任何人)',
+  '• `/game insider start`：開始遊戲，需要 4～8 位真人 (房主)',
   '• 發問：問答期間直接在頻道打字；也可以打 `/game insider ask <問題>`',
   '• 主持人用自己看得到的按鈕回答是／否／不知道，有人說出答案時按「🎯 猜中了」',
-  '• `/game insider vote`：討論中提早開始投票（房主）',
-  '• `/game insider cancel`：取消遊戲（房主）',
+  '• `/game insider vote`：討論中提早開始投票 (房主)',
+  '• `/game insider cancel`：取消遊戲 (房主)',
   '投票找圈內人用頻道按鈕',
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
-// 圈內人的子指令：ask <問題>（問題可以有空白）、vote（房主提早投票）
+// 圈內人的子指令：ask <問題> (問題可以有空白)、vote (房主提早投票)
 export function parseInsiderCommand(text: string, user: string, channel: string): IAction | null {
   const [sub, ...rest] = text.trim().split(/\s+/);
   if (sub === 'ask') return rest.length ? { type: 'ask', user, text: rest.join(' ') } : null;
