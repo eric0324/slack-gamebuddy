@@ -81,8 +81,8 @@
 - **WHEN** 不在遊戲中的人按「💰 我的狀態」
 - **THEN** 只有他看到「你不在這局遊戲中」
 
-### Requirement: 遊戲清單與指令說明
-`/game` 的遊戲清單和遊戲大廳 SHALL 列出地產大亨的名稱 (🏠 地產大亨)、代號 `forsale`、人數 (3～6 人) 和開房方式，大廳分類是 🎲 心理戰。輸入 `/game forsale help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到地產大亨的條列式指令說明 (new、addbot、removebot、start、cancel，以及遊戲中用面板上的按鈕出價、放棄、選房產和查看自己的狀態)。
+### Requirement: 大廳與指令說明
+`/game` 的遊戲清單和遊戲大廳 SHALL 列出地產大亨的名稱 (🏠 地產大亨)、代號 `forsale`、人數 (3～6 人) 和開房方式，大廳分類是 🧩 策略桌遊。輸入 `/game forsale help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到地產大亨的條列式指令說明 (new、addbot、removebot、start、cancel，以及遊戲中用面板上的按鈕出價、放棄、選房產和查看自己的狀態)。
 
 #### Scenario: 查看指令
 - **WHEN** 使用者輸入 `/game forsale help`

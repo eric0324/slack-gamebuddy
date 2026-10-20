@@ -78,8 +78,8 @@ TBD - created by archiving change add-meme-game. Update Purpose after archive.
 - **WHEN** 4 人開始遊戲
 - **THEN** 頻道公告共 6 輪和規則摘要，接著貼出第 1 輪的梗圖
 
-### Requirement: 遊戲清單與指令說明
-`/game` 的遊戲清單和遊戲大廳 SHALL 列出梗圖大亂鬥的名稱 (😂 梗圖大亂鬥)、代號 `meme`、人數 (3～8 人) 和開房方式 `/game meme new`，大廳分類是「🎲 心理戰」，排在壽司派對後面。輸入 `/game meme help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到梗圖大亂鬥的條列式指令說明 (new、addbot、removebot、start、cancel、write、add、list、remove，以及「🃏 我的手牌」「✍️ 自己寫」按鈕的用法)。
+### Requirement: 大廳與指令說明
+`/game` 的遊戲清單和遊戲大廳 SHALL 列出梗圖大亂鬥的名稱 (😂 梗圖大亂鬥)、代號 `meme`、人數 (3～8 人) 和開房方式 `/game meme new`，大廳分類是「😂 派對創意」。輸入 `/game meme help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到梗圖大亂鬥的條列式指令說明 (new、addbot、removebot、start、cancel、write、add、list、remove，以及「🃏 我的手牌」「✍️ 自己寫」按鈕的用法)。
 
 #### Scenario: 查看指令
 - **WHEN** 使用者輸入 `/game meme help`

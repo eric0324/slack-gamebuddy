@@ -38,7 +38,7 @@ export const dixit = {
   emoji: '🎨',
   name: '妙語說書人',
   players: '3～8 人',
-  category: 'bluff',
+  category: 'party',
   desc: '說書人看自己的梗圖給一句提示，大家出牌混淆，再猜哪張是說書人的',
   noBots: true,
   help: HELP,

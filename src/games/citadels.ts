@@ -76,7 +76,7 @@ export const citadels = {
   emoji: '🏛️',
   name: '富饒之城',
   players: '4～7 人',
-  category: 'bluff',
+  category: 'strategy',
   desc: '每輪祕密選角色，刺殺、偷竊、破壞，拚先蓋好 8 棟建築的城市',
   help: HELP,
   apply: applyCitadels,

@@ -42,13 +42,13 @@ TBD - created by archiving change add-wager-game. Update Purpose after archive.
 - **WHEN** 同一個頻道上一局出過 7 題，接著開新的一局
 - **THEN** 新的一局不會出現上一局出過的題目，直到全部抽完才重新洗牌
 
-### Requirement: 遊戲清單與指令說明
-`/game` 的遊戲清單和遊戲大廳 SHALL 列出猜猜看的名稱 (💰 猜猜看)、代號 `wager`、人數 (3～10 人)、「不支援 bot」和開房方式，大廳分類是 🎲 心理戰。輸入 `/game wager help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到猜猜看的條列式指令說明。
+### Requirement: 大廳與指令說明
+`/game` 的遊戲清單和遊戲大廳 SHALL 列出猜猜看的名稱 (💰 猜猜看)、代號 `wager`、人數 (3～10 人)、「不支援 bot」和開房方式，大廳分類是 😂 派對創意。輸入 `/game wager help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到猜猜看的條列式指令說明。
 
 #### Scenario: 查看指令
 - **WHEN** 使用者輸入 `/game wager help`
 - **THEN** 只有這位使用者看到猜猜看所有指令的條列說明
 
-#### Scenario: 大廳心理戰分類
-- **WHEN** 使用者在大廳看 🎲 心理戰
+#### Scenario: 大廳派對創意分類
+- **WHEN** 使用者在大廳看 😂 派對創意
 - **THEN** 列表有 💰 猜猜看 (`wager`) 3～10 人和「開房」按鈕

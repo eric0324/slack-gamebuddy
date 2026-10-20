@@ -63,7 +63,7 @@ export const splendor = {
   emoji: '💍',
   name: '璀璨寶石',
   players: '2～4 人',
-  category: 'bluff',
+  category: 'strategy',
   desc: '拿寶石、買發展卡累積折扣，吸引貴族來訪，搶先拿到 15 分',
   help: HELP,
   apply: applySplendor,

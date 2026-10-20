@@ -33,7 +33,7 @@ export const incan = {
   emoji: '💎',
   name: '印加寶藏',
   players: '3～8 人',
-  category: 'bluff',
+  category: 'strategy',
   desc: '一張張翻探險卡，大家同時決定繼續挖寶還是帶寶石回營地，同種危險出現兩次就泡湯，5 座神殿後寶石最多的人贏',
   help: HELP,
   apply: applyIncan,

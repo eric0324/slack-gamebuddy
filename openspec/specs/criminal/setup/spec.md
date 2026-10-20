@@ -73,8 +73,8 @@ TBD - created by archiving change add-criminal-game. Update Purpose after archiv
 - **WHEN** 4 人開始遊戲，B 拿到第一發現者
 - **THEN** 頻道公告座位順序和勝利條件；每位真人私下收到自己的 4 張手牌；頻道公告 B 打出第一發現者，接著輪到 B 的下一位
 
-### Requirement: 遊戲清單與指令說明
-`/game` 的遊戲清單和遊戲大廳 SHALL 列出犯人在跳舞的名稱 (🕺 犯人在跳舞)、代號 `criminal`、人數 (3～8 人) 和開房方式 `/game criminal new`，大廳分類是「🔍 推理」。輸入 `/game criminal help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到犯人在跳舞的條列式指令說明 (new、addbot、removebot、start、cancel，以及遊戲中「🃏 我的手牌」按鈕的用法和各張牌效果的摘要)。
+### Requirement: 大廳與指令說明
+`/game` 的遊戲清單和遊戲大廳 SHALL 列出犯人在跳舞的名稱 (🕺 犯人在跳舞)、代號 `criminal`、人數 (3～8 人) 和開房方式 `/game criminal new`，大廳分類是「🎭 吹牛心機」。輸入 `/game criminal help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到犯人在跳舞的條列式指令說明 (new、addbot、removebot、start、cancel，以及遊戲中「🃏 我的手牌」按鈕的用法和各張牌效果的摘要)。
 
 #### Scenario: 查看指令
 - **WHEN** 使用者輸入 `/game criminal help`
@@ -85,5 +85,5 @@ TBD - created by archiving change add-criminal-game. Update Purpose after archiv
 - **THEN** 只有這位使用者看到犯人在跳舞的指令說明
 
 #### Scenario: 大廳
-- **WHEN** 使用者在大廳按「🔍 推理」
+- **WHEN** 使用者在大廳按「🎭 吹牛心機」
 - **THEN** 看到犯人在跳舞 (`criminal`，3～8 人) 和它的「開房」按鈕

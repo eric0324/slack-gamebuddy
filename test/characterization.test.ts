@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { GameHost, type SlackClient } from '../src/slack.js';
 
 const KINDS = ['undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter', 'cockroach', 'chameleon', 'nothanks', 'taboo', 'sushigo', 'meme', 'herd', 'kittens', 'criminal', 'wager', 'incan', 'dixit', 'citadels', 'emoji', 'crew', 'saboteur', 'forsale', 'machikoro', 'splendor', 'deception'];
-const TABS = ['deduction', 'team', 'coop', 'bluff'];
+const TABS = ['deduction', 'bluff', 'party', 'team', 'coop', 'strategy'];
 
 function setup() {
   const ephs: any[] = [];
@@ -25,7 +25,7 @@ describe('重構安全網', () => {
     expect(ephs[0].blocks).toMatchSnapshot();
   });
 
-  it('大廳四個分類', async () => {
+  it('大廳六個分類', async () => {
     const { host, responds } = setup();
     for (const t of TABS) await host.button('ww:lobbyTab:0', `C1|${t}`, 'U1', 'alice', undefined, 'https://hooks/x');
     expect(responds.map((p) => p.blocks)).toMatchSnapshot();

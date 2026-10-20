@@ -100,7 +100,7 @@ describe('herd/setup: 指令和按鈕', () => {
     expect(herd.help).toContain('`/game herd answer');
     expect(herd.help).toContain('`/game herd merge');
     expect(herd.help).toContain('`/game herd done`');
-    expect(herd).toMatchObject({ kind: 'herd', emoji: '🐑', name: '從眾心理', players: '4～12 人', category: 'bluff', noBots: true });
+    expect(herd).toMatchObject({ kind: 'herd', emoji: '🐑', name: '從眾心理', players: '4～12 人', category: 'party', noBots: true });
   });
 
   it('解析子指令', () => {

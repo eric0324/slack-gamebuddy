@@ -449,7 +449,7 @@ describe('criminal/bots', () => {
 
 describe('criminal: Slack 設定', () => {
   it('大廳資訊', () => {
-    expect(criminal).toMatchObject({ kind: 'criminal', emoji: '🕺', name: '犯人在跳舞', players: '3～8 人', category: 'deduction' });
+    expect(criminal).toMatchObject({ kind: 'criminal', emoji: '🕺', name: '犯人在跳舞', players: '3～8 人', category: 'bluff' });
     expect(criminal.help).toContain('/game criminal new');
   });
 

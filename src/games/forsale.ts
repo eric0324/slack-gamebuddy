@@ -47,7 +47,7 @@ export const forsale = {
   emoji: '🏠',
   name: '地產大亨',
   players: '3～6 人',
-  category: 'bluff',
+  category: 'strategy',
   desc: '先輪流喊價買房產，放棄的人拿最小的那間、只賠一半；再同時私下出房產換支票，支票加剩下金幣最多的人贏',
   help: HELP,
   apply: applyForSale,

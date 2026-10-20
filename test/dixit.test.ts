@@ -502,7 +502,7 @@ describe('dixit/rounds: 補牌、勝負與結束', () => {
 
 describe('dixit/setup: Slack 設定 (GameDef)', () => {
   it('大廳資訊', () => {
-    expect(dixit).toMatchObject({ kind: 'dixit', emoji: '🎨', name: '妙語說書人', players: '3～8 人', category: 'bluff', noBots: true });
+    expect(dixit).toMatchObject({ kind: 'dixit', emoji: '🎨', name: '妙語說書人', players: '3～8 人', category: 'party', noBots: true });
     expect(dixit.apply).toBe(applyDixit);
   });
 

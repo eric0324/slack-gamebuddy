@@ -39,7 +39,7 @@ export const loveLetter = {
   emoji: '💌',
   name: '情書',
   players: '2～6 人',
-  category: 'deduction',
+  category: 'bluff',
   desc: '每人一張手牌，抽一張出一張，推理別人的牌、送出情書',
   help: HELP,
   apply: applyLoveLetter,

@@ -39,7 +39,7 @@ export const emoji = {
   emoji: '🔗',
   name: 'Emoji 傳話',
   players: '4～10 人',
-  category: 'bluff',
+  category: 'party',
   desc: '文字用 emoji 演、emoji 用文字猜，傳一圈看題目怎麼走鐘，再投票選最佳作品',
   noBots: true,
   help: HELP,

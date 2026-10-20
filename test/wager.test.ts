@@ -380,7 +380,7 @@ describe('wager/setup: 指令與按鈕', () => {
   });
 
   it('大廳資訊：💰 猜猜看、3～10 人、心理戰、不支援 bot；help 條列所有指令', () => {
-    expect(wager).toMatchObject({ kind: 'wager', emoji: '💰', name: '猜猜看', players: '3～10 人', category: 'bluff', noBots: true });
+    expect(wager).toMatchObject({ kind: 'wager', emoji: '💰', name: '猜猜看', players: '3～10 人', category: 'party', noBots: true });
     for (const cmd of ['new', 'start', 'answer', 'cancel']) expect(wager.help).toContain(`/game wager ${cmd}`);
   });
 });

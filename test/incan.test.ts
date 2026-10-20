@@ -507,7 +507,7 @@ describe('incan/bots: 一個人也能玩完整局', () => {
 
 describe('incan/setup: 指令解析與按鈕 (GameDef)', () => {
   it('大廳資訊：💎 印加寶藏、3～8 人、心理戰', () => {
-    expect(incan).toMatchObject({ kind: 'incan', emoji: '💎', name: '印加寶藏', players: '3～8 人', category: 'bluff' });
+    expect(incan).toMatchObject({ kind: 'incan', emoji: '💎', name: '印加寶藏', players: '3～8 人', category: 'strategy' });
     expect(incan.apply).toBe(applyIncan);
   });
 
