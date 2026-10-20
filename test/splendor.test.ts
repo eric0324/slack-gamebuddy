@@ -300,3 +300,221 @@ describe('splendor/setup: 我的狀態', () => {
     expect(ephemeralTo(run([{ type: 'status', user: 'x' }], setup()).events, 'x')).toEqual(['你不在這局遊戲中']);
   });
 });
+
+const STALE = '這個選單已經過期，請重新按「💍 行動」';
+const lastBoard = (events: GameEvent[]) => boards(events).at(-1)!;
+const values = (events: GameEvent[], user = 'p1') => menuOf(events, user)!.options.map((o) => o.value);
+const labels = (events: GameEvent[], user = 'p1') => menuOf(events, user)!.options.map((o) => o.label);
+
+describe('splendor/turns: 回合選單', () => {
+  it('開局只列拿 3 色、拿 2 個同色、保留，寫著沒有買得起的卡；不改 state、不重設計時器', () => {
+    const s = setup();
+    const { state, events } = act(s, { type: 'turnMenu' });
+    expect(state).toBe(s);
+    expect(events.some((e) => e.type === 'startTimer')).toBe(false);
+    const menu = menuOf(events, 'p1')!;
+    expect(menu.replace).toBe(true);
+    expect(menu.options).toEqual([
+      { value: `turnMenu:${s.seq}:take3`, label: '拿 3 種不同顏色' },
+      { value: `turnMenu:${s.seq}:take2`, label: '拿 2 個同色' },
+      { value: `turnMenu:${s.seq}:reserve`, label: '保留一張卡' },
+    ]);
+    expect(menu.text).toContain('沒有買得起的卡');
+  });
+
+  it('買得起時有買卡；保留滿 3 張、庫存不到 4 個時說明原因', () => {
+    const s = setup((s) => {
+      s.players[0].tokens = gems({ r: 2, k: 1 });
+      s.players[0].reserved = [88, 89, 90];
+      s.bank = gems({ w: 3, b: 3, g: 3, r: 2, k: 3, o: 5 });
+    });
+    const { events } = act(s, { type: 'turnMenu' });
+    expect(labels(events)).toEqual(['拿 3 種不同顏色', '買卡']);
+    expect(menuOf(events, 'p1')!.text).toContain('已經保留 3 張');
+    expect(menuOf(events, 'p1')!.text).toContain('沒有庫存 4 個以上的顏色');
+  });
+
+  it('不是輪到的人、局外人、過期選單被拒，state 不變', () => {
+    const s = setup();
+    expect(ephemeralTo(act(s, { type: 'turnMenu' }, 'p2').events, 'p2')).toEqual(['還沒輪到你。']);
+    expect(ephemeralTo(act(s, { type: 'turnMenu' }, 'x').events, 'x')).toEqual(['你不在這局遊戲中']);
+    const stale = act(s, { type: 'buy', seq: s.seq - 1, slot: '1-1' });
+    expect(stale.state).toBe(s);
+    expect(ephemeralTo(stale.events, 'p1')).toEqual([STALE]);
+  });
+
+  it('子選單附「↩️ 換一個動作」；做不到的子選單回過期', () => {
+    const s = setup();
+    for (const sub of ['take3', 'take2', 'reserve'] as const) {
+      expect(menuOf(act(s, { type: 'turnMenu', sub }).events, 'p1')!.options.at(-1)).toEqual({ value: `turnMenu:${s.seq}`, label: '↩️ 換一個動作' });
+    }
+    expect(ephemeralTo(act(s, { type: 'turnMenu', sub: 'buy' }).events, 'p1')).toEqual([STALE]);
+  });
+});
+
+describe('splendor/turns: 拿 3 種不同顏色', () => {
+  it('點選和取消只改按鈕不改 state；選滿 3 種後其他顏色不出現、出現確認', () => {
+    const s = setup();
+    const q = s.seq;
+    expect(values(act(s, { type: 'turnMenu', sub: 'take3' }).events)).toEqual([`pick3:${q}:w`, `pick3:${q}:b`, `pick3:${q}:g`, `pick3:${q}:r`, `pick3:${q}:k`, `turnMenu:${q}`]);
+    const two = act(s, { type: 'pick3', colors: ['w', 'b'] });
+    expect(two.state).toBe(s);
+    expect(menuOf(two.events, 'p1')!.options.slice(0, 3)).toEqual([
+      { value: `pick3:${q}:b`, label: '✅ 白' },
+      { value: `pick3:${q}:w`, label: '✅ 藍' },
+      { value: `pick3:${q}:wbg`, label: '綠' },
+    ]);
+    expect(values(two.events).some((v) => v.startsWith('take3'))).toBe(false);
+    const three = act(s, { type: 'pick3', colors: ['w', 'b', 'g'] });
+    expect(labels(three.events)).toEqual(['✅ 白', '✅ 藍', '✅ 綠', '確認拿 白 藍 綠', '↩️ 換一個動作']);
+    expect(values(three.events)[3]).toBe(`take3:${q}:wbg`);
+  });
+
+  it('確認後籌碼移動、輪到下一位、上一步寫拿了什麼', () => {
+    const s = setup();
+    const { state, events } = act(s, { type: 'take3', colors: ['w', 'b', 'g'] });
+    expect(state.players[0].tokens).toEqual(gems({ w: 1, b: 1, g: 1 }));
+    expect(state.bank).toEqual(gems({ w: 3, b: 3, g: 3, r: 4, k: 4, o: 5 }));
+    expect(state.turn).toBe(1);
+    expect(lastBoard(events).text).toContain('上一步：{{name:p1}} 拿了 白1 藍1 綠1');
+  });
+
+  it('庫存只剩 2 種顏色時拿 2 個', () => {
+    const s = setup((s) => (s.bank = gems({ r: 2, k: 1, o: 5 })));
+    const { events } = act(s, { type: 'pick3', colors: ['r', 'k'] });
+    expect(labels(events)).toContain('確認拿 紅 黑');
+    const done = act(s, { type: 'take3', colors: ['r', 'k'] });
+    expect(done.state.players[0].tokens).toEqual(gems({ r: 1, k: 1 }));
+  });
+
+  it('確認時重新檢查：庫存沒有的顏色、還有 3 種卻只拿 2 種，回過期且 state 不變', () => {
+    const s = setup((s) => (s.bank.w = 0));
+    for (const colors of [['w', 'b', 'g'], ['b', 'g']] as Color[][]) {
+      const r = act(s, { type: 'take3', colors });
+      expect(r.state).toBe(s);
+      expect(ephemeralTo(r.events, 'p1')).toEqual([STALE]);
+    }
+  });
+});
+
+describe('splendor/turns: 拿 2 個同色', () => {
+  it('只列庫存 4 個以上的顏色；拿完庫存少 2', () => {
+    const s = setup((s) => (s.bank.r = 3));
+    expect(values(act(s, { type: 'turnMenu', sub: 'take2' }).events)).toEqual([`take2:${s.seq}:w`, `take2:${s.seq}:b`, `take2:${s.seq}:g`, `take2:${s.seq}:k`, `turnMenu:${s.seq}`]);
+    expect(act(s, { type: 'take2', color: 'r' }).state).toBe(s);
+    const { state, events } = act(s, { type: 'take2', color: 'w' });
+    expect(state.players[0].tokens).toEqual(gems({ w: 2 }));
+    expect(state.bank.w).toBe(2);
+    expect(lastBoard(events).text).toContain('{{name:p1}} 拿了 白2');
+  });
+});
+
+describe('splendor/turns: 保留一張卡', () => {
+  it('選單列出翻開的卡和還有牌的牌堆頂', () => {
+    const s = setup((s) => (s.decks[0] = []));
+    const v = values(act(s, { type: 'turnMenu', sub: 'reserve' }).events);
+    expect(v).toContain(`reserve:${s.seq}:3-1`);
+    expect(v).toContain(`reserve:${s.seq}:1-4`);
+    expect(v).toContain(`reserve:${s.seq}:deck3`);
+    expect(v).not.toContain(`reserve:${s.seq}:deck1`);
+    expect(labels(act(s, { type: 'turnMenu', sub: 'reserve' }).events)).toContain('二級牌堆頂');
+  });
+
+  it('保留翻開的卡：進保留區、拿 1 金、從同級牌堆補牌、公告保留了哪張', () => {
+    const s = setup();
+    const { state, events } = act(s, { type: 'reserve', slot: '2-3' });
+    expect(state.players[0].reserved).toEqual([43]);
+    expect(state.players[0].tokens.o).toBe(1);
+    expect(state.bank.o).toBe(4);
+    expect(state.table[1][2]).toBe(45);
+    expect(state.decks[1]).toHaveLength(25);
+    expect(lastBoard(events).text).toContain('{{name:p1}} 保留了 2-3 白 2分 並拿 1 金');
+  });
+
+  it('牌堆空了位置空著；黃金用完照樣保留', () => {
+    const s = setup((s) => {
+      s.decks[1] = [];
+      s.bank.o = 0;
+    });
+    const { state, events } = act(s, { type: 'reserve', slot: '2-3' });
+    expect(state.table[1][2]).toBeNull();
+    expect(state.players[0].tokens.o).toBe(0);
+    expect(lastBoard(events).text).not.toContain('並拿 1 金');
+  });
+
+  it('盲抽：只有本人看到是哪張，頻道只說哪一級', () => {
+    const s = setup();
+    const { state, events } = act(s, { type: 'reserve', slot: 'deck3' });
+    expect(state.players[0].reserved).toEqual([75]);
+    expect(state.decks[2]).toHaveLength(15);
+    expect(ephemeralTo(events, 'p1').join()).toContain('藍 3分｜白3 綠3 紅3 黑5');
+    const pub = boards(events).map((b) => b.text).join('\n');
+    expect(pub).toContain('{{name:p1}} 從三級牌堆保留一張');
+    expect(pub).not.toContain('白3 綠3 紅3 黑5');
+  });
+
+  it('保留滿 3 張不能保留', () => {
+    const s = setup((s) => (s.players[0].reserved = [88, 89, 90]));
+    expect(act(s, { type: 'reserve', slot: '1-1' }).state).toBe(s);
+  });
+});
+
+describe('splendor/turns: 買卡', () => {
+  it('只列買得起的翻開卡和保留卡，按鈕寫要付的籌碼', () => {
+    const s = setup((s) => {
+      s.players[0].tokens = gems({ r: 2, k: 1, o: 1 });
+      s.players[0].reserved = [90, 17];
+      s.bank = gems({ w: 4, b: 4, g: 4, r: 2, k: 3, o: 4 });
+    });
+    expect(menuOf(act(s, { type: 'turnMenu', sub: 'buy' }).events, 'p1')!.options).toEqual([
+      { value: `buy:${s.seq}:1-1`, label: '1-1 白 0分｜紅2 黑1（付 紅2 黑1）' },
+      { value: `buy:${s.seq}:r2`, label: '保留 2 綠 0分｜紅3（付 紅2 金1）' },
+      { value: `turnMenu:${s.seq}`, label: '↩️ 換一個動作' },
+    ]);
+  });
+
+  it('用折扣和黃金買卡：先付同色再用黃金，籌碼回庫存，補牌，公告付了什麼', () => {
+    const s = setup((s) => {
+      s.players[0].cards = [9]; // 藍色折扣 1
+      s.players[0].tokens = gems({ b: 1, o: 1 });
+      s.bank = gems({ w: 4, b: 3, g: 4, r: 4, k: 4, o: 4 });
+      s.table[0][0] = 6; // 白 0分｜藍3
+    });
+    const { state, events } = act(s, { type: 'buy', slot: '1-1' });
+    expect(state.players[0].tokens).toEqual(gems());
+    expect(state.players[0].cards).toEqual([9, 6]);
+    expect(state.bank).toEqual(gems({ w: 4, b: 4, g: 4, r: 4, k: 4, o: 5 }));
+    expect(state.table[0][0]).toBe(5);
+    expect(lastBoard(events).text).toContain('{{name:p1}} 買了 1-1 白 0分（付 藍1 金1）');
+  });
+
+  it('折扣足夠免費；買保留的卡時場上公開卡不變', () => {
+    const s = setup((s) => {
+      s.players[0].cards = [1, 2, 3, 4]; // 白色折扣 4
+      s.players[0].reserved = [32]; // 紅 1分｜白4
+    });
+    const { state, events } = act(s, { type: 'buy', slot: 'r1' });
+    expect(state.players[0].reserved).toEqual([]);
+    expect(state.players[0].cards).toEqual([1, 2, 3, 4, 32]);
+    expect(state.table).toEqual(s.table);
+    expect(lastBoard(events).text).toContain('{{name:p1}} 買了保留的 紅 1分（付 無）');
+  });
+
+  it('買不起不能買，state 不變', () => {
+    const s = setup();
+    expect(act(s, { type: 'buy', slot: '1-1' }).state).toBe(s);
+  });
+
+  it('籌碼總數守恆', () => {
+    let s = setup();
+    s = act(s, { type: 'take3', colors: ['r', 'k', 'w'] }).state;
+    s = act(s, { type: 'take2', color: 'g' }, 'p2').state;
+    s = act(s, { type: 'reserve', slot: '1-1' }).state;
+    s = act(s, { type: 'take3', colors: ['w', 'b', 'k'] }, 'p2').state;
+    s = act(s, { type: 'buy', slot: 'r1' }).state;
+    expect(s.players[0].cards).toEqual([1]);
+    for (const x of ['w', 'b', 'g', 'r', 'k', 'o'] as const) {
+      expect(s.bank[x] + s.players.reduce((sum, p) => sum + p.tokens[x], 0)).toBe(x === 'o' ? 5 : 4);
+    }
+  });
+});

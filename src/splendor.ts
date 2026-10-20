@@ -8,6 +8,7 @@ import {
   COLORS,
   emptyGems,
   GEM_WORD,
+  GEMS,
   gemsText,
   NOBLES,
   nobleOf,
@@ -67,6 +68,12 @@ export type SAction =
   | { type: 'addBot'; user: string; count: number }
   | { type: 'removeBot'; user: string; count: number }
   | { type: 'status'; user: string }
+  | { type: 'turnMenu'; user: string; seq: number; sub?: Sub }
+  | { type: 'pick3'; user: string; seq: number; colors: Color[] }
+  | { type: 'take3'; user: string; seq: number; colors: Color[] }
+  | { type: 'take2'; user: string; seq: number; color: Color }
+  | { type: 'reserve'; user: string; seq: number; slot: string }
+  | { type: 'buy'; user: string; seq: number; slot: string }
   | { type: 'timeout'; id: number }
   | { type: 'rematch'; user: string; channel: string };
 
@@ -74,10 +81,33 @@ type GameAction = Exclude<SAction, { type: 'new' } | { type: 'rematch' }>;
 type Result = { state: SState; events: GameEvent[] };
 type Ctx = { s: SState; events: GameEvent[]; rng: Rng };
 
+export type Sub = 'take3' | 'take2' | 'reserve' | 'buy';
+export const SUBS: Sub[] = ['take3', 'take2', 'reserve', 'buy'];
+const SUB_LABEL: Record<Sub, string> = { take3: '拿 3 種不同顏色', take2: '拿 2 個同色', reserve: '保留一張卡', buy: '買卡' };
+
 const NOT_PLAYER = '你不在這局遊戲中';
+const NOT_YET = '還沒輪到你。';
+const STALE = '這個選單已經過期，請重新按「💍 行動」';
 
 const find = (s: SState, id: string) => s.players.find((p) => p.id === id);
 const current = (s: SState) => s.players[s.turn];
+// 在私下選單上按的：回應取代那則選單；bot 不需要
+const tell = (c: Ctx, to: string, text: string) => {
+  if (!isBot(to)) c.events.push({ type: 'ephemeral', to, text, replace: true });
+};
+const deny = (c: Ctx, to: string, text: string) => (tell(c, to, text), false);
+const menu = (c: Ctx, user: string, text: string, options: { value: string; label: string }[]) => {
+  if (!isBot(user)) c.events.push({ type: 'prompt', kind: 'splendor', audience: 'ephemeral', user, text, options, perRow: 4, replace: true });
+  return false;
+};
+// 籌碼從 from 移到 to
+function move(from: Gems, to: Gems, g: Partial<Gems>) {
+  for (const x of GEMS) {
+    from[x] -= g[x] ?? 0;
+    to[x] += g[x] ?? 0;
+  }
+}
+const colorKey = (list: Color[]) => COLORS.filter((x) => list.includes(x)).join('');
 
 // 折扣：已買卡的顏色張數
 export function discountOf(p: SPlayer): Record<Color, number> {
@@ -132,6 +162,175 @@ function status(c: Ctx, user: string): boolean {
   return reply(c, user, lines.join('\n'));
 }
 
+// ---------- 回合選單與四種動作 ----------
+
+type Slot = { slot: string; id: number; label: string };
+// 場上翻開的卡：三級到一級，同級依位置 1～4
+const tableSlots = (s: SState): Slot[] =>
+  [2, 1, 0].flatMap((lv) => s.table[lv].flatMap((id, i) => (id === null ? [] : [{ slot: `${lv + 1}-${i + 1}`, id, label: `${lv + 1}-${i + 1}` }])));
+const reservedSlots = (p: SPlayer): Slot[] => p.reserved.map((id, i) => ({ slot: `r${i + 1}`, id, label: `保留 ${i + 1}` }));
+const stocked = (s: SState) => COLORS.filter((x) => s.bank[x] > 0);
+const pairColors = (s: SState) => COLORS.filter((x) => s.bank[x] >= 4);
+const deckSlots = (s: SState) => [2, 1, 0].filter((lv) => s.decks[lv].length).map((lv) => ({ slot: `deck${lv + 1}`, label: `${LEVEL_WORD[lv]}牌堆頂` }));
+const buyable = (s: SState, p: SPlayer) => [...tableSlots(s), ...reservedSlots(p)].filter((x) => payOf(p, x.id));
+
+// 每種動作做不到的原因；null 表示做得到
+function blocked(s: SState, me: SPlayer): Record<Sub, string | null> {
+  return {
+    take3: stocked(s).length ? null : '庫存沒有寶石',
+    take2: pairColors(s).length ? null : '沒有庫存 4 個以上的顏色',
+    reserve: me.reserved.length >= 3 ? '已經保留 3 張' : tableSlots(s).length || deckSlots(s).length ? null : '沒有卡可以保留',
+    buy: buyable(s, me).length ? null : '沒有買得起的卡',
+  };
+}
+const canAct = (s: SState, me: SPlayer) => Object.values(blocked(s, me)).some((x) => x === null);
+
+// 輪到的人操作前的共同檢查；回傳錯誤訊息或 null
+function turnCheck(s: SState, user: string, seq: number): string | null {
+  if (!find(s, user)) return NOT_PLAYER;
+  if (s.phase !== 'play' || current(s).id !== user) return NOT_YET;
+  if (seq !== s.seq) return STALE;
+  return null;
+}
+// 動作按鈕：只在 act 階段有效
+function actCheck(c: Ctx, user: string, seq: number): boolean {
+  const err = turnCheck(c.s, user, seq) ?? (c.s.step === 'act' ? null : STALE);
+  return err ? deny(c, user, err) : true;
+}
+
+const BACK = (seq: number) => ({ value: `turnMenu:${seq}`, label: '↩️ 換一個動作' });
+
+function turnMenu(c: Ctx, user: string, seq: number, sub?: Sub): boolean {
+  const s = c.s;
+  const err = turnCheck(s, user, seq);
+  if (err) return deny(c, user, err);
+  const me = current(s);
+  const why = blocked(s, me);
+  if (!sub) {
+    const options = SUBS.filter((x) => why[x] === null).map((x) => ({ value: `turnMenu:${seq}:${x}`, label: SUB_LABEL[x] }));
+    const notes = SUBS.flatMap((x) => (why[x] ? [`（${why[x]}）`] : []));
+    return menu(c, user, [`💍 你的回合｜籌碼 ${tokensText(me.tokens)}｜折扣 ${gemsText(discountOf(me))}`, ...notes].join('\n'), options);
+  }
+  if (why[sub]) return deny(c, user, STALE);
+  switch (sub) {
+    case 'take3':
+      return pick3Menu(c, user, []);
+    case 'take2':
+      return menu(c, user, '要拿 2 個哪一種顏色？（拿之前庫存要有 4 個以上）', [
+        ...pairColors(s).map((x) => ({ value: `take2:${seq}:${x}`, label: GEM_WORD[x] })),
+        BACK(seq),
+      ]);
+    case 'reserve':
+      return menu(c, user, `要保留哪一張？${s.bank.o ? '（拿 1 個黃金）' : '（黃金沒了，不拿黃金）'}`, [
+        ...tableSlots(s).map((x) => ({ value: `reserve:${seq}:${x.slot}`, label: cardText(cardOf(x.id), x.label) })),
+        ...deckSlots(s).map((x) => ({ value: `reserve:${seq}:${x.slot}`, label: x.label })),
+        BACK(seq),
+      ]);
+    case 'buy':
+      return menu(c, user, '要買哪一張？（自動付款：先付同色，不夠的用黃金）', [
+        ...buyable(s, me).map((x) => ({ value: `buy:${seq}:${x.slot}`, label: `${cardText(cardOf(x.id), x.label)}（付 ${gemsText(payOf(me, x.id)!)}）` })),
+        BACK(seq),
+      ]);
+  }
+}
+
+// 拿 3 色要選幾種：3 和庫存有籌碼的顏色種數取小的；選法不合法回傳 false
+const pickOk = (s: SState, colors: Color[], exact: boolean) =>
+  new Set(colors).size === colors.length &&
+  colors.every((x) => s.bank[x] > 0) &&
+  (exact ? colors.length === Math.min(3, stocked(s).length) : colors.length <= Math.min(3, stocked(s).length));
+
+// 拿 3 色：按顏色切換選取，選好再按確認；選擇記在按鈕上，不改 state
+function pick3Menu(c: Ctx, user: string, colors: Color[]): boolean {
+  const s = c.s;
+  if (!pickOk(s, colors, false)) return deny(c, user, STALE);
+  const seq = s.seq;
+  const options = stocked(s).flatMap((x) => {
+    if (colors.includes(x)) return [{ value: `pick3:${seq}:${colorKey(colors.filter((y) => y !== x))}`, label: `✅ ${GEM_WORD[x]}` }];
+    return colors.length < 3 ? [{ value: `pick3:${seq}:${colorKey([...colors, x])}`, label: GEM_WORD[x] }] : [];
+  });
+  const key = colorKey(colors);
+  if (pickOk(s, colors, true)) options.push({ value: `take3:${seq}:${key}`, label: `確認拿 ${[...key].map((x) => GEM_WORD[x as Color]).join(' ')}` });
+  return menu(c, user, '選 3 種不同顏色各拿 1 個（再按一次取消）：', [...options, BACK(seq)]);
+}
+
+function take(c: Ctx, user: string, got: Partial<Gems>) {
+  const me = current(c.s);
+  move(c.s.bank, me.tokens, got);
+  tell(c, user, `✅ 你拿了 ${gemsText(got)}`);
+  finishTurn(c, `${quiet(me.id)} 拿了 ${gemsText(got)}`, true);
+}
+
+function take3(c: Ctx, user: string, seq: number, colors: Color[]): boolean {
+  if (!actCheck(c, user, seq)) return false;
+  if (!pickOk(c.s, colors, true)) return deny(c, user, STALE);
+  take(c, user, Object.fromEntries(colors.map((x) => [x, 1])));
+  return true;
+}
+
+function take2(c: Ctx, user: string, seq: number, color: Color): boolean {
+  if (!actCheck(c, user, seq)) return false;
+  if (!pairColors(c.s).includes(color)) return deny(c, user, STALE);
+  take(c, user, { [color]: 2 });
+  return true;
+}
+
+// 翻開的卡被拿走：從同級牌堆補一張，牌堆空了就空著
+function pullTable(s: SState, slot: string): number | undefined {
+  const m = /^([123])-([1-4])$/.exec(slot);
+  if (!m) return undefined;
+  const [lv, i] = [Number(m[1]) - 1, Number(m[2]) - 1];
+  const id = s.table[lv][i];
+  if (id === null || id === undefined) return undefined;
+  s.table[lv][i] = s.decks[lv].shift() ?? null;
+  return id;
+}
+
+function reserve(c: Ctx, user: string, seq: number, slot: string): boolean {
+  if (!actCheck(c, user, seq)) return false;
+  const s = c.s;
+  const me = current(s);
+  const deck = /^deck([123])$/.exec(slot);
+  const lv = deck ? Number(deck[1]) - 1 : -1;
+  const id = me.reserved.length >= 3 ? undefined : deck ? s.decks[lv].shift() : pullTable(s, slot);
+  if (id === undefined) return deny(c, user, STALE);
+  me.reserved.push(id);
+  const gold = s.bank.o > 0;
+  if (gold) move(s.bank, me.tokens, { o: 1 });
+  const tail = gold ? ' 並拿 1 金' : '（黃金沒了，沒拿黃金）';
+  const card = cardOf(id);
+  tell(c, user, `✅ 你保留了 ${cardText(card)}${deck ? '（只有你看得到）' : ''}${tail}`);
+  const what = deck ? `從${LEVEL_WORD[lv]}牌堆保留一張` : `保留了 ${slot} ${GEM_WORD[card.color]} ${card.points}分`;
+  finishTurn(c, `${quiet(me.id)} ${what}${tail}`, true);
+  return true;
+}
+
+function buy(c: Ctx, user: string, seq: number, slot: string): boolean {
+  if (!actCheck(c, user, seq)) return false;
+  const s = c.s;
+  const me = current(s);
+  const own = /^r([123])$/.exec(slot);
+  const id = own ? me.reserved[Number(own[1]) - 1] : tableSlots(s).find((x) => x.slot === slot)?.id;
+  const pay = id === undefined ? null : payOf(me, id);
+  if (id === undefined || !pay) return deny(c, user, STALE);
+  if (own) me.reserved.splice(Number(own[1]) - 1, 1);
+  else pullTable(s, slot);
+  move(me.tokens, s.bank, pay);
+  me.cards.push(id);
+  const card = cardOf(id);
+  const what = `買了${own ? '保留的' : ` ${slot}`} ${GEM_WORD[card.color]} ${card.points}分（付 ${gemsText(pay)}）`;
+  tell(c, user, `✅ 你${what}`);
+  finishTurn(c, `${quiet(me.id)} ${what}`, true);
+  return true;
+}
+
+// 做完動作（或跳過）：更新連續跳過的次數，結束回合
+function finishTurn(c: Ctx, last: string, acted: boolean) {
+  const s = c.s;
+  s.passStreak = acted ? 0 : s.passStreak + 1;
+  endTurn(c, last);
+}
+
 // 回合結束：收起這次的面板，輪到下一位
 function endTurn(c: Ctx, last: string) {
   const s = c.s;
@@ -153,7 +352,7 @@ function beginTurn(c: Ctx) {
 
 function timeout(c: Ctx) {
   const me = current(c.s);
-  endTurn(c, `${quiet(me.id)} 逾時，跳過`);
+  finishTurn(c, `${quiet(me.id)} 逾時，跳過`, false);
 }
 
 const RULES = [
@@ -209,6 +408,20 @@ function handle(c: Ctx, action: GameAction): boolean {
       return cancelGame(c, action.user);
     case 'status':
       return status(c, action.user);
+    case 'turnMenu':
+      return turnMenu(c, action.user, action.seq, action.sub);
+    case 'pick3': {
+      const err = turnCheck(c.s, action.user, action.seq) ?? (c.s.step === 'act' ? null : STALE);
+      return err ? deny(c, action.user, err) : pick3Menu(c, action.user, action.colors);
+    }
+    case 'take3':
+      return take3(c, action.user, action.seq, action.colors);
+    case 'take2':
+      return take2(c, action.user, action.seq, action.color);
+    case 'reserve':
+      return reserve(c, action.user, action.seq, action.slot);
+    case 'buy':
+      return buy(c, action.user, action.seq, action.slot);
     case 'timeout':
       if (action.id !== c.s.timers.phase) return false;
       timeout(c);
