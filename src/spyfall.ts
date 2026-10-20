@@ -2,6 +2,9 @@
 import { isBot, mention, type GameEvent, type GifKey, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle } from './common.js';
 import { LOCATIONS, QUESTIONS, SPY_ANSWERS } from './spyfallLocations.js';
+import { LOCATIONS_EN, QUESTIONS_EN, SPY_ANSWERS_EN } from './spyfallLocationsEn.js';
+import type { Lang } from './i18n/index.js';
+import { tx } from './i18n/games/spyfall.js';
 
 export const MIN_SPYFALL_PLAYERS = 4;
 export const MAX_SPYFALL_PLAYERS = 10;
@@ -39,10 +42,11 @@ export interface SState {
   speaker?: string;
   usedAnswers: Record<string, string[]>;
   timers: { step?: number; remind?: number; total?: number };
+  lang?: Lang;
 }
 
 export type SAction =
-  | { type: 'new'; user: string; channel: string }
+  | { type: 'new'; user: string; channel: string; lang?: Lang }
   | { type: 'join'; user: string }
   | { type: 'leave'; user: string }
   | { type: 'start'; user: string }
@@ -75,11 +79,18 @@ interface Ctx {
 
 const pick = <T>(items: T[], rng: Rng): T => items[Math.floor(rng() * items.length)];
 
+// 地點庫依這局的語系
+const DATA: Record<Lang, { locations: typeof LOCATIONS; questions: string[]; spyAnswers: string[] }> = {
+  'zh-TW': { locations: LOCATIONS, questions: QUESTIONS, spyAnswers: SPY_ANSWERS },
+  en: { locations: LOCATIONS_EN, questions: QUESTIONS_EN, spyAnswers: SPY_ANSWERS_EN },
+};
+const data = (s: SState) => DATA[s.lang ?? 'zh-TW'];
+
 // 發牌：隨機一位間諜、抽一個地點，平民依序拿角色 (人比角色多時重複)
 function deal(c: Ctx) {
   const s = c.s;
   const spyIndex = Math.floor(c.rng() * s.players.length);
-  const location = pick(LOCATIONS, c.rng);
+  const location = pick(data(s).locations, c.rng);
   const jobs = shuffle(location.roles, c.rng);
   s.location = location.name;
   let k = 0;
@@ -93,15 +104,13 @@ function deal(c: Ctx) {
   });
   c.events.push({
     type: 'announce',
-    text: `🎲 間諜危機開始！玩家：${s.players.map((p) => mention(p.id)).join(' ')}\n共 ${s.players.length} 人，其中 1 位是間諜。地點和角色已經用私訊傳給大家，請到和 bot 的私訊查看。`,
+    text: tx(s.lang, 'start', { players: s.players.map((p) => mention(p.id)).join(' '), n: s.players.length }),
     gif: 'start',
   });
-  const list = LOCATIONS.map((l) => l.name).join('、');
+  const list = data(s).locations.map((l) => l.name).join(tx(s.lang, 'sep'));
   for (const p of s.players) {
     const text =
-      p.role === 'spy'
-        ? `🕵️ 你是間諜，不知道地點。\n聽大家的問答猜出地點，提問期間隨時可以用 \`/game spyfall guess <地點>\` 猜一次。\n可能的地點：${list}`
-        : `📍 地點：${s.location}\n你的角色：${p.job}\n回答問題時別講太白，免得間諜猜到地點。`;
+      p.role === 'spy' ? tx(s.lang, 'spyDm', { list }) : tx(s.lang, 'civilianDm', { location: s.location!, job: p.job! });
     c.events.push({ type: 'dm', to: p.id, text });
   }
 }
@@ -116,7 +125,7 @@ function startTimer(c: Ctx, ms: number): number {
 function startQa(c: Ctx) {
   const s = c.s;
   s.phase = 'qa';
-  c.events.push({ type: 'announce', text: `⏱️ 提問開始！總共 ${QA_MS / 60_000} 分鐘，大家接力互相提問。` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'qaStart', { min: QA_MS / 60_000 }) });
   s.timers.remind = startTimer(c, QA_MS - REMIND_MS);
   askNext(c, pick(s.players, c.rng).id, undefined);
 }
@@ -136,7 +145,7 @@ function askNext(c: Ctx, asker: string, lastAsker: string | undefined) {
     type: 'prompt',
     kind: 'askTarget',
     audience: 'channel',
-    text: `❓ 輪到 ${mention(asker)} 提問，選擇要問誰 (${STEP_MS / 1000} 秒)`,
+    text: tx(s.lang, 'askPrompt', { who: mention(asker), sec: STEP_MS / 1000 }),
     options: targetsOf(s).map((id) => ({ value: id, label: id })),
   });
   s.timers.step = startTimer(c, STEP_MS);
@@ -147,10 +156,10 @@ function ask(c: Ctx, target: string) {
   const qa = s.qa!;
   s.qa = { ...qa, step: 'answer', target };
   const botAsks = () => {
-    if (isBot(qa.asker)) c.events.push({ type: 'announce', text: `${mention(qa.asker)}：${pick(QUESTIONS, c.rng)}` });
+    if (isBot(qa.asker)) c.events.push({ type: 'announce', text: tx(s.lang, 'botSays', { who: mention(qa.asker), line: pick(data(s).questions, c.rng) }) });
   };
   if (isBot(target)) {
-    c.events.push({ type: 'announce', text: `🎤 ${mention(qa.asker)} 問 ${mention(target)}` });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'asks', { asker: mention(qa.asker), target: mention(target) }) });
     botAsks();
     botAnswer(c, target);
     askNext(c, target, qa.asker);
@@ -160,8 +169,8 @@ function ask(c: Ctx, target: string) {
     type: 'prompt',
     kind: 'endAnswer',
     audience: 'channel',
-    text: `🎤 ${mention(qa.asker)} 問 ${mention(target)} (${STEP_MS / 1000} 秒)`,
-    options: [{ value: target, label: '回答完畢' }],
+    text: tx(s.lang, 'asksPrompt', { asker: mention(qa.asker), target: mention(target), sec: STEP_MS / 1000 }),
+    options: [{ value: target, label: tx(s.lang, 'doneAnswer') }],
   });
   botAsks();
   s.timers.step = startTimer(c, STEP_MS);
@@ -171,12 +180,12 @@ function ask(c: Ctx, target: string) {
 function botAnswer(c: Ctx, id: string) {
   const s = c.s;
   const me = s.players.find((p) => p.id === id)!;
-  const pool = me.role === 'spy' ? SPY_ANSWERS : LOCATIONS.find((l) => l.name === s.location)!.hints;
+  const pool = me.role === 'spy' ? data(s).spyAnswers : data(s).locations.find((l) => l.name === s.location)!.hints;
   const used = (s.usedAnswers[id] ??= []);
   const fresh = pool.filter((h) => !used.includes(h));
   const line = pick(fresh.length ? fresh : pool, c.rng);
   used.push(line);
-  c.events.push({ type: 'announce', text: `${mention(id)}：${line}` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'botSays', { who: mention(id), line }) });
 }
 
 // 找出下一個輪到 bot 的行動：投票 (不投自己、不棄票)、PK 辯解、被指控的間諜猜地點
@@ -190,7 +199,7 @@ function nextBotAction(s: SState, rng: Rng): GameAction | null {
   }
   if (s.phase === 'pkSpeech' && s.speaker && isBot(s.speaker)) return { type: 'endSpeech', user: s.speaker };
   const spy = s.players.find((p) => p.role === 'spy');
-  if (s.phase === 'lastGuess' && spy && isBot(spy.id)) return { type: 'guess', user: spy.id, location: pick(LOCATIONS, rng).name };
+  if (s.phase === 'lastGuess' && spy && isBot(spy.id)) return { type: 'guess', user: spy.id, location: pick(data(s).locations, rng).name };
   return null;
 }
 
@@ -226,8 +235,8 @@ function openVote(c: Ctx, phase: 'vote' | 'pkVote', candidates: string[], voters
     type: 'prompt',
     kind: phase === 'vote' ? 'dayVote' : 'pkVote',
     audience: 'channel',
-    text: phase === 'vote' ? '🗳️ 提問結束！請投票指控你覺得是間諜的人。' : '⚔️ PK 投票：請在平票的玩家中選一位 (PK 中的玩家不能投票)。',
-    options: [...candidates.map((id) => ({ value: id, label: id })), { value: 'abstain', label: '棄票' }],
+    text: tx(s.lang, phase === 'vote' ? 'vote' : 'pkVote'),
+    options: [...candidates.map((id) => ({ value: id, label: id })), { value: 'abstain', label: tx(s.lang, 'abstain') }],
   });
   s.timers.step = startTimer(c, VOTE_MS);
 }
@@ -236,9 +245,9 @@ function endVote(c: Ctx) {
   const s = c.s;
   const lines = s.voters.map((v) => {
     const t = s.votes[v] ?? 'abstain';
-    return `${mention(v)} → ${t === 'abstain' ? '棄票' : mention(t)}`;
+    return `${mention(v)} → ${t === 'abstain' ? tx(s.lang, 'abstain') : mention(t)}`;
   });
-  c.events.push({ type: 'announce', text: `🗳️ 投票結果：\n${lines.join('\n')}` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'voteResults', { lines: lines.join('\n') }) });
   const tally = new Map<string, number>();
   for (const t of Object.values(s.votes)) if (t !== 'abstain') tally.set(t, (tally.get(t) ?? 0) + 1);
   const max = Math.max(0, ...tally.values());
@@ -248,7 +257,7 @@ function endVote(c: Ctx) {
     return;
   }
   if (top.length !== 1) {
-    c.events.push({ type: 'announce', text: '🤷 沒有人被指控，沒有抓到間諜。' });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'noAccused') });
     endGame(c, 'spy');
     return;
   }
@@ -260,7 +269,7 @@ function startPk(c: Ctx, tied: string[]) {
   s.phase = 'pkSpeech';
   s.candidates = tied;
   s.speakers = s.players.map((p) => p.id).filter((id) => tied.includes(id));
-  c.events.push({ type: 'announce', text: `⚔️ 平票！${tied.map(mention).join('、')} 進入 PK，依序辯解。`, gif: 'pk' });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'pk', { tied: tied.map(mention).join(tx(s.lang, 'sep')) }), gif: 'pk' });
   nextSpeaker(c);
 }
 
@@ -278,17 +287,17 @@ function nextSpeaker(c: Ctx) {
     type: 'prompt',
     kind: 'endSpeech',
     audience: 'channel',
-    text: `🎤 輪到 ${mention(id)} 辯解 (${STEP_MS / 1000} 秒)`,
-    options: [{ value: id, label: '結束發言' }],
+    text: tx(s.lang, 'defendPrompt', { who: mention(id), sec: STEP_MS / 1000 }),
+    options: [{ value: id, label: tx(s.lang, 'endSpeech') }],
   });
   s.timers.step = startTimer(c, STEP_MS);
 }
 
 function accuse(c: Ctx, id: string) {
   const s = c.s;
-  c.events.push({ type: 'announce', text: `👉 ${mention(id)} 被指控！` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'accused', { who: mention(id) }) });
   if (s.players.find((p) => p.id === id)!.role !== 'spy') {
-    c.events.push({ type: 'announce', text: `😱 ${mention(id)} 是平民，抓錯人了！` });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'wrongPerson', { who: mention(id) }) });
     endGame(c, 'spy', 'duelLose');
     return;
   }
@@ -297,22 +306,24 @@ function accuse(c: Ctx, id: string) {
   c.events.push({
     type: 'announce',
     gif: 'duelWin',
-    text: `🕵️ 抓到間諜了！${mention(id)} 有 ${GUESS_MS / 1000} 秒最後一次機會：輸入 \`/game spyfall guess <地點>\`，猜中就逆轉獲勝。`,
+    text: tx(s.lang, 'spyCaught', { who: mention(id), sec: GUESS_MS / 1000 }),
   });
   s.timers.step = startTimer(c, GUESS_MS);
 }
 
 const normalize = (text: string) => text.trim().toLowerCase();
+// 英文地點名稱有空白，比對時忽略空白和標點
+const sameLocation = (s: SState, a: string, b: string) =>
+  s.lang === 'en' ? a.toLowerCase().replace(/[^a-z0-9]/g, '') === b.toLowerCase().replace(/[^a-z0-9]/g, '') : normalize(a) === normalize(b);
 const spyOf = (s: SState) => s.players.find((p) => p.role === 'spy')!.id;
 
 function finishGuess(c: Ctx, location: string | undefined) {
   const s = c.s;
   const spy = mention(spyOf(s));
-  const hit = location !== undefined && normalize(location) === normalize(s.location!);
+  const hit = location !== undefined && sameLocation(s, location, s.location!);
   let text: string;
-  if (location === undefined) text = `⌛ ${spy} 沒有猜地點。`;
-  else if (hit) text = `🎯 ${spy} 猜「${location.trim()}」，猜中了！`;
-  else text = `❌ ${spy} 猜「${location.trim()}」，猜錯了。`;
+  if (location === undefined) text = tx(s.lang, 'noGuess', { spy });
+  else text = tx(s.lang, hit ? 'guessRight' : 'guessWrong', { spy, location: location.trim() });
   c.events.push({ type: 'announce', text });
   endGame(c, hit ? 'spy' : 'civilian', hit ? 'guessRight' : 'guessWrong');
 }
@@ -324,16 +335,16 @@ function endGame(c: Ctx, winner: 'spy' | 'civilian', gif?: GifKey) {
   s.phase = 'ended';
   s.timers = {};
   s.winner = winner;
-  const title = winner === 'civilian' ? '🎉 遊戲結束，平民獲勝！' : '🕵️ 遊戲結束，間諜獲勝！';
+  const title = tx(s.lang, winner === 'civilian' ? 'civilianWin' : 'spyWin');
   const roster = s.players
     .filter((p) => p.role === 'civilian')
-    .map((p) => `${mention(p.id)}：${p.job}`)
+    .map((p) => tx(s.lang, 'rosterLine', { who: mention(p.id), job: p.job! }))
     .join('\n');
   c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: s.players.filter((p) => (p.role === 'spy') === (winner === 'spy')).map((p) => p.id) });
   c.events.push(
     {
       type: 'announce',
-      text: `${title}\n地點：${s.location}\n間諜：${mention(spyOf(s))}\n${roster}`,
+      text: tx(s.lang, 'end', { title, location: s.location!, spy: mention(spyOf(s)), roster }),
       gif: gif ?? (winner === 'civilian' ? 'goodWin' : 'wolvesWin'),
     },
     { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },
@@ -352,10 +363,10 @@ function handle(c: Ctx, action: GameAction): boolean {
     case 'removeBot':
       return removeBots(c, TITLE, action.user, action.count);
     case 'start': {
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以開始遊戲。');
+      if (action.user !== s.host) return reply(c, action.user, tx(s.lang, 'onlyHostStart'));
       if (s.phase !== 'lobby') return false;
       const n = s.players.length;
-      if (n < MIN_SPYFALL_PLAYERS) return reply(c, action.user, `目前 ${n} 人，至少需要 ${MIN_SPYFALL_PLAYERS} 人才能開始。`);
+      if (n < MIN_SPYFALL_PLAYERS) return reply(c, action.user, tx(s.lang, 'notEnough', { n, min: MIN_SPYFALL_PLAYERS }));
       c.events.push(lobbyEvent(TITLE, { ...s, phase: 'qa' }));
       deal(c);
       startQa(c);
@@ -365,49 +376,49 @@ function handle(c: Ctx, action: GameAction): boolean {
       return cancelGame(c, action.user);
     case 'askTarget': {
       if (s.phase !== 'qa' || s.qa!.step !== 'choose') return false;
-      if (action.user !== s.qa!.asker) return reply(c, action.user, '現在不是你提問。');
+      if (action.user !== s.qa!.asker) return reply(c, action.user, tx(s.lang, 'notYourAsk'));
       if (!targetsOf(s).includes(action.target)) return false;
       ask(c, action.target);
       return true;
     }
     case 'endAnswer': {
       if (s.phase !== 'qa' || s.qa!.step !== 'answer') return false;
-      if (action.user !== s.qa!.target) return reply(c, action.user, '現在不是你回答。');
+      if (action.user !== s.qa!.target) return reply(c, action.user, tx(s.lang, 'notYourAnswer'));
       advance(c);
       return true;
     }
     case 'skipSpeaker': {
       if (s.phase !== 'qa') return false;
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以跳過。');
+      if (action.user !== s.host) return reply(c, action.user, tx(s.lang, 'onlyHostSkip'));
       advance(c);
       return true;
     }
     case 'endDiscussion': {
       if (s.phase !== 'qa') return false;
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以直接進入投票。');
+      if (action.user !== s.host) return reply(c, action.user, tx(s.lang, 'onlyHostVote'));
       startVote(c);
       return true;
     }
     case 'endSpeech': {
       if (s.phase !== 'pkSpeech') return false;
-      if (action.user !== s.speaker) return reply(c, action.user, '現在不是你的發言時間。');
-      if (isBot(action.user)) c.events.push({ type: 'announce', text: `${mention(action.user)}：我真的不是間諜，相信我！` });
+      if (action.user !== s.speaker) return reply(c, action.user, tx(s.lang, 'notYourTurn'));
+      if (isBot(action.user)) c.events.push({ type: 'announce', text: tx(s.lang, 'botSays', { who: mention(action.user), line: tx(s.lang, 'botDefend') }) });
       nextSpeaker(c);
       return true;
     }
     case 'dayVote': {
       if (s.phase !== 'vote' && s.phase !== 'pkVote') return false;
       if (!s.players.some((p) => p.id === action.user)) return false;
-      if (!s.voters.includes(action.user)) return reply(c, action.user, 'PK 中的玩家不能投票。');
+      if (!s.voters.includes(action.user)) return reply(c, action.user, tx(s.lang, 'pkNoVote'));
       if (action.target !== 'abstain' && !s.candidates.includes(action.target)) return false;
       s.votes[action.user] = action.target;
-      const choice = action.target === 'abstain' ? '你選擇棄票。' : `你投給了 ${mention(action.target)}。`;
+      const choice = action.target === 'abstain' ? tx(s.lang, 'youAbstained') : tx(s.lang, 'youVoted', { who: mention(action.target) });
       c.events.push({ type: 'ephemeral', to: action.user, text: choice });
       if (s.voters.every((v) => s.votes[v])) endVote(c);
       return true;
     }
     case 'guess': {
-      if ((s.phase !== 'qa' && s.phase !== 'lastGuess') || action.user !== spyOf(s)) return reply(c, action.user, '現在不能猜地點');
+      if ((s.phase !== 'qa' && s.phase !== 'lastGuess') || action.user !== spyOf(s)) return reply(c, action.user, tx(s.lang, 'cannotGuess'));
       finishGuess(c, action.location);
       return true;
     }
@@ -418,7 +429,7 @@ function handle(c: Ctx, action: GameAction): boolean {
       else if (s.phase === 'lastGuess') finishGuess(c, undefined);
       else if (s.phase === 'qa' && action.id === s.timers.step) advance(c);
       else if (s.phase === 'qa' && action.id === s.timers.remind) {
-        c.events.push({ type: 'announce', text: '⏰ 提問時間剩下 1 分鐘！' });
+        c.events.push({ type: 'announce', text: tx(s.lang, 'oneMinute') });
         s.timers.remind = undefined;
         s.timers.total = startTimer(c, REMIND_MS);
       } else if (s.phase === 'qa' && action.id === s.timers.total) startVote(c);

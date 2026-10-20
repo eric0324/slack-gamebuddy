@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { mention, type GameEvent } from '../src/engine.js';
 import { applySpyfall, type SAction, type SState } from '../src/spyfall.js';
 import { LOCATIONS, QUESTIONS, SPY_ANSWERS } from '../src/spyfallLocations.js';
+import { LOCATIONS_EN, QUESTIONS_EN, SPY_ANSWERS_EN } from '../src/spyfallLocationsEn.js';
+import { spyfall } from '../src/games/spyfall.js';
 
 const rng = () => 0.99999;
 
@@ -453,5 +455,65 @@ describe('announcement-gifs: 間諜危機', () => {
     const caught = accuseAll('p4');
     const timeout = run([{ type: 'timeout', id: timerOf(caught.events, 60_000).id }], caught.state).events;
     expect(gifs(timeout)).toEqual(['guessWrong']);
+  });
+});
+
+// 英文局：4 人局同樣是 p4 間諜、地點是英文地點庫的最後一個、p4 先提問
+describe('spyfall/i18n: 英文版', () => {
+  const enStarted = (n = 4) =>
+    run([
+      { type: 'new', user: 'p1', channel: 'C1', lang: 'en' },
+      ...Array.from({ length: n - 1 }, (_, i) => ({ type: 'join', user: `p${i + 2}` }) as SAction),
+      { type: 'start', user: 'p1' },
+    ]);
+  const LAST = LOCATIONS_EN.at(-1)!;
+
+  it('開局公告、私訊和提問按鈕是英文，地點和角色從英文地點庫抽', () => {
+    const { state, events } = enStarted();
+    expect(state.location).toBe(LAST.name);
+    expect(announces(events).join('\n')).toContain('🎲 Spyfall begins!');
+    const civ = state.players.find((p) => p.role === 'civilian')!;
+    expect(dmTo(events, civ.id)!.text).toContain(`📍 Location: ${LAST.name}\nYour role: ${civ.job}`);
+    expect(LAST.roles).toContain(civ.job);
+    const spyDm = dmTo(events, 'p4')!.text;
+    expect(spyDm).toContain("🕵️ You're the spy and don't know the location.");
+    for (const l of LOCATIONS_EN) expect(spyDm).toContain(l.name);
+    expect(prompts(events, 'askTarget')[0].text).toContain("❓ <@p4>'s turn to ask");
+  });
+
+  it('回答按鈕和投票是英文', () => {
+    const asked = run([{ type: 'askTarget', user: 'p4', target: 'p1' }], enStarted().state);
+    expect(prompts(asked.events, 'endAnswer')[0].options).toEqual([{ value: 'p1', label: 'Done answering' }]);
+    const voting = run([{ type: 'endDiscussion', user: 'p1' }], enStarted().state);
+    expect(prompts(voting.events, 'dayVote')[0].options.at(-1)).toEqual({ value: 'abstain', label: 'Abstain' });
+  });
+
+  it('間諜猜地點不分大小寫、空白', () => {
+    const { state, events } = run([{ type: 'guess', user: 'p4', location: ` ${LAST.name.toUpperCase().replace(/ /g, '')} ` }], enStarted().state);
+    expect(state.winner).toBe('spy');
+    expect(announces(events).join('\n')).toContain('Correct!');
+  });
+
+  it('錯誤訊息是英文', () => {
+    expect(ephemeralTo(run([{ type: 'guess', user: 'p1', location: 'Zoo' }], enStarted().state).events, 'p1')).toMatchObject({ text: "You can't guess the location right now." });
+  });
+
+  it('GameDef 有英文名稱和英文說明', () => {
+    expect(spyfall.locales.en).toMatchObject({ name: 'Spyfall', players: '4-10 players' });
+    expect(spyfall.locales.en.help).toContain('*Spyfall commands*');
+  });
+
+  it('英文地點庫和中文一樣多，角色和描述句一對一；描述句和通用台詞不含地點名稱', () => {
+    expect(LOCATIONS_EN).toHaveLength(LOCATIONS.length);
+    expect(QUESTIONS_EN).toHaveLength(QUESTIONS.length);
+    expect(SPY_ANSWERS_EN).toHaveLength(SPY_ANSWERS.length);
+    const has = (text: string, w: string) => new RegExp(`\\b${w}\\b`, 'i').test(text);
+    LOCATIONS_EN.forEach((l, i) => {
+      expect(l.roles.length, l.name).toBe(LOCATIONS[i].roles.length);
+      expect(l.hints.length, l.name).toBe(LOCATIONS[i].hints.length);
+      for (const h of l.hints) expect(has(h, l.name), `${l.name}: ${h}`).toBe(false);
+    });
+    expect(new Set(LOCATIONS_EN.map((l) => l.name.toLowerCase())).size).toBe(LOCATIONS_EN.length);
+    for (const line of [...QUESTIONS_EN, ...SPY_ANSWERS_EN]) for (const l of LOCATIONS_EN) expect(has(line, l.name), `${line} / ${l.name}`).toBe(false);
   });
 });
