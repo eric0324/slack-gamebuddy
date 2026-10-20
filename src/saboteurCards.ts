@@ -182,21 +182,21 @@ export function place(grid: Grid, at: Pos, edges: number, dead: boolean): { cell
   return found;
 }
 
-const HEAVY = ' ╹╺┗╻┃┏┣╸┛━┻┓┫┳╋';
-const LIGHT = ' ╵╶└╷│┌├╴┘─┴┐┤┬┼';
-export const glyph = (edges: number, dead: boolean) => (dead ? LIGHT : HEAVY)[edges];
-export const cardLabel = (card: PathCard) => `${glyph(card.edges, card.dead)} ${card.dead ? '死路' : '通道'}`;
+// 通道和死路用同一組線條；死路在地圖上靠第二個字元的 x 區分
+const LINES = ' ╹╺┗╻┃┏┣╸┛━┻┓┫┳╋';
+export const glyph = (edges: number) => LINES[edges];
+export const cardLabel = (card: PathCard) => `${glyph(card.edges)} ${card.dead ? '死路' : '通道'}`;
 
 function drawCell(cell: Cell | null): string {
   if (!cell) return '. ';
   if (cell.kind === 'goal' && !cell.open) return '? ';
   const edges = edgesOf(cell)!;
   const dead = cell.kind === 'path' && cell.dead;
-  const first = cell.kind === 'start' ? 'S' : cell.kind === 'goal' && cell.gold ? '$' : glyph(edges, dead);
-  return first + (edges & E ? (dead ? '─' : '━') : ' ');
+  const first = cell.kind === 'start' ? 'S' : cell.kind === 'goal' && cell.gold ? '$' : glyph(edges);
+  return first + (dead ? 'x' : edges & E ? '━' : ' ');
 }
 
-// 地圖文字（不含 code block 的 ```）：第一行欄名，每列開頭列號，每格 2 字元
+// 地圖文字（不含 code block 的 ```）：第一行欄名，每列開頭列號，每格 2 字元（死路是「形狀＋x」）
 export function render(grid: Grid): string {
   const header = `  ${Array.from({ length: COLS }, (_, c) => String.fromCharCode(65 + c)).join(' ')}`;
   return [header, ...grid.map((row, r) => `${r + 1} ${row.map(drawCell).join('')}`.trimEnd())].join('\n');

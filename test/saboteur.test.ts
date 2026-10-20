@@ -190,14 +190,16 @@ describe('saboteur/map: 地圖顯示', () => {
     expect(lines[1]).toBe('1 . . . . . . . . . . . . .');
   });
 
-  it('通道粗線、死路細線，右邊有開口時第二個字元畫橫線', () => {
+  it('通道右邊有開口時第二個字元畫橫線；死路照形狀畫、第二個字元一律是 x', () => {
     const grid = newGrid(0);
     put(grid, 'D5', E | W);
     put(grid, 'D6', N | S, true);
+    put(grid, 'E6', N | E | S | W, true);
     put(grid, 'B5', E | S | W, true);
+    put(grid, 'F6', N, true);
     const lines = render(grid).split('\n');
-    expect(lines[5].slice(2, 10)).toBe('. ┬─S━━━');
-    expect(lines[6].slice(8, 10)).toBe('│ ');
+    expect(lines[5].slice(2, 10)).toBe('. ┳xS━━━');
+    expect(lines[6].slice(8, 14)).toBe('┃x╋x╹x');
   });
 
   it('翻開的金礦顯示 $', () => {
@@ -385,7 +387,7 @@ describe('saboteur/turns: 我的手牌', () => {
     const { state, events } = run([{ type: 'hand', user: 'p1' }], s);
     expect(state).toBe(s);
     const text = ephemeralTo(events, 'p1').join();
-    for (const part of ['💣 破壞者', '━ 通道', '│ 死路', '藏寶圖', '🔦', '`K3`：🪨 石頭', '5 金']) expect(text).toContain(part);
+    for (const part of ['💣 破壞者', '━ 通道', '┃ 死路', '藏寶圖', '🔦', '`K3`：🪨 石頭', '5 金']) expect(text).toContain(part);
   });
 
   it('不在遊戲中的人被拒', () => {
@@ -577,7 +579,7 @@ describe('saboteur/turns: 落石', () => {
       s.players[0].hand = [{ kind: 'rock' }];
     });
     const menu = menuOf(act(s, { type: 'card', i: 0 }).events, 'p1')!;
-    expect(menu.options.map((o) => o.label)).toEqual(['D5 ━', 'E5 ─', '↩️ 換一張']);
+    expect(menu.options.map((o) => o.label)).toEqual(['D5 ━', 'E5 ━x', '↩️ 換一張']);
     const { state, events } = act(s, { type: 'rock', i: 0, cell: 'E5' });
     expect(state.grid[4][4]).toBeNull();
     expect(boards(events)[1].text).toContain('{{name:p1}} 用落石拿掉 `E5`');

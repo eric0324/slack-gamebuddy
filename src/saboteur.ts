@@ -185,7 +185,7 @@ function targets(s: SState, me: SPlayer, card: Card): { act: string; rest: strin
     case 'map':
       return closedGoals(s).map((name) => ({ act: 'map', rest: name, label: name }));
     case 'rock':
-      return pathCells(s).map(({ name, cell }) => ({ act: 'rock', rest: name, label: `${name} ${glyph(cell.edges, cell.dead)}` }));
+      return pathCells(s).map(({ name, cell }) => ({ act: 'rock', rest: name, label: `${name} ${glyph(cell.edges)}${cell.dead ? 'x' : ''}` }));
   }
 }
 
@@ -238,7 +238,7 @@ function cardMenu(c: Ctx, user: string, seq: number, i: number): boolean {
   if (!list.length) return deny(c, user, STALE);
   const hint =
     card.kind === 'path'
-      ? `要把「${cardName(card)}」放在哪裡？${rotate(card.edges) !== card.edges ? `（↻ 是轉 180°，變成 ${glyph(rotate(card.edges), card.dead)}）` : ''}`
+      ? `要把「${cardName(card)}」放在哪裡？${rotate(card.edges) !== card.edges ? `（↻ 是轉 180°，變成 ${glyph(rotate(card.edges))}）` : ''}`
       : `「${cardName(card)}」要打在哪裡？`;
   const options = list.map((x) => ({ value: `${x.act}:${seq}:${i}:${x.rest}`, label: x.label }));
   return menu(c, user, ['```', render(s.grid), '```', hint].join('\n'), [...options, { value: `turnMenu:${seq}`, label: '↩️ 換一張' }]);
@@ -565,7 +565,7 @@ const RULES = [
   `共 ${ROUNDS} 回合，每回合重新發身分：⛏️ 金礦工要從起點 S 挖到金礦，💣 破壞者暗中阻止（沒人知道有幾個破壞者）。`,
   '輪到時做一件事：放一張通道牌、打一張行動牌，或蓋掉一張牌，然後抽一張。工具（⛏️🔦🛒）壞掉的人不能放通道牌。',
   '挖到金礦 → 金礦工輪流挑金塊；牌出完還沒挖到 → 破壞者拿金塊。3 回合後金塊最多的人贏。',
-  '地圖上粗線是通道、細線是死路，`?` 是蓋著的終點。',
+  '地圖上格子裡有 x 的是死路，`?` 是蓋著的終點。',
 ].join('\n');
 
 function start(c: Ctx, user: string): boolean {
