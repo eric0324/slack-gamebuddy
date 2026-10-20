@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyEmoji, emojiCount, isEmojiOnly, type EAction, type EState } from '../src/emoji.js';
-import { EMOJI_PROMPTS } from '../src/emojiPrompts.js';
+import { EMOJI_PROMPTS, EMOJI_PROMPTS_EN, emojiPrompts } from '../src/emojiPrompts.js';
 import { type GameEvent } from '../src/engine.js';
 import { emoji } from '../src/games/emoji.js';
 
@@ -594,5 +594,75 @@ describe('emoji/setup: 指令與按鈕', () => {
   it('大廳資訊：🔗 Emoji 傳話、4～10 人、心理戰、不支援 bot；help 條列所有指令', () => {
     expect(emoji).toMatchObject({ kind: 'emoji', emoji: '🔗', name: 'Emoji 傳話', players: '4～10 人', category: 'party', noBots: true });
     for (const cmd of ['new', 'start', 'send', 'cancel', 'help']) expect(emoji.help).toContain(`/game emoji ${cmd}`);
+  });
+});
+
+describe('emoji/i18n: 英文局', () => {
+  const enLobby = (n: number) =>
+    run([{ type: 'new', user: 'A', channel: 'C1', lang: 'en' }, ...NAMES.slice(1, n).map((user) => ({ type: 'join', user }) as EAction)]);
+  const enStarted = (n = 4) => run([{ type: 'start', user: 'A' }], enLobby(n).state);
+
+  it('開局規則、步驟公告和作答按鈕是英文', () => {
+    const { state, events } = enStarted(4);
+    expect(state.lang).toBe('en');
+    expect(announces(events)[0]).toContain('🔗 Emoji Telephone begins!');
+    const board = boards(events).at(-1)!;
+    expect(board.text).toMatch(/Step 1\/4: 🎨[\s\S]*90 sec[\s\S]*Submitted 0\/4/);
+    expect(board.options).toEqual([{ value: 'send', label: '✍️ Answer' }]);
+  });
+
+  it('作答拿到英文題目，私下回覆和視窗是英文', () => {
+    const s = enStarted(4).state;
+    const prompt = EMOJI_PROMPTS_EN[s.chains[0].prompt];
+    const { events } = run([{ type: 'openSend', user: 'A' }], s);
+    expect(ephemeralTo(events, 'A')[0]).toBe(`You got: ${prompt}. Describe it using only emoji`);
+    expect(events).toContainEqual(expect.objectContaining({ type: 'modal', title: 'Answer', label: `Describe "${prompt}" using only emoji (max 20)` }));
+    expect(ephemeralTo(run([send('A', 'cat')], s).events, 'A')[0]).toMatch(/Emoji only![\s\S]*:shortcode:[\s\S]*up to 20/);
+    expect(ephemeralTo(run([send('A', '🐱')], s).events, 'A')[0]).toBe('Received: 🐱');
+    expect(ephemeralTo(run([send('Z', '🐱')], s).events, 'Z')[0]).toBe("You're not in this game.");
+    expect(ephemeralTo(run([{ type: 'addBot', user: 'A', count: 1 }], enLobby(4).state).events, 'A')[0]).toBe("Emoji Telephone doesn't support bots.");
+  });
+
+  it('公布鏈、投票和結算是英文', () => {
+    let s = enStarted(4).state;
+    const all: GameEvent[] = [];
+    while (s.phase === 'play') {
+      const def = s.step % 2 ? '🐱' : 'cat';
+      const r = runAll(ids(s).map((u) => send(u, def)), s);
+      all.push(...r.events);
+      s = r.state;
+    }
+    const text = announces(all).join('\n');
+    expect(text).toContain('🔗 The telephone is over');
+    expect(text).toContain(`📝 <@A>'s prompt: ${EMOJI_PROMPTS_EN[s.chains[0].prompt]}`);
+    expect(boards(all).at(-1)!.options.map((o) => o.label)).toEqual(['🎨 Vote best emoji', '🧠 Vote best guess']);
+    const votes = runAll(
+      ids(s).flatMap((u) => [
+        { type: 'vote', user: u, seq: s.seq, cat: 'emoji', tag: u === 'A' ? '2-1' : '1-1' } as EAction,
+        { type: 'vote', user: u, seq: s.seq, cat: 'guess', tag: u === 'B' ? '2-2' : '1-2' } as EAction,
+      ]),
+      s,
+    );
+    expect(ephemeralTo(votes.events, 'B')[0]).toBe('You voted for `1-1` (🎨 Best emoji)');
+    const end = announces(votes.events).join('\n');
+    expect(end).toContain('🎉 Votes are in!');
+    expect(end).toContain('<@B> wins!');
+    expect(end).toContain('<@A> (score: 3)');
+    expect(prompts(votes.events).find((p) => p.kind === 'rematch')!.options[0].label).toBe('Play again');
+  });
+
+  it('英文題庫和中文版一樣多、不重複；GameDef 有英文名稱和說明', () => {
+    expect(EMOJI_PROMPTS_EN).toHaveLength(EMOJI_PROMPTS.length);
+    expect(new Set(EMOJI_PROMPTS_EN).size).toBe(EMOJI_PROMPTS_EN.length);
+    for (const p of EMOJI_PROMPTS_EN) {
+      expect(p.trim(), p).toBe(p);
+      expect(p.length, p).toBeGreaterThanOrEqual(2);
+      expect(p.length, p).toBeLessThanOrEqual(30);
+    }
+    expect(emojiPrompts('en')).toBe(EMOJI_PROMPTS_EN);
+    expect(emojiPrompts('zh-TW')).toBe(EMOJI_PROMPTS);
+    expect(emoji.locales.en).toMatchObject({ name: 'Emoji Telephone', players: '4-10 players' });
+    for (const cmd of ['new', 'start', 'send', 'cancel', 'help']) expect(emoji.locales.en.help).toContain(`/game emoji ${cmd}`);
+    expect(emoji.locales.en.help).toContain('✍️ Answer');
   });
 });

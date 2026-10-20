@@ -25,8 +25,8 @@
 
 ## 6. Emoji 傳話 (emoji)
 
-- [ ] 6.1 先寫失敗的英文測試：英文局的主要公告、DM、prompt 和按鈕是英文，help 和 `locales.en` 是英文，題目取英文版且數量和中文版相同
-- [ ] 6.2 新增 `src/i18n/games/emoji.ts`、英文題庫，engine 和 GameDef 改用字典，讓 6.1 綠燈
+- [x] 6.1 先寫失敗的英文測試：英文局的主要公告、DM、prompt 和按鈕是英文，help 和 `locales.en` 是英文，題目取英文版且數量和中文版相同
+- [x] 6.2 新增 `src/i18n/games/emoji.ts`、英文題庫，engine 和 GameDef 改用字典，讓 6.1 綠燈
 
 ## 7. 妙語說書人 (dixit)
 
@@ -35,5 +35,5 @@
 
 ## 8. 收尾
 
-- [ ] 8.1 每款遊戲寫 3 頁英文 wiki
-- [ ] 8.2 跑 `npm test` 和 `npm run typecheck`，確認全部綠燈、既有測試的預期值沒改
+- [x] 8.1 每款遊戲寫 3 頁英文 wiki
+- [x] 8.2 跑 `npm test` 和 `npm run typecheck`，確認全部綠燈、既有測試的預期值沒改
