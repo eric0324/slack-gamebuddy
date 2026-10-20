@@ -96,7 +96,7 @@ type Ctx = { s: CState; events: GameEvent[]; rng: Rng; notice?: { to: string; te
 
 const NOT_PLAYER = '你不在這局遊戲裡。';
 const NOT_YET = '還沒輪到你。';
-const STALE = '這個選單已經過期，請重新按「🏰 我的回合」。';
+const STALE = '這個選單已經過期，請重新按「🏰 行動」。';
 
 const find = (s: CState, id: string) => s.players.find((p) => p.id === id);
 // 只對真人送私下訊息（bot 不需要）；replace：在私下選單上按的，回應取代那則選單
@@ -336,7 +336,7 @@ function board(s: CState, ended = false): GameEvent {
     audience: 'channel',
     ref: `citadels:${s.seq}`,
     text: lines.join('\n'),
-    options: ended ? [] : [{ value: `turnMenu:${s.seq}`, label: '🏰 我的回合' }, { value: 'status', label: '📜 我的狀態' }],
+    options: ended ? [] : [{ value: `turnMenu:${s.seq}`, label: '🏰 行動' }, { value: 'status', label: '📜 我的狀態' }],
   };
 }
 
@@ -909,7 +909,7 @@ function handle(c: Ctx, action: GameAction): boolean {
 
 function nextPanel(c: Ctx, user: string) {
   const s = c.s;
-  if (s.phase === 'graveyard') return tell(c, user, `⚰️ 正在等 ${quiet(s.graveyard!.owner)} 決定要不要用墓地，決定後再按牌桌的「🏰 我的回合」繼續`);
+  if (s.phase === 'graveyard') return tell(c, user, `⚰️ 正在等 ${quiet(s.graveyard!.owner)} 決定要不要用墓地，決定後再按牌桌的「🏰 行動」繼續`);
   if (s.phase === 'turn' && current(s).id === user && !s.turn!.drawn) turnMenu(c, user, s.seq);
 }
 

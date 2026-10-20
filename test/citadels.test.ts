@@ -327,7 +327,7 @@ function until(s: CState, id: string) {
   while (cur(s) !== id) s = passTurn(s).state;
   return s;
 }
-const STALE = '這個選單已經過期，請重新按「🏰 我的回合」。';
+const STALE = '這個選單已經過期，請重新按「🏰 行動」。';
 
 describe('citadels/turns: 叫號', () => {
   it('依編號叫號：A 2 號、B 4 號、C 6 號、D 7 號，依序行動，跳過的附註在下一則牌桌訊息', () => {
@@ -342,7 +342,7 @@ describe('citadels/turns: 叫號', () => {
     expect(board.text).toContain('已翻開：🦹 盜賊 <@p1>');
     expect(board.text).toContain('沒有人是 1 號 🗡️ 刺客');
     expect(board.options).toEqual([
-      { value: `turnMenu:${first.state.seq}`, label: '🏰 我的回合' },
+      { value: `turnMenu:${first.state.seq}`, label: '🏰 行動' },
       { value: 'status', label: '📜 我的狀態' },
     ]);
     expect(timers(first.events).at(-1)!.ms).toBe(90_000);
@@ -1202,7 +1202,7 @@ describe('citadels/setup: 遊戲清單與指令說明（GameDef）', () => {
   });
 
   it('help 列出指令和按鈕用法；不認識的子指令回傳 null（顯示說明）', () => {
-    for (const w of ['new', 'addbot', 'removebot', 'start', 'cancel', '🎭 選角色', '🏰 我的回合', '📜 我的狀態']) expect(citadels.help).toContain(w);
+    for (const w of ['new', 'addbot', 'removebot', 'start', 'cancel', '🎭 選角色', '🏰 行動', '📜 我的狀態']) expect(citadels.help).toContain(w);
     expect(citadels.parse('foo', 'U', 'C')).toBeNull();
     expect(citadels.parse('help', 'U', 'C')).toBeNull();
     expect(citadels.parse('new', 'U', 'C')).toEqual({ type: 'new', user: 'U', channel: 'C' });
@@ -1293,7 +1293,7 @@ describe('citadels/turns: 回合面板', () => {
   it('等墓地主人決定時，面板顯示等待訊息', () => {
     const s = warlordOf({ cities: [[], ['castle'], ['graveyard'], []], gold: [2, 2, 2, 8] });
     const { events } = run([{ type: 'destroy', user: 'p4', seq: s.seq, target: 'p2', card: 'castle' }], s);
-    expect(ephs(events, 'p4')).toEqual([{ type: 'ephemeral', to: 'p4', text: '⚰️ 正在等 {{name:p3}} 決定要不要用墓地，決定後再按牌桌的「🏰 我的回合」繼續', replace: true }]);
+    expect(ephs(events, 'p4')).toEqual([{ type: 'ephemeral', to: 'p4', text: '⚰️ 正在等 {{name:p3}} 決定要不要用墓地，決定後再按牌桌的「🏰 行動」繼續', replace: true }]);
   });
 
   it('選角後「你選了」取代選角選單', () => {

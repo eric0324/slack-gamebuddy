@@ -190,14 +190,16 @@ describe('saboteur/map: 地圖顯示', () => {
     expect(lines[1]).toBe('1 . . . . . . . . . . . . .');
   });
 
-  it('通道粗線、死路細線，右邊有開口時第二個字元畫橫線', () => {
+  it('通道右邊有開口時第二個字元畫橫線；死路照形狀畫、第二個字元一律是 x', () => {
     const grid = newGrid(0);
     put(grid, 'D5', E | W);
     put(grid, 'D6', N | S, true);
+    put(grid, 'E6', N | E | S | W, true);
     put(grid, 'B5', E | S | W, true);
+    put(grid, 'F6', N, true);
     const lines = render(grid).split('\n');
-    expect(lines[5].slice(2, 10)).toBe('. ┬─S━━━');
-    expect(lines[6].slice(8, 10)).toBe('│ ');
+    expect(lines[5].slice(2, 10)).toBe('. ┳xS━━━');
+    expect(lines[6].slice(8, 14)).toBe('┃x╋x╹x');
   });
 
   it('翻開的金礦顯示 $', () => {
@@ -369,7 +371,7 @@ describe('saboteur/turns: 回合面板', () => {
     expect(next.text).toContain('牌庫剩');
     expect(next.text).toContain('{{name:p2}}：🃏 6 張 ❌⛏️🛒');
     expect(next.text).toContain('上一步：{{name:p1}} 逾時，自動蓋掉一張牌');
-    expect(next.options.map((o) => o.label)).toEqual(['⛏️ 我的回合', '🎒 我的手牌']);
+    expect(next.options.map((o) => o.label)).toEqual(['⛏️ 行動', '🎒 我的手牌']);
     expect(next.text).not.toMatch(/破壞者|金礦工/);
   });
 });
@@ -385,7 +387,7 @@ describe('saboteur/turns: 我的手牌', () => {
     const { state, events } = run([{ type: 'hand', user: 'p1' }], s);
     expect(state).toBe(s);
     const text = ephemeralTo(events, 'p1').join();
-    for (const part of ['💣 破壞者', '━ 通道', '│ 死路', '🗺️ 藏寶圖', '🔦', '`K3`：🪨 石頭', '5 金']) expect(text).toContain(part);
+    for (const part of ['💣 破壞者', '━ 通道', '┃ 死路', '藏寶圖', '🔦', '`K3`：🪨 石頭', '5 金']) expect(text).toContain(part);
   });
 
   it('不在遊戲中的人被拒', () => {
@@ -403,11 +405,23 @@ describe('saboteur/turns: 回合選單', () => {
     const menu = menuOf(events, 'p1')!;
     expect(menu.options).toEqual([
       { value: `card:${s.seq}:0`, label: '━ 通道' },
-      { value: `card:${s.seq}:2`, label: '🗺️ 藏寶圖' },
-      { value: `card:${s.seq}:3`, label: '🔨 破壞 ⛏️' },
+      { value: `card:${s.seq}:2`, label: '藏寶圖' },
+      { value: `card:${s.seq}:3`, label: '破壞 鎬子' },
       { value: `discardMenu:${s.seq}`, label: '🗑️ 蓋掉一張牌' },
     ]);
-    expect(menu.text).toContain('「🪨 落石」現在沒有目標');
+    expect(menu.text).toContain('「落石」現在沒有目標');
+  });
+
+  it('手牌名稱只用文字，不加 emoji', () => {
+    const s = setup((s) => {
+      s.grid[4][3] = P(E | W);
+      s.players[1].broken = ['pick'];
+      s.players[0].hand = [P(E | W), { kind: 'break', tool: 'lamp' }, { kind: 'fix', tools: ['pick', 'lamp'] }, { kind: 'map' }, { kind: 'rock' }];
+    });
+    const labels = menuOf(act(s, { type: 'turnMenu' }).events, 'p1')!.options.map((o) => o.label);
+    expect(labels).toEqual(['━ 通道', '破壞 礦燈', '修理 鎬子／礦燈', '藏寶圖', '落石', '🗑️ 蓋掉一張牌']);
+    const hand = ephemeralTo(run([{ type: 'hand', user: 'p1' }], s).events, 'p1').join();
+    expect(hand).toContain('手牌：━ 通道、破壞 礦燈、修理 鎬子／礦燈、藏寶圖、落石');
   });
 
   it('工具壞了：通道牌沒有按鈕，並說明原因', () => {
@@ -416,7 +430,7 @@ describe('saboteur/turns: 回合選單', () => {
       s.players[0].broken = ['pick'];
     });
     const menu = menuOf(act(s, { type: 'turnMenu' }).events, 'p1')!;
-    expect(menu.options.map((o) => o.label)).toEqual(['🗺️ 藏寶圖', '🗑️ 蓋掉一張牌']);
+    expect(menu.options.map((o) => o.label)).toEqual(['藏寶圖', '🗑️ 蓋掉一張牌']);
     expect(menu.text).toContain('工具壞了，不能放通道牌');
   });
 
@@ -425,7 +439,7 @@ describe('saboteur/turns: 回合選單', () => {
     expect(ephemeralTo(act(s, { type: 'turnMenu' }, 'p2').events, 'p2').join()).toContain('還沒輪到你');
     const stale = run([{ type: 'card', user: 'p1', seq: s.seq - 1, i: 0 }], s);
     expect(stale.state).toBe(s);
-    expect(ephemeralTo(stale.events, 'p1').join()).toContain('這個選單已經過期，請重新按「⛏️ 我的回合」');
+    expect(ephemeralTo(stale.events, 'p1').join()).toContain('這個選單已經過期，請重新按「⛏️ 行動」');
   });
 
   it('選了一張牌後附「↩️ 換一張」回到手牌選單', () => {
@@ -522,7 +536,7 @@ describe('saboteur/turns: 修理工具', () => {
       s.players[1].broken = ['pick', 'lamp'];
     });
     const menu = menuOf(act(s, { type: 'card', i: 0 }).events, 'p1')!;
-    expect(menu.options.map((o) => o.label)).toEqual(['p2 ⛏️', 'p2 🔦', '↩️ 換一張']);
+    expect(menu.options.map((o) => o.label)).toEqual(['p2 鎬子', 'p2 礦燈', '↩️ 換一張']);
     expect(act(s, { type: 'tool', i: 0, tool: 'lamp', target: 'p2' }).state.players[1].broken).toEqual(['pick']);
   });
 
@@ -565,7 +579,7 @@ describe('saboteur/turns: 落石', () => {
       s.players[0].hand = [{ kind: 'rock' }];
     });
     const menu = menuOf(act(s, { type: 'card', i: 0 }).events, 'p1')!;
-    expect(menu.options.map((o) => o.label)).toEqual(['D5 ━', 'E5 ─', '↩️ 換一張']);
+    expect(menu.options.map((o) => o.label)).toEqual(['D5 ━', 'E5 ━x', '↩️ 換一張']);
     const { state, events } = act(s, { type: 'rock', i: 0, cell: 'E5' });
     expect(state.grid[4][4]).toBeNull();
     expect(boards(events)[1].text).toContain('{{name:p1}} 用落石拿掉 `E5`');
@@ -926,7 +940,7 @@ describe('saboteur/setup: 指令解析與按鈕（GameDef）', () => {
     expect(saboteur.parse('help', 'u', 'C1')).toBeNull();
     expect(saboteur.parse('dig', 'u', 'C1')).toBeNull();
     for (const cmd of ['new', 'addbot', 'removebot', 'start', 'cancel']) expect(saboteur.help).toContain(`/game saboteur ${cmd}`);
-    expect(saboteur.help).toContain('⛏️ 我的回合');
+    expect(saboteur.help).toContain('⛏️ 行動');
     expect(saboteur.help).toContain('🎒 我的手牌');
   });
 

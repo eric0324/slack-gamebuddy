@@ -65,11 +65,11 @@ TBD - created by archiving change add-citadels-game. Update Purpose after archiv
 - **THEN** 每人 4 張手牌、2 金，牌堆剩 50 張；頻道公告座位順序、王冠持有者和勝利條件；每位真人收到規則和手牌私訊；接著開始選角
 
 ### Requirement: 牌桌訊息
-每次叫號時，頻道 SHALL 發一則牌桌訊息，內容包含：第幾輪、目前叫到的角色和行動的玩家（用 @ 提及）、王冠持有者、這輪已經翻開的角色、每位玩家的金幣和手牌張數、每位玩家城市裡的建築（名稱、顏色、費用）和棟數，附「🏰 我的回合」和「📜 我的狀態」按鈕。同一個角色回合內每次狀態改變時，系統 SHALL 用同一個 `ref` 更新這則訊息，SHALL NOT 另外發新的牌桌訊息。牌桌訊息 SHALL NOT 透露任何人的手牌內容或還沒翻開的角色。回合結束時這則訊息 SHALL 改成「回合結束」、不再有按鈕。
+每次叫號時，頻道 SHALL 發一則牌桌訊息，內容包含：第幾輪、目前叫到的角色和行動的玩家（用 @ 提及）、王冠持有者、這輪已經翻開的角色、每位玩家的金幣和手牌張數、每位玩家城市裡的建築（名稱、顏色、費用）和棟數，附「🏰 行動」和「📜 我的狀態」按鈕。同一個角色回合內每次狀態改變時，系統 SHALL 用同一個 `ref` 更新這則訊息，SHALL NOT 另外發新的牌桌訊息。牌桌訊息 SHALL NOT 透露任何人的手牌內容或還沒翻開的角色。回合結束時這則訊息 SHALL 改成「回合結束」、不再有按鈕。
 
 #### Scenario: 叫號
 - **WHEN** 第 2 輪叫到 6 號商人，B 拿著商人
-- **THEN** 頻道發一則牌桌訊息：第 2 輪、💰 商人 @B、每人金幣、手牌數和城市，附「🏰 我的回合」「📜 我的狀態」
+- **THEN** 頻道發一則牌桌訊息：第 2 輪、💰 商人 @B、每人金幣、手牌數和城市，附「🏰 行動」「📜 我的狀態」
 
 #### Scenario: 建造後更新
 - **WHEN** B 在自己的回合建了酒館
@@ -91,7 +91,7 @@ TBD - created by archiving change add-citadels-game. Update Purpose after archiv
 - **THEN** A 看到的文字有「👥 場上：」，C 那一行是「• @C：💰 7 金｜…」
 
 ### Requirement: 遊戲清單與指令說明
-`/game` 的遊戲清單和遊戲大廳 SHALL 列出富饒之城的名稱（🏛️ 富饒之城）、代號 `citadels`、人數（4～7 人）和開房方式 `/game citadels new`，大廳分類是「🎲 心理戰」。輸入 `/game citadels help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到富饒之城的條列式指令說明（new、addbot、removebot、start、cancel，以及遊戲中「🎭 選角色」「🏰 我的回合」「📜 我的狀態」按鈕的用法）。
+`/game` 的遊戲清單和遊戲大廳 SHALL 列出富饒之城的名稱（🏛️ 富饒之城）、代號 `citadels`、人數（4～7 人）和開房方式 `/game citadels new`，大廳分類是「🎲 心理戰」。輸入 `/game citadels help` 或不認識的子指令時，系統 SHALL 只讓這位使用者看到富饒之城的條列式指令說明（new、addbot、removebot、start、cancel，以及遊戲中「🎭 選角色」「🏰 行動」「📜 我的狀態」按鈕的用法）。
 
 #### Scenario: 查看指令
 - **WHEN** 使用者輸入 `/game citadels help`

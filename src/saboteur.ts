@@ -17,6 +17,7 @@ import {
   rotate,
   TOOL_ICON,
   TOOL_NAME,
+  TOOL_WORD,
   type Card,
   type Grid,
   type Tool,
@@ -102,7 +103,7 @@ type Ctx = { s: SState; events: GameEvent[]; rng: Rng };
 
 const NOT_PLAYER = '你不在這局遊戲中';
 const NOT_YET = '還沒輪到你。';
-const STALE = '這個選單已經過期，請重新按「⛏️ 我的回合」。';
+const STALE = '這個選單已經過期，請重新按「⛏️ 行動」。';
 
 const find = (s: SState, id: string) => s.players.find((p) => p.id === id);
 // 在私下選單上按的：回應取代那則選單；bot 不需要
@@ -120,13 +121,13 @@ export function cardName(card: Card): string {
     case 'path':
       return cardLabel(card);
     case 'break':
-      return `🔨 破壞 ${TOOL_ICON[card.tool]}`;
+      return `破壞 ${TOOL_WORD[card.tool]}`;
     case 'fix':
-      return `🔧 修理 ${card.tools.map((t) => TOOL_ICON[t]).join('／')}`;
+      return `修理 ${card.tools.map((t) => TOOL_WORD[t]).join('／')}`;
     case 'map':
-      return '🗺️ 藏寶圖';
+      return '藏寶圖';
     case 'rock':
-      return '🪨 落石';
+      return '落石';
   }
 }
 
@@ -152,7 +153,7 @@ function board(s: SState, ended = false): GameEvent {
     audience: 'channel',
     ref: `saboteur:turn:${s.seq}`,
     text: lines.join('\n'),
-    options: ended ? [] : [{ value: `turnMenu:${s.seq}`, label: '⛏️ 我的回合' }, { value: 'hand', label: '🎒 我的手牌' }],
+    options: ended ? [] : [{ value: `turnMenu:${s.seq}`, label: '⛏️ 行動' }, { value: 'hand', label: '🎒 我的手牌' }],
   };
 }
 
@@ -179,12 +180,12 @@ function targets(s: SState, me: SPlayer, card: Card): { act: string; rest: strin
         .map((p) => ({ act: 'tool', rest: `${card.tool}:${p.id}`, label: p.id }));
     case 'fix':
       return s.players.flatMap((p) =>
-        card.tools.filter((t) => p.broken.includes(t)).map((t) => ({ act: 'tool', rest: `${t}:${p.id}`, label: `${p.id} ${TOOL_ICON[t]}` })),
+        card.tools.filter((t) => p.broken.includes(t)).map((t) => ({ act: 'tool', rest: `${t}:${p.id}`, label: `${p.id} ${TOOL_WORD[t]}` })),
       );
     case 'map':
       return closedGoals(s).map((name) => ({ act: 'map', rest: name, label: name }));
     case 'rock':
-      return pathCells(s).map(({ name, cell }) => ({ act: 'rock', rest: name, label: `${name} ${glyph(cell.edges, cell.dead)}` }));
+      return pathCells(s).map(({ name, cell }) => ({ act: 'rock', rest: name, label: `${name} ${glyph(cell.edges)}${cell.dead ? 'x' : ''}` }));
   }
 }
 
@@ -237,7 +238,7 @@ function cardMenu(c: Ctx, user: string, seq: number, i: number): boolean {
   if (!list.length) return deny(c, user, STALE);
   const hint =
     card.kind === 'path'
-      ? `要把「${cardName(card)}」放在哪裡？${rotate(card.edges) !== card.edges ? `（↻ 是轉 180°，變成 ${glyph(rotate(card.edges), card.dead)}）` : ''}`
+      ? `要把「${cardName(card)}」放在哪裡？${rotate(card.edges) !== card.edges ? `（↻ 是轉 180°，變成 ${glyph(rotate(card.edges))}）` : ''}`
       : `「${cardName(card)}」要打在哪裡？`;
   const options = list.map((x) => ({ value: `${x.act}:${seq}:${i}:${x.rest}`, label: x.label }));
   return menu(c, user, ['```', render(s.grid), '```', hint].join('\n'), [...options, { value: `turnMenu:${seq}`, label: '↩️ 換一張' }]);
@@ -564,7 +565,7 @@ const RULES = [
   `共 ${ROUNDS} 回合，每回合重新發身分：⛏️ 金礦工要從起點 S 挖到金礦，💣 破壞者暗中阻止（沒人知道有幾個破壞者）。`,
   '輪到時做一件事：放一張通道牌、打一張行動牌，或蓋掉一張牌，然後抽一張。工具（⛏️🔦🛒）壞掉的人不能放通道牌。',
   '挖到金礦 → 金礦工輪流挑金塊；牌出完還沒挖到 → 破壞者拿金塊。3 回合後金塊最多的人贏。',
-  '地圖上粗線是通道、細線是死路，`?` 是蓋著的終點。',
+  '地圖上格子裡有 x 的是死路，`?` 是蓋著的終點。',
 ].join('\n');
 
 function start(c: Ctx, user: string): boolean {
