@@ -538,3 +538,75 @@ describe('dixit/setup: Slack 設定 (GameDef)', () => {
     expect(dixit.modals.dixitClue.fallback).toContain('/game dixit clue <編號> <提示>');
   });
 });
+
+describe('dixit/i18n: 英文局', () => {
+  const enLobby = (n: number) =>
+    run([{ type: 'new', user: 'p1', channel: 'C1', lang: 'en' }, ...Array.from({ length: n - 1 }, (_, i) => ({ type: 'join', user: `p${i + 2}` }) as DixitAction)]);
+  const enStarted = (n: number) => run([{ type: 'start', user: 'p1' }], enLobby(n).state);
+  const enPlayed = () => {
+    const s = enStarted(4).state;
+    const clued = run([{ type: 'clue', user: 'p1', text: 'Monday', card: 0 }], s);
+    const seq = clued.state.seq;
+    return run([2, 3, 4].map((n) => ({ type: 'play', user: `p${n}`, seq, card: 0 }) as DixitAction), clued.state);
+  };
+
+  it('開局規則、說書人看板和手牌按鈕是英文', () => {
+    const { state, events } = enStarted(4);
+    expect(state.lang).toBe('en');
+    expect(announces(events)[0].text).toContain('🎨 Dixit begins!');
+    const board = boards(events).at(-1)!;
+    expect(board.text).toContain('🎨 Round 1, the storyteller is <@p1>');
+    expect(board.options[0].label).toBe('🃏 My hand');
+  });
+
+  it('手牌選單、視窗、提示公告和私下回覆是英文', () => {
+    const s = enStarted(4).state;
+    expect(menu(run([{ type: 'hand', user: 'p1' }], s).events, 'p1')!.text).toContain("🃏 You're the storyteller");
+    expect(menu(run([{ type: 'hand', user: 'p2' }], s).events, 'p2')!.text).toBe('🃏 Your hand (no need to play right now)');
+    const picked = run([{ type: 'pick', user: 'p1', seq: s.seq, card: 0 }], s);
+    expect(picked.events).toContainEqual(expect.objectContaining({ type: 'modal', title: "Storyteller's clue", label: 'Clue (1-50 characters)' }));
+    expect(ephemeralTo(run([{ type: 'clue', user: 'p2', text: 'x', card: 0 }], s).events, 'p2')!.text).toBe('The storyteller this round is <@p1>.');
+    const clued = run([{ type: 'clue', user: 'p1', text: 'Monday', card: 0 }], s);
+    expect(announces(clued.events)[0].text).toBe("💬 <@p1>'s clue: Monday");
+    expect(boards(clued.events).at(-1)!.text).toContain('🃏 Round 1 play: <@p1>\'s clue is "Monday"');
+  });
+
+  it('投票看板、揭曉和計分是英文', () => {
+    const played = enPlayed();
+    expect(boards(played.events).at(-1)!.text).toContain("🗳️ Round 1: which card is storyteller <@p1>'s?");
+    const seq = played.state.seq;
+    expect(ephemeralTo(run([{ type: 'vote', user: 'p2', seq, n: 1 }], played.state).events, 'p2')!.text).toBe("You can't vote for your own card.");
+    const { events } = run(
+      [
+        { type: 'vote', user: 'p2', seq, n: 0 },
+        { type: 'vote', user: 'p3', seq, n: 0 },
+        { type: 'vote', user: 'p4', seq, n: 1 },
+      ],
+      played.state,
+    );
+    expect(ephemeralTo(events, 'p2')!.text).toBe('You voted for 1');
+    const text = announces(events).at(-1)!.text;
+    expect(text).toContain("🎉 Round 1 reveal: storyteller <@p1>'s card was #1");
+    expect(text).toContain('1. <@p1> (storyteller) ← <@p2> <@p3>');
+    expect(text).toContain('3. <@p3> ← nobody');
+    expect(text).toContain('Points this round: <@p1> +3, <@p2> +4');
+  });
+
+  it('結束公告和再來一局按鈕是英文', () => {
+    const played = enPlayed();
+    played.state.players[0].score = 19;
+    const seq = played.state.seq;
+    const { events } = run([2, 3, 4].map((n) => ({ type: 'vote', user: `p${n}`, seq, n: n === 2 ? 0 : 1 }) as DixitAction), played.state);
+    expect(announces(events).at(-1)!.text).toContain('🏆 Game over (someone reached 20 points), <@p1> wins!');
+    expect(announces(events).at(-1)!.text).toContain('1. <@p1> 22 pts 🏆');
+    const rematch = prompts(events).find((p) => p.kind === 'rematch')!;
+    expect(rematch.options[0].label).toBe('Play again');
+  });
+
+  it('人數不足、不支援 bot 的回覆和 GameDef 英文', () => {
+    expect(ephemeralTo(run([{ type: 'start', user: 'p1' }], enLobby(2).state).events, 'p1')!.text).toBe('There are 2 players; you need at least 3 to start.');
+    expect(ephemeralTo(run([{ type: 'addBot', user: 'p1', count: 1 }], enLobby(2).state).events, 'p1')!.text).toBe("Dixit doesn't support bots.");
+    expect(dixit.locales.en).toMatchObject({ name: 'Dixit', players: '3-8 players' });
+    for (const s of ['/game dixit new', '/game dixit clue <number> <clue>', '🃏 My hand', '/game meme add']) expect(dixit.locales.en.help).toContain(s);
+  });
+});

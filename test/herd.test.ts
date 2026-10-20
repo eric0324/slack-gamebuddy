@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { type GameEvent } from '../src/engine.js';
 import { applyHerd, type HerdAction, type HerdState } from '../src/herd.js';
 import { herd, parseHerdCommand } from '../src/games/herd.js';
-import { HERD_QUESTIONS } from '../src/herdQuestions.js';
+import { HERD_QUESTIONS, HERD_QUESTIONS_EN } from '../src/herdQuestions.js';
 
 // rng 接近 1 時 shuffle 不換位置：題目依題庫順序
 const rng = () => 0.99999;
@@ -386,5 +386,55 @@ describe('herd/rounds: 勝負與結束', () => {
     expect(announces(events).join('\n')).toContain('<@p1> 1');
     expect(events.some((e) => e.type === 'result')).toBe(false);
     expect(prompts(events).some((p) => p.kind === 'rematch')).toBe(false);
+  });
+});
+
+describe('herd/i18n: 英文局', () => {
+  const enLobby = (n: number) =>
+    run([{ type: 'new', user: 'p1', channel: 'C1', lang: 'en' }, ...ids(n).slice(1).map((user) => ({ type: 'join', user }) as HerdAction)]);
+  const enStarted = (n = 5) => run([{ type: 'start', user: 'p1' }], enLobby(n).state);
+
+  it('開局規則、題目看板和作答按鈕是英文，題目取英文版', () => {
+    const { state, events } = enStarted();
+    expect(state.lang).toBe('en');
+    expect(announces(events)[0]).toContain('🐑 Herd Mentality begins! Players: <@p1>, <@p2>');
+    const b = board(events)!;
+    expect(b.text).toContain(`🐑 Question 1/15: ${HERD_QUESTIONS_EN[state.question!]}`);
+    expect(b.text).toContain('Answered 0/5');
+    expect(b.options[0].label).toBe('✍️ Answer');
+  });
+
+  it('視窗和私下回覆是英文', () => {
+    const s = enStarted().state;
+    expect(run([{ type: 'openWrite', user: 'p1' }], s).events[0]).toMatchObject({ title: 'Answer', label: 'Your answer (1-20 characters)' });
+    expect(ephemeralTo(run([answer('p1', 'pizza')], s).events, 'p1')!.text).toBe('Answer received');
+    expect(ephemeralTo(run([answer('x', 'pizza')], s).events, 'x')!.text).toBe("You're not in this game.");
+    expect(ephemeralTo(run([{ type: 'start', user: 'p1' }], enLobby(3).state).events, 'p1')!.text).toBe('There are 3 players; you need at least 4 to start.');
+    expect(ephemeralTo(run([{ type: 'addBot', user: 'p1', count: 1 }], enLobby(4).state).events, 'p1')!.text).toBe("Herd Mentality doesn't support bots.");
+  });
+
+  it('合併選單、計分和粉紅牛是英文', () => {
+    const merging = answerAll(enStarted().state, ['pizza', 'pizza', 'sushi', 'tacos', 'ramen']);
+    expect(hostMenu(merging.events)!.options.slice(-2).map((o) => o.label)).toEqual(['🔗 Merge', '✅ Done']);
+    const { events } = run([{ type: 'done', user: 'p1' }], merging.state);
+    const text = announces(events).join('\n');
+    expect(text).toContain('🐑 Matched the herd with "pizza": <@p1>, <@p2> +1 each');
+    expect(text).toContain('Scores: <@p1> 1');
+  });
+
+  it('結束公告和再來一局按鈕是英文', () => {
+    const s = enStarted().state;
+    const near = { ...s, players: s.players.map((p) => ({ ...p, score: p.id === 'p1' || p.id === 'p2' ? 7 : 0 })) };
+    const { events } = playQuestion(near, ['a', 'a', 'b', 'c', 'd']);
+    expect(announces(events).join('\n')).toContain('🏆 Game over, <@p1>, <@p2> win!');
+    expect(prompts(events).find((p) => p.kind === 'rematch')!.options[0].label).toBe('Play again');
+  });
+
+  it('英文題庫和中文版一樣多且不重複，GameDef 有英文名稱和說明', () => {
+    expect(HERD_QUESTIONS_EN).toHaveLength(HERD_QUESTIONS.length);
+    expect(new Set(HERD_QUESTIONS_EN).size).toBe(HERD_QUESTIONS.length);
+    for (const q of HERD_QUESTIONS_EN) expect(q.trim()).toBe(q);
+    expect(herd.locales.en).toMatchObject({ name: 'Herd Mentality', players: '4-12 players' });
+    expect(herd.locales.en.help).toContain('/game herd answer <answer>');
   });
 });

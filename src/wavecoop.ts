@@ -2,7 +2,9 @@
 // 介面和其他遊戲一樣：applyWavecoop(state, action, rng) → { state, events }。光譜卡和兩隊對抗版共用。
 import { mention, type GameEvent, type Rng } from './engine.js';
 import { cancelGame, reply, runGame, shuffle, startTimer } from './common.js';
-import { SPECTRUMS } from './wavelengthCards.js';
+import { spectrums } from './wavelengthCards.js';
+import { t, type Lang } from './i18n/index.js';
+import { tx } from './i18n/games/wavecoop.js';
 
 export const MIN_WAVECOOP_PLAYERS = 2;
 export const MAX_WAVECOOP_PLAYERS = 12;
@@ -12,16 +14,7 @@ const PHASE_MS = 180_000;
 const MAX_CLUE = 30;
 
 // 依總分給評價：從高到低找第一個門檻
-const RATINGS: [number, string][] = [
-  [22, '🌌 宇宙級腦波同步'],
-  [19, '🛸 心電感應大師'],
-  [16, '🧠 你們是不是共用一顆腦？'],
-  [13, '🔥 心有靈犀'],
-  [10, '😎 很有默契！'],
-  [7, '🙂 不錯喔，算是好朋友'],
-  [4, '🤔 有點默契，還要再磨合'],
-  [0, '📻 訊號不良，你們真的認識彼此嗎？'],
-];
+const RATINGS = [22, 19, 16, 13, 10, 7, 4, 0] as const;
 
 export type WCPhase = 'lobby' | 'clue' | 'guess' | 'ended';
 
@@ -43,10 +36,11 @@ export interface WCState {
   finished?: boolean; // 正常結束才有，再來一局用
   timerSeq: number;
   timers: { phase?: number };
+  lang?: Lang;
 }
 
 export type WCAction =
-  | { type: 'new'; user: string; channel: string }
+  | { type: 'new'; user: string; channel: string; lang?: Lang }
   | { type: 'join'; user: string }
   | { type: 'leave'; user: string }
   | { type: 'start'; user: string }
@@ -57,7 +51,7 @@ export type WCAction =
   | { type: 'clue'; user: string; text: string }
   | { type: 'guess'; user: string; value: number }
   | { type: 'timeout'; id: number }
-  | { type: 'rematch'; user: string; channel: string };
+  | { type: 'rematch'; user: string; channel: string; lang?: Lang };
 
 type GameAction = Exclude<WCAction, { type: 'new' } | { type: 'rematch' }>;
 
@@ -77,14 +71,14 @@ const lobbyEvent = (s: WCState): GameEvent => ({ type: 'lobby', title: TITLE, ho
 const psychic = (s: WCState) => s.order[s.round % s.order.length];
 const guessers = (s: WCState) => s.players.filter((id) => id !== psychic(s));
 const dial = (s: WCState) => `${s.spectrum![0]} ◀ 0 ─ 10 ▶ ${s.spectrum![1]}`;
-const minutes = `${PHASE_MS / 60_000} 分鐘`;
+const minutes = (s: WCState) => tx(s.lang, 'minutes', { n: PHASE_MS / 60_000 });
 
 function deal(c: Ctx) {
   const s = c.s;
   s.order = shuffle(s.players, c.rng);
   c.events.push({
     type: 'announce',
-    text: `📡 心電感應 (合作) 開始！大家同一隊，輪流出題、其他人一起猜，共 ${s.total} 題 (正中目標會加一題)。\n出題順序：${s.order.map(mention).join(' → ')}`,
+    text: tx(s.lang, 'start', { total: s.total, order: s.order.map(mention).join(' → ') }),
     gif: 'start',
   });
   startRound(c);
@@ -93,10 +87,11 @@ function deal(c: Ctx) {
 // 每題開始：抽光譜卡和目標，私訊出題者
 function startRound(c: Ctx) {
   const s = c.s;
-  const unused = SPECTRUMS.map((_, i) => i).filter((i) => !s.used.includes(i));
+  const cards = spectrums(s.lang);
+  const unused = cards.map((_, i) => i).filter((i) => !s.used.includes(i));
   const card = unused[Math.floor(c.rng() * unused.length)];
   s.used.push(card);
-  s.spectrum = SPECTRUMS[card];
+  s.spectrum = cards[card];
   s.target = Math.floor(c.rng() * 11);
   s.clue = undefined;
   s.guesses = {};
@@ -106,28 +101,28 @@ function startRound(c: Ctx) {
     {
       type: 'dm',
       to: p,
-      text: `🎯 你這題的光譜是「${s.spectrum[0]} ↔ ${s.spectrum[1]}」，目標在 ${s.target} (0 是最左「${s.spectrum[0]}」，10 是最右「${s.spectrum[1]}」)。\n回到頻道按「✍️ 寫提示」，給一個讓大家猜到這個位置的提示詞。`,
+      text: tx(s.lang, 'dm', { left: s.spectrum[0], right: s.spectrum[1], target: s.target }),
     },
-    { type: 'announce', text: `🔮 第 ${s.round + 1}／${s.total} 題 (總分 ${s.score})：輪到 ${mention(p)} 出題 (${minutes})\n光譜：${dial(s)}` },
-    { type: 'prompt', kind: 'wavecoop', audience: 'channel', text: `${mention(p)} 想好了就按這裡寫提示`, options: [{ value: 'clue', label: '✍️ 寫提示' }] },
+    { type: 'announce', text: tx(s.lang, 'round', { round: s.round + 1, total: s.total, score: s.score, who: mention(p), minutes: minutes(s), dial: dial(s) }) },
+    { type: 'prompt', kind: 'wavecoop', audience: 'channel', text: tx(s.lang, 'cluePrompt', { who: mention(p) }), options: [{ value: 'clue', label: tx(s.lang, 'clueButton') }] },
   );
   startTimer(c, PHASE_MS);
 }
 
 function giveClue(c: Ctx, user: string, text: string): boolean {
   const s = c.s;
-  if (s.phase !== 'clue' || user !== psychic(s)) return reply(c, user, '現在不是你出題。');
+  if (s.phase !== 'clue' || user !== psychic(s)) return reply(c, user, tx(s.lang, 'notYourClue'));
   const clue = text.trim();
-  if (!clue || [...clue].length > MAX_CLUE) return reply(c, user, `提示詞要 1～${MAX_CLUE} 個字。`);
+  if (!clue || [...clue].length > MAX_CLUE) return reply(c, user, tx(s.lang, 'clueLength', { max: MAX_CLUE }));
   s.clue = clue;
   s.phase = 'guess';
   c.events.push(
-    { type: 'announce', text: `💬 ${mention(user)} 的提示：「${clue}」\n光譜：${dial(s)}\n${guessers(s).map(mention).join('、')} 請按 0～10 猜目標位置，可以改選 (${minutes})` },
+    { type: 'announce', text: tx(s.lang, 'clueGiven', { who: mention(user), clue, dial: dial(s), guessers: guessers(s).map(mention).join(tx(s.lang, 'sep')), minutes: minutes(s) }) },
     {
       type: 'prompt',
       kind: 'wavecoop',
       audience: 'channel',
-      text: `「${clue}」在哪裡？`,
+      text: tx(s.lang, 'guessPrompt', { clue }),
       options: Array.from({ length: 11 }, (_, i) => ({ value: `guess:${i}`, label: String(i) })),
       perRow: 6,
     },
@@ -138,10 +133,10 @@ function giveClue(c: Ctx, user: string, text: string): boolean {
 
 function guess(c: Ctx, user: string, value: number): boolean {
   const s = c.s;
-  if (s.phase !== 'guess' || !guessers(s).includes(user)) return reply(c, user, '現在不是你猜位置。');
+  if (s.phase !== 'guess' || !guessers(s).includes(user)) return reply(c, user, tx(s.lang, 'notYourGuess'));
   if (!Number.isInteger(value) || value < 0 || value > 10) return false;
   s.guesses[user] = value;
-  c.events.push({ type: 'ephemeral', to: user, text: `你選了 ${value}` });
+  c.events.push({ type: 'ephemeral', to: user, text: tx(s.lang, 'youPicked', { value }) });
   if (guessers(s).every((id) => id in s.guesses)) reveal(c);
   return true;
 }
@@ -159,12 +154,12 @@ function reveal(c: Ctx) {
   c.events.push({
     type: 'announce',
     text: [
-      answer === undefined ? '⌛ 沒有人猜，這題 0 分。' : '',
-      `📍 答案揭曉：提示「${s.clue}」`,
+      answer === undefined ? tx(s.lang, 'noGuess') : '',
+      tx(s.lang, 'revealClue', { clue: String(s.clue) }),
       `${s.spectrum![0]} ${cells.join('')} ${s.spectrum![1]}`,
-      `目標 ${s.target}${answer === undefined ? '' : `，全隊答案 ${answer}`}`,
-      `這題 +${gained}，總分 ${s.score}`,
-      dist === 0 ? '🎯 正中！加一題' : '',
+      tx(s.lang, 'revealTarget', { target: s.target! }) + (answer === undefined ? '' : tx(s.lang, 'revealAnswer', { answer })),
+      tx(s.lang, 'revealGain', { gained, score: s.score }),
+      dist === 0 ? tx(s.lang, 'bullseye') : '',
     ]
       .filter(Boolean)
       .join('\n'),
@@ -184,11 +179,11 @@ function endGame(c: Ctx) {
   s.phase = 'ended';
   s.finished = true;
   s.timers = {};
-  const rating = RATINGS.find(([min]) => s.score >= min)![1];
+  const rating = tx(s.lang, `rating${RATINGS.find((min) => s.score >= min)!}`);
   c.events.push({ type: 'result', players: [...s.players], winners: [], score: s.score }); // 合作遊戲：只記分數
   c.events.push(
-    { type: 'announce', text: `🏁 遊戲結束！共 ${s.total} 題，全隊總分 ${s.score}\n${rating}`, gif: 'goodWin' },
-    { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },
+    { type: 'announce', text: tx(s.lang, 'end', { total: s.total, score: s.score, rating }), gif: 'goodWin' },
+    { type: 'prompt', kind: 'rematch', audience: 'channel', text: tx(s.lang, 'rematchAsk'), options: [{ value: 'rematch', label: tx(s.lang, 'rematchButton') }] },
   );
 }
 
@@ -196,19 +191,19 @@ function handle(c: Ctx, action: GameAction): boolean {
   const s = c.s;
   switch (action.type) {
     case 'join': {
-      if (s.phase !== 'lobby') return reply(c, action.user, '遊戲已經開始了。');
-      if (s.players.includes(action.user)) return reply(c, action.user, '你已經在房間裡了。');
-      if (s.players.length >= MAX_WAVECOOP_PLAYERS) return reply(c, action.user, '房間已滿。');
+      if (s.phase !== 'lobby') return reply(c, action.user, t(s.lang, 'room.started'));
+      if (s.players.includes(action.user)) return reply(c, action.user, t(s.lang, 'room.alreadyIn'));
+      if (s.players.length >= MAX_WAVECOOP_PLAYERS) return reply(c, action.user, t(s.lang, 'room.full'));
       s.players.push(action.user);
       c.events.push(lobbyEvent(s));
       return true;
     }
     case 'leave': {
       if (!s.players.includes(action.user)) return false;
-      if (s.phase !== 'lobby') return reply(c, action.user, '遊戲已經開始了，不能離開。');
+      if (s.phase !== 'lobby') return reply(c, action.user, t(s.lang, 'room.cannotLeave'));
       if (action.user === s.host) {
         s.phase = 'ended';
-        c.events.push(lobbyEvent(s), { type: 'announce', text: '🛑 房主離開，遊戲已取消。' });
+        c.events.push(lobbyEvent(s), { type: 'announce', text: t(s.lang, 'room.hostLeft') });
         return true;
       }
       s.players = s.players.filter((id) => id !== action.user);
@@ -217,12 +212,12 @@ function handle(c: Ctx, action: GameAction): boolean {
     }
     case 'addBot':
     case 'removeBot':
-      return reply(c, action.user, '心電感應 (合作) 不支援 bot。');
+      return reply(c, action.user, tx(s.lang, 'noBots'));
     case 'start': {
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以開始遊戲。');
+      if (action.user !== s.host) return reply(c, action.user, tx(s.lang, 'onlyHostStart'));
       if (s.phase !== 'lobby') return false;
       const n = s.players.length;
-      if (n < MIN_WAVECOOP_PLAYERS) return reply(c, action.user, `目前 ${n} 人，至少需要 ${MIN_WAVECOOP_PLAYERS} 人才能開始。`);
+      if (n < MIN_WAVECOOP_PLAYERS) return reply(c, action.user, tx(s.lang, 'needPlayers', { n, min: MIN_WAVECOOP_PLAYERS }));
       c.events.push(lobbyEvent({ ...s, phase: 'clue' }));
       deal(c);
       return true;
@@ -230,8 +225,8 @@ function handle(c: Ctx, action: GameAction): boolean {
     case 'cancel':
       return cancelGame(c, action.user);
     case 'openClue':
-      if (s.phase !== 'clue' || action.user !== psychic(s)) return reply(c, action.user, '現在不是你出題。');
-      c.events.push({ type: 'modal', to: action.user, kind: 'wavecoopClue', title: '寫提示', label: `提示詞 (1～${MAX_CLUE} 字)` });
+      if (s.phase !== 'clue' || action.user !== psychic(s)) return reply(c, action.user, tx(s.lang, 'notYourClue'));
+      c.events.push({ type: 'modal', to: action.user, kind: 'wavecoopClue', title: tx(s.lang, 'modalTitle'), label: tx(s.lang, 'modalLabel', { max: MAX_CLUE }) });
       return false;
     case 'clue':
       return giveClue(c, action.user, action.text);
@@ -240,7 +235,7 @@ function handle(c: Ctx, action: GameAction): boolean {
     case 'timeout': {
       if (action.id !== s.timers.phase) return false;
       if (s.phase === 'clue') {
-        c.events.push({ type: 'announce', text: `⌛ ${mention(psychic(s))} 沒有寫提示，這題跳過、0 分。` });
+        c.events.push({ type: 'announce', text: tx(s.lang, 'skipped', { who: mention(psychic(s)) }) });
         nextRound(c);
       } else if (s.phase === 'guess') reveal(c);
       return true;

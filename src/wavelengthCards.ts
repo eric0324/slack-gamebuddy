@@ -1,5 +1,6 @@
 // 心電感應的光譜卡：每題抽一張，同一局不重複。每張是相反的兩端 [左, 右](有測試檢查數量和格式)。
 // 挑選原則：大家對中間的東西會有不同看法，出題者才有發揮空間。
+import type { Lang } from './i18n/index.js';
 
 export const SPECTRUMS: [string, string][] = [
   // 感覺
@@ -82,3 +83,89 @@ export const SPECTRUMS: [string, string][] = [
   ['科學', '魔法'],
   ['普通的', '傳說的'],
 ];
+
+// 英文版：和上面一對一翻譯，順序相同
+export const SPECTRUMS_EN: [string, string][] = [
+  // 感覺
+  ['Cold', 'Hot'],
+  ['Soft', 'Hard'],
+  ['Quiet', 'Loud'],
+  ['Tastes bad', 'Tastes good'],
+  ['Smelly', 'Fragrant'],
+  ['Not spicy', 'Super spicy'],
+  ['Ugly', 'Beautiful'],
+  ['Boring', 'Fun'],
+  ['Scary', 'Soothing'],
+  ['Gross', 'Cute'],
+  // 價值與評價
+  ['Cheap', 'Expensive'],
+  ['Underrated', 'Overrated'],
+  ['Useless', 'Super useful'],
+  ['Outdated', 'Trendy'],
+  ['Normal', 'Weird'],
+  ['Nonsense', 'Wise quote'],
+  ['Dangerous', 'Safe'],
+  ['Unhealthy', 'Healthy'],
+  ['Illegal', 'Legal'],
+  ['Unethical', 'Ethical'],
+  ['Terrible movie', 'Masterpiece movie'],
+  ['Bad song', 'Great song'],
+  ['Failed invention', 'Great invention'],
+  ['Not worth the line', 'Worth the line'],
+  // 難易與大小
+  ['Easy', 'Difficult'],
+  ['Small', 'Big'],
+  ['Light', 'Heavy'],
+  ['Short', 'Long'],
+  ['Slow', 'Fast'],
+  ['Weak', 'Strong'],
+  ['Rare', 'Common'],
+  ['Unimportant', 'Super important'],
+  ['Easy to learn', 'Hard to learn'],
+  ['Not tiring', 'Exhausting'],
+  // 生活
+  ['Breakfast', 'Late-night snack'],
+  ['Weekday', 'Weekend'],
+  ['Indoor activity', 'Outdoor activity'],
+  ['Work', 'Leisure'],
+  ['Necessity', 'Luxury'],
+  ['Done alone', 'Done in a group'],
+  ['Good for a date', 'Bad for a date'],
+  ['Kids love it', 'Adults love it'],
+  ['Good gift', 'Bad gift'],
+  ['Winter', 'Summer'],
+  ['Local flavor', 'Foreign flavor'],
+  ['Phone', 'Computer'],
+  // 人與性格
+  ['Introvert', 'Extrovert'],
+  ['Lazy', 'Hardworking'],
+  ['Weak superpower', 'Strong superpower'],
+  ['Villain', 'Hero'],
+  ['Unknown', 'Super famous'],
+  ['Annoying', 'Likable'],
+  ['Loner', 'Most popular'],
+  ['Rational', 'Emotional'],
+  ['Honest', 'Sly'],
+  ['Newbie', 'Master'],
+  // 職場與科技
+  ['Good boss', 'Bad boss'],
+  ['Can wait', 'Super urgent'],
+  ['No-brainer', 'Brain-burner'],
+  ['Old tech', 'New tech'],
+  ['Safe from AI', 'Will be replaced by AI'],
+  ["Shouldn't be a meeting", 'Should be a meeting'],
+  ['Low risk', 'High risk'],
+  ['Bug', 'Feature'],
+  // 抽象
+  ['Real', 'Fictional'],
+  ['Natural', 'Artificial'],
+  ['Past', 'Future'],
+  ['Order', 'Chaos'],
+  ['Lucky', 'Unlucky'],
+  ['Tragedy', 'Comedy'],
+  ['Science', 'Magic'],
+  ['Ordinary', 'Legendary'],
+];
+
+// 依這局語系取光譜卡 (心電感應和合作版共用)
+export const spectrums = (lang: Lang | undefined) => (lang === 'en' ? SPECTRUMS_EN : SPECTRUMS);

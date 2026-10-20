@@ -14,6 +14,17 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Emoji Telephone commands*',
+  '• `/game emoji new`: open a room (anyone)',
+  '• `/game emoji start`: start the game, needs 4-10 human players (host)',
+  '• `/game emoji send <answer>`: submit an answer, same as pressing "✍️ Answer"; 🎨 emoji steps take emoji only (paste emoji or type `:shortcode:`, spaces are fine, up to 20), 🧠 guess steps take 1-30 characters; you can resubmit before time runs out',
+  '• `/game emoji cancel`: cancel the game (host)',
+  '• `/game emoji help`: show this help',
+  'Everyone gets a prompt to start a chain: text is acted out in emoji, emoji is guessed in words, and after one lap every chain is revealed. Then vote for "🎨 Best emoji" and "🧠 Best guess"; each vote is +1 point and the highest score wins',
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 // Emoji 傳話的子指令：send <內容> (可以有空白)
 export function parseEmojiCommand(text: string, user: string, channel: string): EAction | null {
   const m = text.trim().match(/^send\s+([\s\S]+)$/);
@@ -42,6 +53,7 @@ export const emoji = {
   category: 'party',
   desc: '文字用 emoji 演、emoji 用文字猜，傳一圈看題目怎麼走鐘，再投票選最佳作品',
   noBots: true,
+  locales: { en: { name: 'Emoji Telephone', players: '4-10 players', desc: 'Act out text in emoji, guess emoji in words, pass it around to see how the prompt drifts, then vote for the best entries', help: HELP_EN } },
   help: HELP,
   apply: applyEmoji,
   parse: parseEmojiCommand,

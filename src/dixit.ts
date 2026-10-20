@@ -3,6 +3,8 @@
 import { mention, type GameEvent, type Rng } from './engine.js';
 import { cancelGame, joinRoom, leaveRoom, lobbyEvent, reply, runGame, shuffle, startTimer } from './common.js';
 import { MEME_IMAGES } from './memeImages.js';
+import type { Lang } from './i18n/index.js';
+import { tx } from './i18n/games/dixit.js';
 
 export const MIN_DIXIT_PLAYERS = 3;
 export const MAX_DIXIT_PLAYERS = 8;
@@ -12,7 +14,6 @@ const CLUE_MS = 120_000;
 const PLAY_MS = 90_000;
 const VOTE_MS = 60_000;
 const MAX_CLUE = 50;
-const STALE = '這個選單已經過期了，請重新按「🃏 我的手牌」。';
 
 // 一張牌：只有圖片；by 是頻道投稿者 (內建的沒有)，不顯示
 export type Card = { url: string; by?: string };
@@ -43,10 +44,11 @@ export interface DixitState {
   winners?: string[];
   timerSeq: number;
   timers: { phase?: number };
+  lang?: Lang;
 }
 
 export type DixitAction =
-  | { type: 'new'; user: string; channel: string }
+  | { type: 'new'; user: string; channel: string; lang?: Lang }
   | { type: 'join'; user: string }
   | { type: 'leave'; user: string }
   | { type: 'start'; user: string; custom?: { url: string; name: string; by: string }[] } // custom：頻道投稿的梗圖，adapter 帶入
@@ -59,7 +61,7 @@ export type DixitAction =
   | { type: 'play'; user: string; seq: number; card: number }
   | { type: 'vote'; user: string; seq: number; n: number }
   | { type: 'timeout'; id: number }
-  | { type: 'rematch'; user: string; channel: string };
+  | { type: 'rematch'; user: string; channel: string; lang?: Lang };
 
 type GameAction = Exclude<DixitAction, { type: 'new' } | { type: 'rematch' }>;
 type Result = { state: DixitState; events: GameEvent[] };
@@ -67,12 +69,16 @@ type Ctx = { s: DixitState; events: GameEvent[]; rng: Rng };
 
 const handSize = (s: DixitState) => (s.players.length === 3 ? 7 : 6);
 const teller = (s: DixitState) => s.players[s.teller];
-const HAND_BUTTON = { value: 'hand', label: '🃏 我的手牌' };
+const handButton = (s: DixitState) => ({ value: 'hand', label: tx(s.lang, 'handButton') });
 const find = (s: DixitState, id: string) => s.players.find((p) => p.id === id);
 const nonTellers = (s: DixitState) => s.players.filter((_, i) => i !== s.teller);
 const perPlay = (s: DixitState) => (s.players.length === 3 ? 2 : 1);
 const pickIndex = (rng: Rng, n: number) => Math.floor(rng() * n);
-const scores = (s: DixitState) => [...s.players].sort((a, b) => b.score - a.score).map((p) => `${mention(p.id)} ${p.score}`).join('、');
+const scores = (s: DixitState) =>
+  [...s.players]
+    .sort((a, b) => b.score - a.score)
+    .map((p) => tx(s.lang, 'scoreItem', { who: mention(p.id), n: p.score }))
+    .join(tx(s.lang, 'sep'));
 
 // 手牌第 i 張這輪已經出了 (說書人的牌或出到桌上的牌)
 const used = (s: DixitState, p: DixitPlayer, i: number) => {
@@ -86,11 +92,8 @@ function clueBoard(s: DixitState): GameEvent {
     kind: 'dixit',
     audience: 'channel',
     ref: `dixit:${s.seq}`,
-    text: [
-      `🎨 第 ${s.round} 輪，說書人是 ${mention(teller(s).id)}`,
-      `說書人按「🃏 我的手牌」選一張牌，再輸入一句提示 (${CLUE_MS / 1000} 秒)；其他人可以先看看自己的手牌`,
-    ].join('\n'),
-    options: [HAND_BUTTON],
+    text: tx(s.lang, 'clueBoard', { round: s.round, who: mention(teller(s).id), sec: CLUE_MS / 1000 }),
+    options: [handButton(s)],
   };
 }
 
@@ -119,12 +122,17 @@ function playBoard(s: DixitState): GameEvent {
     kind: 'dixit',
     audience: 'channel',
     ref: `dixit:${s.seq}`,
-    text: [
-      `🃏 第 ${s.round} 輪出牌：${mention(teller(s).id)} 的提示是「${s.clue}」`,
-      `其他人按「🃏 我的手牌」出${perPlay(s) === 2 ? ' 2 張' : '一張'}最符合提示的牌，出了不能改 (${PLAY_MS / 1000} 秒)`,
-      `已出 ${total - waiting.length}/${total}${waiting.length ? `，還沒出完：${waiting.map((p) => mention(p.id)).join(' ')}` : ''}`,
-    ].join('\n'),
-    options: [HAND_BUTTON],
+    text: tx(s.lang, 'playBoard', {
+      round: s.round,
+      who: mention(teller(s).id),
+      clue: String(s.clue),
+      count: tx(s.lang, perPlay(s) === 2 ? 'playTwo' : 'playOne'),
+      sec: PLAY_MS / 1000,
+      done: total - waiting.length,
+      total,
+      waiting: waiting.length ? tx(s.lang, 'waiting', { who: waiting.map((p) => mention(p.id)).join(' ') }) : '',
+    }),
+    options: [handButton(s)],
   };
 }
 
@@ -145,17 +153,17 @@ function nextRound(c: Ctx) {
 function handMenu(c: Ctx, user: string): boolean {
   const s = c.s;
   const me = find(s, user);
-  if (!me) return reply(c, user, '你不在這局遊戲裡。');
-  if (s.phase === 'lobby') return reply(c, user, '遊戲還沒開始。');
+  if (!me) return reply(c, user, tx(s.lang, 'notInGame'));
+  if (s.phase === 'lobby') return reply(c, user, tx(s.lang, 'notStarted'));
   const isTeller = me === teller(s);
   const act = s.phase === 'clue' && isTeller ? 'pick' : s.phase === 'play' && !isTeller && me.played.length < perPlay(s) ? 'play' : undefined;
   const left = me.hand.flatMap((_, i) => (used(s, me, i) ? [] : [i]));
   const text =
     act === 'pick'
-      ? '🃏 你是說書人：選一張牌，接著輸入一句提示 (也可以用 `/game dixit clue <編號> <提示>`)'
+      ? tx(s.lang, 'menuPick')
       : act === 'play'
-        ? `🃏 挑一張最符合提示「${s.clue}」的牌 (還要出 ${perPlay(s) - me.played.length} 張，出了不能改)`
-        : '🃏 你的手牌 (現在不用出牌)';
+        ? tx(s.lang, 'menuPlay', { clue: String(s.clue), n: perPlay(s) - me.played.length })
+        : tx(s.lang, 'menuIdle');
   c.events.push({
     type: 'prompt',
     kind: 'dixit',
@@ -171,18 +179,18 @@ function handMenu(c: Ctx, user: string): boolean {
 // 說書階段的共同檢查：回傳說書人，不行時回傳 null (已經回覆原因)
 function storyteller(c: Ctx, user: string): DixitPlayer | null {
   const s = c.s;
-  if (!find(s, user)) return (reply(c, user, '你不在這局遊戲裡。'), null);
-  if (s.phase !== 'clue') return (reply(c, user, '現在不是說書的時間。'), null);
-  if (user !== teller(s).id) return (reply(c, user, `這輪的說書人是 ${mention(teller(s).id)}。`), null);
+  if (!find(s, user)) return (reply(c, user, tx(s.lang, 'notInGame')), null);
+  if (s.phase !== 'clue') return (reply(c, user, tx(s.lang, 'notCluePhase')), null);
+  if (user !== teller(s).id) return (reply(c, user, tx(s.lang, 'tellerIs', { who: mention(teller(s).id) })), null);
   return teller(s);
 }
 
 function pick(c: Ctx, user: string, seq: number, card: number): boolean {
   const me = storyteller(c, user);
   if (!me) return false;
-  if (seq !== c.s.seq || !Number.isInteger(card) || !me.hand[card]) return reply(c, user, STALE);
+  if (seq !== c.s.seq || !Number.isInteger(card) || !me.hand[card]) return reply(c, user, tx(c.s.lang, 'stale'));
   c.s.pick = card;
-  c.events.push({ type: 'modal', to: user, kind: 'dixitClue', title: '說書人的提示', label: `提示 (1～${MAX_CLUE} 字)` });
+  c.events.push({ type: 'modal', to: user, kind: 'dixitClue', title: tx(c.s.lang, 'modalTitle'), label: tx(c.s.lang, 'modalLabel', { max: MAX_CLUE }) });
   return true;
 }
 
@@ -191,14 +199,14 @@ function clue(c: Ctx, user: string, raw: string, card?: number): boolean {
   const me = storyteller(c, user);
   if (!me) return false;
   const i = card ?? s.pick;
-  if (i === undefined) return reply(c, user, '請先按「🃏 我的手牌」選一張牌。');
-  if (!Number.isInteger(i) || !me.hand[i]) return reply(c, user, `編號要在 1～${me.hand.length} 之間。`);
+  if (i === undefined) return reply(c, user, tx(s.lang, 'pickFirst'));
+  if (!Number.isInteger(i) || !me.hand[i]) return reply(c, user, tx(s.lang, 'cardRange', { n: me.hand.length }));
   const text = raw.trim();
-  if (!text || [...text].length > MAX_CLUE) return reply(c, user, `提示要 1～${MAX_CLUE} 個字。`);
+  if (!text || [...text].length > MAX_CLUE) return reply(c, user, tx(s.lang, 'clueLength', { max: MAX_CLUE }));
   s.tellerCard = me.hand[i];
   s.clue = text;
   s.skips = 0;
-  c.events.push({ type: 'announce', text: `💬 ${mention(user)} 的提示：${text}` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'clueGiven', { who: mention(user), clue: text }) });
   startPlay(c);
   return true;
 }
@@ -206,12 +214,12 @@ function clue(c: Ctx, user: string, raw: string, card?: number): boolean {
 function clueTimeout(c: Ctx) {
   const s = c.s;
   s.skips++;
-  c.events.push({ type: 'announce', text: `⌛ ${mention(teller(s).id)} 沒出提示，這輪跳過。` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'clueSkipped', { who: mention(teller(s).id) }) });
   if (s.skips < s.players.length) return nextRound(c);
   // 一整圈都沒人出提示：大家可能都不在了，結束但不算戰績
   s.phase = 'ended';
   s.timers = {};
-  c.events.push({ type: 'announce', text: `😴 大家好像都不在了，遊戲結束。\n目前分數：${scores(s)}` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'allGone', { scores: scores(s) }) });
 }
 
 function voteBoard(s: DixitState, ended = false): GameEvent {
@@ -224,12 +232,12 @@ function voteBoard(s: DixitState, ended = false): GameEvent {
     ref: `dixit:${s.seq}`,
     text: [
       ended
-        ? `🗳️ 第 ${s.round} 輪投票：已結束`
-        : `🗳️ 第 ${s.round} 輪：哪一張是說書人 ${mention(teller(s).id)} 的牌？提示是「${s.clue}」(不能投自己的牌，${VOTE_MS / 1000} 秒內可以改票)`,
-      ...(ended ? [] : [`已投 ${voted}/${voters.length}`]),
+        ? tx(s.lang, 'voteEnded', { round: s.round })
+        : tx(s.lang, 'voteAsk', { round: s.round, who: mention(teller(s).id), clue: String(s.clue), sec: VOTE_MS / 1000 }),
+      ...(ended ? [] : [tx(s.lang, 'voted', { n: voted, total: voters.length })]),
     ].join('\n'),
     images: s.table.map((t, i) => ({ url: t.card.url, title: String(i + 1) })),
-    options: ended ? [] : [...s.table.map((_, i) => ({ value: `vote:${s.seq}:${i}`, label: String(i + 1) })), HAND_BUTTON],
+    options: ended ? [] : [...s.table.map((_, i) => ({ value: `vote:${s.seq}:${i}`, label: String(i + 1) })), handButton(s)],
     perRow: s.table.length,
   };
 }
@@ -247,18 +255,18 @@ function startVote(c: Ctx) {
 function play(c: Ctx, user: string, seq: number, card: number): boolean {
   const s = c.s;
   const me = find(s, user);
-  if (!me) return reply(c, user, '你不在這局遊戲裡。');
-  if (s.phase !== 'play') return reply(c, user, '現在不是出牌的時間。');
-  if (me === teller(s)) return reply(c, user, '說書人不用再出牌。');
-  if (me.played.length >= perPlay(s)) return reply(c, user, '你這輪已經出過牌了。');
-  if (seq !== s.seq || !Number.isInteger(card) || used(s, me, card)) return reply(c, user, STALE);
+  if (!me) return reply(c, user, tx(s.lang, 'notInGame'));
+  if (s.phase !== 'play') return reply(c, user, tx(s.lang, 'notPlayPhase'));
+  if (me === teller(s)) return reply(c, user, tx(s.lang, 'tellerNoPlay'));
+  if (me.played.length >= perPlay(s)) return reply(c, user, tx(s.lang, 'alreadyPlayed'));
+  if (seq !== s.seq || !Number.isInteger(card) || used(s, me, card)) return reply(c, user, tx(s.lang, 'stale'));
   me.played.push(me.hand[card]); // 牌留在手牌原位，揭曉後才拿掉
   if (me.played.length < perPlay(s)) {
-    c.events.push({ type: 'ephemeral', to: user, text: '✅ 已出 1 張，再出一張 (同一個選單或重新按「🃏 我的手牌」)。' });
+    c.events.push({ type: 'ephemeral', to: user, text: tx(s.lang, 'playedOne') });
     c.events.push(playBoard(s));
     return true;
   }
-  c.events.push({ type: 'ephemeral', to: user, text: '✅ 已出牌' });
+  c.events.push({ type: 'ephemeral', to: user, text: tx(s.lang, 'played') });
   if (nonTellers(s).every((p) => p.played.length >= perPlay(s))) startVote(c);
   else c.events.push(playBoard(s));
   return true;
@@ -273,20 +281,20 @@ function playTimeout(c: Ctx) {
       p.played.push(p.hand[left[pickIndex(c.rng, left.length)]]);
     }
   }
-  if (late.length) c.events.push({ type: 'announce', text: `⌛ ${late.map((p) => mention(p.id)).join(' ')} 沒出牌，系統幫他出了。` });
+  if (late.length) c.events.push({ type: 'announce', text: tx(s.lang, 'autoPlayed', { who: late.map((p) => mention(p.id)).join(' ') }) });
   startVote(c);
 }
 
 function vote(c: Ctx, user: string, seq: number, n: number): boolean {
   const s = c.s;
   const me = find(s, user);
-  if (!me) return reply(c, user, '你不在這局遊戲裡。');
-  if (s.phase !== 'vote' || seq !== s.seq) return reply(c, user, '這次投票已經結束了。');
-  if (me === teller(s)) return reply(c, user, '說書人不投票。');
+  if (!me) return reply(c, user, tx(s.lang, 'notInGame'));
+  if (s.phase !== 'vote' || seq !== s.seq) return reply(c, user, tx(s.lang, 'voteOver'));
+  if (me === teller(s)) return reply(c, user, tx(s.lang, 'tellerNoVote'));
   if (!s.table[n]) return false;
-  if (s.table[n].by === user) return reply(c, user, '不能投自己的牌。');
+  if (s.table[n].by === user) return reply(c, user, tx(s.lang, 'ownCard'));
   me.vote = n;
-  c.events.push({ type: 'ephemeral', to: user, text: `你投了 ${n + 1}` });
+  c.events.push({ type: 'ephemeral', to: user, text: tx(s.lang, 'youVoted', { n: n + 1 }) });
   if (nonTellers(s).every((p) => p.vote !== undefined)) reveal(c);
   else c.events.push(voteBoard(s));
   return true;
@@ -316,19 +324,19 @@ function reveal(c: Ctx) {
   c.events.push({
     type: 'announce',
     text: [
-      `🎉 第 ${s.round} 輪揭曉：說書人 ${mention(t.id)} 的牌是第 ${answer + 1} 號`,
+      tx(s.lang, 'reveal', { round: s.round, who: mention(t.id), n: answer + 1 }),
       ...s.table.map((x, i) => {
         const voters = s.players.filter((p) => p.vote === i).map((p) => mention(p.id));
-        return `${i + 1}. ${mention(x.by)}${i === answer ? ' (說書人)' : ''} ← ${voters.join(' ') || '沒有人'}`;
+        return tx(s.lang, 'revealLine', { i: i + 1, by: mention(x.by), tag: i === answer ? tx(s.lang, 'tellerTag') : '', voters: voters.join(' ') || tx(s.lang, 'nobody') });
       }),
-      `本輪得分：${s.players.map((p) => `${mention(p.id)} +${gain.get(p.id)}`).join('、')}`,
-      `目前總分：${scores(s)}`,
+      tx(s.lang, 'roundGain', { list: s.players.map((p) => tx(s.lang, 'gainItem', { who: mention(p.id), n: gain.get(p.id)! })).join(tx(s.lang, 'sep')) }),
+      tx(s.lang, 'totalScores', { scores: scores(s) }),
     ].join('\n'),
   });
   for (const p of s.players) p.hand = p.hand.filter((_, i) => !used(s, p, i));
-  if (s.players.some((p) => p.score >= TARGET)) return endGame(c, `有人達到 ${TARGET} 分`);
+  if (s.players.some((p) => p.score >= TARGET)) return endGame(c, tx(s.lang, 'reasonTarget', { n: TARGET }));
   const need = s.players.reduce((n, p) => n + handSize(s) - p.hand.length, 0);
-  if (s.deck.length < need) return endGame(c, '牌庫不夠補牌');
+  if (s.deck.length < need) return endGame(c, tx(s.lang, 'reasonDeck'));
   for (const p of s.players) p.hand.push(...s.deck.splice(0, handSize(s) - p.hand.length));
   nextRound(c);
 }
@@ -345,23 +353,23 @@ function endGame(c: Ctx, reason: string) {
     {
       type: 'announce',
       text: [
-        `🏆 遊戲結束 (${reason})，${s.winners.map(mention).join('、')} 獲勝！`,
-        ...ranking.map((p, i) => `${i + 1}. ${mention(p.id)} ${p.score} 分${p.score === top ? ' 🏆' : ''}`),
+        tx(s.lang, 'endTitle', { reason, winners: s.winners.map(mention).join(tx(s.lang, 'sep')) }),
+        ...ranking.map((p, i) => tx(s.lang, 'rankLine', { i: i + 1, who: mention(p.id), n: p.score, top: p.score === top ? ' 🏆' : '' })),
       ].join('\n'),
       gif: 'goodWin',
     },
-    { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },
+    { type: 'prompt', kind: 'rematch', audience: 'channel', text: tx(s.lang, 'rematchAsk'), options: [{ value: 'rematch', label: tx(s.lang, 'rematchButton') }] },
   );
 }
 
 function rules(s: DixitState): string {
   return [
-    '🎨 妙語說書人開始！',
-    `說書人順序：${s.players.map((p) => mention(p.id)).join(' → ')}`,
-    '每輪說書人從手牌選一張牌，給一句提示；其他人從手牌出一張最符合提示的牌混進去，大家再匿名猜哪張是說書人的 (不能投自己的牌)。',
-    ...(s.players.length === 3 ? ['3 人局：每人 7 張手牌，非說書人每輪出 2 張。'] : []),
-    '計分：全部猜對或全部沒猜對時，說書人 0 分、其他人各 2 分；否則說書人和猜對的人各 3 分。說書人以外的牌每被投 1 票，出牌的人 +1。',
-    `有人到 ${TARGET} 分，或牌庫不夠補牌時遊戲結束，總分最高的人獲勝。`,
+    tx(s.lang, 'rulesStart'),
+    tx(s.lang, 'rulesOrder', { order: s.players.map((p) => mention(p.id)).join(' → ') }),
+    tx(s.lang, 'rulesHow'),
+    ...(s.players.length === 3 ? [tx(s.lang, 'rules3p')] : []),
+    tx(s.lang, 'rulesScore'),
+    tx(s.lang, 'rulesEnd', { n: TARGET }),
   ].join('\n');
 }
 
@@ -379,9 +387,9 @@ function buildDeck(custom: { url: string; by: string }[]): Card[] {
 
 function start(c: Ctx, user: string, custom: { url: string; name: string; by: string }[] = []): boolean {
   const s = c.s;
-  if (user !== s.host) return reply(c, user, '只有房主可以開始遊戲。');
+  if (user !== s.host) return reply(c, user, tx(s.lang, 'onlyHostStart'));
   if (s.phase !== 'lobby') return false;
-  if (s.players.length < MIN_DIXIT_PLAYERS) return reply(c, user, `目前 ${s.players.length} 人，至少需要 ${MIN_DIXIT_PLAYERS} 人才能開始。`);
+  if (s.players.length < MIN_DIXIT_PLAYERS) return reply(c, user, tx(s.lang, 'needPlayers', { n: s.players.length, min: MIN_DIXIT_PLAYERS }));
   c.events.push(lobbyEvent(TITLE, { ...s, phase: 'clue' }));
   s.deck = shuffle(buildDeck(custom), c.rng);
   for (const p of s.players) Object.assign(p, newPlayer(p.id), { hand: s.deck.splice(0, handSize(s)) });
@@ -401,11 +409,11 @@ function handle(c: Ctx, action: GameAction): boolean {
       return leaveRoom(c, TITLE, action.user);
     case 'addBot':
     case 'removeBot':
-      return reply(c, action.user, '妙語說書人不支援 bot。');
+      return reply(c, action.user, tx(c.s.lang, 'noBots'));
     case 'start':
       return start(c, action.user, action.custom);
     case 'cancel':
-      return cancelGame(c, action.user, c.s.phase === 'lobby' ? '' : `\n目前分數：${scores(c.s)}`);
+      return cancelGame(c, action.user, c.s.phase === 'lobby' ? '' : tx(c.s.lang, 'cancelScores', { scores: scores(c.s) }));
     case 'hand':
       return handMenu(c, action.user);
     case 'pick':

@@ -13,6 +13,16 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Wavelength co-op commands*',
+  '• `/game wavecoop new`: open a room (anyone)',
+  '• `/game wavecoop start`: start the game, needs 2-12 human players (host)',
+  '• Giving a clue: on your turn press "✍️ Write a clue"; or type `/game wavecoop clue <clue>`',
+  '• `/game wavecoop cancel`: cancel the game (host)',
+  'Guess the spot with the channel buttons; 7 clues in total, a bullseye adds one more',
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 // 心電感應 (合作) 的子指令和按鈕：和兩隊對抗版相同，只是沒有猜左右
 export function parseWavecoopCommand(text: string, user: string, channel: string): WCAction | null {
   return parseWavelengthCommand(text, user, channel) as WCAction | null;
@@ -35,6 +45,7 @@ export const wavecoop = {
   category: 'coop',
   desc: '全員合作，輪流出題、大家一起猜光譜上的位置拚總分',
   noBots: true,
+  locales: { en: { name: 'Wavelength co-op', players: '2-12 players', desc: 'Everyone on one team: take turns giving clues and guess spots on the spectrum together for a high score', help: HELP_EN } },
   help: HELP,
   apply: applyWavecoop,
   parse: parseWavecoopCommand,

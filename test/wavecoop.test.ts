@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { type GameEvent } from '../src/engine.js';
 import { applyWavecoop, type WCAction, type WCState } from '../src/wavecoop.js';
+import { SPECTRUMS_EN } from '../src/wavelengthCards.js';
+import { wavecoop } from '../src/games/wavecoop.js';
 
 const rng = () => 0.99999;
 
@@ -281,5 +283,47 @@ describe('wavecoop/rounds: 結束與評價', () => {
     expect(announces(cancelled.events).join('\n')).toContain('取消');
     expect(prompts(cancelled.events, 'rematch')).toEqual([]);
     expect(run([{ type: 'rematch', user: 'p1', channel: 'C1' }], cancelled.state).state.phase).toBe('ended');
+  });
+});
+
+describe('wavecoop/i18n: 英文局', () => {
+  const enLobby = (n: number) =>
+    run([
+      { type: 'new', user: 'p1', channel: 'C1', lang: 'en' },
+      ...Array.from({ length: n - 1 }, (_, i) => ({ type: 'join', user: `p${i + 2}` }) as WCAction),
+    ]);
+  const enStarted = (n: number) => run([{ type: 'start', user: 'p1' }], enLobby(n).state);
+
+  it('開局公告、出題 DM 和寫提示按鈕是英文，光譜取英文版', () => {
+    const { state, events } = enStarted(3);
+    expect(state.lang).toBe('en');
+    expect(SPECTRUMS_EN.map((c) => c.join('|'))).toContain(state.spectrum!.join('|'));
+    expect(announces(events)[0]).toContain('📡 Wavelength co-op begins!');
+    expect((events.find((e) => e.type === 'dm') as { text: string }).text).toContain('the target is 10');
+    expect(announces(events).at(-1)).toContain('Clue 1/7 (score 0)');
+    expect(prompts(events, 'wavecoop').at(-1)!.options[0].label).toBe('✍️ Write a clue');
+  });
+
+  it('提示、揭曉和房間回覆是英文', () => {
+    const s = enStarted(3).state;
+    expect(ephemeralTo(run([{ type: 'openClue', user: 'p2' }], s).events, 'p2')!.text).toBe("It's not your turn to give a clue.");
+    const clued = run([{ type: 'clue', user: 'p1', text: 'lava' }], s);
+    expect(announces(clued.events)[0]).toContain(`<@p1>'s clue: "lava"`);
+    const revealed = run([{ type: 'guess', user: 'p2', value: 10 }, { type: 'guess', user: 'p3', value: 10 }], clued.state);
+    expect(announces(revealed.events).join('\n')).toContain('🎯 Bullseye! One extra clue');
+    expect(ephemeralTo(run([{ type: 'join', user: 'p2' }], enLobby(2).state).events, 'p2')!.text).toBe("You're already in the room.");
+    expect(ephemeralTo(run([{ type: 'addBot', user: 'p1', count: 1 }], enLobby(2).state).events, 'p1')!.text).toBe("Wavelength co-op doesn't support bots.");
+  });
+
+  it('結束評價和再來一局按鈕是英文', () => {
+    const s = enStarted(2).state;
+    const { events } = timeout({ ...s, round: s.total - 1, score: 22 });
+    expect(announces(events).join('\n')).toContain('🌌 Cosmic-level brainwave sync');
+    expect(prompts(events, 'rematch')[0].options[0].label).toBe('Play again');
+  });
+
+  it('GameDef 有英文名稱和說明', () => {
+    expect(wavecoop.locales.en).toMatchObject({ name: 'Wavelength co-op', players: '2-12 players' });
+    expect(wavecoop.locales.en.help).toContain('/game wavecoop clue <clue>');
   });
 });

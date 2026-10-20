@@ -2,8 +2,10 @@
 // 介面和其他遊戲一樣：applyMeme(state, action, rng) → { state, events }。
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
-import { MEME_CARDS } from './memeCards.js';
-import { MEME_IMAGES } from './memeImages.js';
+import { memeCards } from './memeCards.js';
+import { MEME_IMAGES, memeImageName } from './memeImages.js';
+import type { Lang } from './i18n/index.js';
+import { tx } from './i18n/games/meme.js';
 
 export const MIN_MEME_PLAYERS = 3;
 export const MAX_MEME_PLAYERS = 8;
@@ -42,10 +44,11 @@ export interface MemeState {
   winners?: string[];
   timerSeq: number;
   timers: { phase?: number };
+  lang?: Lang;
 }
 
 export type MemeAction =
-  | { type: 'new'; user: string; channel: string }
+  | { type: 'new'; user: string; channel: string; lang?: Lang }
   | { type: 'join'; user: string }
   | { type: 'leave'; user: string }
   | { type: 'start'; user: string; custom?: { url: string; name: string; by: string }[] } // custom：頻道投稿的梗圖，adapter 帶入
@@ -58,7 +61,7 @@ export type MemeAction =
   | { type: 'write'; user: string; text: string }
   | { type: 'vote'; user: string; seq: number; n: number }
   | { type: 'timeout'; id: number }
-  | { type: 'rematch'; user: string; channel: string };
+  | { type: 'rematch'; user: string; channel: string; lang?: Lang };
 
 type GameAction = Exclude<MemeAction, { type: 'new' } | { type: 'rematch' }>;
 type Result = { state: MemeState; events: GameEvent[] };
@@ -93,12 +96,13 @@ function answerBoard(s: MemeState): GameEvent {
     audience: 'channel',
     ref: `meme:${s.seq}`,
     text: [
-      `🖼️ 第 ${s.round}/${ROUNDS} 輪：按「🃏 我的手牌」挑一句，或按「✍️ 自己寫」(${ANSWER_MS / 1000} 秒)`,
-      `已送出 ${s.players.length - waiting.length}/${s.players.length}${waiting.length ? `，還沒送出：${waiting.map((p) => mention(p.id)).join(' ')}` : ''}`,
+      tx(s.lang, 'answerBoard', { round: s.round, rounds: ROUNDS, sec: ANSWER_MS / 1000 }),
+      tx(s.lang, 'submittedCount', { done: s.players.length - waiting.length, total: s.players.length }) +
+        (waiting.length ? tx(s.lang, 'waiting', { who: waiting.map((p) => mention(p.id)).join(' ') }) : ''),
     ].join('\n'),
     options: [
-      { value: 'hand', label: '🃏 我的手牌' },
-      { value: 'write', label: '✍️ 自己寫' },
+      { value: 'hand', label: tx(s.lang, 'handButton') },
+      { value: 'write', label: tx(s.lang, 'writeButton') },
     ],
   };
 }
@@ -111,9 +115,9 @@ function voteBoard(s: MemeState, ended = false): GameEvent {
     audience: 'channel',
     ref: `meme:${s.seq}`,
     text: [
-      ended ? `🗳️ 第 ${s.round}/${ROUNDS} 輪投票：已結束` : `🗳️ 第 ${s.round}/${ROUNDS} 輪：投給最好笑的一句 (不能投自己，${VOTE_MS / 1000} 秒內可以改票)`,
+      tx(s.lang, ended ? 'voteEnded' : 'voteBoard', { round: s.round, rounds: ROUNDS, sec: VOTE_MS / 1000 }),
       ...s.answers.map((a, i) => `${LETTER[i]}. ${a.text}`),
-      ...(ended ? [] : [`已投 ${voted}/${humans(s).length}`]),
+      ...(ended ? [] : [tx(s.lang, 'votedCount', { voted, total: humans(s).length })]),
     ].join('\n'),
     options: ended ? [] : s.answers.map((_, i) => ({ value: `vote:${s.seq}:${i}`, label: LETTER[i] })),
   };
@@ -129,8 +133,8 @@ function startRound(c: Ctx) {
     delete p.vote;
   }
   const img = s.images[s.round - 1];
-  const credit = img.by ? ` (${mention(img.by)} 投稿)` : '';
-  c.events.push({ type: 'announce', text: `🖼️ 第 ${s.round}/${ROUNDS} 輪：${img.name}${credit}`, image: { url: img.url, alt: img.name } });
+  const credit = img.by ? tx(s.lang, 'credit', { who: mention(img.by) }) : '';
+  c.events.push({ type: 'announce', text: tx(s.lang, 'roundImage', { round: s.round, rounds: ROUNDS, name: img.name, credit }), image: { url: img.url, alt: img.name } });
   for (const p of s.players) if (isBot(p.id)) playCard(c, p, pickIndex(c.rng, p.hand.length));
   c.events.push(answerBoard(s));
   startTimer(c, ANSWER_MS);
@@ -159,9 +163,17 @@ function reveal(c: Ctx) {
   c.events.push({
     type: 'announce',
     text: [
-      `🎉 第 ${s.round} 輪揭曉：`,
-      ...order.map((i) => `${LETTER[i]}. ${s.answers[i].text}${s.answers[i].own ? ' ✍️' : ''} — ${mention(s.answers[i].by)}，${votes[i]} 票`),
-      `目前總分：${s.players.map((p) => `${mention(p.id)} ${p.score}`).join('、')}`,
+      tx(s.lang, 'revealTitle', { round: s.round }),
+      ...order.map((i) =>
+        tx(s.lang, 'revealLine', {
+          letter: LETTER[i],
+          text: s.answers[i].text,
+          own: s.answers[i].own ? ' ✍️' : '',
+          who: mention(s.answers[i].by),
+          votes: tx(s.lang, votes[i] === 1 ? 'votes1' : 'votesN', { n: votes[i] }),
+        }),
+      ),
+      tx(s.lang, 'totals', { scores: s.players.map((p) => `${mention(p.id)} ${p.score}`).join(tx(s.lang, 'sep')) }),
     ].join('\n'),
   });
   if (s.round < ROUNDS) startRound(c);
@@ -179,24 +191,29 @@ function endGame(c: Ctx) {
   c.events.push(
     {
       type: 'announce',
-      text: [`🏆 遊戲結束，${s.winners.map(mention).join('、')} 獲勝！`, ...ranking.map((p, i) => `${i + 1}. ${mention(p.id)} ${p.score} 分${p.score === top ? ' 🏆' : ''}`)].join('\n'),
+      text: [
+        tx(s.lang, 'winners', { who: s.winners.map(mention).join(tx(s.lang, 'sep')) }),
+        ...ranking.map((p, i) =>
+          tx(s.lang, 'rankLine', { rank: i + 1, who: mention(p.id), points: tx(s.lang, p.score === 1 ? 'points1' : 'pointsN', { n: p.score }), top: p.score === top ? ' 🏆' : '' }),
+        ),
+      ].join('\n'),
       gif: 'goodWin',
     },
-    { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },
+    { type: 'prompt', kind: 'rematch', audience: 'channel', text: tx(s.lang, 'rematchAsk'), options: [{ value: 'rematch', label: tx(s.lang, 'rematchButton') }] },
   );
 }
 
 // 配圖階段的共同檢查；回傳玩家，不行時回傳 null (已經回覆原因)
 function answerer(c: Ctx, user: string): MemePlayer | null {
   const me = find(c.s, user);
-  if (!me) return (reply(c, user, '你不在這局遊戲裡。'), null);
-  if (c.s.phase !== 'answer') return (reply(c, user, '現在不是配圖的時間。'), null);
-  if (me.answer) return (reply(c, user, '你這輪已經送出了。'), null);
+  if (!me) return (reply(c, user, tx(c.s.lang, 'notInGame')), null);
+  if (c.s.phase !== 'answer') return (reply(c, user, tx(c.s.lang, 'notAnswerTime')), null);
+  if (me.answer) return (reply(c, user, tx(c.s.lang, 'alreadySent')), null);
   return me;
 }
 
 function submitted(c: Ctx, user: string) {
-  c.events.push({ type: 'ephemeral', to: user, text: '✅ 已送出' });
+  c.events.push({ type: 'ephemeral', to: user, text: tx(c.s.lang, 'sent') });
   if (c.s.players.every((p) => p.answer)) startVote(c);
   else c.events.push(answerBoard(c.s));
 }
@@ -209,7 +226,7 @@ function handMenu(c: Ctx, user: string): boolean {
     kind: 'meme',
     audience: 'ephemeral',
     user,
-    text: '🃏 挑一句配這張梗圖 (送出後不能改)',
+    text: tx(c.s.lang, 'handMenu'),
     options: me.hand.map((card, i) => ({ value: `play:${c.s.seq}:${i}`, label: card })),
     perRow: 1,
   });
@@ -219,8 +236,8 @@ function handMenu(c: Ctx, user: string): boolean {
 function play(c: Ctx, user: string, seq: number, card: number): boolean {
   const me = answerer(c, user);
   if (!me) return false;
-  if (seq !== c.s.seq) return reply(c, user, '這個選單已經過期了。');
-  if (!Number.isInteger(card) || card < 0 || card >= me.hand.length) return reply(c, user, '你手上沒有這張牌。');
+  if (seq !== c.s.seq) return reply(c, user, tx(c.s.lang, 'menuExpired'));
+  if (!Number.isInteger(card) || card < 0 || card >= me.hand.length) return reply(c, user, tx(c.s.lang, 'noSuchCard'));
   playCard(c, me, card);
   submitted(c, user);
   return true;
@@ -230,7 +247,7 @@ function write(c: Ctx, user: string, raw: string): boolean {
   const me = answerer(c, user);
   if (!me) return false;
   const text = raw.trim();
-  if (!text || [...text].length > MAX_TEXT) return reply(c, user, `要寫 1～${MAX_TEXT} 個字。`);
+  if (!text || [...text].length > MAX_TEXT) return reply(c, user, tx(c.s.lang, 'textLength', { max: MAX_TEXT }));
   me.answer = { text, own: true };
   submitted(c, user);
   return true;
@@ -238,19 +255,19 @@ function write(c: Ctx, user: string, raw: string): boolean {
 
 function openWrite(c: Ctx, user: string): boolean {
   if (!answerer(c, user)) return false;
-  c.events.push({ type: 'modal', to: user, kind: 'memeWrite', title: '自己寫', label: `你的梗 (1～${MAX_TEXT} 字)` });
+  c.events.push({ type: 'modal', to: user, kind: 'memeWrite', title: tx(c.s.lang, 'modalTitle'), label: tx(c.s.lang, 'modalLabel', { max: MAX_TEXT }) });
   return false;
 }
 
 function vote(c: Ctx, user: string, seq: number, n: number): boolean {
   const s = c.s;
   const me = find(s, user);
-  if (!me) return reply(c, user, '你不在這局遊戲裡。');
-  if (s.phase !== 'vote' || seq !== s.seq) return reply(c, user, '這次投票已經結束了。');
+  if (!me) return reply(c, user, tx(s.lang, 'notInGame'));
+  if (s.phase !== 'vote' || seq !== s.seq) return reply(c, user, tx(s.lang, 'voteOver'));
   if (!s.answers[n]) return false;
-  if (s.answers[n].by === user) return reply(c, user, '不能投自己。');
+  if (s.answers[n].by === user) return reply(c, user, tx(s.lang, 'noSelfVote'));
   me.vote = n;
-  c.events.push({ type: 'ephemeral', to: user, text: `你投了 ${LETTER[n]}：${s.answers[n].text}` });
+  c.events.push({ type: 'ephemeral', to: user, text: tx(s.lang, 'youVoted', { letter: LETTER[n], text: s.answers[n].text }) });
   if (humans(s).every((p) => p.vote !== undefined)) reveal(c);
   else c.events.push(voteBoard(s));
   return true;
@@ -261,37 +278,32 @@ function timeout(c: Ctx) {
   if (s.phase === 'vote') return reveal(c);
   const late = s.players.filter((p) => !p.answer);
   for (const p of late) playCard(c, p, pickIndex(c.rng, p.hand.length));
-  if (late.length) c.events.push({ type: 'announce', text: `⌛ ${late.map((p) => mention(p.id)).join(' ')} 沒送出，系統幫忙出了一張手牌。` });
+  if (late.length) c.events.push({ type: 'announce', text: tx(s.lang, 'late', { who: late.map((p) => mention(p.id)).join(' ') }) });
   startVote(c);
 }
 
-const RULES = [
-  `😂 梗圖大亂鬥開始！共 ${ROUNDS} 輪。`,
-  `每輪看一張梗圖，從 ${HAND} 張手牌挑一句，或自己寫一句配上去 (${ANSWER_MS / 1000} 秒)。`,
-  `所有答案匿名列出，大家投給最好笑的一句，不能投自己；每得 1 票 +1 分。`,
-  `${ROUNDS} 輪後總分最高的人獲勝。`,
-].join('\n');
+const rules = (lang: Lang | undefined) => tx(lang, 'rules', { rounds: ROUNDS, hand: HAND, sec: ANSWER_MS / 1000 });
 
 // 投稿最多 MAX_CUSTOM 張，其餘用內建的補，再打亂順序
 function pickImages(c: Ctx, custom: { url: string; name: string; by: string }[]): RoundImage[] {
   const mine = shuffle(custom, c.rng).slice(0, MAX_CUSTOM).map(({ name, url, by }) => ({ name, url, by }));
   const builtin = shuffle(MEME_IMAGES.filter((m) => !mine.some((x) => x.url === m.url)), c.rng)
     .slice(0, ROUNDS - mine.length)
-    .map(({ name, url }) => ({ name, url }));
+    .map((m) => ({ name: memeImageName(m, c.s.lang), url: m.url }));
   return shuffle([...mine, ...builtin], c.rng);
 }
 
 function start(c: Ctx, user: string, custom: { url: string; name: string; by: string }[] = []): boolean {
   const s = c.s;
-  if (user !== s.host) return reply(c, user, '只有房主可以開始遊戲。');
+  if (user !== s.host) return reply(c, user, tx(s.lang, 'onlyHostStart'));
   if (s.phase !== 'lobby') return false;
-  if (s.players.length < MIN_MEME_PLAYERS) return reply(c, user, `目前 ${s.players.length} 人，至少需要 ${MIN_MEME_PLAYERS} 人才能開始。`);
+  if (s.players.length < MIN_MEME_PLAYERS) return reply(c, user, tx(s.lang, 'needPlayers', { n: s.players.length, min: MIN_MEME_PLAYERS }));
   c.events.push(lobbyEvent(TITLE, { ...s, phase: 'answer' }));
-  s.deck = shuffle(MEME_CARDS, c.rng);
+  s.deck = shuffle(memeCards(s.lang), c.rng);
   s.used = [];
   s.images = pickImages(c, custom);
   for (const p of s.players) Object.assign(p, newPlayer(p.id), { hand: Array.from({ length: HAND }, () => draw(c)) });
-  c.events.push({ type: 'announce', text: RULES });
+  c.events.push({ type: 'announce', text: rules(s.lang) });
   startRound(c);
   return true;
 }
