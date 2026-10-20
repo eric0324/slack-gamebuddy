@@ -790,7 +790,9 @@ describe('saboteur/scoring: 勝負與結束', () => {
   it('再來一局只有上一局玩家可以開', () => {
     const { state } = finalRound([0, 0, 0, 0]);
     expect(ephemeralTo(run([{ type: 'rematch', user: 'x', channel: 'C1' }], state).events, 'x').join()).toContain('只有上一局的玩家');
-    expect(run([{ type: 'rematch', user: 'p2', channel: 'C1' }], state).state).toMatchObject({ phase: 'lobby', host: 'p2' });
+    const again = run([{ type: 'rematch', user: 'p2', channel: 'C1' }], state).state;
+    expect(again).toMatchObject({ phase: 'lobby', host: 'p2' });
+    expect(again.players.map((p) => p.id)).toEqual(['p2']);
   });
 
   it('房主取消：沒有 result、沒有再來一局；非房主被拒；結束後舊按鈕被忽略', () => {
