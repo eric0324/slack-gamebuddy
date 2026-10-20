@@ -15,6 +15,18 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*6 nimmt! commands*',
+  '• `/game nimmt new`: open a room (anyone)',
+  '• `/game nimmt addbot [count]`: add bots to fill seats (host, before start)',
+  '• `/game nimmt removebot [count]`: remove bots (host, before start)',
+  '• `/game nimmt start`: start the game, needs 2-10 players (host)',
+  '• Picking: each turn press "🃏 Pick a card" and choose one from your hand (only you can see it; you can change it until the reveal); or type `/game nimmt play <card>`',
+  '• `/game nimmt cancel`: cancel the game (host)',
+  'If your card is lower than every row, choose a row to take with the channel buttons. When someone reaches 66 bullheads, the game ends after that round and the fewest bullheads wins',
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 // 誰是牛頭王的子指令：play <牌號>
 export function parseNimmtCommand(text: string, user: string, channel: string): NAction | null {
   const [sub, arg] = text.trim().split(/\s+/);
@@ -41,6 +53,9 @@ export const nimmt = {
   category: 'strategy',
   desc: '大家同時出牌，第 6 張和最小的牌要收走整列牛頭',
   help: HELP,
+  locales: {
+    en: { name: '6 nimmt!', players: '2-10 players', desc: 'Everyone plays a card at once. The 6th card in a row, or a card too low, takes the whole row of bullheads', help: HELP_EN },
+  },
   apply: applyNimmt,
   parse: parseNimmtCommand,
   button: nimmtButton,
