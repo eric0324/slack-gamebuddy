@@ -15,6 +15,18 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  "*Liar's Dice commands*",
+  '• `/game liarsdice new`: open a room (anyone)',
+  '• `/game liarsdice addbot [count]`: add bots to fill seats (host, before start)',
+  '• `/game liarsdice removebot [count]`: remove bots (host, before start)',
+  '• `/game liarsdice start`: start the game, needs 2-8 players (host)',
+  '• `/game liarsdice bid <quantity> <face>`: bid "there are at least N dice showing X" (on your turn)',
+  '• `/game liarsdice cancel`: cancel the game (host)',
+  'Think the last bid is a bluff? Press "Liar!". 1s are wild, unless someone has bid 1s this round',
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 // 吹牛骰的子指令：bid <數量> <點數>
 export function parseLiarsDiceCommand(text: string, user: string, channel: string): LAction | null {
   const [sub, ...rest] = text.trim().split(/\s+/);
@@ -36,6 +48,9 @@ export const liarsDice = {
   category: 'bluff',
   desc: '偷偷擲骰子，輪流喊數或開，輸的人少一顆骰子',
   help: HELP,
+  locales: {
+    en: { name: "Liar's Dice", players: '2-8 players', desc: 'Roll in secret, then raise the bid or call liar. The loser loses a die', help: HELP_EN },
+  },
   apply: applyLiarsDice,
   parse: parseLiarsDiceCommand,
   button: liarsDiceButton,

@@ -14,6 +14,17 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*No Thanks! commands*',
+  '• `/game nothanks new`: open a room (anyone)',
+  '• `/game nothanks addbot [count]`: add bots to fill seats (host, before start)',
+  '• `/game nothanks removebot [count]`: remove bots (host, before start)',
+  '• `/game nothanks start`: start the game, needs 3-7 players (host)',
+  '• `/game nothanks cancel`: cancel the game (host)',
+  'On your turn, press "🙅 No thanks!" to pay 1 chip and pass, or "✋ Take" to take the card and the chips on it; press "👀 My chips" any time to see your chips and score',
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 // 不要謝謝：沒有遊戲中的打字指令，全部用按鈕
 export function parseNoThanksCommand(text: string, user: string, channel: string): NTAction | null {
   return parseRoomCommand(text, user, channel) as NTAction | null;
@@ -37,6 +48,9 @@ export const noThanks = {
   category: 'strategy',
   desc: '付籌碼說不要，或收下牌和籌碼；連號只算最小的，分數最低的人贏',
   help: HELP,
+  locales: {
+    en: { name: 'No Thanks!', players: '3-7 players', desc: 'Pay a chip to say no, or take the card and its chips. Runs only count their lowest card; lowest score wins', help: HELP_EN },
+  },
   apply: applyNoThanks,
   parse: parseNoThanksCommand,
   button: noThanksButton,

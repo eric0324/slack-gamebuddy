@@ -14,6 +14,17 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Skull commands*',
+  '• `/game skull new`: open a room (anyone)',
+  '• `/game skull addbot [count]`: add bots to fill seats (host, before start)',
+  '• `/game skull removebot [count]`: remove bots (host, before start)',
+  '• `/game skull start`: start the game, needs 3-6 players (host)',
+  '• `/game skull cancel`: cancel the game (host)',
+  'Placing, challenging, bidding, passing and flipping all use buttons; press "👀 My discs" any time to see your discs',
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 // 骷髏與玫瑰：沒有遊戲中的打字指令，全部用按鈕
 export function parseSkullCommand(text: string, user: string, channel: string): SkAction | null {
   return parseRoomCommand(text, user, channel) as SkAction | null;
@@ -43,6 +54,9 @@ export const skull = {
   category: 'bluff',
   desc: '蓋牌喊數，翻開的全是玫瑰才算成功，翻到骷髏就少一張牌',
   help: HELP,
+  locales: {
+    en: { name: 'Skull', players: '3-6 players', desc: 'Place discs face down and bid. Flip only Roses to succeed; hit a Skull and lose a disc', help: HELP_EN },
+  },
   apply: applySkull,
   parse: parseSkullCommand,
   button: skullButton,

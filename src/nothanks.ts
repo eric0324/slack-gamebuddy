@@ -1,6 +1,8 @@
 // 不要謝謝 (No Thanks!) 遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyNoThanks(state, action, rng) → { state, events }。
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
+import type { Lang } from './i18n/index.js';
+import { tx } from './i18n/games/nothanks.js';
 
 export const MIN_NOTHANKS_PLAYERS = 3;
 export const MAX_NOTHANKS_PLAYERS = 7;
@@ -31,10 +33,11 @@ export interface NTState {
   winners?: string[];
   timerSeq: number;
   timers: { phase?: number };
+  lang?: Lang; // 開房時的頻道語系 (runGame 存進來)
 }
 
 export type NTAction =
-  | { type: 'new'; user: string; channel: string }
+  | { type: 'new'; user: string; channel: string; lang?: Lang }
   | { type: 'join'; user: string }
   | { type: 'leave'; user: string }
   | { type: 'start'; user: string }
@@ -45,7 +48,7 @@ export type NTAction =
   | { type: 'take'; user: string; step: number }
   | { type: 'mine'; user: string }
   | { type: 'timeout'; id: number }
-  | { type: 'rematch'; user: string; channel: string };
+  | { type: 'rematch'; user: string; channel: string; lang?: Lang };
 
 type GameAction = Exclude<NTAction, { type: 'new' } | { type: 'rematch' }>;
 type Result = { state: NTState; events: GameEvent[] };
@@ -60,14 +63,14 @@ export function score(cards: number[], chips: number): number {
 }
 
 // 連號顯示成一組：5-7 · 19
-export function runsText(cards: number[]): string {
+export function runsText(cards: number[], lang?: Lang): string {
   const groups: number[][] = [];
   for (const c of sorted(cards)) {
     const g = groups.at(-1);
     if (g && g.at(-1) === c - 1) g.push(c);
     else groups.push([c]);
   }
-  return groups.length ? groups.map((g) => (g.length > 1 ? `${g[0]}-${g.at(-1)}` : `${g[0]}`)).join(' · ') : '(還沒有)';
+  return groups.length ? groups.map((g) => (g.length > 1 ? `${g[0]}-${g.at(-1)}` : `${g[0]}`)).join(' · ') : tx(lang, 'none');
 }
 
 // bot：沒籌碼、收下不會變多分、或牌上籌碼 × 3 ≥ 增加的分數就收下
@@ -81,11 +84,11 @@ const current = (s: NTState) => s.players[s.turn];
 
 function board(s: NTState, options = true): GameEvent {
   const lines = [
-    `🃏 第 ${s.cardNo} 張：*${s.card}*，牌上 🪙 ${s.pot} 個 (牌堆剩 ${s.deck.length} 張)`,
+    tx(s.lang, 'boardCard', { no: s.cardNo, card: s.card!, pot: s.pot, left: s.deck.length }),
     ...(s.last ? [s.last] : []),
-    options ? `輪到 ${mention(current(s).id)} (${TURN_MS / 1000} 秒)：「🙅 不要謝謝」付 1 個籌碼，或「✋ 收下」` : '',
-    '收下的牌：',
-    ...s.players.map((p) => `• ${mention(p.id)}：${runsText(p.cards)}`),
+    options ? tx(s.lang, 'boardTurn', { who: mention(current(s).id), sec: TURN_MS / 1000 }) : '',
+    tx(s.lang, 'boardTaken'),
+    ...s.players.map((p) => tx(s.lang, 'boardPlayer', { who: mention(p.id), cards: runsText(p.cards, s.lang) })),
   ].filter(Boolean);
   return {
     type: 'prompt',
@@ -95,9 +98,9 @@ function board(s: NTState, options = true): GameEvent {
     text: lines.join('\n'),
     options: options
       ? [
-          { value: `pass:${s.step}`, label: '🙅 不要謝謝' },
-          { value: `take:${s.step}`, label: '✋ 收下' },
-          { value: 'mine', label: '👀 我的籌碼' },
+          { value: `pass:${s.step}`, label: tx(s.lang, 'passBtn') },
+          { value: `take:${s.step}`, label: tx(s.lang, 'takeBtn') },
+          { value: 'mine', label: tx(s.lang, 'mineBtn') },
         ]
       : [],
   };
@@ -119,7 +122,7 @@ function pass(c: Ctx, auto: boolean) {
   me.chips--;
   s.pot++;
   s.step++;
-  s.last = `🙅 ${mention(me.id)} 不要謝謝${auto ? ' (超時)' : ''}`;
+  s.last = tx(s.lang, 'passed', { who: mention(me.id), auto: auto ? tx(s.lang, 'timeout') : '' });
   s.turn = (s.turn + 1) % s.players.length;
   c.events.push(board(s));
   startTimer(c, TURN_MS);
@@ -131,9 +134,9 @@ function take(c: Ctx, auto: boolean) {
   me.cards = sorted([...me.cards, s.card!]);
   me.chips += s.pot;
   s.step++;
-  s.last = `✋ ${mention(me.id)} 收下了`;
+  s.last = tx(s.lang, 'tookLast', { who: mention(me.id) });
   c.events.push(board(s, false));
-  c.events.push({ type: 'announce', text: `✋ ${mention(me.id)} 收下 ${s.card} 和 ${s.pot} 個籌碼${auto ? ' (超時)' : ''}` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'took', { who: mention(me.id), card: s.card!, pot: s.pot, auto: auto ? tx(s.lang, 'timeout') : '' }) });
   if (s.deck.length) flip(c);
   else endGame(c);
 }
@@ -151,9 +154,11 @@ function endGame(c: Ctx) {
     {
       type: 'announce',
       text: [
-        `🏆 遊戲結束，${s.winners.map(mention).join('、')} 分數最低獲勝！`,
-        ...ranking.map((p, i) => `${i + 1}. ${mention(p.id)} 分數 ${scoreOf(p)} (牌 ${runsText(p.cards)}，🪙 ${p.chips})${scoreOf(p) === min ? ' 🏆' : ''}`),
-        `一開始被拿掉的牌：${sorted(s.removed).join(' ')}`,
+        tx(s.lang, 'win', { who: s.winners.map(mention).join(tx(s.lang, 'sep')) }),
+        ...ranking.map((p, i) =>
+          tx(s.lang, 'rankLine', { i: i + 1, who: mention(p.id), score: scoreOf(p), cards: runsText(p.cards, s.lang), chips: p.chips, trophy: scoreOf(p) === min ? ' 🏆' : '' }),
+        ),
+        tx(s.lang, 'removed', { cards: sorted(s.removed).join(' ') }),
       ].join('\n'),
       gif: 'goodWin',
     },
@@ -163,10 +168,10 @@ function endGame(c: Ctx) {
 
 function start(c: Ctx, user: string): boolean {
   const s = c.s;
-  if (user !== s.host) return reply(c, user, '只有房主可以開始遊戲。');
+  if (user !== s.host) return reply(c, user, tx(s.lang, 'onlyHostStart'));
   if (s.phase !== 'lobby') return false;
   const n = s.players.length;
-  if (n < MIN_NOTHANKS_PLAYERS) return reply(c, user, `目前 ${n} 人，至少需要 ${MIN_NOTHANKS_PLAYERS} 人才能開始。`);
+  if (n < MIN_NOTHANKS_PLAYERS) return reply(c, user, tx(s.lang, 'needPlayers', { n, min: MIN_NOTHANKS_PLAYERS }));
   c.events.push(lobbyEvent(TITLE, { ...s, phase: 'turn' }));
   const chips = startChips(n);
   for (const p of s.players) Object.assign(p, { chips, cards: [] });
@@ -177,9 +182,9 @@ function start(c: Ctx, user: string): boolean {
   s.phase = 'turn';
   c.events.push({
     type: 'announce',
-    text: `🙅 不要謝謝開始！座位：${s.players.map((p) => mention(p.id)).join(' → ')}\n每人 ${chips} 個籌碼 (不公開)，由 ${mention(current(s).id)} 先開始。\n分數＝收下的牌點數加總 (連號只算最小那張) 減去籌碼，分數最低的人贏。`,
+    text: tx(s.lang, 'begin', { seats: s.players.map((p) => mention(p.id)).join(' → '), chips, who: mention(current(s).id) }),
   });
-  const rules = `🙅 不要謝謝規則：牌 3～35，拿掉 9 張不公開。輪到你時「🙅 不要謝謝」付 1 個籌碼放在牌上換下一位，或「✋ 收下」這張牌和牌上所有籌碼，再翻下一張還是輪到你；沒有籌碼只能收下。每次 60 秒，超時有籌碼就自動不要謝謝。分數最低的人贏。你有 ${chips} 個籌碼，隨時按「👀 我的籌碼」查看。`;
+  const rules = tx(s.lang, 'rules', { chips });
   for (const p of s.players) if (!isBot(p.id)) c.events.push({ type: 'dm', to: p.id, text: rules });
   flip(c);
   return true;
@@ -188,12 +193,12 @@ function start(c: Ctx, user: string): boolean {
 function act(c: Ctx, action: Extract<GameAction, { type: 'pass' | 'take' }>): boolean {
   const s = c.s;
   const me = s.players.find((p) => p.id === action.user);
-  if (!me) return reply(c, action.user, '你不在這局遊戲裡。');
+  if (!me) return reply(c, action.user, tx(s.lang, 'notInGame'));
   if (s.phase !== 'turn') return false;
-  if (action.step !== s.step) return reply(c, action.user, '這個按鈕已經過期。');
-  if (me !== current(s)) return reply(c, action.user, '還沒輪到你。');
+  if (action.step !== s.step) return reply(c, action.user, tx(s.lang, 'expired'));
+  if (me !== current(s)) return reply(c, action.user, tx(s.lang, 'notYourTurn'));
   if (action.type === 'pass') {
-    if (me.chips === 0) return reply(c, action.user, '你沒有籌碼了，只能收下。');
+    if (me.chips === 0) return reply(c, action.user, tx(s.lang, 'noChips'));
     pass(c, false);
   } else take(c, false);
   return true;
@@ -219,9 +224,9 @@ function handle(c: Ctx, action: GameAction): boolean {
       return act(c, action);
     case 'mine': {
       const me = s.players.find((p) => p.id === action.user);
-      if (!me) return reply(c, action.user, '你不在這局遊戲裡。');
-      if (s.phase !== 'turn') return reply(c, action.user, '遊戲還沒開始。');
-      return reply(c, action.user, `👀 你有 🪙 ${me.chips} 個籌碼，收下的牌：${runsText(me.cards)}，目前分數 ${score(me.cards, me.chips)}`);
+      if (!me) return reply(c, action.user, tx(s.lang, 'notInGame'));
+      if (s.phase !== 'turn') return reply(c, action.user, tx(s.lang, 'notStarted'));
+      return reply(c, action.user, tx(s.lang, 'mine', { chips: me.chips, cards: runsText(me.cards, s.lang), score: score(me.cards, me.chips) }));
     }
     case 'timeout': {
       if (action.id !== s.timers.phase || s.phase !== 'turn') return false;

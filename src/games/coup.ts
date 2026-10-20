@@ -14,6 +14,17 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Coup commands*',
+  '• `/game coup new`: open a room (anyone)',
+  '• `/game coup addbot [count]`: add bots to fill seats (host, before start)',
+  '• `/game coup removebot [count]`: remove bots (host, before start)',
+  '• `/game coup start`: start the game, needs 3-6 players (host)',
+  '• `/game coup cancel`: cancel the game (host)',
+  'Actions, targets, challenges and blocks use channel buttons; revealing cards and the Ambassador exchange use private buttons',
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 // 政變只有房間指令，遊戲中都用按鈕
 export function parseCoupCommand(text: string, user: string, channel: string): KAction | null {
   return parseRoomCommand(text, user, channel) as KAction | null;
@@ -51,6 +62,9 @@ export const coup = {
   category: 'bluff',
   desc: '虛張聲勢，宣稱任何角色的能力，質疑或阻擋',
   help: HELP,
+  locales: {
+    en: { name: 'Coup', players: '3-6 players', desc: 'Bluff your way to power: claim any role, challenge or block', help: HELP_EN },
+  },
   apply: applyCoup,
   parse: parseCoupCommand,
   button: coupButton,

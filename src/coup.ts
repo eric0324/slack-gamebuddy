@@ -1,6 +1,8 @@
 // 政變遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyCoup(state, action, rng) → { state, events }。
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
+import type { Lang } from './i18n/index.js';
+import { tx } from './i18n/games/coup.js';
 
 export const MIN_COUP_PLAYERS = 3;
 export const MAX_COUP_PLAYERS = 6;
@@ -16,14 +18,8 @@ export type ActKind = 'income' | 'foreignAid' | 'coup' | 'tax' | 'assassinate' |
 
 export type Role = 'duke' | 'assassin' | 'captain' | 'ambassador' | 'contessa';
 const ROLES: Role[] = ['duke', 'assassin', 'captain', 'ambassador', 'contessa'];
-export const ROLE_NAME: Record<Role, string> = { duke: '公爵', assassin: '刺客', captain: '隊長', ambassador: '大使', contessa: '女伯爵' };
-const ROLE_HELP = [
-  '公爵：稅收 (拿 3 枚)，可以阻擋外援',
-  '刺客：付 3 枚刺殺一人',
-  '隊長：勒索 (從一人拿 2 枚)，可以阻擋勒索',
-  '大使：交換 (抽 2 張再選要留的牌)，可以阻擋勒索',
-  '女伯爵：可以阻擋刺殺',
-].join('\n');
+// 依這局語系的角色名稱和行動按鈕文字
+const roleName = (lang: Lang | undefined, r: Role) => tx(lang, `role.${r}`);
 
 export interface Card {
   role: Role;
@@ -53,10 +49,11 @@ export interface KState {
   winner?: string;
   timerSeq: number;
   timers: { phase?: number };
+  lang?: Lang; // 開房時的頻道語系 (runGame 存進來)
 }
 
 export type KAction =
-  | { type: 'new'; user: string; channel: string }
+  | { type: 'new'; user: string; channel: string; lang?: Lang }
   | { type: 'join'; user: string }
   | { type: 'leave'; user: string }
   | { type: 'start'; user: string }
@@ -71,7 +68,7 @@ export type KAction =
   | { type: 'keep'; user: string; index: number }
   | { type: 'pass'; user: string }
   | { type: 'timeout'; id: number }
-  | { type: 'rematch'; user: string; channel: string };
+  | { type: 'rematch'; user: string; channel: string; lang?: Lang };
 
 type GameAction = Exclude<KAction, { type: 'new' } | { type: 'rematch' }>;
 
@@ -86,7 +83,8 @@ interface Ctx {
   rng: Rng;
 }
 
-const cardList = (p: KPlayer) => p.cards.filter((x) => !x.revealed).map((x) => ROLE_NAME[x.role]).join('、');
+const cardList = (s: KState, p: KPlayer) =>
+  p.cards.filter((x) => !x.revealed).map((x) => roleName(s.lang, x.role)).join(tx(s.lang, 'sep'));
 
 // 發牌：15 張洗牌，每人 2 張暗牌和 2 枚金幣
 function deal(c: Ctx) {
@@ -100,21 +98,13 @@ function deal(c: Ctx) {
   const order = s.players.map((_, i) => s.players[(s.turn + i) % s.players.length].id);
   c.events.push({
     type: 'announce',
-    text: `👑 政變開始！順序：${order.map(mention).join(' → ')}\n每人 2 枚金幣，手牌已經私訊給大家。可以宣稱任何角色，但小心被質疑！`,
+    text: tx(s.lang, 'start', { order: order.map(mention).join(' → ') }),
     gif: 'start',
   });
-  for (const p of s.players) c.events.push({ type: 'dm', to: p.id, text: `🃏 你的手牌：${cardList(p)}\n\n${ROLE_HELP}` });
+  for (const p of s.players) c.events.push({ type: 'dm', to: p.id, text: tx(s.lang, 'yourCards', { cards: cardList(s, p), help: tx(s.lang, 'roleHelp') }) });
 }
 
-const ACT_LABEL: Record<ActKind, string> = {
-  income: '💰 收入 +1',
-  foreignAid: '🤲 外援 +2',
-  coup: '💥 政變 (付 7)',
-  tax: '👑 稅收 +3 (公爵)',
-  assassinate: '🗡️ 刺殺 (付 3，刺客)',
-  steal: '🏴‍☠️ 勒索 2 枚 (隊長)',
-  exchange: '🔄 交換 (大使)',
-};
+const actLabel = (lang: Lang | undefined, k: ActKind) => tx(lang, `act.${k}`);
 const TARGETED: ActKind[] = ['coup', 'assassinate', 'steal'];
 // 可以被阻擋的行動 → 阻擋用的角色
 const BLOCK: Partial<Record<ActKind, Role[]>> = { foreignAid: ['duke'], assassinate: ['contessa'], steal: ['captain', 'ambassador'] };
@@ -139,18 +129,23 @@ function startTurn(c: Ctx) {
   const p = current(s);
   const status = s.players
     .map((x) => {
-      const shown = x.cards.filter((k) => k.revealed).map((k) => ROLE_NAME[k.role]);
-      return `${mention(x.id)} 💰${x.coins}${shown.length ? ` (翻開：${shown.join('、')})` : ''}${alive(x) ? '' : ' 💀'}`;
+      const shown = x.cards.filter((k) => k.revealed).map((k) => roleName(s.lang, k.role));
+      return tx(s.lang, 'statusLine', {
+        who: mention(x.id),
+        coins: x.coins,
+        shown: shown.length ? tx(s.lang, 'shown', { list: shown.join(tx(s.lang, 'sep')) }) : '',
+        dead: alive(x) ? '' : ' 💀',
+      });
     })
     .join('\n');
   c.events.push(
-    { type: 'announce', text: `👉 輪到 ${mention(p.id)}\n${status}` },
+    { type: 'announce', text: tx(s.lang, 'turn', { who: mention(p.id), status }) },
     {
       type: 'prompt',
       kind: 'coupAction',
       audience: 'channel',
-      text: `${mention(p.id)} 請選擇行動 (${ACTION_MS / 1000} 秒)`,
-      options: available(p).map((k) => ({ value: k, label: ACT_LABEL[k] })),
+      text: tx(s.lang, 'chooseAction', { who: mention(p.id), sec: ACTION_MS / 1000 }),
+      options: available(p).map((k) => ({ value: k, label: actLabel(s.lang, k) })),
     },
   );
   startTimer(c, ACTION_MS);
@@ -171,23 +166,23 @@ function nextTurn(c: Ctx) {
 function declare(c: Ctx, user: string, kind: ActKind): boolean {
   const s = c.s;
   const p = current(s);
-  if (s.phase !== 'action' || user !== p.id) return reply(c, user, '還沒輪到你行動。');
-  if (!available(p).includes(kind)) return reply(c, user, p.coins >= 10 ? '有 10 枚以上金幣時只能政變。' : '金幣不夠，不能選這個行動。');
+  if (s.phase !== 'action' || user !== p.id) return reply(c, user, tx(s.lang, 'notYourTurn'));
+  if (!available(p).includes(kind)) return reply(c, user, tx(s.lang, p.coins >= 10 ? 'mustCoup' : 'notEnoughCoins'));
   if (kind === 'income') {
     p.coins += 1;
-    c.events.push({ type: 'announce', text: `💰 ${mention(p.id)} 收入，拿 1 枚金幣。` });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'income', { who: mention(p.id) }) });
     nextTurn(c);
     return true;
   }
   if (kind === 'foreignAid') {
     s.pending = { actor: p.id, kind };
-    c.events.push({ type: 'announce', text: `🤲 ${mention(p.id)} 要拿外援 2 枚金幣` });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'foreignAidClaim', { who: mention(p.id) }) });
     openBlock(c);
     return true;
   }
   if (kind === 'tax' || kind === 'exchange') {
     s.pending = { actor: p.id, kind };
-    openChallenge(c, p.id, CLAIM[kind]!, false, `${ACT_LABEL[kind]}`);
+    openChallenge(c, p.id, CLAIM[kind]!, false, actLabel(s.lang, kind));
     return true;
   }
   if (TARGETED.includes(kind)) {
@@ -197,7 +192,7 @@ function declare(c: Ctx, user: string, kind: ActKind): boolean {
       type: 'prompt',
       kind: 'coupTarget',
       audience: 'channel',
-      text: `${mention(p.id)} 選擇${ACT_LABEL[kind]}的目標 (${TARGET_MS / 1000} 秒)`,
+      text: tx(s.lang, 'chooseTarget', { who: mention(p.id), act: actLabel(s.lang, kind), sec: TARGET_MS / 1000 }),
       options: s.players.filter((x) => x.id !== p.id && alive(x)).map((x) => ({ value: x.id, label: x.id })),
     });
     startTimer(c, TARGET_MS);
@@ -208,19 +203,19 @@ function declare(c: Ctx, user: string, kind: ActKind): boolean {
 
 function chooseTarget(c: Ctx, user: string, targetId: string): boolean {
   const s = c.s;
-  if (s.phase !== 'target' || user !== s.pending!.actor) return reply(c, user, '現在不是你選目標。');
+  if (s.phase !== 'target' || user !== s.pending!.actor) return reply(c, user, tx(s.lang, 'notYourTarget'));
   const t = s.players.find((x) => x.id === targetId);
   if (!t || t.id === user || !alive(t)) return false;
   s.pending!.target = t.id;
   const actor = playerOf(s, user);
   if (s.pending!.kind === 'coup') {
     actor.coins -= 7;
-    c.events.push({ type: 'announce', text: `💥 ${mention(user)} 付 7 枚金幣，對 ${mention(t.id)} 發動政變！` });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'coup', { who: mention(user), target: mention(t.id) }) });
     loseInfluence(c, [t.id]);
     return true;
   }
   if (s.pending!.kind === 'assassinate') actor.coins -= 3;
-  openChallenge(c, user, CLAIM[s.pending!.kind]!, false, `對 ${mention(t.id)} ${ACT_LABEL[s.pending!.kind]}`);
+  openChallenge(c, user, CLAIM[s.pending!.kind]!, false, tx(s.lang, 'whatTarget', { target: mention(t.id), act: actLabel(s.lang, s.pending!.kind) }));
   return true;
 }
 
@@ -231,13 +226,13 @@ function openChallenge(c: Ctx, by: string, role: Role, forBlock: boolean, what: 
   s.passed = [];
   s.claim = { by, role, forBlock };
   c.events.push(
-    { type: 'announce', text: `🎭 ${mention(by)} 宣稱「${ROLE_NAME[role]}」：${what}` },
+    { type: 'announce', text: tx(s.lang, 'claim', { who: mention(by), role: roleName(s.lang, role), what }) },
     {
       type: 'prompt',
       kind: 'challenge',
       audience: 'channel',
-      text: `覺得 ${mention(by)} 沒有「${ROLE_NAME[role]}」的話，${REACT_MS / 1000} 秒內可以質疑`,
-      options: [{ value: 'challenge', label: '質疑' }],
+      text: tx(s.lang, 'challengePrompt', { who: mention(by), role: roleName(s.lang, role), sec: REACT_MS / 1000 }),
+      options: [{ value: 'challenge', label: tx(s.lang, 'challengeBtn') }],
     },
   );
   startTimer(c, REACT_MS);
@@ -253,12 +248,12 @@ function resolveChallenge(c: Ctx, challenger: string) {
     s.deck = shuffle(s.deck, c.rng);
     card.role = s.deck.shift()!;
     c.events.push(
-      { type: 'announce', text: `✅ ${mention(by)} 真的有「${ROLE_NAME[role]}」！${mention(challenger)} 質疑失敗，${mention(by)} 把這張牌洗回牌堆換一張新的。` },
-      { type: 'dm', to: by, text: `🃏 你換到了新牌，現在的手牌：${cardList(claimant)}` },
+      { type: 'announce', text: tx(s.lang, 'challengeFailed', { who: mention(by), role: roleName(s.lang, role), challenger: mention(challenger) }) },
+      { type: 'dm', to: by, text: tx(s.lang, 'newCard', { cards: cardList(s, claimant) }) },
     );
     loseInfluence(c, [challenger], forBlock ? 'blocked' : 'proceed');
   } else {
-    c.events.push({ type: 'announce', text: `❌ ${mention(by)} 沒有「${ROLE_NAME[role]}」，${mention(challenger)} 質疑成功！` });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'challengeWon', { who: mention(by), role: roleName(s.lang, role), challenger: mention(challenger) }) });
     loseInfluence(c, [by], forBlock ? 'execute' : 'next');
   }
 }
@@ -281,13 +276,13 @@ function openBlock(c: Ctx) {
   s.phase = 'block';
   s.passed = [];
   const { kind } = s.pending!;
-  const who = kind === 'foreignAid' ? '任何人' : mention(s.pending!.target!);
+  const who = kind === 'foreignAid' ? tx(s.lang, 'anyone') : mention(s.pending!.target!);
   c.events.push({
     type: 'prompt',
     kind: 'block',
     audience: 'channel',
-    text: `${who}可以在 ${REACT_MS / 1000} 秒內宣稱角色阻擋`,
-    options: BLOCK[kind]!.map((r) => ({ value: r, label: `用${ROLE_NAME[r]}阻擋` })),
+    text: tx(s.lang, 'blockPrompt', { who, sec: REACT_MS / 1000 }),
+    options: BLOCK[kind]!.map((r) => ({ value: r, label: tx(s.lang, 'blockBtn', { role: roleName(s.lang, r) }) })),
   });
   startTimer(c, REACT_MS);
 }
@@ -299,20 +294,20 @@ function execute(c: Ctx) {
   const t = target ? playerOf(s, target) : undefined;
   if (kind === 'tax') {
     p.coins += 3;
-    c.events.push({ type: 'announce', text: `👑 ${mention(actor)} 收稅，拿 3 枚金幣。` });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'tax', { who: mention(actor) }) });
   } else if (kind === 'foreignAid') {
     p.coins += 2;
-    c.events.push({ type: 'announce', text: `🤲 ${mention(actor)} 拿了外援 2 枚金幣。` });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'foreignAid', { who: mention(actor) }) });
   } else if (kind === 'steal' && t) {
     const n = Math.min(2, t.coins);
     t.coins -= n;
     p.coins += n;
-    c.events.push({ type: 'announce', text: `🏴‍☠️ ${mention(actor)} 從 ${mention(t.id)} 勒索了 ${n} 枚金幣。` });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'steal', { who: mention(actor), target: mention(t.id), n }) });
   } else if (kind === 'exchange') {
     startExchange(c, p);
     return;
   } else if (kind === 'assassinate' && t && alive(t)) {
-    c.events.push({ type: 'announce', text: `🗡️ ${mention(actor)} 刺殺 ${mention(t.id)}！` });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'assassinate', { who: mention(actor), target: mention(t.id) }) });
     loseInfluence(c, [t.id]);
     return;
   }
@@ -348,10 +343,10 @@ function promptLose(c: Ctx) {
       kind: 'loseCard',
       audience: 'user',
       user: p.id,
-      text: `😵 你要失去一個影響力，選一張牌翻開 (${LOSE_MS / 1000} 秒)`,
-      options: cards.map(([x, i]) => ({ value: String(i), label: `翻開${ROLE_NAME[x.role]}` })),
+      text: tx(s.lang, 'loseCard', { sec: LOSE_MS / 1000 }),
+      options: cards.map(([x, i]) => ({ value: String(i), label: tx(s.lang, 'revealBtn', { role: roleName(s.lang, x.role) }) })),
     });
-    c.events.push({ type: 'announce', text: `⏳ 等 ${mention(p.id)} 選一張牌翻開…` });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'waitLose', { who: mention(p.id) }) });
     startTimer(c, LOSE_MS);
     return;
   }
@@ -361,8 +356,8 @@ function promptLose(c: Ctx) {
 function revealCard(c: Ctx, p: KPlayer, index: number) {
   const s = c.s;
   p.cards[index].revealed = true;
-  c.events.push({ type: 'announce', text: `😵 ${mention(p.id)} 翻開了「${ROLE_NAME[p.cards[index].role]}」` });
-  if (!alive(p)) c.events.push({ type: 'announce', text: `💀 ${mention(p.id)} 出局！` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'revealed', { who: mention(p.id), role: roleName(s.lang, p.cards[index].role) }) });
+  if (!alive(p)) c.events.push({ type: 'announce', text: tx(s.lang, 'out', { who: mention(p.id) }) });
   s.losing.shift();
 }
 
@@ -376,7 +371,7 @@ function afterLoss(c: Ctx) {
   if (s.after === 'proceed') proceed(c);
   else if (s.after === 'execute') execute(c);
   else if (s.after === 'blocked') {
-    c.events.push({ type: 'announce', text: `🛡️ ${mention(s.pending!.actor)} 的行動被擋下來了。` });
+    c.events.push({ type: 'announce', text: tx(s.lang, 'blocked', { who: mention(s.pending!.actor) }) });
     nextTurn(c);
   } else nextTurn(c);
 }
@@ -386,10 +381,12 @@ function endGame(c: Ctx, winner: string) {
   s.phase = 'ended';
   s.timers = {};
   s.winner = winner;
-  const roster = s.players.map((p) => `${mention(p.id)}：${p.cards.map((x) => ROLE_NAME[x.role]).join('、')}`).join('\n');
+  const roster = s.players
+    .map((p) => tx(s.lang, 'rosterLine', { who: mention(p.id), cards: p.cards.map((x) => roleName(s.lang, x.role)).join(tx(s.lang, 'sep')) }))
+    .join('\n');
   c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: [winner] });
   c.events.push(
-    { type: 'announce', text: `🏆 遊戲結束，${mention(winner)} 獲勝！\n${roster}`, gif: 'goodWin' },
+    { type: 'announce', text: tx(s.lang, 'win', { who: mention(winner), roster }), gif: 'goodWin' },
     { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },
   );
 }
@@ -401,7 +398,7 @@ function startExchange(c: Ctx, p: KPlayer) {
   const drawn = [s.deck.shift()!, s.deck.shift()!];
   s.phase = 'exchange';
   s.exchange = { pool: [...own, ...drawn], keep: [], count: own.length };
-  c.events.push({ type: 'announce', text: `🔄 ${mention(p.id)} 正在交換手牌…` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'exchanging', { who: mention(p.id) }) });
   promptKeep(c);
   startTimer(c, EXCHANGE_MS);
 }
@@ -415,8 +412,8 @@ function promptKeep(c: Ctx) {
     kind: 'keepCard',
     audience: 'user',
     user: actor,
-    text: `🔄 選 ${ex.count - ex.keep.length} 張要留下的牌 (${EXCHANGE_MS / 1000} 秒，超時留原本的牌)`,
-    options: ex.pool.map((r, i) => ({ value: String(i), label: ROLE_NAME[r] })).filter((_, i) => !ex.keep.includes(i)),
+    text: tx(s.lang, 'keepCard', { n: ex.count - ex.keep.length, sec: EXCHANGE_MS / 1000 }),
+    options: ex.pool.map((r, i) => ({ value: String(i), label: roleName(s.lang, r) })).filter((_, i) => !ex.keep.includes(i)),
   });
 }
 
@@ -429,8 +426,8 @@ function finishExchange(c: Ctx, keep: number[]) {
   s.deck = shuffle([...s.deck, ...ex.pool.filter((_, i) => !keep.includes(i))], c.rng);
   s.exchange = undefined;
   c.events.push(
-    { type: 'announce', text: `🔄 ${mention(p.id)} 完成交換。` },
-    { type: 'dm', to: p.id, text: `🃏 交換完成，現在的手牌：${cardList(p)}` },
+    { type: 'announce', text: tx(s.lang, 'exchanged', { who: mention(p.id) }) },
+    { type: 'dm', to: p.id, text: tx(s.lang, 'exchangedDm', { cards: cardList(s, p) }) },
   );
   nextTurn(c);
 }
@@ -508,10 +505,10 @@ function handle(c: Ctx, action: GameAction): boolean {
     case 'removeBot':
       return removeBots(c, TITLE, action.user, action.count);
     case 'start': {
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以開始遊戲。');
+      if (action.user !== s.host) return reply(c, action.user, tx(s.lang, 'onlyHostStart'));
       if (s.phase !== 'lobby') return false;
       const n = s.players.length;
-      if (n < MIN_COUP_PLAYERS) return reply(c, action.user, `目前 ${n} 人，至少需要 ${MIN_COUP_PLAYERS} 人才能開始。`);
+      if (n < MIN_COUP_PLAYERS) return reply(c, action.user, tx(s.lang, 'needPlayers', { n, min: MIN_COUP_PLAYERS }));
       c.events.push(lobbyEvent(TITLE, { ...s, phase: 'action' }));
       deal(c);
       startTurn(c);
@@ -541,7 +538,7 @@ function handle(c: Ctx, action: GameAction): boolean {
     case 'block': {
       if (s.phase !== 'block' || !blockers(s).includes(action.user)) return false;
       if (!BLOCK[s.pending!.kind]!.includes(action.role)) return false;
-      openChallenge(c, action.user, action.role, true, `阻擋 ${mention(s.pending!.actor)} 的${ACT_LABEL[s.pending!.kind]}`);
+      openChallenge(c, action.user, action.role, true, tx(s.lang, 'whatBlock', { who: mention(s.pending!.actor), act: actLabel(s.lang, s.pending!.kind) }));
       return true;
     }
     case 'keep': {

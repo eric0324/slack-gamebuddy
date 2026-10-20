@@ -1,6 +1,8 @@
 // 誰是牛頭王 (6 Nimmt!) 遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyNimmt(state, action, rng) → { state, events }。
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, shuffle, startTimer } from './common.js';
+import type { Lang } from './i18n/index.js';
+import { tx } from './i18n/games/nimmt.js';
 
 export const MIN_NIMMT_PLAYERS = 2;
 export const MAX_NIMMT_PLAYERS = 10;
@@ -34,10 +36,11 @@ export interface NState {
   winners?: string[];
   timerSeq: number;
   timers: { phase?: number };
+  lang?: Lang; // 開房時的頻道語系 (runGame 存進來)
 }
 
 export type NAction =
-  | { type: 'new'; user: string; channel: string }
+  | { type: 'new'; user: string; channel: string; lang?: Lang }
   | { type: 'join'; user: string }
   | { type: 'leave'; user: string }
   | { type: 'start'; user: string }
@@ -48,7 +51,7 @@ export type NAction =
   | { type: 'pick'; user: string; card: number; seq?: number } // 指令選牌沒有 seq
   | { type: 'row'; user: string; row: number; seq: number }
   | { type: 'timeout'; id: number }
-  | { type: 'rematch'; user: string; channel: string };
+  | { type: 'rematch'; user: string; channel: string; lang?: Lang };
 
 type GameAction = Exclude<NAction, { type: 'new' } | { type: 'rematch' }>;
 
@@ -74,8 +77,8 @@ export function bullheads(card: number): number {
 
 const heads = (cards: number[]) => cards.reduce((n, c) => n + bullheads(c), 0);
 
-const tableText = (s: NState) => s.rows.map((r, i) => `第 ${i + 1} 列：${r.join(' ')} (🐮${heads(r)})`).join('\n');
-const scoreText = (s: NState) => `🐮 累積：${s.players.map((p) => `${mention(p.id)} ${p.total}`).join('、')}`;
+const tableText = (s: NState) => s.rows.map((r, i) => tx(s.lang, 'tableRow', { row: i + 1, cards: r.join(' '), h: heads(r) })).join('\n');
+const scoreText = (s: NState) => tx(s.lang, 'score', { list: s.players.map((p) => `${mention(p.id)} ${p.total}`).join(tx(s.lang, 'sep')) });
 
 // 新的一輪：重新洗牌，每人 10 張，翻 4 張當四列的開頭
 function startRound(c: Ctx) {
@@ -91,11 +94,11 @@ function startRound(c: Ctx) {
   s.rows = deck.slice(used, used + 4).map((c) => [c]);
   c.events.push({
     type: 'announce',
-    text: `🐮 誰是牛頭王 第 ${s.round} 輪開始！每人 10 張手牌 (已私訊)，每回合大家同時出一張。\n${tableText(s)}\n${scoreText(s)}`,
+    text: tx(s.lang, 'roundStart', { round: s.round, table: tableText(s), score: scoreText(s) }),
   });
   for (const p of s.players) {
     if (isBot(p.id)) continue;
-    c.events.push({ type: 'dm', to: p.id, text: `🐮 第 ${s.round} 輪你的手牌：${p.hand.map((x) => `${x} (🐮${bullheads(x)})`).join(' ')}` });
+    c.events.push({ type: 'dm', to: p.id, text: tx(s.lang, 'handDm', { round: s.round, hand: p.hand.map((x) => `${x} (🐮${bullheads(x)})`).join(' ') }) });
   }
   startTurn(c);
 }
@@ -117,14 +120,14 @@ const label = (card: number) => `${card} 🐮${bullheads(card)}`;
 function handMenu(c: Ctx, user: string): boolean {
   const s = c.s;
   const me = s.players.find((p) => p.id === user);
-  if (!me) return reply(c, user, '你不在這局遊戲中。');
-  if (s.phase !== 'pick') return reply(c, user, '現在不能選牌。');
+  if (!me) return reply(c, user, tx(s.lang, 'notInGame'));
+  if (s.phase !== 'pick') return reply(c, user, tx(s.lang, 'cannotPick'));
   c.events.push({
     type: 'prompt',
     kind: 'nimmt',
     audience: 'ephemeral',
     user,
-    text: `🃏 選一張牌 (揭曉前可以改)${me.pick !== undefined ? `，目前選了 ${me.pick}` : ''}`,
+    text: tx(s.lang, 'pickMenu', { current: me.pick !== undefined ? tx(s.lang, 'pickCurrent', { card: me.pick }) : '' }),
     options: [...me.hand].sort((a, b) => a - b).map((x) => ({ value: `pick:${s.seq}:${x}`, label: label(x) })),
     perRow: 5,
   });
@@ -134,14 +137,14 @@ function handMenu(c: Ctx, user: string): boolean {
 function pickCard(c: Ctx, user: string, card: number, seq?: number): boolean {
   const s = c.s;
   const me = s.players.find((p) => p.id === user);
-  if (!me) return reply(c, user, '你不在這局遊戲中。');
-  if (s.phase === 'chooseRow') return reply(c, user, '還在擺牌，請等一下。');
-  if (s.phase !== 'pick') return reply(c, user, '現在不能選牌。');
-  if (seq !== undefined && seq !== s.seq) return reply(c, user, '這是上一回合的選單，請重新按「🃏 選牌」。');
-  if (!me.hand.includes(card)) return reply(c, user, `你手上沒有 ${card}。`);
+  if (!me) return reply(c, user, tx(s.lang, 'notInGame'));
+  if (s.phase === 'chooseRow') return reply(c, user, tx(s.lang, 'placing'));
+  if (s.phase !== 'pick') return reply(c, user, tx(s.lang, 'cannotPick'));
+  if (seq !== undefined && seq !== s.seq) return reply(c, user, tx(s.lang, 'oldMenu'));
+  if (!me.hand.includes(card)) return reply(c, user, tx(s.lang, 'noCard', { card }));
   const first = me.pick === undefined;
   me.pick = card;
-  c.events.push({ type: 'ephemeral', to: user, text: `你選了 ${card} (揭曉前可以改)` });
+  c.events.push({ type: 'ephemeral', to: user, text: tx(s.lang, 'picked', { card }) });
   if (s.players.every((p) => p.pick !== undefined)) reveal(c);
   else if (first) c.events.push(pickPrompt(s));
   return true;
@@ -159,8 +162,8 @@ function reveal(c: Ctx) {
   });
   order.sort((a, b) => a.card - b.card);
   c.events.push(
-    { type: 'prompt', kind: 'nimmt', audience: 'channel', ref: `nimmt:${s.seq}`, text: `🃏 第 ${s.round} 輪第 ${s.turn}/${HAND} 回合：已揭曉`, options: [] },
-    { type: 'announce', text: `🃏 揭曉：${order.map((o) => `${mention(o.id)} ${o.card}${o.auto ? ' (超時自動出牌)' : ''}`).join('、')}` },
+    { type: 'prompt', kind: 'nimmt', audience: 'channel', ref: `nimmt:${s.seq}`, text: tx(s.lang, 'revealed', { round: s.round, turn: s.turn, hand: HAND }), options: [] },
+    { type: 'announce', text: tx(s.lang, 'reveal', { list: order.map((o) => `${mention(o.id)} ${o.card}${o.auto ? tx(s.lang, 'autoPlayed') : ''}`).join(tx(s.lang, 'sep')) }) },
   );
   s.pending = { order, index: 0, log: [] };
   place(c);
@@ -190,30 +193,30 @@ export function botCard(hand: number[], rows: number[][]): number {
   return [...hand].sort((a, b) => risk(a) - risk(b) || a - b)[0];
 }
 
-function takeRow(c: Ctx, id: string, row: number, card: number, why: string) {
+function takeRow(c: Ctx, id: string, row: number, card: number, why: 'whyLowest' | 'whySixth') {
   const s = c.s;
   const p = s.players.find((x) => x.id === id)!;
   const got = heads(s.rows[row]);
   p.roundHeads += got;
   p.total += got;
   s.rows[row] = [card];
-  s.pending!.log.push(`🐮 ${mention(id)} 的 ${card} ${why}，收走第 ${row + 1} 列 (🐮${got})`);
+  s.pending!.log.push(tx(s.lang, 'take', { who: mention(id), card, why: tx(s.lang, why), row: row + 1, got }));
 }
 
 // 比所有列尾都小的那張牌收走指定的列
 function takeLowest(c: Ctx, row: number) {
   const s = c.s;
   const o = s.pending!.order[s.pending!.index];
-  takeRow(c, o.id, row, o.card, '比所有列尾都小');
+  takeRow(c, o.id, row, o.card, 'whyLowest');
   s.pending!.index++;
   s.phase = 'pick';
 }
 
 function rowError(s: NState, user: string, seq: number): string | undefined {
-  if (s.phase !== 'chooseRow' || !s.pending) return '現在不用選列。';
+  if (s.phase !== 'chooseRow' || !s.pending) return tx(s.lang, 'noRowNeeded');
   const who = s.pending.order[s.pending.index].id;
-  if (user !== who) return s.players.some((p) => p.id === user) ? `現在是 ${mention(who)} 在選列。` : '你不在這局遊戲中。';
-  if (seq !== s.seq) return '這是上一回合的選單。';
+  if (user !== who) return s.players.some((p) => p.id === user) ? tx(s.lang, 'otherChoosing', { who: mention(who) }) : tx(s.lang, 'notInGame');
+  if (seq !== s.seq) return tx(s.lang, 'oldRowMenu');
   return undefined;
 }
 
@@ -236,16 +239,16 @@ function place(c: Ctx) {
         type: 'prompt',
         kind: 'nimmt',
         audience: 'channel',
-        text: `👉 ${mention(o.id)} 的 ${o.card} 比所有列尾都小，請選一列收走 (${ROW_MS / 1000} 秒，超時自動選牛頭最少的)`,
-        options: s.rows.map((r, i) => ({ value: `row:${s.seq}:${i}`, label: `第 ${i + 1} 列 (${r.length} 張 🐮${heads(r)})` })),
+        text: tx(s.lang, 'chooseRow', { who: mention(o.id), card: o.card, sec: ROW_MS / 1000 }),
+        options: s.rows.map((r, i) => ({ value: `row:${s.seq}:${i}`, label: tx(s.lang, 'rowBtn', { row: i + 1, n: r.length, cards: tx(s.lang, r.length === 1 ? 'cardOne' : 'cardMany'), h: heads(r) }) })),
       });
       startTimer(c, ROW_MS);
       return;
     }
-    if (s.rows[t].length >= 5) takeRow(c, o.id, t, o.card, '是第 6 張');
+    if (s.rows[t].length >= 5) takeRow(c, o.id, t, o.card, 'whySixth');
     else {
       s.rows[t].push(o.card);
-      pd.log.push(`${o.card} → 第 ${t + 1} 列`);
+      pd.log.push(tx(s.lang, 'placed', { card: o.card, row: t + 1 }));
     }
     pd.index++;
   }
@@ -259,7 +262,10 @@ function endRound(c: Ctx) {
   const s = c.s;
   c.events.push({
     type: 'announce',
-    text: `🏁 第 ${s.round} 輪結束：${s.players.map((p) => `${mention(p.id)} 這輪 🐮${p.roundHeads}，累積 🐮${p.total}`).join('、')}`,
+    text: tx(s.lang, 'roundEnd', {
+      round: s.round,
+      list: s.players.map((p) => tx(s.lang, 'roundEndItem', { who: mention(p.id), round: p.roundHeads, total: p.total })).join(tx(s.lang, 'sep')),
+    }),
   });
   if (s.players.some((p) => p.total >= END_HEADS)) endGame(c);
   else startRound(c);
@@ -276,7 +282,10 @@ function endGame(c: Ctx) {
   c.events.push(
     {
       type: 'announce',
-      text: `🏆 遊戲結束，${s.winners.map(mention).join('、')} 牛頭最少獲勝！\n${ranking.map((p, i) => `${i + 1}. ${mention(p.id)} 🐮${p.total}${p.total === min ? ' 🏆' : ''}`).join('\n')}`,
+      text: tx(s.lang, 'win', {
+        winners: s.winners.map(mention).join(tx(s.lang, 'sep')),
+        ranking: ranking.map((p, i) => `${i + 1}. ${mention(p.id)} 🐮${p.total}${p.total === min ? ' 🏆' : ''}`).join('\n'),
+      }),
       gif: 'goodWin',
     },
     { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },
@@ -290,8 +299,17 @@ function pickPrompt(s: NState): GameEvent {
     kind: 'nimmt',
     audience: 'channel',
     ref: `nimmt:${s.seq}`,
-    text: `🃏 第 ${s.round} 輪第 ${s.turn}/${HAND} 回合：按「🃏 選牌」選一張牌 (${PICK_MS / 60_000} 分鐘)\n${tableText(s)}\n已選 ${s.players.length - waiting.length}/${s.players.length}${waiting.length ? `，還沒選：${waiting.map((p) => mention(p.id)).join(' ')}` : ''}`,
-    options: [{ value: 'hand', label: '🃏 選牌' }],
+    text: tx(s.lang, 'pickPrompt', {
+      round: s.round,
+      turn: s.turn,
+      hand: HAND,
+      min: PICK_MS / 60_000,
+      table: tableText(s),
+      done: s.players.length - waiting.length,
+      total: s.players.length,
+      waiting: waiting.length ? tx(s.lang, 'waiting', { list: waiting.map((p) => mention(p.id)).join(' ') }) : '',
+    }),
+    options: [{ value: 'hand', label: tx(s.lang, 'pickBtn') }],
   };
 }
 
@@ -307,10 +325,10 @@ function handle(c: Ctx, action: GameAction): boolean {
     case 'removeBot':
       return removeBots(c, TITLE, action.user, action.count);
     case 'start': {
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以開始遊戲。');
+      if (action.user !== s.host) return reply(c, action.user, tx(s.lang, 'onlyHostStart'));
       if (s.phase !== 'lobby') return false;
       const n = s.players.length;
-      if (n < MIN_NIMMT_PLAYERS) return reply(c, action.user, `目前 ${n} 人，至少需要 ${MIN_NIMMT_PLAYERS} 人才能開始。`);
+      if (n < MIN_NIMMT_PLAYERS) return reply(c, action.user, tx(s.lang, 'needPlayers', { n, min: MIN_NIMMT_PLAYERS }));
       c.events.push(lobbyEvent(TITLE, { ...s, phase: 'pick' }));
       startRound(c);
       return true;

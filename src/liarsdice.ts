@@ -1,6 +1,8 @@
 // 吹牛骰遊戲引擎：純邏輯，不碰任何 I/O。介面和其他遊戲一樣：applyLiarsDice(state, action, rng) → { state, events }。
 import { isBot, mention, type GameEvent, type Rng } from './engine.js';
 import { addBots, cancelGame, joinRoom, leaveRoom, lobbyEvent, removeBots, reply, runGame, startTimer } from './common.js';
+import type { Lang } from './i18n/index.js';
+import { tx } from './i18n/games/liarsdice.js';
 
 export const MIN_DICE_PLAYERS = 2;
 export const MAX_DICE_PLAYERS = 8;
@@ -29,10 +31,11 @@ export interface LState {
   winner?: string;
   timerSeq: number;
   timers: { phase?: number };
+  lang?: Lang; // 開房時的頻道語系 (runGame 存進來)
 }
 
 export type LAction =
-  | { type: 'new'; user: string; channel: string }
+  | { type: 'new'; user: string; channel: string; lang?: Lang }
   | { type: 'join'; user: string }
   | { type: 'leave'; user: string }
   | { type: 'start'; user: string }
@@ -42,7 +45,7 @@ export type LAction =
   | { type: 'bid'; user: string; quantity: number; face: number }
   | { type: 'challenge'; user: string }
   | { type: 'timeout'; id: number }
-  | { type: 'rematch'; user: string; channel: string };
+  | { type: 'rematch'; user: string; channel: string; lang?: Lang };
 
 type GameAction = Exclude<LAction, { type: 'new' } | { type: 'rematch' }>;
 
@@ -68,10 +71,14 @@ function startRound(c: Ctx, starter: number) {
   const alive = s.players.filter((p) => p.dice.length);
   c.events.push({
     type: 'announce',
-    text: `🎲 第 ${s.round} 輪：${alive.map((p) => `${mention(p.id)} ${p.dice.length} 顆`).join('、')} (全場 ${totalDice(s)} 顆)`,
+    text: tx(s.lang, 'round', {
+      round: s.round,
+      list: alive.map((p) => tx(s.lang, 'roundItem', { who: mention(p.id), n: p.dice.length })).join(tx(s.lang, 'sep')),
+      total: totalDice(s),
+    }),
   });
   for (const p of alive) {
-    c.events.push({ type: 'dm', to: p.id, text: `🎲 第 ${s.round} 輪，你的骰子：${p.dice.map((d) => FACES[d - 1]).join(' ')}` });
+    c.events.push({ type: 'dm', to: p.id, text: tx(s.lang, 'yourDice', { round: s.round, dice: p.dice.map((d) => FACES[d - 1]).join(' ') }) });
   }
   s.bid = undefined;
   s.onesCalled = false;
@@ -85,15 +92,15 @@ function promptTurn(c: Ctx) {
   const id = current(s);
   c.events.push({
     type: 'announce',
-    text: `👉 輪到 ${mention(id)} 喊數：\`/game liarsdice bid <數量> <點數>\` (${TURN_MS / 1000} 秒)`,
+    text: tx(s.lang, 'yourTurn', { who: mention(id), sec: TURN_MS / 1000 }),
   });
   if (s.bid) {
     c.events.push({
       type: 'prompt',
       kind: 'challenge',
       audience: 'channel',
-      text: `${mention(id)} 覺得「${s.bid.quantity} 個 ${s.bid.face}」是吹牛的話可以開`,
-      options: [{ value: id, label: '開！' }],
+      text: tx(s.lang, 'canChallenge', { who: mention(id), q: s.bid.quantity, f: s.bid.face }),
+      options: [{ value: id, label: tx(s.lang, 'challengeBtn') }],
     });
   }
   startTimer(c, TURN_MS);
@@ -113,16 +120,16 @@ const rank = (face: number) => (face === 1 ? 7 : face);
 
 function placeBid(c: Ctx, user: string, quantity: number, face: number): boolean {
   const s = c.s;
-  if (s.phase !== 'bid' || user !== current(s)) return reply(c, user, '還沒輪到你喊數。');
-  if (!Number.isInteger(face) || face < 1 || face > 6) return reply(c, user, '點數要是 1～6。');
-  if (!Number.isInteger(quantity) || quantity < 1) return reply(c, user, '數量至少要 1。');
+  if (s.phase !== 'bid' || user !== current(s)) return reply(c, user, tx(s.lang, 'notYourTurn'));
+  if (!Number.isInteger(face) || face < 1 || face > 6) return reply(c, user, tx(s.lang, 'badFace'));
+  if (!Number.isInteger(quantity) || quantity < 1) return reply(c, user, tx(s.lang, 'badQuantity'));
   const prev = s.bid;
   if (prev && !(quantity > prev.quantity || (quantity === prev.quantity && rank(face) > rank(prev.face)))) {
-    return reply(c, user, `要喊得比「${prev.quantity} 個 ${prev.face}」更大：數量更多，或數量相同、點數更大 (1 最大)。`);
+    return reply(c, user, tx(s.lang, 'bidHigher', { q: prev.quantity, f: prev.face }));
   }
   s.bid = { quantity, face, by: user };
   if (face === 1) s.onesCalled = true;
-  c.events.push({ type: 'announce', text: `📢 ${mention(user)} 喊：「${quantity} 個 ${face}」` });
+  c.events.push({ type: 'announce', text: tx(s.lang, 'bid', { who: mention(user), q: quantity, f: face }) });
   s.turn = nextAlive(s, s.turn);
   promptTurn(c);
   return true;
@@ -131,23 +138,23 @@ function placeBid(c: Ctx, user: string, quantity: number, face: number): boolean
 // 開：公開所有骰子，數喊的點數 (1 點萬用，除非這輪喊過 1 點)，輸的人少一顆
 function challengeBid(c: Ctx, user: string): boolean {
   const s = c.s;
-  if (s.phase !== 'bid' || user !== current(s) || !s.bid) return reply(c, user, '現在不能開。');
+  if (s.phase !== 'bid' || user !== current(s) || !s.bid) return reply(c, user, tx(s.lang, 'cannotChallenge'));
   const { quantity, face, by } = s.bid;
   const wild = !s.onesCalled && face !== 1;
   const count = s.players.reduce((n, p) => n + p.dice.filter((d) => d === face || (wild && d === 1)).length, 0);
   const loserId = count >= quantity ? user : by;
   const reveal = s.players
     .filter((p) => p.dice.length)
-    .map((p) => `${mention(p.id)}：${p.dice.map((d) => FACES[d - 1]).join(' ')}`)
+    .map((p) => tx(s.lang, 'revealItem', { who: mention(p.id), dice: p.dice.map((d) => FACES[d - 1]).join(' ') }))
     .join('\n');
   const loserIndex = s.players.findIndex((p) => p.id === loserId);
   const loser = s.players[loserIndex];
   loser.dice.pop();
   c.events.push({
     type: 'announce',
-    text: `🔍 ${mention(user)} 開「${quantity} 個 ${face}」！\n${reveal}\n${face} 點${wild ? ' (含萬用 1 點)' : ''}實際有 ${count} 顆 → ${mention(loserId)} 輸了，少一顆骰子。`,
+    text: tx(s.lang, 'challenge', { who: mention(user), q: quantity, f: face, reveal, wild: wild ? tx(s.lang, 'wild') : '', count, loser: mention(loserId) }),
   });
-  if (!loser.dice.length) c.events.push({ type: 'announce', text: `💀 ${mention(loserId)} 出局 (沒有骰子了)！` });
+  if (!loser.dice.length) c.events.push({ type: 'announce', text: tx(s.lang, 'out', { who: mention(loserId) }) });
   const alive = s.players.filter((p) => p.dice.length);
   if (alive.length === 1) {
     endGame(c, alive[0].id);
@@ -164,7 +171,7 @@ function endGame(c: Ctx, winner: string) {
   s.winner = winner;
   c.events.push({ type: 'result', players: s.players.map((p) => p.id), winners: [winner] });
   c.events.push(
-    { type: 'announce', text: `🏆 遊戲結束，${mention(winner)} 獲勝！`, gif: 'goodWin' },
+    { type: 'announce', text: tx(s.lang, 'win', { who: mention(winner) }), gif: 'goodWin' },
     { type: 'prompt', kind: 'rematch', audience: 'channel', text: '要再來一局嗎？', options: [{ value: 'rematch', label: '再來一局' }] },
   );
 }
@@ -205,10 +212,10 @@ function handle(c: Ctx, action: GameAction): boolean {
     case 'removeBot':
       return removeBots(c, TITLE, action.user, action.count);
     case 'start': {
-      if (action.user !== s.host) return reply(c, action.user, '只有房主可以開始遊戲。');
+      if (action.user !== s.host) return reply(c, action.user, tx(s.lang, 'onlyHostStart'));
       if (s.phase !== 'lobby') return false;
       const n = s.players.length;
-      if (n < MIN_DICE_PLAYERS) return reply(c, action.user, `目前 ${n} 人，至少需要 ${MIN_DICE_PLAYERS} 人才能開始。`);
+      if (n < MIN_DICE_PLAYERS) return reply(c, action.user, tx(s.lang, 'needPlayers', { n, min: MIN_DICE_PLAYERS }));
       c.events.push(lobbyEvent(TITLE, { ...s, phase: 'bid' }));
       s.phase = 'bid';
       for (const p of s.players) p.dice = Array(START_DICE).fill(0);
