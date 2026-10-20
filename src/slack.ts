@@ -1,11 +1,12 @@
 // Slack adapter：把 slash command 和按鈕轉成 engine action，再把 engine event 轉成 Slack API 呼叫。
-import { applyAction, isBot, MAX_PLAYERS, mention, RULES_URL, type Action, type GameEvent, type GameState, type GifKey, type Rng } from './engine.js';
+import { applyAction, isBot, MAX_PLAYERS, mention, type Action, type GameEvent, type GameState, type GifKey, type Rng } from './engine.js';
 import { GIFS } from './gifs.js';
 import { checkImage, LIBRARY_COMMANDS, memeLibraryCommand } from './memeLibrary.js';
 import type { MemeStore } from './memeStore.js';
 import type { CrewStore } from './crewStore.js';
 import { LANGS, langName, parseLang, t, type Lang } from './i18n/index.js';
 import { LangStore } from './langStore.js';
+import { tx as wwText, wikiUrl as wwWiki } from './i18n/games/werewolf.js';
 import { formatLeaderboard, formatStats, formatSummary, type StatsStore } from './stats.js';
 import { GAMES, type GameKind, type StateOf } from './games/index.js';
 import { DISCUSSIONS, WIKI, type GameDef } from './games/types.js';
@@ -49,18 +50,8 @@ const postJson = async (url: string, payload: object) => {
   if (!res.ok) throw new Error(`response_url ${res.status}`);
 };
 
-const HELP = [
-  '*狼人殺指令*',
-  '• `/werewolf new`：開房 (任何人)',
-  '• `/werewolf addbot [數量]`：加入 bot 補人數 (房主，開始前)',
-  '• `/werewolf removebot [數量]`：移除 bot (房主，開始前)',
-  '• `/werewolf start`：開始遊戲，需要 6～12 人 (房主)',
-  '• `/werewolf next`：跳過目前的發言者或遺言 (房主)',
-  '• `/werewolf vote`：結束輪流發言，直接投票 (房主)',
-  '• `/werewolf cancel`：取消遊戲 (房主)',
-  '• `/werewolf stats [@某人]`：查詢自己或別人在這個頻道的戰績 (任何人)',
-  `📖 完整說明：<${encodeURI('https://github.com/eric0324/slack-gamebuddy/wiki/狼人殺-指令')}|指令>、<${RULES_URL}|遊戲規則>`,
-].join('\n');
+// 狼人殺的指令說明依語系 (字典在 src/i18n/games/werewolf.ts)
+const HELP = (lang: Lang) => wwText(lang, 'help', { commands: wwWiki(lang, 'commands'), rules: wwWiki(lang, 'rules') });
 
 // 遊戲代號 → 顯示名稱 (戰績和排行榜用)；已移除的遊戲顯示代號
 const gameLabel = (lang: Lang) => (kind: string) => {
@@ -83,7 +74,15 @@ export function slackText(text: string): string {
 // 遊戲大廳：每款遊戲一列，附「開房」按鈕
 type CatalogEntry = { kind: Kind; category: string; emoji: string; name: string; players: string; desc: string; noBots?: boolean; locales?: GameDef<any, any>['locales'] };
 const CATALOG: CatalogEntry[] = [
-  { kind: 'werewolf', category: 'deduction', emoji: '🐺', name: '狼人殺', players: '6～12 人', desc: '陣營推理，夜晚私訊行動、白天輪流發言投票' },
+  {
+    kind: 'werewolf',
+    category: 'deduction',
+    emoji: '🐺',
+    name: '狼人殺',
+    players: '6～12 人',
+    desc: '陣營推理，夜晚私訊行動、白天輪流發言投票',
+    locales: { en: { name: 'Werewolf', players: '6-12 players', desc: 'Hidden roles: act secretly by DM at night, discuss and vote by day', help: HELP('en') } },
+  },
   ...GAMES.map((g) => g as GameDef<any, any> & { kind: GameKind }),
 ];
 
@@ -143,8 +142,6 @@ const rematchPrompt = (e: Extract<GameEvent, { type: 'prompt' }>, lang: Lang) =>
 // 只有開房和再來一局會改變頻道目前的遊戲；舊遊戲留下的計時器之後才觸發時不能把按鈕搶回去
 const isCreation = (action: { type: string }) => action.type === 'new' || action.type === 'rematch';
 
-const NOT_APPLICABLE = '這個指令不適用於目前的遊戲。';
-const BUSY = '這個頻道已經有遊戲了。';
 
 export function parseCommand(text: string, user: string, channel: string): Action | null {
   const [sub, arg, ...rest] = text.trim().split(/\s+/);
@@ -301,8 +298,8 @@ export class GameHost {
     const [sub, ...args] = text.trim().split(/\s+/);
     if (sub === 'stats') return this.showStats(channel, user, args.join(' '));
     const action = parseCommand(text, user, channel);
-    if (!action) return this.reply(channel, user, HELP);
-    if (this.blocked(channel, 'werewolf')) return this.reply(channel, user, action.type === 'new' ? BUSY : NOT_APPLICABLE);
+    if (!action) return this.reply(channel, user, HELP(this.lang(channel)));
+    if (this.blocked(channel, 'werewolf')) return this.reply(channel, user, t(this.lang(channel), action.type === 'new' ? 'room.busy' : 'room.notApplicable'));
     return this.dispatch(channel, action);
   }
 
@@ -315,9 +312,9 @@ export class GameHost {
     return this.langs.get(channel);
   }
 
-  // 這局的語系：開房時存進 state 的；狼人殺和還沒開房的用頻道目前的語系
+  // 這局的語系：開房時存進 state 的；還沒開房的用頻道目前的語系
   private gameLang(channel: string, kind: Kind): Lang {
-    const st = kind === 'werewolf' ? undefined : (this.states.get(kind)!.get(channel) as { lang?: Lang } | undefined);
+    const st = kind === 'werewolf' ? this.games.get(channel) : (this.states.get(kind)!.get(channel) as { lang?: Lang } | undefined);
     return st?.lang ?? this.lang(channel);
   }
 
@@ -439,9 +436,8 @@ export class GameHost {
   // `/werewolf stats [@某人]`：開啟 should_escape 後，mention 會是 <@U123> 或 <@U123|名字>
   private showStats(channel: string, user: string, arg: string): Promise<void> {
     const target = arg ? /^<@([A-Z0-9]+)(\|[^>]*)?>$/.exec(arg)?.[1] : user;
-    const text = target
-      ? formatStats(mention(target), this.stats?.stats(channel, target) ?? null)
-      : '請用 @ 選擇要查詢的玩家，例如 `/werewolf stats @某人`。';
+    const lang = this.lang(channel);
+    const text = target ? formatStats(mention(target), this.stats?.stats(channel, target) ?? null, lang) : wwText(lang, 'statsMention');
     return this.deliver(channel, [{ type: 'ephemeral', to: user, text }]);
   }
 
@@ -455,6 +451,7 @@ export class GameHost {
   }
 
   dispatch(channel: string, action: Action): Promise<void> {
+    if (action.type === 'new' || action.type === 'rematch') action = { ...action, lang: this.lang(channel) }; // 開房和再來一局採用當下的頻道語系
     const prev = this.games.get(channel);
     const { state, events } = applyAction(prev, action, this.rng);
     if (state) {
@@ -653,9 +650,10 @@ export class GameHost {
         const def = kind === 'werewolf' ? undefined : DEFS[kind];
         const max = def ? Number(def.players.match(/(\d+) 人/)![1]) : MAX_PLAYERS; // 遊戲清單人數範圍的最大值
         const lang = this.gameLang(channel, kind);
-        const en = lang === 'en' ? def?.locales?.en : undefined; // 英文 wiki 頁面是「<英文名稱>-Rules」
+        const locales = kind === 'werewolf' ? CATALOG[0].locales : def?.locales; // 狼人殺的翻譯在大廳那一列
+        const en = lang === 'en' ? locales?.en : undefined; // 英文 wiki 頁面是「<英文名稱>-Rules」
         const rules = `${WIKI}/${encodeURI(en ? `${en.name.replaceAll(' ', '-')}-Rules` : `${title.replaceAll(' ', '-')}-遊戲規則`)}`;
-        const shown = lang === 'zh-TW' ? title : (def?.locales?.[lang]?.name ?? `${title}${t(lang, 'lobby.untranslated')}`);
+        const shown = lang === 'zh-TW' ? title : (locales?.[lang]?.name ?? `${title}${t(lang, 'lobby.untranslated')}`);
         const name = lang === 'zh-TW' && title.endsWith(')') ? `${title} ` : shown; // 名稱以括號結尾時補空白，例如「心電感應 (合作) 房間」
         const text = [
           t(lang, 'room.title', { name, host: mention(e.host) }),

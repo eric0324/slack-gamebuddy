@@ -1,7 +1,8 @@
 // 戰績：把全真人遊戲的結果存在 SQLite，依頻道和玩家計算場數與勝率；狼人殺另外記陣營和角色。
 import { t, type Lang } from './i18n/index.js';
 import Database from 'better-sqlite3';
-import { isWolf, ROLE_NAME, type Role } from './engine.js';
+import { isWolf, roleName, type Role } from './engine.js';
+import { tx } from './i18n/games/werewolf.js';
 
 export interface Tally {
   games: number;
@@ -157,15 +158,15 @@ export class StatsStore {
   }
 }
 
-const line = (r: Tally) => `${r.games} 場 ${r.wins} 勝 (${Math.round((r.wins / r.games) * 100)}%)`;
-
-export function formatStats(who: string, stats: PlayerStats | null): string {
-  if (!stats) return `這個頻道還沒有 ${who} 的戰績。`;
-  const lines = [`📊 ${who} 在這個頻道的戰績`, `總計：${line(stats.total)}`];
-  if (stats.factions.good) lines.push(`好人陣營：${line(stats.factions.good)}`);
-  if (stats.factions.wolves) lines.push(`狼人陣營：${line(stats.factions.wolves)}`);
-  const roles = ROLE_ORDER.filter((r) => stats.roles[r]).map((r) => `${ROLE_NAME[r]} ${line(stats.roles[r]!)}`);
-  lines.push(`角色：${roles.join('、')}`);
+// /werewolf stats：狼人殺的詳細戰績；lang 是頻道語系
+export function formatStats(who: string, stats: PlayerStats | null, lang: Lang = 'zh-TW'): string {
+  if (!stats) return tx(lang, 'statsNone', { who });
+  const line = (r: Tally) => tx(lang, 'statsLine', { games: r.games, wins: r.wins, pct: Math.round((r.wins / r.games) * 100) });
+  const lines = [tx(lang, 'statsTitle', { who }), tx(lang, 'statsTotal', { line: line(stats.total) })];
+  if (stats.factions.good) lines.push(tx(lang, 'statsGood', { line: line(stats.factions.good) }));
+  if (stats.factions.wolves) lines.push(tx(lang, 'statsWolves', { line: line(stats.factions.wolves) }));
+  const roles = ROLE_ORDER.filter((r) => stats.roles[r]).map((r) => tx(lang, 'statsRole', { role: roleName(lang, r), line: line(stats.roles[r]!) }));
+  lines.push(tx(lang, 'statsRoles', { roles: roles.join(tx(lang, 'sep')) }));
   return lines.join('\n');
 }
 

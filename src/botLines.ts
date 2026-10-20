@@ -1,6 +1,7 @@
 // bot 的台詞庫：隨機組合出一句話。台詞跟 bot 的真實身分無關，也不會出現任何角色名稱。
 // {t} 會換成被提到的玩家 (例如 <@U123> 或 🤖Bot2)。句子裡不用「他／她」，一律用名字或省略主詞。
 import type { Rng } from './engine.js';
+import type { Lang } from './i18n/index.js';
 
 // 輪流發言：開場語 + 懷疑句 +(一半機率) 理由 + 結尾語
 const OPENERS = [
@@ -137,14 +138,158 @@ const PK_ACCUSATIONS = [
   '{t} 剛剛根本在演。',
 ];
 
+// 英文版台詞：和中文一對一 (數量相同，同樣的 rng 抽到對應的句子)
+const EN = {
+  OPENERS: [
+    'Hmm... ',
+    'Let me say something first. ',
+    "OK, my turn. ",
+    'Everyone, ',
+    'Honestly, ',
+    'Hey, ',
+    "I'll keep it short. ",
+    'Ahem. ',
+    'Listen up. ',
+    'No fluff: ',
+    'I thought about it all night. ',
+    'Seriously, ',
+    'My gut tells me ',
+    'Bottom line first: ',
+    'Everyone calm down. ',
+    'Hey hey hey, ',
+  ],
+  SUSPECTS: [
+    '{t} sounded a bit evasive just now',
+    '{t} gives me a weird feeling',
+    "I'm more suspicious of {t}",
+    "{t}'s story doesn't quite add up",
+    "I'd like to hear {t} explain",
+    "{t} is too quiet, that's suspicious",
+    "I've noticed {t} keeps steering the conversation",
+    'I want to vote {t} today',
+    "{t}'s eyes were darting around just now",
+    'I feel like {t} is acting',
+    '{t} talks too smoothly, like it was rehearsed',
+    '{t} just follows the crowd with no opinion of their own',
+    "I don't have a good impression of {t}",
+    'Did {t} just smirk?',
+    "I'm voting {t}, no explanation",
+    '{t}, what were you up to last night?',
+    "I'd like {t} to explain that again",
+    "{t}'s position keeps shifting",
+    "I suspect {t} isn't what they seem",
+    '{t} seems guilty somehow',
+    "I can't say why, but {t} is suspicious",
+    '{t} is way too eager, which is odd',
+  ],
+  REASONS: [
+    ', since they keep defending other people',
+    ', and the reasoning sounds weak',
+    ', and it has felt off since day one',
+    ", and they won't look me in the eye",
+    ", and they're talking differently than yesterday",
+    ', and they keep changing the subject',
+    ', and they nearly slipped up just now',
+    ', and their vote was strange',
+    ', and they are unusually quiet',
+    ', and they seem to be protecting someone',
+    ", and that's my sixth sense",
+    ', and they paused for a long time just now',
+    ', and they dodge every question',
+    ', and they are clearly pushing an agenda',
+    ', and they seem to know something',
+    ', and it contradicts what they said last round',
+  ],
+  CLOSERS: [
+    '. That\'s it for now.',
+    '. Just something to consider.',
+    ". I'm good, pass.",
+    '. That\'s all.',
+    '. Let\'s leave it there.',
+    '. Please trust me.',
+    ". I'm done.",
+    '. Trust me on this one.',
+    '. Judge for yourselves.',
+    '. Next.',
+    '. End of my speech.',
+    '. Today it\'s up to you all.',
+  ],
+  LAST_INTROS: [
+    "Can't believe I'm out so early... ",
+    'Sigh. ',
+    "Everyone, I'm leaving first. ",
+    "I'm good! ",
+    'Life is hard... ',
+    'Fine. ',
+    "This isn't fair! ",
+    'Remember what I said: ',
+    'One last thing: ',
+    'Please listen carefully: ',
+  ],
+  LAST_BODIES: [
+    'Watch out for {t}.',
+    '{t} is suspicious.',
+    'Avenge me, I suspect {t}.',
+    'Keep an eye on {t}.',
+    "{t}, I'm watching you from above.",
+    'The next vote should be {t}.',
+    'Something is definitely off with {t}.',
+    "Don't let {t} fool you.",
+    'I think {t} is the key.',
+    '{t}, you owe everyone an explanation.',
+    "Trust me, {t} isn't as innocent as they look.",
+    'My vote goes to {t}.',
+  ],
+  PK_DEFENSES: [
+    "I'm really good! ",
+    'Please trust me. ',
+    'I have nothing to defend, but ',
+    'Think about it calmly. ',
+    "I'm good, please don't vote me. ",
+    "You're being misled. ",
+    "I swear I'm innocent. ",
+    'Voting me only helps the bad guys. ',
+    "I've been consistent the whole time. ",
+    'I know I look suspicious, but ',
+  ],
+  PK_ACCUSATIONS: [
+    '{t} is the suspicious one!',
+    'If you vote, vote {t}.',
+    "{t}'s speech was even stranger.",
+    '{t} has been dodging from the start.',
+    "Look at how {t} reacted just now.",
+    "{t} is the one you should worry about.",
+    '{t} deserves more suspicion than me.',
+    '{t} keeps steering the conversation.',
+    'Please vote for {t}.',
+    '{t} was totally acting just now.',
+  ],
+  FOLLOW_CLAIMS: [
+    "{t} was called out as a wolf, so I'm voting {t}.",
+    "Since {t} was checked as a wolf, let's exile {t} today.",
+    "I trust the check. My vote goes to {t}.",
+    '{t} was named a werewolf, everyone vote {t}.',
+  ],
+  COUNTER_CLAIMS: [
+    "{t}'s check is made up. I think {t} is the suspicious one.",
+    "{t} keeps accusing people at random, it's too deliberate. I'm voting {t}.",
+    "Don't let {t} lead you. Something's wrong with what {t} says.",
+  ],
+};
+
+const ZH = { OPENERS, SUSPECTS, REASONS, CLOSERS, LAST_INTROS, LAST_BODIES, PK_DEFENSES, PK_ACCUSATIONS };
+const lines = (lang?: Lang) => (lang === 'en' ? EN : { ...ZH, FOLLOW_CLAIMS, COUNTER_CLAIMS });
+
 const pick = (items: string[], rng: Rng) => items[Math.floor(rng() * items.length)];
 
-export function botLine(kind: 'speech' | 'lastWords' | 'pk', target: string, rng: Rng): string {
+// lang：這局的語系 (沒給就是中文)
+export function botLine(kind: 'speech' | 'lastWords' | 'pk', target: string, rng: Rng, lang?: Lang): string {
+  const L = lines(lang);
   const fill = (template: string) => template.replace('{t}', target);
-  if (kind === 'lastWords') return pick(LAST_INTROS, rng) + fill(pick(LAST_BODIES, rng));
-  if (kind === 'pk') return pick(PK_DEFENSES, rng) + fill(pick(PK_ACCUSATIONS, rng));
-  const reason = rng() < 0.5 ? pick(REASONS, rng) : '';
-  return pick(OPENERS, rng) + fill(pick(SUSPECTS, rng)) + reason + pick(CLOSERS, rng);
+  if (kind === 'lastWords') return pick(L.LAST_INTROS, rng) + fill(pick(L.LAST_BODIES, rng));
+  if (kind === 'pk') return pick(L.PK_DEFENSES, rng) + fill(pick(L.PK_ACCUSATIONS, rng));
+  const reason = rng() < 0.5 ? pick(L.REASONS, rng) : '';
+  return pick(L.OPENERS, rng) + fill(pick(L.SUSPECTS, rng)) + reason + pick(L.CLOSERS, rng);
 }
 
 // bot 的名字：簡單好讀的英文名字，從還沒用過的名字中隨機抽
@@ -170,7 +315,8 @@ export interface CheckLine {
 }
 
 // 「我是預言家，第 1 晚查了 X，是狼人；第 2 晚查了 Y，是好人。」真的預言家和悍跳的狼人用同一個格式
-export function seerClaim(checks: CheckLine[]): string {
+export function seerClaim(checks: CheckLine[], lang?: Lang): string {
+  if (lang === 'en') return `I'm the Seer. ${checks.map((c) => `Night ${c.night}: ${c.target} is ${c.wolf ? 'a werewolf' : 'good'}`).join('; ')}.`;
   const parts = checks.map((c) => `第 ${c.night} 晚查了 ${c.target}，是${c.wolf ? '狼人' : '好人'}`);
   return `我是預言家，${parts.join('；')}。`;
 }
@@ -188,13 +334,19 @@ const COUNTER_CLAIMS = [
   '不要被 {t} 帶走，{t} 的發言很有問題。',
 ];
 
-export const followClaim = (target: string, rng: Rng) => pick(FOLLOW_CLAIMS, rng).replaceAll('{t}', target);
-export const counterClaim = (target: string, rng: Rng) => pick(COUNTER_CLAIMS, rng).replaceAll('{t}', target);
+export const followClaim = (target: string, rng: Rng, lang?: Lang) => pick(lines(lang).FOLLOW_CLAIMS, rng).replaceAll('{t}', target);
+export const counterClaim = (target: string, rng: Rng, lang?: Lang) => pick(lines(lang).COUNTER_CLAIMS, rng).replaceAll('{t}', target);
 
-export function witchReveal(log: { night: number; saved?: string; poisoned?: string }[]): string {
+// 英文版結尾留一個空白，後面直接接懷疑的台詞
+export function witchReveal(log: { night: number; saved?: string; poisoned?: string }[], lang?: Lang): string {
+  if (lang === 'en') {
+    const done = log.map((l) => (l.saved ? `saved ${l.saved} on night ${l.night}` : `poisoned ${l.poisoned} on night ${l.night}`));
+    return done.length ? `I'm the Witch. I ${done.join(' and ')}, so don't vote me! ` : "I'm the Witch and I still have both potions, so don't vote me! ";
+  }
   const parts = log.map((l) => (l.saved ? `第 ${l.night} 晚救了 ${l.saved}` : `第 ${l.night} 晚毒了 ${l.poisoned}`));
   return parts.length ? `我是女巫，${parts.join('、')}，別投我！` : '我是女巫，藥都還在，別投我！';
 }
 
-export const knightReveal = (used: boolean) =>
+export const knightReveal = (used: boolean, lang?: Lang) =>
+  lang === 'en' ? (used ? "I'm the Knight. I've already dueled, and I'm good! " : "I'm the Knight and I'm still useful, so don't vote me! ") :
   used ? '我是騎士，已經決鬥過了，我是好人！' : '我是騎士，留著我還有用，別投我！';
