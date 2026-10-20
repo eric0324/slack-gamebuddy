@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { type GameEvent } from '../src/engine.js';
 import { applyDecrypto, type DAction, type DState } from '../src/decrypto.js';
-import { DECRYPTO_WORDS } from '../src/decryptoWords.js';
+import { DECRYPTO_WORDS, DECRYPTO_WORDS_BY_LANG, DECRYPTO_WORDS_EN } from '../src/decryptoWords.js';
+import { decrypto } from '../src/games/decrypto.js';
 
 const rng = () => 0.99999;
 
@@ -396,5 +397,55 @@ describe('decrypto/rounds: 勝負與結束', () => {
     expect(run([{ type: 'rematch', user: 'p2', channel: 'C1' }], ended).state.phase).toBe('lobby');
     const cancelled = run([{ type: 'cancel', user: 'p1' }], started(4).state).state;
     expect(run([{ type: 'rematch', user: 'p2', channel: 'C1' }], cancelled).state).toBe(cancelled);
+  });
+});
+
+// 英文局：同樣 p1、p3 黑隊、p2、p4 白隊，黑隊的詞是英文詞庫前 4 個，第 1 回合 p1、p2 加密、密碼 1-2-3
+describe('decrypto/i18n: 英文版', () => {
+  const enStarted = () =>
+    run([
+      { type: 'new', user: 'p1', channel: 'C1', lang: 'en' },
+      ...['p2', 'p3', 'p4'].map((user) => ({ type: 'join', user }) as DAction),
+      { type: 'start', user: 'p1' },
+    ]);
+  const enVoting = () => run([clues(['sea', 'fire', 'bell'], 'p1'), clues(['a', 'b', 'c'], 'p2')], enStarted().state);
+
+  it('開局公告、私訊和按鈕是英文，祕密詞從英文詞庫抽', () => {
+    const { state, events } = enStarted();
+    expect(state.teams.black.words).toEqual(DECRYPTO_WORDS_EN.slice(0, 4));
+    const text = announces(events).join('\n');
+    expect(text).toContain('🔐 Decrypto begins!');
+    expect(text).toContain('⚫ Black: <@p1>, <@p3>');
+    expect(dmTo(events, 'p3')[0]).toContain(`🔐 You're on ⚫ Black. Your secret words:\n1 ${DECRYPTO_WORDS_EN[0]}`);
+    expect(dmTo(events, 'p1').at(-1)).toContain("🔑 You're the encryptor for round 1. The code is 1-2-3");
+    expect(prompts(events).at(-1)!.options.map((o) => o.label)).toEqual(['✍️ Write clues', '📜 Clue history']);
+  });
+
+  it('寫提示視窗、投票和揭曉是英文', () => {
+    const modal = run([{ type: 'openClue', user: 'p1' }], enStarted().state).events.find((e) => e.type === 'modal') as { title: string; fields: string[] };
+    expect(modal.title).toBe('Write clues');
+    expect(modal.fields[0]).toBe(`Clue 1 (1 ${DECRYPTO_WORDS_EN[0]})`);
+    const v = enVoting();
+    expect(announces(v.events).join('\n')).toContain('🔎 Clues for round 1:');
+    expect(prompts(v.events).at(-1)!.options[0]).toEqual({ value: 'decode', label: '🔓 Decode our code' });
+    const done = run([{ type: 'vote', user: 'p3', mode: 'decode', round: 0, code: '123' }, { type: 'vote', user: 'p4', mode: 'decode', round: 0, code: '124' }], v.state);
+    expect(announces(done.events).join('\n')).toContain('📍 Round 1 reveal');
+    expect(announces(done.events).join('\n')).toContain('❌ Wrong');
+  });
+
+  it('錯誤訊息是英文', () => {
+    expect(ephemeralTo(run([clues(['a', 'b', 'c'], 'p3')], enStarted().state).events, 'p3')!.text).toBe("You're not the encryptor this round.");
+  });
+
+  it('GameDef 有英文名稱和英文說明', () => {
+    expect(decrypto.locales.en).toMatchObject({ name: 'Decrypto', players: '4-12 players' });
+    expect(decrypto.locales.en.help).toContain('*Decrypto commands*');
+  });
+
+  it('英文詞庫和中文一樣多，不重複、都是單一英文單字', () => {
+    expect(DECRYPTO_WORDS_BY_LANG['zh-TW']).toBe(DECRYPTO_WORDS);
+    expect(DECRYPTO_WORDS_EN).toHaveLength(DECRYPTO_WORDS.length);
+    expect(new Set(DECRYPTO_WORDS_EN.map((w) => w.toLowerCase())).size).toBe(DECRYPTO_WORDS_EN.length);
+    for (const w of DECRYPTO_WORDS_EN) expect(w).toMatch(/^[A-Za-z]+$/);
   });
 });

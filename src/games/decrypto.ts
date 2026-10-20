@@ -13,6 +13,16 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Decrypto commands*',
+  '• `/game decrypto new`: open a room (anyone)',
+  '• `/game decrypto start`: start the game, needs 4-12 human players (host)',
+  '• Encrypting: on your turn press "✍️ Write clues" and write 3 clues in order; or type `/game decrypto clue sea / fire / bell` (separated by /)',
+  '• `/game decrypto cancel`: cancel the game (host)',
+  'Decoding, intercepting, and clue history all use the channel buttons',
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 // 截碼戰的子指令：clue <提示1> / <提示2> / <提示3> (提示可以有空白)
 export function parseDecryptoCommand(text: string, user: string, channel: string): DAction | null {
   const [sub, ...rest] = text.trim().split(/\s+/);
@@ -43,6 +53,7 @@ export const decrypto = {
   category: 'team',
   desc: '兩隊對抗，用提示傳 3 碼密碼給隊友，也試著攔截對方',
   noBots: true,
+  locales: { en: { name: 'Decrypto', players: '4-12 players', desc: 'Team vs. team: pass a 3-digit code to your team with clues, and try to intercept theirs', help: HELP_EN } },
   help: HELP,
   apply: applyDecrypto,
   parse: parseDecryptoCommand,
