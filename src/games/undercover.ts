@@ -15,6 +15,19 @@ const HELP = [
   `📖 完整說明：<${WIKI}|wiki>`,
 ].join('\n');
 
+const HELP_EN = [
+  '*Undercover commands*',
+  '• `/game undercover new`: open a room (anyone)',
+  '• `/game undercover addbot [count]`: add bots to fill seats (host, before starting)',
+  '• `/game undercover removebot [count]`: remove bots (host, before starting)',
+  '• `/game undercover start`: start the game, needs 4-12 players (host)',
+  '• `/game undercover next`: skip the current speaker (host)',
+  '• `/game undercover vote`: end descriptions and vote now (host)',
+  '• `/game undercover cancel`: cancel the game (host)',
+  '• `/game undercover guess <word>`: Mr. White guesses the civilian word after being voted out (within 60 sec)',
+  `📖 Full guide: <${WIKI}|wiki>`,
+].join('\n');
+
 export function parseUndercoverCommand(text: string, user: string, channel: string): UAction | null {
   const [sub, ...rest] = text.trim().split(/\s+/);
   switch (sub) {
@@ -73,6 +86,7 @@ export const undercover = {
   players: '4～12 人',
   category: 'deduction',
   desc: '每人一個詞，輪流描述、投票找出拿到不同詞的臥底',
+  locales: { en: { name: 'Undercover', players: '4-12 players', desc: 'Everyone gets a word; take turns describing it and vote out the one with a different word', help: HELP_EN } },
   help: HELP,
   apply: applyUndercover,
   parse: parseUndercoverCommand,

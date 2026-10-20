@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { mention, type GameEvent } from '../src/engine.js';
 import { applyUndercover, checkUndercoverWinner, UNDERCOVER_TABLE, type UAction, type UState } from '../src/undercover.js';
 import { BLANK_LINES, WORD_PAIRS } from '../src/undercoverWords.js';
+import { BLANK_LINES_EN, WORD_PAIRS_EN } from '../src/undercoverWordsEn.js';
+import { undercover } from '../src/games/undercover.js';
 
 const rng = () => 0.99999;
 
@@ -492,5 +494,75 @@ describe('announcement-gifs: 誰是臥底', () => {
     expect(gifOf(right, '遊戲結束')).toBe('guessRight');
     const wrong = run([{ type: 'guess', user: 'p2', word: state.words!.undercover }], state).events;
     expect(gifOf(wrong, '沒猜中')).toBe('guessWrong');
+  });
+});
+
+// 英文局：6 人局同樣是 p1 臥底、p2 白板、p3~p6 平民
+describe('undercover/i18n: 英文版', () => {
+  const enLobby = (n: number) =>
+    run([
+      { type: 'new', user: 'p1', channel: 'C1', lang: 'en' },
+      ...Array.from({ length: n - 1 }, (_, i) => ({ type: 'join', user: `p${i + 2}` }) as UAction),
+    ]);
+  const enStarted = (n = 6) => run([{ type: 'start', user: 'p1' }], enLobby(n).state);
+  const enWords = WORD_PAIRS_EN.flatMap(({ a, b }) => [a, b]);
+  const dm = (events: GameEvent[], id: string) => (events.find((e) => e.type === 'dm' && e.to === id) as { text: string }).text;
+
+  it('開局公告、私訊和發言按鈕是英文，詞從英文詞庫抽', () => {
+    const { state, events } = enStarted();
+    const text = announces(events).join('\n');
+    expect(text).toContain('🎲 Undercover begins!');
+    expect(text).toContain('Civilian: 4, Undercover: 1, Mr. White: 1');
+    expect(enWords.map((w) => w.word)).toContain(state.words!.civilian);
+    expect(dm(events, 'p3')).toContain(`Your word is: ${state.words!.civilian}`);
+    expect(dm(events, 'p2')).toContain("You're Mr. White, so you didn't get a word.");
+    expect(prompts(events, 'endSpeech')[0].options[0].label).toBe('End turn');
+  });
+
+  it('投票、出局和白板猜詞是英文；猜詞不分大小寫', () => {
+    const voting = run([{ type: 'endDiscussion', user: 'p1' }], enStarted().state);
+    const vote = prompts(voting.events, 'dayVote')[0];
+    expect(vote.text).toBe('🗳️ Vote for the undercover.');
+    expect(vote.options.at(-1)).toEqual({ value: 'abstain', label: 'Abstain' });
+    const others = voting.state.players.map((p) => p.id);
+    const out = run(votes(others.map((u) => [u, u === 'p2' ? 'p3' : 'p2'])), voting.state);
+    expect(announces(out.events)).toContainEqual(expect.stringContaining('<@p2> is out. Role: Mr. White.'));
+    const right = run([{ type: 'guess', user: 'p2', word: ` ${out.state.words!.civilian.toUpperCase()} ` }], out.state);
+    expect(announces(right.events).join('\n')).toContain('the civilian word!');
+    expect(right.state).toMatchObject({ phase: 'ended', winner: 'undercover' });
+  });
+
+  it('bot 用英文詞的描述句', () => {
+    const { state, events } = run([{ type: 'addBot', user: 'p1', count: 5 }, { type: 'start', user: 'p1' }], enLobby(1).state);
+    const bot5 = state.players.find((p) => p.id.startsWith('bot:5:'))!.id;
+    const line = announces(events).find((t) => t.startsWith(`${mention(bot5)}: `))!;
+    const hints = enWords.find((w) => w.word === state.words!.civilian)!.hints;
+    expect(hints.some((h) => line.endsWith(h))).toBe(true);
+  });
+
+  it('錯誤訊息是英文', () => {
+    expect(ephemeralTo(run([{ type: 'start', user: 'p2' }], enLobby(4).state).events, 'p2')).toMatchObject({ text: 'Only the host can start the game.' });
+  });
+
+  it('GameDef 有英文名稱和英文說明', () => {
+    expect(undercover.locales.en).toMatchObject({ name: 'Undercover', players: '4-12 players' });
+    expect(undercover.locales.en.help).toContain('*Undercover commands*');
+  });
+
+  it('英文詞庫和中文一樣多，描述句一對一；描述句不含自己和同組的詞', () => {
+    expect(WORD_PAIRS_EN).toHaveLength(WORD_PAIRS.length);
+    expect(BLANK_LINES_EN).toHaveLength(BLANK_LINES.length);
+    const has = (text: string, w: string) => new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(text);
+    WORD_PAIRS_EN.forEach(({ a, b }, i) => {
+      expect(a.hints.length, a.word).toBe(WORD_PAIRS[i].a.hints.length);
+      expect(b.hints.length, b.word).toBe(WORD_PAIRS[i].b.hints.length);
+      for (const hint of [...a.hints, ...b.hints]) {
+        expect(has(hint, a.word), `${a.word}: ${hint}`).toBe(false);
+        expect(has(hint, b.word), `${b.word}: ${hint}`).toBe(false);
+      }
+    });
+    const words = enWords.map((w) => w.word.toLowerCase());
+    expect(new Set(words).size).toBe(words.length);
+    for (const line of BLANK_LINES_EN) for (const w of words) expect(has(line, w), `${line} / ${w}`).toBe(false);
   });
 });

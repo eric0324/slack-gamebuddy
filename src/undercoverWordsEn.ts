@@ -1,0 +1,171 @@
+// 誰是臥底的英文詞庫：和 WORD_PAIRS 一對一翻譯、順序相同；台灣在地的詞換成意思接近的英文常用詞。
+// 描述句不能包含自己的詞，也不能包含同一組的另一個詞 (有測試檢查，英文用整個單字比對)。
+import type { WordPair } from './undercoverWords.js';
+
+const pair = (a: string, aHints: string[], b: string, bHints: string[]): WordPair => ({
+  a: { word: a, hints: aHints },
+  b: { word: b, hints: bHints },
+});
+
+export const WORD_PAIRS_EN: WordPair[] = [
+  // 飲料
+  pair('Milk', ['People often have it at breakfast', 'White, and helps kids grow tall', 'Goes great with cereal'], 'Soy Milk', ['Every breakfast shop has it', 'Made from soybeans', 'Perfect with fried dough sticks']),
+  pair('Coffee', ['What keeps office workers alive', "Drink it and you can't sleep", 'Comes as americano or latte'], 'Milk Tea', ['A basic at every drink stand', 'Tea with milk added', 'You can pick the sugar and ice level']),
+  pair('Cola', ['Best with fries', 'Dark and fizzy', 'Shake it and it sprays everywhere'], 'Soda', ['Clear and fizzy', 'Makes you burp', 'People often drink it with hot pot']),
+  // 食物
+  pair('Burger', ['The star of fast food', 'A patty between two buns', 'Sauce drips out when you bite it'], 'Sandwich', ['Common at breakfast shops', 'Cut into triangles', 'Often has ham and egg inside']),
+  pair('Hot Pot', ['What you crave in winter', 'A group sits around one pot', 'You choose the broth and dipping sauce'], 'Barbecue', ['A Mid-Autumn tradition', 'Brush on some sauce', 'Lots of smoke, your clothes will smell']),
+  pair('Bubble Tea', ["Taiwan's pride", 'You need a fat straw', 'Chewy balls sink to the bottom'], 'Tofu Pudding', ['Iced in summer, warm in winter', 'A soft and silky dessert', 'You can add peanuts and tapioca']),
+  pair('Dumplings', ['Always in the freezer', 'Wrap them and drop them in boiling water', 'Dip in soy sauce and chili oil'], 'Wontons', ['Often found in soup', 'Thin wrappers that float in broth', 'In Sichuan they have another name']),
+  pair('Steamed Bun', ['Sits in the steamer at breakfast shops', 'Has meat filling inside', 'Juicy when you bite in'], 'Mantou', ['White with no filling', 'You can stuff an egg in it', 'Comes out of a steamer']),
+  pair('Cake', ['A must for birthdays', 'Candles go on top', 'Lots of cream'], 'Bread', ['Often eaten at breakfast', 'Rows of it on bakery shelves', 'You can spread jam on it']),
+  pair('Ice Cream', ['Scooped out ball by ball', 'Served in a cone', 'Eat it fast before it melts'], 'Shaved Ice', ['Ice shaved very fine', 'Topped with syrup and toppings', 'A summer treat at dessert shops']),
+  pair('Popcorn Chicken', ['Top night market snack', 'Sprinkled with pepper and basil', 'Served in a paper bag'], 'Fried Chicken', ['The signature of fast food chains', 'Crispy skin', 'Comes in original or spicy']),
+  pair('Lunch Box', ["An office worker's lunch", 'Rice and dishes in one box', 'Often has a pork chop or drumstick'], 'Rice Ball', ['The triangle at convenience stores', 'Rice wrapped in seaweed', 'Easy to eat for breakfast']),
+  pair('Beef Noodles', ['A classic Taiwanese noodle dish', 'Braised or clear broth', 'Big chunks of meat in the soup'], 'Ramen', ['A Japanese noodle dish', 'Rich pork bone broth', 'Topped with a soft-boiled egg']),
+  // 水果
+  pair('Watermelon', ['The fruit of summer', 'Green outside, red inside', 'Spitting out the seeds is annoying'], 'Cantaloupe', ['Netted skin', 'Orange or green flesh', 'Very fragrant and sweet']),
+  pair('Strawberry', ['Red with lots of little dots', 'Farms let you pick your own', 'Often put on top of cakes'], 'Cherry', ['Small with a long stem', 'Deep red', 'Often imported']),
+  pair('Pineapple', ['Spiky skin', 'Eat too much and your tongue hurts', 'The filling of a famous Taiwanese pastry'], 'Mango', ['Often in summer shaved ice', 'Juicy yellow flesh', 'Some varieties are very famous']),
+  pair('Banana', ["Monkeys' favorite", 'Yellow and curved', 'Just peel and eat'], 'Guava', ['Green skin', 'Crunchy, great with plum powder', 'Available all year in Taiwan']),
+  // 動物
+  pair('Cat', ['Loves sitting in cardboard boxes', 'Says meow', "Aloof, only lets you pet it when it's in the mood"], 'Dog', ['Wags its tail', 'Needs to be walked', "Man's most loyal friend"]),
+  pair('Tiger', ['Black stripes on its body', 'King of the forest', 'Not found in the wild in Taiwan'], 'Lion', ['The males have manes', 'King of the savanna', 'Often seen on nature channels']),
+  pair('Penguin', ['Lives in Antarctica', 'Waddles when it walks', 'Black and white like a tuxedo'], 'Seal', ['Lies on the ice in the sun', 'Round and chubby', 'Slides on its belly']),
+  pair('Butterfly', ['Beautiful patterns on its wings', 'Used to be a caterpillar', 'Likes to land on flowers'], 'Bee', ['Collects nectar', 'Its sting really hurts', 'Buzz buzz']),
+  // 生活用品
+  pair('Phone', ["Can't live without it for a day", 'Make calls or scroll social media', 'You panic when the battery dies'], 'Tablet', ['Has a bigger screen', 'Kids use it to watch cartoons', 'You can draw on it with a stylus']),
+  pair('Headphones', ['Worn on your head or in your ears', 'A must for commuting', 'Wired or wireless'], 'Speaker', ['Lets everyone listen together', 'You need one for a party', 'Too loud and the neighbors complain']),
+  pair('Air Conditioner', ['The most important appliance in summer', 'Running it too long dries the air', 'The electric bill is scary'], 'Electric Fan', ['Keeps turning its head', 'Uses less power', 'Left on all night in summer']),
+  pair('Fridge', ['The biggest appliance in the kitchen', 'Keeps food fresh', 'A light comes on when you open it'], 'Microwave', ['Used to heat up lunch', 'The plate inside spins', "Ding and it's done"]),
+  pair('Toothbrush', ['Used every morning and night', 'You should replace it regularly', 'Some are electric'], 'Floss', ['Gets out what is stuck between your teeth', 'A thin string', 'The dentist keeps telling you to use it']),
+  pair('Umbrella', ['You check the weather before taking it', 'Often left behind on the subway', 'Opens up and folds away'], 'Raincoat', ['A must when riding in the rain', 'One-piece or two-piece', 'Stuffy to wear']),
+  pair('Pillow', ['Goes under your head when you sleep', 'Height matters', 'Good for fights'], 'Blanket', ["You don't want to leave it in winter", 'Covers your body', 'Should be aired out in the sun often']),
+  pair('Sofa', ['The star of the living room', 'Lie on it and binge shows', 'Things often fall into the cracks'], 'Bed', ['You lie on it every night', 'Single or double', 'Hardest to leave in the morning']),
+  pair('Toothpaste', ['Squeezed onto the bristles', 'Usually mint flavored', 'Squeeze from the end'], 'Face Wash', ['Used when washing your face', 'Lather it up and rub it on', 'Oily skin needs a special kind']),
+  pair('Shampoo', ['Used when washing your hair', 'Makes lots of lather', 'Anti-dandruff or color care'], 'Body Wash', ['Rubbed on your body in the shower', 'Comes in many scents', 'Lathers well with a loofah']),
+  pair('Lipstick', ['Put on your lips', 'Comes in many colors', 'Reapply after eating'], 'Blush', ['Brushed on the cheeks', 'Gives you a healthy glow', 'Pinkish']),
+  pair('Watch', ['Worn on the wrist to tell time', 'Has hands or digits', 'Worn on formal occasions'], 'Fitness Tracker', ['Worn on your wrist to count steps', 'Shows your sleep quality', 'One charge lasts many days']),
+  pair('Wallet', ['Holds cash and cards', 'Guys keep it in the back pocket', 'You panic if you lose it'], 'Metro Card', ['Tap it on the subway', 'Works at convenience stores too', 'You can top it up']),
+  pair('Pencil', ['You can erase mistakes', 'Needs sharpening', 'Used to fill in answer sheets'], 'Pen', ["Can't be erased", 'Click the top and it comes out', 'Blue, red, or black']),
+  pair('Scissors', ['Two blades that cross', 'Cut paper or hair', 'Kids should use the round-tip kind'], 'Box Cutter', ['The blade slides out bit by bit', 'Great for opening boxes', 'Snap off the tip when it gets dull']),
+  // 交通
+  pair('Subway', ['The main way to commute in a big city', 'No eating in the cars', 'Tap your card to get in'], 'Tram', ['Some cities have them', 'Runs on the street', 'A smaller train']),
+  pair('Bus', ['You wave to make it stop', 'Press the bell before your stop', 'Routes are numbered'], 'Taxi', ['Yellow car', 'Runs on a meter', 'Takes you right to the door']),
+  pair('Bullet Train', ['Crosses the country in about an hour and a half', 'Sleek and streamlined', 'Pricier but very fast'], 'Train', ['Local or express', 'Eat a lunch box while watching the view', 'Station names feel historic']),
+  pair('Scooter', ['The most common ride in Taiwan', 'You must wear a helmet', 'Great for weaving through traffic'], 'Bicycle', ['Powered by your feet', 'Riding around the island is popular', 'Public ones can be rented']),
+  pair('Airplane', ['Take it to go abroad', 'Flies in the sky', 'Check in and pass security first'], 'Helicopter', ['A big propeller on top', 'Can land on a roof', 'Often sent for rescues']),
+  // 職業
+  pair('Doctor', ['Wears a white coat', 'Sees patients and prescribes medicine', 'Studies for many years'], 'Nurse', ['Cares for patients in the hospital', 'Helps give shots', 'Often works night shifts']),
+  pair('Teacher', ['Stands at the front of the classroom', 'Gives homework and tests', 'Students fear being called on'], 'Professor', ['Teaches at a university', 'Does research and writes papers', 'Has an office of their own']),
+  pair('Police Officer', ['Writes tickets', 'On duty at the station', 'Call them in an emergency'], 'Security Guard', ['At the front desk of a building', 'Helps receive packages', 'Patrols at night']),
+  pair('Chef', ['Runs the kitchen', 'Wears a tall white hat', 'Knife skills matter'], 'Delivery Driver', ['Rides over to bring food to your door', 'Carries a big insulated box', 'Has it especially hard on rainy days']),
+  // 運動與休閒
+  pair('Basketball', ['Shoot the ball through the hoop', 'Five players on a team', 'The NBA is the most famous'], 'Volleyball', ["The ball can't touch the ground", 'A net divides the two sides', 'Spiking looks cool']),
+  pair('Soccer', ['Only feet and heads allowed', 'The World Cup gets the most attention', 'The goalkeeper can use hands'], 'Rugby', ['The ball is oval', 'Carry the ball and charge', 'Lots of hard tackles']),
+  pair('Swimming', ['Moving forward in water', 'Freestyle and breaststroke', 'Wear a cap and goggles'], 'Scuba Diving', ['Go below the surface to see fish', 'Carry an oxygen tank', 'Popular at tropical islands']),
+  pair('Yoga', ['Lay out a mat', 'Stretching', 'Breathing is very important'], 'Gym', ['Lots of machines', 'You need a membership', 'People lifting weights everywhere']),
+  pair('Piano', ['Black and white keys', 'Many kids were forced to learn it', 'Too big to move'], 'Guitar', ['Six strings', 'You can carry it anywhere', 'Playing and singing at the same time looks cool']),
+  pair('Concert', ['Go to see one singer', 'Tickets sell out fast', 'Glow sticks everywhere'], 'Music Festival', ['Many bands take turns', 'Held outdoors', 'Often runs for several days']),
+  pair('Movie Theater', ['Lights off, big screen', 'Buy some popcorn', 'Put your phone on silent'], 'Karaoke', ['Sing with friends', 'Private rooms', 'Wait in line to pick songs']),
+  pair('Night Market', ['Stalls that appear at night', 'Lots of snacks and games', 'Packed with people'], 'Farmers Market', ['Go in the morning for groceries', 'Vendors shout their prices', 'The ground is often wet']),
+  pair('Convenience Store', ['Open 24 hours', 'Pay bills or pick up packages', 'A chime when the door opens'], 'Supermarket', ['Push a cart around', 'Things come in big packs', 'Crowded on weekends']),
+  pair('Library', ['You can borrow books', 'Keep quiet', 'Seats are hard to get before exams'], 'Bookstore', ['You can buy books', 'Sometimes sells stationery too', 'Some stay open late']),
+  pair('Beach', ['Walk in the waves and collect shells', 'Put on sunscreen', 'Popular in summer'], 'Swimming Pool', ['Has a deep end and a shallow end', 'Smells like chlorine', 'Lifeguards on the side']),
+  pair('Hiking', ['Lots of steps to climb', 'Great view at the top', 'Bring water and trekking poles'], 'Camping', ['Pitch a tent', 'Look at the stars at night', 'Pack a sleeping bag']),
+  // 節日與活動
+  pair('Christmas', ['A holiday in December', 'Gift exchange', 'Put up a decorated tree'], "New Year's Eve", ['Count down from ten', 'Watch the fireworks', 'The last day of the year']),
+  pair('Lunar New Year', ['You get red envelopes', 'The whole family has a reunion dinner', 'Firecrackers go off'], 'Mid-Autumn Festival', ['Eat mooncakes', 'Everyone has a barbecue', 'Pomelos are in season']),
+  pair('Birthday', ['Once a year', 'Make three wishes', 'Friends sing a song for you'], 'Wedding', ['The couple exchanges rings', 'Bring a gift of money', 'The bouquet gets tossed']),
+  pair("Valentine's Day", ['February 14', 'Give chocolate and roses', 'A day for couples'], 'Anniversary', ['Comes once a year for a couple', 'Counts how long you have been together', 'Dinner at a nice restaurant']),
+  // 流行文化
+  pair('Harry Potter', ['Lightning scar on his forehead', 'Goes to a school of magic', 'Plays ball on a broom'], 'Lord of the Rings', ['A group sets out to destroy something', 'Elves and dwarves', 'Three very long movies']),
+  pair('Pikachu', ['A little yellow electric mouse', 'Shoots lightning', 'The face of Pokemon'], 'Doraemon', ['A blue robot cat', 'Lots of gadgets in its pocket', 'Afraid of mice']),
+  pair('Spider-Man', ['Shoots webs from his wrists', 'Got powers from a bite', 'Wears red and blue'], 'Batman', ['No superpowers but very rich', 'Lives in Gotham City', 'Black cape']),
+  // 自然
+  pair('Sun', ['Only visible in the daytime', 'Hot and bright', "Don't stare at it"], 'Moon', ['Only visible at night', 'Waxes and wanes', 'People admire it at Mid-Autumn']),
+  pair('Typhoon', ['The one that gives you a day off', 'Heavy wind and rain', 'Stock up on instant noodles first'], 'Earthquake', ['The whole building shakes', 'Hide under a table', 'Happens a lot in some places']),
+  pair('Rain', ['Bring an umbrella', 'The streets get wet', 'Happens a lot in Taipei'], 'Snow', ['Rare in the lowlands of Taiwan', 'White and piles up', 'You can build a snowman']),
+  // ---- 搞混會很好笑的 ----
+  // 上班族
+  pair('Meeting', ['Sit there for two hours', 'Often needs a follow-up one', 'Someone keeps checking their phone', 'The manager talks the most'], 'Presentation', ['Click through slide by slide', 'Finished the night before', 'Talk in front of everyone', 'Scariest when the computer freezes']),
+  pair('Overtime', ["It's quitting time but you can't leave", 'Sometimes you get comp time', "Can't leave before the boss does", 'Dinner is takeout near the office'], 'All-Nighter', ['Still awake at 3 a.m.', 'Dark circles the next day', 'Happens with binge-watching or homework', 'Coffee keeps you going']),
+  pair('Year-End Bonus', ['You wait all year for it', 'Depends on how the company did', 'People wait for it before quitting', 'Counted in months of salary'], 'Red Envelope', ['A red packet', 'Elders give them', 'You bring one to weddings', 'Avoid amounts with the number four']),
+  pair('Office Party', ['The company treats everyone at year-end', 'There is a raffle', 'The boss gives a speech', 'Coworkers put on a show'], 'Spring Banquet', ['A company dinner after the New Year', 'First get-together of the year', 'Often held at a restaurant', 'Sometimes there is a lucky draw']),
+  pair('Boss', ['Decides your salary', 'Talks the loudest', 'Suddenly appears behind you', 'Hands out bonuses at year-end'], 'Client', ['Always right', 'Changes the requirements ten times', 'You have to keep smiling', 'Messages you even at midnight']),
+  pair('Excel', ['Cell after cell', 'You can write formulas', 'Pivot tables', "An accountant's favorite"], 'PowerPoint', ['Slide after slide', 'You can add animations', 'Projected during meetings', 'Too much text puts everyone to sleep']),
+  pair('Monday', ['The day you least want to work', 'The sadness of the weekend ending', 'The start of the week', 'The blues'], 'Friday', ['Happiest right before quitting time', 'Party at night', 'The last workday of the week', 'Looking forward to the weekend']),
+  pair('Day Off', ['Tell your manager first', 'Personal or sick', 'You get a yearly quota', 'Fill out a form for approval'], 'Skipping Work', ['Sneak out quietly', 'Awkward if you get caught', 'Pretend to visit a client', 'Clock in and then disappear']),
+  pair('Salary', ['Arrives once a month', 'Never enough', 'Seeing the number makes you want to quit', 'Not much left after taxes'], 'Allowance', ['Your parents gave it to you as a kid', 'Saved up to buy toys', 'Some married people get one too', 'Paid once a week']),
+  pair('Intern', ['New at the company and learning', 'Very low pay', 'Often sent to make copies', 'Still a student'], 'Part-Timer', ['A student with a side job', 'Paid by the hour', 'Common at drink shops', 'Has to work weekend shifts']),
+  pair('Clock In', ['Required when you arrive and leave', 'Being late gets recorded', 'Fingerprint or card swipe', 'Forget it and you lose pay'], 'Sign In', ['Write your name with a pen', 'Found at event entrances', 'Sometimes someone signs for you', 'Only counts once you sign']),
+  pair('Conference Room', ['Must be booked in advance', 'Has a projector and whiteboard', 'The AC is always freezing', 'Close the door to discuss things'], 'Break Room', ['Where you make coffee', 'Office gossip central', 'Has a water dispenser', 'Your food in the fridge gets stolen']),
+  pair('Manager', ['The person who manages you', 'Reports up every week', 'Writes your performance review', 'Sits at the front in meetings'], 'Senior Colleague', ['Joined the company before you', 'Teaches you how to do things', 'Sometimes bosses you around', 'Feels like an upperclassman']),
+  // 感情與家庭
+  pair('Ex', ['The person you broke up with', 'Awkward when they show up in your feed', 'Dreaded at friend gatherings', 'Your face changes when you hear the name'], 'Situationship', ['Not together yet', 'Texting every night until midnight', 'Not sure how they feel', 'More than friends, less than lovers']),
+  pair('Blind Date', ['Arranged by family', 'Sit down for a one-on-one dinner', 'Check the credentials first', 'Often very awkward'], 'Group Date', ['A group goes out together', 'About the same number of guys and girls', 'Play party games', 'Common in college']),
+  pair('Proposal', ['Get down on one knee', 'Pull out a ring', 'Success if they say yes', 'Friends often hide nearby filming'], 'Confession', ['Say that you like them', 'Your heart races', 'Awkward if rejected', 'Many people do it before graduation']),
+  pair('Mom', ['Cooks the best food', 'Calls to ask if you have eaten', 'The one who gave birth to you', 'Nags a lot but loves you'], 'Mother-in-Law', ['The elder you meet after marrying in', "You visit her at your spouse's home for holidays", 'Getting along with her is a hot topic', 'Asks when you will have kids']),
+  // 身體的尷尬時刻
+  pair('Fart', ['Gas that comes out the back', 'Most awkward in an elevator', 'Loud or silent', 'Happens more after eating sweet potatoes'], 'Burp', ['Gas that comes out of your mouth', 'Common after soda', "Annoying when you can't stop", 'Happens when you eat too much']),
+  pair('Pimple', ['Grows on your face', 'Pops up after staying up late', 'Leaves a scar if you squeeze it', 'Teenagers get lots of them'], 'Mosquito Bite', ['Swells up after you get stung', 'Very itchy', 'Lots of them in summer', 'Bleeds if you scratch it open']),
+  pair('Booger', ['Dug out with a finger', "Don't pick it in front of people", 'Dry and crusty', 'Kids secretly flick them'], 'Earwax', ['Use a cotton swab', 'Comes dry or wet', 'Feels great to clean out', 'There is a special little scoop for it']),
+  pair('Smelly Feet', ['You smell it when the shoes come off', 'Worse in sneakers in summer', 'Socks matter', 'Sprinkle some deodorizing powder'], 'Bad Breath', ['You smell it as soon as they talk', 'After eating garlic', 'Brush and rinse', 'You usually cannot smell your own']),
+  pair('Bald', ['The top of the head gets shinier', 'Engineers get teased about it', 'Washing hair is quick', 'Runs in the family'], 'Wig', ['Worn on the head', 'Awkward if the wind blows it off', 'Lets you change your look', 'Used for cosplay']),
+  pair('Beer Belly', ["A middle-aged man's stomach", 'Too much drinking', 'Round and plump', "Can't see your feet when you look down"], 'Love Handles', ['The ring of flab around your waist', 'Bulges out when you sit', 'What dieters most want to lose', 'Also sounds like something you can grab']),
+  pair('Insomnia', ["Lying down but can't sleep", 'Keep counting sheep', 'Overthinking', 'Some people need sleeping pills'], 'Snoring', ['Making noise while asleep', 'Roommates complain', 'Very loud', "You don't know you're doing it"]),
+  pair('Losing Weight', ['Wanting the number on the scale to drop', "I'll start tomorrow", 'No late-night snacks', 'Keeps failing'], 'Dieting', ['Eating very little', 'Skipping a meal', 'So hungry you feel dizzy', 'Only eating salad']),
+  // 居家
+  pair('Toilet Paper', ['A must in the bathroom', 'Pulled out sheet by sheet', 'Precious when the water is off', 'Everyone hoarded it during the pandemic'], 'Wet Wipes', ['Damp', 'Wipe your hands and mouth', 'Some contain alcohol', 'A must when going out with kids']),
+  pair('Toilet', ['You sit on it every day', 'It flushes', 'Remember to put the lid down', 'A nightmare when it clogs'], 'Bathtub', ['You can soak in it', 'Takes forever to fill', 'Common in Japanese inns', 'Rubber ducks float in it']),
+  pair('Underwear', ['Worn closest to the skin', 'Changed every day', 'Briefs or boxers', 'Embarrassing to hang on the balcony'], 'Swim Trunks', ['Worn in the water', 'Very tight', 'Bring them to the beach', 'Sometimes a wave pulls them off']),
+  pair('Socks', ['Worn on your feet', 'One always goes missing in the wash', 'Hung up at Christmas', 'Long or short'], 'Gloves', ['Worn on your hands', 'Needed for riding in winter', 'Also worn for washing dishes', 'Five fingers']),
+  pair('Slippers', ['Worn at home', 'Worn to the night market in summer', 'Flap flap when you walk', 'Good for smacking cockroaches'], 'Rain Boots', ['Worn on rainy days', 'Go up to your calves', 'Handy at the wet market', 'Waterproof']),
+  pair('Hair Dryer', ['Used after washing your hair', 'Blows hot air', 'Very noisy', 'Every hotel has one'], 'Clothes Dryer', ['Dries your clothes', 'Laundromats have them', 'Coin operated', 'Clothes might shrink']),
+  pair('Robot Vacuum', ['Roams around the house by itself', 'Bumps into table legs', 'Cats like to ride on it', 'Controlled with your phone'], 'Vacuum Cleaner', ['You push it around yourself', 'Very loud', 'Sucks up the dust', 'Some are cordless']),
+  pair('Face Mask', ['Covers your mouth and nose', 'Worn every day during the pandemic', 'Some are medical grade', 'Your ears hurt after a while'], 'Eye Mask', ['Worn over your eyes', 'Blocks light while you sleep', 'Handed out on planes', 'Pirates wear one too']),
+  // 台灣味
+  pair('Stinky Tofu', ['You can smell it from far away', 'Served with pickled cabbage', 'A night market must', 'Fried or in spicy soup'], 'Durian', ['King of fruits', 'Shell covered in spikes', 'Banned from hotels', 'People who like it are obsessed']),
+  pair('Instant Noodles', ['A late-night snack buddy', 'Ready in three minutes', 'A typhoon day essential', 'Better with an egg'], 'Ramen Snack', ['Can be eaten dry straight from the bag', 'A childhood snack', 'Crush it and sprinkle the seasoning', 'Some have prizes inside']),
+  pair('Braised Pork Rice', ["Taiwan's national comfort food", 'Topped with fatty minced meat', 'Pairs with a bowl of meatball soup', 'Cheap and tasty'], 'Chicken Rice', ['Most famous in Chiayi', 'Topped with shredded chicken', 'Drizzled with chicken fat', 'Very fragrant']),
+  pair('Betel Nut', ['Turns your mouth red', 'Sold at roadside stands', 'Chew chew chew', 'Gross when spat out'], 'Chewing Gum', ['Chew chew chew', "Don't swallow it", 'Annoying when stuck to your shoe', 'You can blow bubbles']),
+  pair('Cilantro', ['Some love it, some hate it', 'Sprinkled on soup', 'Green leaves', 'You know it the moment you smell it'], 'Basil', ['A must in three-cup chicken', 'Also in popcorn chicken', 'Smells great when fried', 'Green leaves too']),
+  pair('Ginger Duck', ['A winter tonic', 'Cooked with sesame oil and old ginger', 'Warms your whole body', 'One pot feeds many people'], 'Mutton Hot Pot', ['A winter tonic', 'Has a distinctive smell', 'Dipped in fermented tofu sauce', 'One pot feeds many people']),
+  pair('Oyster Omelet', ['A night market must', 'Topped with a sweet red sauce', 'Has egg and greens', 'Tastes of the sea'], 'Sausage in Rice Roll', ['Grilled meat tucked inside sticky rice', 'A night market stall', 'Add garlic and sauce', 'The name is funny']),
+  pair('Pig Blood Cake', ['Made from dark rice', 'Coated in peanut powder and cilantro', 'Served on a stick', 'Foreigners find it scary'], 'Duck Blood', ['A must in spicy hot pot', 'Soft and tender', 'Red cubes', 'Soaks up the broth']),
+  pair('Pineapple Cake', ["Taiwan's number one souvenir", 'Square shaped', 'Has a filling inside', 'Given to friends from abroad'], 'Sun Cake', ['Famous in Taichung', 'Crumbs fall with every bite', 'Round', 'Filled with maltose']),
+  // 卡通與流行
+  pair('Detective Conan', ['An elementary school detective', 'Wears glasses and a bow tie', 'Murders happen wherever he goes', 'There is only one truth'], 'Sherlock Holmes', ['A detective in London', 'Lives on Baker Street', 'Smokes a pipe', 'His partner is a doctor']),
+  pair('Crayon Shin-chan', ['A five-year-old boy', 'Loves showing his butt', 'Action Mask', 'Thick eyebrows'], 'Chibi Maruko-chan', ['A third-grade girl', 'Bowl haircut', "Her grandpa's favorite grandchild", 'Loves to slack off']),
+  pair('SpongeBob', ['Lives in a pineapple', 'Yellow and square', 'Works at the Krusty Krab', 'Laughs a lot'], 'Patrick Star', ['A pink starfish', 'Lives under a rock', 'Very silly', 'His best friend lives next door']),
+  pair('Iron Man', ['Wears high-tech armor', 'A rich genius', 'I am...', 'His chest glows'], 'Captain America', ['Carries a star-spangled shield', 'Frozen for many years', 'Very righteous', 'Leader of the Avengers']),
+  pair('Taylor Swift', ['Writes songs about her exes', 'Stadium tours sell out instantly', 'Fans are called Swifties', 'Started out in country music'], 'BTS', ['A K-pop boy band', 'Fans are called ARMY', 'Seven members', 'Hugely popular around the world']),
+  pair('TikTok', ['Short videos', "Can't stop scrolling", 'Dance challenges', 'Came from China'], 'YouTube', ['Watch videos', 'Ads you want to skip', "Influencers' platform", 'Like, subscribe, and hit the bell']),
+  pair('WhatsApp', ['People use it every day', 'Has stickers', 'Left on read', 'Family group chats'], 'Instagram', ['Post photos and stories', 'Stories disappear after 24 hours', 'Lots of filters', 'Influencers all use it']),
+  pair('Pokemon', ['Catch and collect them', 'Poke Ball', 'A game where you catch them by walking', 'They evolve'], 'Digimon', ['The chosen children', 'They evolve too', 'Come from a digital world', 'Agumon']),
+  // 地方
+  pair('Countryside', ['Reached through a long tunnel', 'Rivers and rice fields', 'Famous green onions', 'Lots of hot springs'], 'East Coast', ['A famous gorge', 'A long drive to get there', 'Famous for mochi', 'Ocean views all the way']),
+  pair('Beach Resort', ['At the southern tip', 'The main street is lively', 'Spring music festival', 'Popular in summer'], 'Island', ['You need to take a boat', 'Seaside hot springs', 'Used to hold prisoners', 'Beautiful snorkeling']),
+  pair('Skyscraper', ['Was once the tallest in the world', 'Fireworks on New Year\'s Eve', 'Looks like a stalk of bamboo', 'Observation deck'], 'Ferris Wheel', ['Goes around very slowly', "Couples' favorite", 'See the night view from up high', 'Often found at a mall or pier']),
+  pair('Disneyland', ['Mickey Mouse', 'A castle', 'Long lines', 'In Tokyo and Shanghai too'], 'Universal Studios', ['A Harry Potter area', 'There is one in Osaka', 'Minions', 'Jurassic Park']),
+  pair('Zoo', ['Elephants and giraffes', 'Field trips', 'Popular with families', 'Panda house'], 'Aquarium', ['Lots of fish', 'A shark tunnel', 'Penguins live here too', 'Jellyfish tanks']),
+  pair('Hospital', ['Very big', 'Long wait after registering', 'Has an emergency room', 'Smells like disinfectant'], 'Clinic', ['The one down the street', 'Go there for a cold', 'Only one or two doctors', 'Shorter wait']),
+  // 動物
+  pair('Cockroach', ['Scariest when it flies', 'Smack it with a slipper', 'Shows up in the kitchen at night', 'Incredibly hard to kill'], 'Mouse', ['Steals food', 'Squeaks', 'Cats chase it', 'Mickey is one too']),
+  pair('Mosquito', ['Buzz buzz', 'By your ear when you sleep', 'Its bite is itchy', 'Most common in summer'], 'Fly', ['Lands on food', 'Rubs its hands together', 'Very dirty', "Infuriating when you can't swat it"]),
+  pair('Pigeon', ['Lots of them in the square', 'Coos', 'Poops on your balcony', 'A symbol of peace'], 'Crow', ['A black bird', 'Caws', 'A bad omen', 'Very smart']),
+  pair('Shiba Inu', ['A dog from Japan', 'A smug face', 'A perky butt', 'The doge meme'], 'Corgi', ['Very short legs', 'Its butt looks like a loaf of bread', "The Queen's favorite", 'Wiggles when it walks']),
+  pair('Sloth', ['Moves super slowly', 'Sleeps most of the day', 'Hangs from trees', 'In Zootopia'], 'Koala', ['Hugs trees', 'Only eats eucalyptus leaves', 'Australia', 'Sleeps all the time']),
+];
+
+// 白板 bot 用的通用台詞：模糊、不包含詞庫裡的任何詞
+export const BLANK_LINES_EN = [
+  'I think everyone knows this one pretty well.',
+  'It shows up a lot in daily life.',
+  "If I say too much I'll get caught, so I'll play it safe.",
+  "I'll hear what others say first. So far it all makes sense.",
+  "I can relate, but I can't be too obvious.",
+  'It comes in a lot of different forms.',
+  'The price varies, depending on what you pick.',
+  'Lots of people around me like it.',
+];
