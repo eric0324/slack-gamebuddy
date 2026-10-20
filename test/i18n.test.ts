@@ -2,7 +2,9 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { LangStore } from '../src/langStore.js';
+import Database from 'better-sqlite3';
+import { CrewStore } from '../src/crewStore.js';
+import { LangStore, parseDefaultLang } from '../src/langStore.js';
 import { StatsStore } from '../src/stats.js';
 import { MemeStore } from '../src/memeStore.js';
 import { coup } from '../src/games/coup.js';
@@ -413,5 +415,59 @@ describe('i18n: 收尾 (梗圖庫、文字視窗、星際探險隊關卡指令)'
     langs.set('C1', 'en');
     await host.game('C1', 'U1', 'alice', 'crew level');
     expect(lastEph(calls).text).not.toMatch(/[一-龥]/);
+  });
+});
+
+describe('i18n: 預設語系', () => {
+  it('指定預設語系時，沒設定過的頻道用預設語系；沒指定時是 zh-TW', () => {
+    expect(new LangStore(':memory:', 'en').get('C1')).toBe('en');
+    expect(new LangStore(':memory:').get('C1')).toBe('zh-TW');
+    const store = new LangStore(':memory:', 'en');
+    store.set('C1', 'zh-TW');
+    expect(store.get('C1')).toBe('zh-TW');
+  });
+
+  it('DEFAULT_LANG：沒設定是 en、不支援的值當 en、大小寫不拘', () => {
+    expect(parseDefaultLang(undefined)).toBe('en');
+    expect(parseDefaultLang('')).toBe('en');
+    expect(parseDefaultLang('fr')).toBe('en');
+    expect(parseDefaultLang('ZH-tw')).toBe('zh-TW');
+  });
+
+  it('預設英文時，新頻道的大廳是英文', async () => {
+    const { host, calls } = setup(new LangStore(':memory:', 'en'));
+    await host.game('C9', 'U1', 'alice', '');
+    expect(lastEph(calls).blocks[0].text.text).toContain('*🎮 Game lobby*');
+  });
+});
+
+describe('i18n: 玩過的頻道保留中文', () => {
+  const tmpFile = () => join(mkdtempSync(join(tmpdir(), 'lang-')), 'stats.db');
+
+  it('有戰績、梗圖投稿、星際探險隊進度的頻道第一次啟動時設成中文；已設定過的不變', () => {
+    const file = tmpFile();
+    const stats = new StatsStore(file);
+    stats.recordMatch('C1', 'liarsdice', ['U1', 'U2'], ['U1']);
+    stats.record('C2', 'good', [{ id: 'U1', role: 'seer' }]);
+    new MemeStore(file).add('C3', 'https://i.imgur.com/a.png', 'x', 'U1');
+    new CrewStore(file).set('C4', 3);
+    stats.recordMatch('C5', 'skull', ['U1'], ['U1']);
+    // C5 在這之前已經設定過英文 (直接寫進資料表，模擬舊資料)
+    const db = new Database(file);
+    db.exec('CREATE TABLE IF NOT EXISTS channel_lang (channel TEXT PRIMARY KEY, lang TEXT NOT NULL, updated_at INTEGER NOT NULL)');
+    db.prepare('INSERT INTO channel_lang VALUES (?, ?, ?)').run('C5', 'en', 0);
+    db.close();
+    const langs = new LangStore(file, 'en');
+    expect(['C1', 'C2', 'C3', 'C4'].map((c) => langs.get(c))).toEqual(['zh-TW', 'zh-TW', 'zh-TW', 'zh-TW']);
+    expect(langs.get('C5')).toBe('en');
+    expect(langs.get('C6')).toBe('en');
+  });
+
+  it('只做一次：之後才玩的頻道重新啟動後仍然用預設語系', () => {
+    const file = tmpFile();
+    const stats = new StatsStore(file);
+    new LangStore(file, 'en');
+    stats.recordMatch('C7', 'liarsdice', ['U1', 'U2'], ['U1']);
+    expect(new LangStore(file, 'en').get('C7')).toBe('en');
   });
 });
