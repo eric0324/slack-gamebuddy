@@ -187,7 +187,7 @@ function targets(s: SState, me: SPlayer, card: Card): { act: string; rest: strin
     case 'map':
       return closedGoals(s).map((name) => ({ act: 'map', rest: name, label: name }));
     case 'rock':
-      return pathCells(s).map(({ name, cell }) => ({ act: 'rock', rest: name, label: `${name} ${glyph(cell.edges)}${cell.dead ? 'x' : ''}` }));
+      return pathCells(s).map(({ name, cell }) => ({ act: 'rock', rest: name, label: `${name} ${cell.dead ? 'X' : glyph(cell.edges)}` }));
   }
 }
 

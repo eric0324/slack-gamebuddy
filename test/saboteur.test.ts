@@ -190,7 +190,7 @@ describe('saboteur/map: 地圖顯示', () => {
     expect(lines[1]).toBe('1 . . . . . . . . . . . . .');
   });
 
-  it('通道右邊有開口時第二個字元畫橫線；死路照形狀畫、第二個字元一律是 x', () => {
+  it('通道右邊有開口時第二個字元畫橫線；死路整格畫 X 不畫線條', () => {
     const grid = newGrid(0);
     put(grid, 'D5', E | W);
     put(grid, 'D6', N | S, true);
@@ -198,8 +198,8 @@ describe('saboteur/map: 地圖顯示', () => {
     put(grid, 'B5', E | S | W, true);
     put(grid, 'F6', N, true);
     const lines = render(grid).split('\n');
-    expect(lines[5].slice(2, 10)).toBe('. ┳xS━━━');
-    expect(lines[6].slice(8, 14)).toBe('┃x╋x╹x');
+    expect(lines[5].slice(2, 10)).toBe('. X S━━━');
+    expect(lines[6].slice(8, 14)).toBe('X X X ');
   });
 
   it('翻開的金礦顯示 $', () => {
@@ -342,6 +342,7 @@ describe('saboteur/setup: 開局公告', () => {
     const text = announces(events).join('\n');
     expect(text).toContain('矮人礦坑開始');
     expect(text).toContain('3 回合');
+    expect(text).toContain('地圖上的 X 是死路，路到那裡就斷了，不能接在後面');
     expect(text).toContain('第 1/3 回合');
     expect(state).toMatchObject({ phase: 'play', round: 1 });
     expect(state.players.every((p) => p.gold === 0)).toBe(true);
@@ -592,7 +593,7 @@ describe('saboteur/turns: 落石', () => {
       s.players[0].hand = [{ kind: 'rock' }];
     });
     const menu = menuOf(act(s, { type: 'card', i: 0 }).events, 'p1')!;
-    expect(menu.options.map((o) => o.label)).toEqual(['D5 ━', 'E5 ━x', '↩️ 換一張']);
+    expect(menu.options.map((o) => o.label)).toEqual(['D5 ━', 'E5 X', '↩️ 換一張']);
     const { state, events } = act(s, { type: 'rock', i: 0, cell: 'E5' });
     expect(state.grid[4][4]).toBeNull();
     expect(boards(events)[1].text).toContain('{{name:p1}} 用落石拿掉 `E5`');
