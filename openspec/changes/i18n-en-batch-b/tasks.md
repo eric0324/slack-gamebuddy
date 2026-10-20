@@ -36,5 +36,5 @@
 
 ## 7. 全部驗證
 
-- [ ] 7.1 跑 `npm test` 和 `npm run typecheck`，全部綠燈
+- [x] 7.1 跑 `npm test` 和 `npm run typecheck`，全部綠燈
 - [x] 7.2 `openspec validate i18n-en-batch-b --strict` 通過
