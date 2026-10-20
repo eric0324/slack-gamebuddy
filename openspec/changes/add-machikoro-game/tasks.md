@@ -46,5 +46,5 @@
 
 ## 7. 整合驗證
 
-- [ ] 7.1 跑 `npm test` 和 `npm run typecheck`，確認全部綠燈
+- [x] 7.1 跑 `npm test` 和 `npm run typecheck`，確認全部綠燈
 - [ ] 7.2 用 `npx vitest run test/machikoro.test.ts` 印出一則回合面板和買建築選單範例貼到 PR 說明，請使用者在真的 Slack 確認長度和按鈕排列（不用真 token 啟動 bot）
