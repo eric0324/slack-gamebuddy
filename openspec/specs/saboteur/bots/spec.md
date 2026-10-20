@@ -28,8 +28,8 @@ bot 的名字和顯示方式 SHALL 和其他遊戲相同。bot 在一個回合�
 - **THEN** bot 在 `D5` 放「橫」，不放在 `B5`
 
 #### Scenario: 先修自己
-- **WHEN** 金礦工 bot 的 ⛏️ 壞了，手上有 「修理 鎬子」
-- **THEN** bot 修好自己的 ⛏️
+- **WHEN** 金礦工 bot 的鎬子 壞了，手上有 「修理 鎬子」
+- **THEN** bot 修好自己的鎬子
 
 #### Scenario: 沒有好牌就蓋死路
 - **WHEN** 金礦工 bot 手上只有死路牌和破壞工具，已經知道金礦在哪
@@ -48,7 +48,7 @@ bot 的名字和顯示方式 SHALL 和其他遊戲相同。bot 在一個回合�
 
 #### Scenario: 弄壞下一位的工具
 - **WHEN** 座位是 A、B、C，破壞者 bot 是 A，手上只有 「破壞 鎬子」和藏寶圖，B 和 C 的工具都好
-- **THEN** bot 弄壞 B 的 ⛏️
+- **THEN** bot 弄壞 B 的鎬子
 
 ### Requirement: bot 的其他行為
 bot SHALL 一輪到就立刻行動，公告和真人相同。bot 挑金塊時 SHALL 拿剩下面額最大的一張。bot 的身分和手牌在回合結束前 SHALL NOT 公開。
