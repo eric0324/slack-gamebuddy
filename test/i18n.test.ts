@@ -262,6 +262,14 @@ describe('i18n: 英文大廳與遊戲清單', () => {
     expect(line).not.toContain('(中文)');
   });
 
+  it('口算擂台有英文翻譯：😂 Party 顯示 Math Duel，沒有「(中文)」', async () => {
+    const { host, responds } = await englishLobby();
+    await host.button('ww:lobbyTab:2', 'C1|party', 'U1', 'alice', undefined, 'https://hooks/x');
+    const line = sections(responds.at(-1)!.payload.blocks).find((l) => l.includes('`math`'))!;
+    expect(line).toContain('🧮 *Math Duel* (`math`) 2-8 players');
+    expect(line).not.toContain('(中文)');
+  });
+
   it('/game help 的遊戲清單是英文', async () => {
     await untranslated([coup], async () => {
       const { eph } = await englishLobby();

@@ -550,6 +550,23 @@ exports[`重構安全網 > 大廳六個分類 1`] = `
       "type": "section",
     },
     {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:38",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|math",
+      },
+      "text": {
+        "text": "🧮 *口算擂台* (\`math\`) 2～8 人
+比誰心算又快又準：分數比大小或四則運算，最難有微積分的地獄模式",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
       "elements": [
         {
           "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>｜<https://github.com/eric0324/slack-gamebuddy/discussions|💬 社群討論>",
@@ -1315,6 +1332,15 @@ exports[`重構安全網 > 每款遊戲的指令說明 1`] = `
 • 「🏘️ 行動」：輪到你時按，擲骰、重擲、港口 +2、電視台、商業中心、買建築都在這裡 (每回合 60 秒，逾時由系統代為完成、不買建築)
 • 「📋 城鎮一覽」：隨時私下看每個人的現金、建築和地標
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "math": "*口算擂台指令*
+• \`/game math new\` ：開房 (任何人)
+• \`/game math start\` ：開始遊戲，需要 2～8 位真人 (房主)
+• \`/game math set <設定>…\` ：調整設定，例如 \`set 分數 地獄 20\` (房主)；可用：分數、四則、簡單、普通、困難、地獄、10、15、20
+• \`/game math go\` ：用目前設定開始出題 (房主)，和按「▶️ 開始出題」一樣
+• \`/game math answer <選項>\` ：作答，例如 \`answer 42\` 、 \`answer <\` ，和按選項按鈕一樣；每題只能答一次
+• \`/game math cancel\` ：取消遊戲 (房主)
+每題 10 秒 (地獄 20 秒)。答對 10 分，越早答對加分越多 (第 1 個 +5…第 5 個 +1)，總分最高的人獲勝
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
   "meme": "*梗圖大亂鬥指令*
 • \`/game meme new\` ：開房 (任何人)
 • \`/game meme addbot [數量]\` ：加入 bot 補人數 (房主，開始前)
@@ -1489,6 +1515,7 @@ exports[`重構安全網 > 遊戲清單文字和預設大廳 1`] = `
 • 🔎 *詭影神探* (\`deception\`)：4～12 人 (不支援 bot)，開房 \`/game deception new\`
 • 💞 *同詞相遇* (\`sameword\`)：3～10 人 (不支援 bot)，開房 \`/game sameword new\`
 • 🎯 *默契問答* (\`sync\`)：2～8 人 (不支援 bot)，開房 \`/game sync new\`
+• 🧮 *口算擂台* (\`math\`)：2～8 人 (不支援 bot)，開房 \`/game math new\`
 各遊戲的指令： \`/game <遊戲代號> help\` ，例如 \`/game liarsdice help\`
 📊 戰績： \`/game stats [@某人]\` ；排行榜： \`/game rank [遊戲代號]\`
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>"
