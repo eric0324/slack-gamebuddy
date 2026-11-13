@@ -1055,13 +1055,13 @@ describe('game-commands: 花火', () => {
 
 describe('game-commands: 遊戲大廳', () => {
   const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
-  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter', 'cockroach', 'chameleon', 'nothanks', 'taboo', 'sushigo', 'meme', 'herd', 'kittens', 'criminal', 'wager', 'incan', 'dixit', 'citadels', 'emoji', 'crew', 'saboteur', 'forsale', 'machikoro', 'splendor', 'deception', 'sameword', 'sync'];
+  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter', 'cockroach', 'chameleon', 'nothanks', 'taboo', 'sushigo', 'meme', 'herd', 'kittens', 'criminal', 'wager', 'incan', 'dixit', 'citadels', 'emoji', 'crew', 'saboteur', 'forsale', 'machikoro', 'splendor', 'deception', 'sameword', 'sync', 'math'];
 
   const TABS = ['deduction', 'bluff', 'party', 'team', 'coop', 'strategy'];
   const TAB_GAMES: Record<string, string[]> = {
     deduction: ['werewolf', 'undercover', 'spyfall', 'avalon', 'insider', 'chameleon', 'saboteur', 'deception'],
     bluff: ['liarsdice', 'coup', 'skull', 'loveletter', 'cockroach', 'criminal'],
-    party: ['meme', 'herd', 'wager', 'dixit', 'emoji'],
+    party: ['meme', 'herd', 'wager', 'dixit', 'emoji', 'math'],
     team: ['codenames', 'wavelength', 'decrypto', 'taboo'],
     coop: ['justone', 'hanabi', 'wavecoop', 'crew', 'sameword', 'sync'],
     strategy: ['nimmt', 'nothanks', 'sushigo', 'kittens', 'incan', 'citadels', 'forsale', 'machikoro', 'splendor'],
@@ -2639,5 +2639,45 @@ describe('game-commands: 默契問答', () => {
     }
     expect(host.state('sync', 'C1')!.phase).toBe('ended');
     expect(stats.summary('C1', 'U2')).toEqual([{ kind: 'sync', games: 1, wins: null, best: 4 }]);
+  });
+});
+
+describe('game-commands: 口算擂台', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+  const sections = (blocks: any[]) => blocks.filter((b) => b.accessory).map((b) => b.text.text as string);
+
+  it('大廳 😂 派對創意列出口算擂台 2～8 人；遊戲清單標示不支援 bot', async () => {
+    const { host, calls, responds } = setup();
+    await host.button('ww:lobbyTab:2', 'C1|party', 'U1', 'alice', undefined, 'https://hooks/x');
+    expect(sections(responds.at(-1)!.payload.blocks).find((l) => l.includes('`math`'))).toContain('🧮 *口算擂台* (`math`) 2～8 人');
+    await host.game('C1', 'U1', 'alice', 'help');
+    expect(lastEph(calls).text).toMatch(/🧮 \*口算擂台\*.*不支援 bot/);
+  });
+
+  it('從大廳開房、按設定和答案按鈕玩完一局；help 列出指令；戰績記勝負', async () => {
+    const { client, calls } = fakeClient();
+    const stats = new StatsStore(':memory:');
+    const timers: (() => void)[] = [];
+    const host = new GameHost(client, { rng: () => 0.5, setTimer: (fn) => void timers.push(fn), stats });
+    await host.button('ww:lobbyOpen:0', 'C1|math', 'U1', 'alice');
+    expect(calls.at(-1)!.args.text).toContain('口算擂台');
+    for (const text of ['math help', 'math abc']) {
+      await host.game('C1', 'U1', 'alice', text);
+      expect(lastEph(calls).text).toContain('/game math set');
+    }
+    await host.button('ww:join:0', 'C1|join', 'U2', 'bob');
+    await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
+    const st = () => host.state('math', 'C1')!;
+    await host.button('ww:math:0', `C1|level:${st().seq}:hell`, 'U1', 'alice');
+    expect(st().level).toBe('hell');
+    await host.button('ww:math:0', `C1|go:${st().seq}`, 'U1', 'alice');
+    for (let i = 0; i < 10; i++) {
+      const ok = st().current!.options.indexOf(st().current!.answer);
+      await host.button('ww:math:0', `C1|ans:${st().seq}:${ok}`, 'U2', 'bob');
+      await host.button('ww:math:0', `C1|ans:${st().seq}:${(ok + 1) % 4}`, 'U1', 'alice');
+      await timers.at(-1)!(); // 揭曉後的 3 秒
+    }
+    expect(st().phase).toBe('ended');
+    expect(stats.summary('C1', 'U2')).toEqual([{ kind: 'math', games: 1, wins: 1, best: null }]);
   });
 });

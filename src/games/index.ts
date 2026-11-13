@@ -36,6 +36,7 @@ import { splendor } from './splendor.js';
 import { deception } from './deception.js';
 import { sameword } from './sameword.js';
 import { sync } from './sync.js';
+import { math } from './math.js';
 
 export const GAMES = [
   undercover,
@@ -75,6 +76,7 @@ export const GAMES = [
   deception,
   sameword,
   sync,
+  math,
 ] as const;
 
 export type GameKind = (typeof GAMES)[number]['kind'];
