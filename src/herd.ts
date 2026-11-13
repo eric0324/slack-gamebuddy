@@ -56,7 +56,7 @@ type Result = { state: HerdState; events: GameEvent[] };
 type Ctx = { s: HerdState; events: GameEvent[]; rng: Rng };
 
 // 比對前正規化：全形轉半形、英文轉小寫、去掉空白、標點和符號
-const normalize = (t: string) => t.normalize('NFKC').toLowerCase().replace(/[\s\p{P}\p{S}]/gu, '');
+export const normalize = (t: string) => t.normalize('NFKC').toLowerCase().replace(/[\s\p{P}\p{S}]/gu, '');
 const isPlayer = (s: HerdState, id: string) => s.players.some((p) => p.id === id);
 const list = (s: HerdState, ids: string[]) => ids.map(mention).join(tx(s.lang, 'sep'));
 const question = (s: HerdState) => herdQuestions(s.lang)[s.question!];

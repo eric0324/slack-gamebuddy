@@ -1055,7 +1055,7 @@ describe('game-commands: 花火', () => {
 
 describe('game-commands: 遊戲大廳', () => {
   const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
-  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter', 'cockroach', 'chameleon', 'nothanks', 'taboo', 'sushigo', 'meme', 'herd', 'kittens', 'criminal', 'wager', 'incan', 'dixit', 'citadels', 'emoji', 'crew', 'saboteur', 'forsale', 'machikoro', 'splendor', 'deception'];
+  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter', 'cockroach', 'chameleon', 'nothanks', 'taboo', 'sushigo', 'meme', 'herd', 'kittens', 'criminal', 'wager', 'incan', 'dixit', 'citadels', 'emoji', 'crew', 'saboteur', 'forsale', 'machikoro', 'splendor', 'deception', 'sameword'];
 
   const TABS = ['deduction', 'bluff', 'party', 'team', 'coop', 'strategy'];
   const TAB_GAMES: Record<string, string[]> = {
@@ -1063,7 +1063,7 @@ describe('game-commands: 遊戲大廳', () => {
     bluff: ['liarsdice', 'coup', 'skull', 'loveletter', 'cockroach', 'criminal'],
     party: ['meme', 'herd', 'wager', 'dixit', 'emoji'],
     team: ['codenames', 'wavelength', 'decrypto', 'taboo'],
-    coop: ['justone', 'hanabi', 'wavecoop', 'crew'],
+    coop: ['justone', 'hanabi', 'wavecoop', 'crew', 'sameword'],
     strategy: ['nimmt', 'nothanks', 'sushigo', 'kittens', 'incan', 'citadels', 'forsale', 'machikoro', 'splendor'],
   };
   const openButtons = (blocks: any[]) => blocks.filter((b) => b.accessory).map((b) => b.accessory);
@@ -1130,7 +1130,7 @@ describe('game-commands: 遊戲大廳', () => {
     const { url, payload } = responds[0];
     expect(url).toBe('https://hooks/x');
     expect(payload.replace_original).toBe(true);
-    expect(openButtons(payload.blocks).map((b: any) => b.value)).toEqual(['C1|justone', 'C1|hanabi', 'C1|wavecoop', 'C1|crew']);
+    expect(openButtons(payload.blocks).map((b: any) => b.value)).toEqual(['C1|justone', 'C1|hanabi', 'C1|wavecoop', 'C1|crew', 'C1|sameword']);
     expect(tabButtons(payload.blocks).map((b: any) => b.style)).toEqual([undefined, undefined, undefined, undefined, 'primary', undefined]);
   });
 
@@ -2559,5 +2559,49 @@ describe('citadels/turns: 回合面板原地更新 (adapter)', () => {
     expect(spy.at(-1)[4]).toEqual({ url: 'https://r', user: 'U1' });
     await host.button('ww:citadels:0', 'C1|status', 'U1', 'alice', undefined, 'https://r', false);
     expect(spy.at(-1)[4]).toBeUndefined();
+  });
+});
+
+describe('game-commands: 同詞相遇', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+  const sections = (blocks: any[]) => blocks.filter((b) => b.accessory).map((b) => b.text.text as string);
+
+  it('大廳 🤝 合作列出同詞相遇 3～10 人、開房按鈕；遊戲清單標示不支援 bot', async () => {
+    const { host, calls, responds } = setup();
+    await host.button('ww:lobbyTab:4', 'C1|coop', 'U1', 'alice', undefined, 'https://hooks/x');
+    const line = sections(responds.at(-1)!.payload.blocks).at(-1)!;
+    expect(line).toContain('💞 *同詞相遇* (`sameword`) 3～10 人');
+    await host.game('C1', 'U1', 'alice', 'help');
+    expect(lastEph(calls).text).toMatch(/💞 \*同詞相遇\*.*不支援 bot/);
+  });
+
+  it('從大廳開房；help 和不認識的子指令列出指令；寫詞按鈕開視窗', async () => {
+    const { host, calls } = setup();
+    await host.button('ww:lobbyOpen:0', 'C1|sameword', 'U1', 'alice');
+    expect(calls.at(-1)!.args.text).toContain('同詞相遇');
+    for (const text of ['sameword help', 'sameword abc']) {
+      await host.game('C1', 'U1', 'alice', text);
+      expect(lastEph(calls).text).toContain('/game sameword word');
+    }
+    for (let i = 2; i <= 3; i++) await host.button('ww:join:0', 'C1|join', `U${i}`, `p${i}`);
+    await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
+    await host.button('ww:sameword:1', 'C1|write', 'U2', 'bob', 'T1');
+    expect(calls.find((c) => c.method === 'views.open')!.args).toMatchObject({ trigger_id: 'T1', view: { callback_id: 'ww:samewordWord', private_metadata: 'C1' } });
+    await host.modal('ww:samewordWord', 'C1', 'U2', 'bob', ['牛頓']);
+    expect(host.state('sameword', 'C1')!.words).toEqual([{ user: 'U2', text: '牛頓' }]);
+  });
+  it('戰績：第 4 輪相遇記成合作遊戲，分數 7、不算勝負', async () => {
+    const { client } = fakeClient();
+    const stats = new StatsStore(':memory:');
+    const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, stats });
+    await host.game('C1', 'U1', 'alice', 'sameword new');
+    for (const u of ['U2', 'U3']) await host.button('ww:join:0', 'C1|join', u, u);
+    await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
+    for (let r = 1; r <= 3; r++) {
+      for (const u of ['U1', 'U2', 'U3']) await host.game('C1', u, u, `sameword word ${u}詞${r}`);
+      await host.game('C1', 'U1', 'alice', 'sameword next');
+    }
+    for (const u of ['U1', 'U2', 'U3']) await host.game('C1', u, u, 'sameword word 牛頓');
+    expect(stats.summary('C1', 'U2')).toEqual([{ kind: 'sameword', games: 1, wins: null, best: 7 }]);
   });
 });

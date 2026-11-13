@@ -842,6 +842,23 @@ exports[`重構安全網 > 大廳六個分類 1`] = `
       "type": "section",
     },
     {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:36",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|sameword",
+      },
+      "text": {
+        "text": "💞 *同詞相遇* (\`sameword\`) 3～10 人
+大家各自寫一個詞，沿著上一輪的詞一起聯想，直到所有人寫出同一個詞",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
       "elements": [
         {
           "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>｜<https://github.com/eric0324/slack-gamebuddy/discussions|💬 社群討論>",
@@ -1319,6 +1336,15 @@ exports[`重構安全網 > 每款遊戲的指令說明 1`] = `
 • 「⛏️ 行動」：輪到你時按，選一張牌放通道、打行動牌或蓋掉 (60 秒，沒出牌自動蓋掉第一張)
 • 「🎒 我的手牌」：隨時私下看自己的身分、手牌、壞掉的工具和偷看結果
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "sameword": "*同詞相遇指令*
+• \`/game sameword new\` ：開房 (任何人)
+• \`/game sameword start\` ：開始遊戲，需要 3～10 位真人 (房主)
+• \`/game sameword word <詞>\` ：寫詞 (1～20 字，揭曉前可以改)，和按「✍️ 寫詞」一樣
+• \`/game sameword same\` ：判定這輪意思一樣，算相遇 (房主)
+• \`/game sameword next\` ：這輪不算，進入下一輪 (房主)
+• \`/game sameword cancel\` ：取消遊戲 (房主)
+每輪各自寫一個詞一起揭曉，沿著上一輪的詞繼續聯想，出現過的詞不能再寫。所有人寫出同一個詞就相遇成功，最多 10 輪，越早相遇分數越高
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
   "skull": "*骷髏與玫瑰指令*
 • \`/game skull new\` ：開房 (任何人)
 • \`/game skull addbot [數量]\` ：加入 bot 補人數 (房主，開始前)
@@ -1436,6 +1462,7 @@ exports[`重構安全網 > 遊戲清單文字和預設大廳 1`] = `
 • 🏘️ *骰子街* (\`machikoro\`)：2～5 人，開房 \`/game machikoro new\`
 • 💍 *璀璨寶石* (\`splendor\`)：2～4 人，開房 \`/game splendor new\`
 • 🔎 *詭影神探* (\`deception\`)：4～12 人 (不支援 bot)，開房 \`/game deception new\`
+• 💞 *同詞相遇* (\`sameword\`)：3～10 人 (不支援 bot)，開房 \`/game sameword new\`
 各遊戲的指令： \`/game <遊戲代號> help\` ，例如 \`/game liarsdice help\`
 📊 戰績： \`/game stats [@某人]\` ；排行榜： \`/game rank [遊戲代號]\`
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>"
