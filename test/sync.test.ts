@@ -234,6 +234,10 @@ describe('sync/rounds: 結算與答題記錄', () => {
     expect(text).toContain('<@p2> & <@p3>：7 次');
     expect(text).toContain(`10. ${SYNC_QUESTIONS[state.history[9].question].q}`);
     expect(text).toContain('📝 答題記錄');
+    const ends = announces(events).slice(-2);
+    expect(ends[0]).toContain('全員同選 6/10 題');
+    expect(ends[0]).not.toContain('📝 答題記錄');
+    expect(ends[1]).toMatch(/^📝 答題記錄/);
     expect(prompts(events).some((p) => p.kind === 'rematch')).toBe(true);
   });
 

@@ -15,7 +15,7 @@ function checkOptions(q: Question) {
   for (const o of q.options) {
     expect(o, q.text).toMatch(/^\d+$/);
     const d = Math.abs(Number(o) - Number(q.answer));
-    if (o !== q.answer) expect(d <= 10 || d % 10 === 0, `${q.text} ${o}`).toBe(true);
+    if (o !== q.answer) expect(d <= 10 || [20, 30, 40, 50].includes(d), `${q.text} ${o}`).toBe(true);
   }
 }
 
@@ -142,7 +142,7 @@ describe('math/rounds: 分數比大小出題', () => {
         } else if (level === 'normal') {
           expect(between(b, 2, 12) && between(d, 2, 12) && a < b && c < d && b !== d && a >= 1 && c >= 1, q.text).toBe(true);
         } else if (level === 'hard') {
-          expect(between(b, 2, 20) && between(d, 2, 20) && a <= 2 * b && c <= 2 * d && a >= 1 && c >= 1, q.text).toBe(true);
+          expect(between(b, 2, 20) && between(d, 2, 20) && a <= 2 * b && c <= 2 * d && a >= 1 && c >= 1 && b !== d, q.text).toBe(true);
         } else {
           expect(between(b, 11, 50) && between(d, 11, 50) && a < b && c < d && a >= 1 && c >= 1, q.text).toBe(true);
           expect(20 * Math.abs(a * d - c * b) < b * d, q.text).toBe(true);
