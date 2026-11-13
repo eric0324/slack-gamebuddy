@@ -40,6 +40,7 @@ Supported games:
 - **Machi Koro** (`/game machikoro`): 2-5 players. Roll the dice, collect from your establishments, expand your town and be the first to build all 6 landmarks.
 - **Splendor** (`/game splendor`): 2-4 players. Collect gems, buy development cards for bonuses, attract nobles and race to 15 points.
 - **Deception** (`/game deception`): 4-12 players (no bots). The Forensic Scientist knows the answer but can only hint with bullets; find which Means and Clue the Murderer used while the Murderer and Accomplice mislead you.
+- **Same Word** (`/game sameword`): 3-10 players (no bots). Co-op word association: everyone writes a word in secret and reveals together, then keeps associating from last round's words until all of you write the same one.
 
 Type `/game` to open the game lobby (only you can see it). Switch categories with the buttons at the top (Hidden Roles, Bluffing, Party, Team vs Team, Co-op, Strategy) and press "Start a room" next to a game — no commands to memorize. The room announcement links to that game's rules. For games that support bots, the host can press "🤖 +" / "🤖 -" on the room announcement to add or remove bots.
 
@@ -64,8 +65,8 @@ Rules and commands for every game are in the [wiki](https://github.com/eric0324/
        always_online: true
      slash_commands:
        - command: /game
-         description: Board games (Werewolf, Undercover, Spyfall, Avalon, Codenames, Liar's Dice, Just One, Coup, Hanabi, Wavelength, Decrypto, Wavelength co-op, Insider, Skull, 6 nimmt!, Love Letter, Cockroach Poker, The Chameleon, No Thanks!, Taboo, Sushi Go!, Meme Battle, Herd Mentality, Exploding Kittens, Criminal Dance, Wits & Wagers, Incan Gold, Dixit, Citadels, Emoji Telephone, The Crew, Saboteur, For Sale, Machi Koro, Splendor, Deception)
-         usage_hint: werewolf new | undercover new | spyfall new | avalon new | codenames new | liarsdice new | justone new | coup new | hanabi new | wavelength new | decrypto new | wavecoop new | insider new | skull new | nimmt new | loveletter new | cockroach new | chameleon new | nothanks new | taboo new | sushigo new | meme new | herd new | kittens new | criminal new | wager new | incan new | dixit new | citadels new | emoji new | crew new | saboteur new | forsale new | machikoro new | splendor new | deception new | stats | rank | help
+         description: Board games (Werewolf, Undercover, Spyfall, Avalon, Codenames, Liar's Dice, Just One, Coup, Hanabi, Wavelength, Decrypto, Wavelength co-op, Insider, Skull, 6 nimmt!, Love Letter, Cockroach Poker, The Chameleon, No Thanks!, Taboo, Sushi Go!, Meme Battle, Herd Mentality, Exploding Kittens, Criminal Dance, Wits & Wagers, Incan Gold, Dixit, Citadels, Emoji Telephone, The Crew, Saboteur, For Sale, Machi Koro, Splendor, Deception, Same Word)
+         usage_hint: werewolf new | undercover new | spyfall new | avalon new | codenames new | liarsdice new | justone new | coup new | hanabi new | wavelength new | decrypto new | wavecoop new | insider new | skull new | nimmt new | loveletter new | cockroach new | chameleon new | nothanks new | taboo new | sushigo new | meme new | herd new | kittens new | criminal new | wager new | incan new | dixit new | citadels new | emoji new | crew new | saboteur new | forsale new | machikoro new | splendor new | deception new | sameword new | stats | rank | help
          should_escape: true
        - command: /werewolf
          description: Werewolf
