@@ -859,6 +859,23 @@ exports[`重構安全網 > 大廳六個分類 1`] = `
       "type": "section",
     },
     {
+      "accessory": {
+        "action_id": "ww:lobbyOpen:37",
+        "text": {
+          "text": "開房",
+          "type": "plain_text",
+        },
+        "type": "button",
+        "value": "C1|sync",
+      },
+      "text": {
+        "text": "🎯 *默契問答* (\`sync\`) 2～8 人
+每題選一個最像你的答案，一起揭曉，看看大家有幾題選到一起",
+        "type": "mrkdwn",
+      },
+      "type": "section",
+    },
+    {
       "elements": [
         {
           "text": "看指令： \`/game <代號> help\` ｜📖 <https://github.com/eric0324/slack-gamebuddy/wiki|wiki>｜<https://github.com/eric0324/slack-gamebuddy/discussions|💬 社群討論>",
@@ -1380,6 +1397,14 @@ exports[`重構安全網 > 每款遊戲的指令說明 1`] = `
 • \`/game sushigo cancel\` ：取消遊戲 (房主)
 每回合按牌桌訊息上的「🍣 我的手牌」選一張牌 (揭曉前可以改)；桌上有筷子時，選完會問你要不要「🥢 用筷子再出一張」
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
+  "sync": "*默契問答指令*
+• \`/game sync new\` ：開房 (任何人)
+• \`/game sync start\` ：開始遊戲，需要 2～8 位真人 (房主)
+• \`/game sync theme <主題>\` ：選主題，例如 \`theme 吃喝美食\` (房主，開始後 30 秒內)，和按主題按鈕一樣
+• \`/game sync pick <編號>\` ：作答，選第幾個選項 (1 起算)，和按選項按鈕一樣；選了不能改
+• \`/game sync cancel\` ：取消遊戲 (房主)
+主題：通用隨機、日常偏好、朋友日常、吃喝美食、旅行出遊、電影、音樂、遊戲、足球、原神、心動與戀愛、家人之間、同事同學。一共 10 題，全員選同一個算一題同選，最後回顧誰跟誰最有默契
+📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>",
   "taboo": "*禁語指令*
 • \`/game taboo new\` ：開房 (任何人)
 • \`/game taboo start\` ：開始遊戲，需要 4～12 位真人 (房主)
@@ -1463,6 +1488,7 @@ exports[`重構安全網 > 遊戲清單文字和預設大廳 1`] = `
 • 💍 *璀璨寶石* (\`splendor\`)：2～4 人，開房 \`/game splendor new\`
 • 🔎 *詭影神探* (\`deception\`)：4～12 人 (不支援 bot)，開房 \`/game deception new\`
 • 💞 *同詞相遇* (\`sameword\`)：3～10 人 (不支援 bot)，開房 \`/game sameword new\`
+• 🎯 *默契問答* (\`sync\`)：2～8 人 (不支援 bot)，開房 \`/game sync new\`
 各遊戲的指令： \`/game <遊戲代號> help\` ，例如 \`/game liarsdice help\`
 📊 戰績： \`/game stats [@某人]\` ；排行榜： \`/game rank [遊戲代號]\`
 📖 完整說明：<https://github.com/eric0324/slack-gamebuddy/wiki|wiki>"

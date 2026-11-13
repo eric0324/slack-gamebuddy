@@ -35,6 +35,7 @@ import { machikoro } from './machikoro.js';
 import { splendor } from './splendor.js';
 import { deception } from './deception.js';
 import { sameword } from './sameword.js';
+import { sync } from './sync.js';
 
 export const GAMES = [
   undercover,
@@ -73,6 +74,7 @@ export const GAMES = [
   splendor,
   deception,
   sameword,
+  sync,
 ] as const;
 
 export type GameKind = (typeof GAMES)[number]['kind'];
