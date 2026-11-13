@@ -249,8 +249,16 @@ describe('i18n: 英文大廳與遊戲清單', () => {
   it('同詞相遇有英文翻譯：🤝 Co-op 顯示 Same Word，沒有「(中文)」', async () => {
     const { host, responds } = await englishLobby();
     await host.button('ww:lobbyTab:4', 'C1|coop', 'U1', 'alice', undefined, 'https://hooks/x');
-    const line = sections(responds.at(-1)!.payload.blocks).at(-1)!;
+    const line = sections(responds.at(-1)!.payload.blocks).find((l) => l.includes('`sameword`'))!;
     expect(line).toContain('💞 *Same Word* (`sameword`) 3-10 players');
+    expect(line).not.toContain('(中文)');
+  });
+
+  it('默契問答有英文翻譯：🤝 Co-op 顯示 In Sync，沒有「(中文)」', async () => {
+    const { host, responds } = await englishLobby();
+    await host.button('ww:lobbyTab:4', 'C1|coop', 'U1', 'alice', undefined, 'https://hooks/x');
+    const line = sections(responds.at(-1)!.payload.blocks).at(-1)!;
+    expect(line).toContain('🎯 *In Sync* (`sync`) 2-8 players');
     expect(line).not.toContain('(中文)');
   });
 

@@ -1055,7 +1055,7 @@ describe('game-commands: 花火', () => {
 
 describe('game-commands: 遊戲大廳', () => {
   const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
-  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter', 'cockroach', 'chameleon', 'nothanks', 'taboo', 'sushigo', 'meme', 'herd', 'kittens', 'criminal', 'wager', 'incan', 'dixit', 'citadels', 'emoji', 'crew', 'saboteur', 'forsale', 'machikoro', 'splendor', 'deception', 'sameword'];
+  const KINDS = ['werewolf', 'undercover', 'spyfall', 'avalon', 'codenames', 'liarsdice', 'justone', 'coup', 'hanabi', 'wavelength', 'decrypto', 'wavecoop', 'insider', 'skull', 'nimmt', 'loveletter', 'cockroach', 'chameleon', 'nothanks', 'taboo', 'sushigo', 'meme', 'herd', 'kittens', 'criminal', 'wager', 'incan', 'dixit', 'citadels', 'emoji', 'crew', 'saboteur', 'forsale', 'machikoro', 'splendor', 'deception', 'sameword', 'sync'];
 
   const TABS = ['deduction', 'bluff', 'party', 'team', 'coop', 'strategy'];
   const TAB_GAMES: Record<string, string[]> = {
@@ -1063,7 +1063,7 @@ describe('game-commands: 遊戲大廳', () => {
     bluff: ['liarsdice', 'coup', 'skull', 'loveletter', 'cockroach', 'criminal'],
     party: ['meme', 'herd', 'wager', 'dixit', 'emoji'],
     team: ['codenames', 'wavelength', 'decrypto', 'taboo'],
-    coop: ['justone', 'hanabi', 'wavecoop', 'crew', 'sameword'],
+    coop: ['justone', 'hanabi', 'wavecoop', 'crew', 'sameword', 'sync'],
     strategy: ['nimmt', 'nothanks', 'sushigo', 'kittens', 'incan', 'citadels', 'forsale', 'machikoro', 'splendor'],
   };
   const openButtons = (blocks: any[]) => blocks.filter((b) => b.accessory).map((b) => b.accessory);
@@ -1130,7 +1130,7 @@ describe('game-commands: 遊戲大廳', () => {
     const { url, payload } = responds[0];
     expect(url).toBe('https://hooks/x');
     expect(payload.replace_original).toBe(true);
-    expect(openButtons(payload.blocks).map((b: any) => b.value)).toEqual(['C1|justone', 'C1|hanabi', 'C1|wavecoop', 'C1|crew', 'C1|sameword']);
+    expect(openButtons(payload.blocks).map((b: any) => b.value)).toEqual(['C1|justone', 'C1|hanabi', 'C1|wavecoop', 'C1|crew', 'C1|sameword', 'C1|sync']);
     expect(tabButtons(payload.blocks).map((b: any) => b.style)).toEqual([undefined, undefined, undefined, undefined, 'primary', undefined]);
   });
 
@@ -2569,7 +2569,7 @@ describe('game-commands: 同詞相遇', () => {
   it('大廳 🤝 合作列出同詞相遇 3～10 人、開房按鈕；遊戲清單標示不支援 bot', async () => {
     const { host, calls, responds } = setup();
     await host.button('ww:lobbyTab:4', 'C1|coop', 'U1', 'alice', undefined, 'https://hooks/x');
-    const line = sections(responds.at(-1)!.payload.blocks).at(-1)!;
+    const line = sections(responds.at(-1)!.payload.blocks).find((l) => l.includes('`sameword`'))!;
     expect(line).toContain('💞 *同詞相遇* (`sameword`) 3～10 人');
     await host.game('C1', 'U1', 'alice', 'help');
     expect(lastEph(calls).text).toMatch(/💞 \*同詞相遇\*.*不支援 bot/);
@@ -2603,5 +2603,41 @@ describe('game-commands: 同詞相遇', () => {
     }
     for (const u of ['U1', 'U2', 'U3']) await host.game('C1', u, u, 'sameword word 牛頓');
     expect(stats.summary('C1', 'U2')).toEqual([{ kind: 'sameword', games: 1, wins: null, best: 7 }]);
+  });
+});
+
+describe('game-commands: 默契問答', () => {
+  const lastEph = (calls: Call[]) => calls.filter((c) => c.method === 'chat.postEphemeral').at(-1)!.args;
+  const sections = (blocks: any[]) => blocks.filter((b) => b.accessory).map((b) => b.text.text as string);
+
+  it('大廳 🤝 合作列出默契問答 2～8 人；遊戲清單標示不支援 bot', async () => {
+    const { host, calls, responds } = setup();
+    await host.button('ww:lobbyTab:4', 'C1|coop', 'U1', 'alice', undefined, 'https://hooks/x');
+    expect(sections(responds.at(-1)!.payload.blocks).at(-1)).toContain('🎯 *默契問答* (`sync`) 2～8 人');
+    await host.game('C1', 'U1', 'alice', 'help');
+    expect(lastEph(calls).text).toMatch(/🎯 \*默契問答\*.*不支援 bot/);
+  });
+
+  it('從大廳開房、按主題和選項按鈕能玩；help 列出指令；戰績記成合作遊戲', async () => {
+    const { client, calls } = fakeClient();
+    const stats = new StatsStore(':memory:');
+    const host = new GameHost(client, { rng: () => 0.99999, setTimer: () => undefined, stats });
+    await host.button('ww:lobbyOpen:0', 'C1|sync', 'U1', 'alice');
+    expect(calls.at(-1)!.args.text).toContain('默契問答');
+    for (const text of ['sync help', 'sync abc']) {
+      await host.game('C1', 'U1', 'alice', text);
+      expect(lastEph(calls).text).toContain('/game sync theme');
+    }
+    await host.button('ww:join:0', 'C1|join', 'U2', 'bob');
+    await host.button('ww:start:2', 'C1|start', 'U1', 'alice');
+    const seq = () => host.state('sync', 'C1')!.seq;
+    await host.button('ww:sync:0', `C1|theme:${seq()}:food`, 'U1', 'alice');
+    expect(host.state('sync', 'C1')!.theme).toBe('food');
+    for (let i = 0; i < 10; i++) {
+      await host.button('ww:sync:0', `C1|pick:${seq()}:0`, 'U1', 'alice');
+      await host.button('ww:sync:0', `C1|pick:${seq()}:${i < 4 ? 0 : 1}`, 'U2', 'bob');
+    }
+    expect(host.state('sync', 'C1')!.phase).toBe('ended');
+    expect(stats.summary('C1', 'U2')).toEqual([{ kind: 'sync', games: 1, wins: null, best: 4 }]);
   });
 });
